@@ -1,9 +1,9 @@
 import React from 'react';
-import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
+import { HomeLiteErrorBoundary } from '@/app/components/lawyer/dashboard/homeLiteErrorBoundary';
 
 export function HomeDockChromeErrorBoundary({ children }: { children: React.ReactNode }) {
     return (
-        <ErrorBoundary
+        <HomeLiteErrorBoundary
             fallback={
                 <div
                     data-testid="home-dock-chrome-error-fallback"
@@ -18,6 +18,6 @@ export function HomeDockChromeErrorBoundary({ children }: { children: React.Reac
             }
         >
             {children}
-        </ErrorBoundary>
+        </HomeLiteErrorBoundary>
     );
 }

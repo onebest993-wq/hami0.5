@@ -1,6 +1,6 @@
 // @ts-nocheck
 /** وفاة الخصوم + إحلال الورثة + نفقة مستمرة — handlers وeffects */
-import { useCallback, useEffect, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { Creditor, Debtor, ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { PartyDeathSavePayload } from '@/app/components/lawyer/execution/PartyDeathReportModal';
 import {
@@ -182,6 +182,21 @@ export function useExecutionDashboardPartyDeathHandlers({
         [decisionsStorageExecutionId, decisionsReloadEpoch],
     );
 
+    const liveFlagsRef = useRef({
+        creditorDeathMarked,
+        debtorDeathMarked,
+        heirSubstitutionAllowed,
+        creditorSubstitutionRequestStatus,
+        debtorSubstitutionRequestStatus,
+    });
+    liveFlagsRef.current = {
+        creditorDeathMarked,
+        debtorDeathMarked,
+        heirSubstitutionAllowed,
+        creditorSubstitutionRequestStatus,
+        debtorSubstitutionRequestStatus,
+    };
+
     const handleRequestDebtorSubstitution = useCallback((): boolean => {
         if (!isHeirSubstitutionAllowedForClaim(executionData, claimType)) {
             showToast('لا يوجد مسار إحلال ورثة لهذا النوع من المطالبة.', 'info');
@@ -358,6 +373,10 @@ export function useExecutionDashboardPartyDeathHandlers({
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return;
         }
+        if (st === 'approved') {
+            showToast('تم إحلال ورثة الدائن مسبقاً.', 'info');
+            return;
+        }
         handleRequestCreditorSubstitution();
     }, [
         alimonyBeneficiaryProfile?.anyBeneficiaryAlive,
@@ -379,11 +398,17 @@ export function useExecutionDashboardPartyDeathHandlers({
     ]);
 
     const handleDebtorDeathMenuAction = useCallback(() => {
-        if (!debtorDeathMarked) {
+        const {
+            debtorDeathMarked: deathMarked,
+            heirSubstitutionAllowed: substitutionAllowed,
+            debtorSubstitutionRequestStatus: substitutionStatus,
+        } = liveFlagsRef.current;
+
+        if (!deathMarked) {
             handlePartyDeathSave({ action: 'death_only', deceased_party: 'debtor' });
             return;
         }
-        if (!heirSubstitutionAllowed) {
+        if (!substitutionAllowed) {
             showToast('تم تسجيل وفاة المدين مسبقاً — لا إجراء إضافي في هذا النوع من المطالبة.', 'info');
             return;
         }
@@ -396,19 +421,16 @@ export function useExecutionDashboardPartyDeathHandlers({
             setPartyDeathModalDecisionId(openId);
             return;
         }
-        const st = debtorSubstitutionRequestStatus;
+        const st = substitutionStatus;
         if (st === 'pending') {
             showToast('الطلب مُرسل مسبقاً وقيد البت لدى المنفذ.', 'warning');
             return;
         }
         handleRequestDebtorSubstitution();
     }, [
-        debtorDeathMarked,
-        debtorSubstitutionRequestStatus,
         decisionsStorageExecutionId,
         handlePartyDeathSave,
         handleRequestDebtorSubstitution,
-        heirSubstitutionAllowed,
         setPartyDeathModalDecisionId,
         setPartyDeathModalParty,
         showToast,

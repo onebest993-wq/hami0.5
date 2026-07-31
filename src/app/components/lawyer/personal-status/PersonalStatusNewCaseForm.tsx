@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'motion/react';
-import { HeartHandshake } from 'lucide-react';
+import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
 import {
     PERSONAL_APPLICABLE_LAW_OPTIONS,
     type PersonalApplicableLaw,
@@ -20,7 +19,7 @@ import {
 import { PersonalStatusPartiesPanel } from './PersonalStatusPartiesPanel';
 import { PersonalStatusThirdPartiesPanel } from './PersonalStatusThirdPartiesPanel';
 import type { Party, ThirdParty } from '../LawyerNewCase/types';
-import { personalFieldClass } from './personalStatusVisualTheme';
+import { personalFieldClass, PERSONAL_STATUS_FIELD } from './personalStatusVisualTheme';
 
 const LAW_CARD_OPTIONS = PERSONAL_APPLICABLE_LAW_OPTIONS.map(({ id, label }) => ({
     id,
@@ -34,6 +33,7 @@ export interface PersonalStatusNewCaseFormProps {
         court: string;
         type: string;
         judge: string;
+        firstHearingDate: string;
         stage: string;
         retrialTargetStage?: string;
     };
@@ -45,6 +45,7 @@ export interface PersonalStatusNewCaseFormProps {
             court: string;
             type: string;
             judge: string;
+            firstHearingDate: string;
             stage: string;
             claimValue: string;
             totalAgreedFees: string;
@@ -113,133 +114,129 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
     );
 
     return (
-        <div className="pb-8">
-            <div className="px-4 pt-4 pb-2">
-                <div className="flex items-center gap-3 rounded-[1.75rem] border border-violet-300/15 bg-gradient-to-l from-violet-500/10 via-[#140f1a] to-teal-500/8 px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.25)]">
-                    <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-400/25 to-teal-400/15 border border-white/10 flex items-center justify-center shrink-0">
-                        <HeartHandshake size={20} className="text-violet-100/90" />
-                    </div>
-                    <div className="flex-1 min-w-0 text-right">
-                        <h2 className="text-sm font-black text-white/95 truncate">تأسيس دعوى الأحوال الشخصية</h2>
-                    </div>
-                </div>
-            </div>
-
+        <div className="pb-6">
             <PersonalFormStepRail active={step} onChange={setStep} completion={completion} />
 
-            <AnimatePresence mode="wait">
-                {step === 'identity' ? (
-                    <motion.div key="identity" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}>
-                        <PersonalSectionShell title="هوية الدعوى" accent="violet">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <PersonalFloatingField
-                                    label="رقم الدعوى"
-                                    value={caseDetails.number}
-                                    onChange={(v) => setCaseDetails((p) => ({ ...p, number: v }))}
-                                    placeholder="15/ش/2026"
-                                    inputRef={numberRef}
-                                    error={caseNumberError ?? errorMap.number}
-                                    dir="ltr"
-                                    mono
-                                />
-                                <PersonalFloatingField
-                                    label="محكمة الأحوال الشخصية"
-                                    value={caseDetails.court}
-                                    onChange={(v) => setCaseDetails((p) => ({ ...p, court: v }))}
-                                    inputRef={courtRef}
-                                    error={errorMap.court}
-                                    placeholder="اسم المحكمة..."
-                                />
-                            </div>
-                            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <PersonalFloatingField
-                                    label="نوع الدعوى"
-                                    value={caseDetails.type}
-                                    onChange={(v) => setCaseDetails((p) => ({ ...p, type: v }))}
-                                    inputRef={typeRef}
-                                    error={errorMap.type}
-                                    placeholder="طلاق، نفقة، حضانة..."
-                                />
-                                <PersonalFloatingField
-                                    label="اسم القاضي (اختياري)"
-                                    value={caseDetails.judge}
-                                    onChange={(v) => setCaseDetails((p) => ({ ...p, judge: v }))}
-                                />
-                            </div>
-                        </PersonalSectionShell>
-
-                        <PersonalSectionShell title="المرحلة والقانون" accent="fuchsia">
-                            <PersonalStagePillRail
-                                options={stageOptions}
-                                value={caseDetails.stage}
-                                onChange={(v) =>
-                                    setCaseDetails((p) => ({ ...p, stage: v, retrialTargetStage: '' }))
-                                }
-                                inputRef={stageRef}
-                                error={errorMap.stage}
+            {step === 'identity' ? (
+                <div>
+                    <PersonalSectionShell title="هوية الدعوى">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <PersonalFloatingField
+                                label="رقم الدعوى"
+                                value={caseDetails.number}
+                                onChange={(v) => setCaseDetails((p) => ({ ...p, number: v }))}
+                                placeholder="15/ش/2026"
+                                inputRef={numberRef}
+                                error={caseNumberError ?? errorMap.number}
+                                dir="ltr"
+                                mono
                             />
+                            <PersonalFloatingField
+                                label="محكمة الأحوال الشخصية"
+                                value={caseDetails.court}
+                                onChange={(v) => setCaseDetails((p) => ({ ...p, court: v }))}
+                                inputRef={courtRef}
+                                error={errorMap.court}
+                                placeholder="اسم المحكمة..."
+                            />
+                        </div>
+                        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <PersonalFloatingField
+                                label="نوع الدعوى"
+                                value={caseDetails.type}
+                                onChange={(v) => setCaseDetails((p) => ({ ...p, type: v }))}
+                                inputRef={typeRef}
+                                error={errorMap.type}
+                                placeholder="طلاق، نفقة، حضانة..."
+                            />
+                            <PersonalFloatingField
+                                label="اسم القاضي (اختياري)"
+                                value={caseDetails.judge}
+                                onChange={(v) => setCaseDetails((p) => ({ ...p, judge: v }))}
+                            />
+                        </div>
+                        <div className="mt-4">
+                            <label className="text-[10px] text-white/55 mb-1.5 block">تاريخ أول مرافعة</label>
+                            <HamiDateInput
+                                value={caseDetails.firstHearingDate}
+                                onValueChange={(v) => setCaseDetails((p) => ({ ...p, firstHearingDate: v }))}
+                                className={PERSONAL_STATUS_FIELD}
+                                placeholder="اختر التاريخ من التقويم"
+                            />
+                        </div>
+                    </PersonalSectionShell>
 
-                            <div className="mt-5">
-                                {isExtraordinary ? (
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black text-fuchsia-200/80">
-                                            {getPersonalUnderlyingStageFieldLabel(caseDetails.stage)}
-                                        </label>
-                                        <select
-                                            ref={retrialTargetRef}
-                                            value={caseDetails.retrialTargetStage ?? ''}
-                                            onChange={(e) =>
-                                                setCaseDetails((p) => ({ ...p, retrialTargetStage: e.target.value }))
-                                            }
-                                            className={`${personalFieldClass(Boolean(errorMap.retrialTargetStage))} appearance-none rounded-2xl`}
-                                        >
-                                            <option value="" disabled>
-                                                اختر المرحلة...
+                    <PersonalSectionShell title="المرحلة والقانون">
+                        <PersonalStagePillRail
+                            options={stageOptions}
+                            value={caseDetails.stage}
+                            onChange={(v) =>
+                                setCaseDetails((p) => ({ ...p, stage: v, retrialTargetStage: '' }))
+                            }
+                            inputRef={stageRef}
+                            error={errorMap.stage}
+                        />
+
+                        <div className="mt-5">
+                            {isExtraordinary ? (
+                                <div className="space-y-2">
+                                    <label className="text-[10px] text-[#E6C673]/88 font-bold mb-1.5 block">
+                                        {getPersonalUnderlyingStageFieldLabel(caseDetails.stage)}
+                                    </label>
+                                    <select
+                                        ref={retrialTargetRef}
+                                        value={caseDetails.retrialTargetStage ?? ''}
+                                        onChange={(e) =>
+                                            setCaseDetails((p) => ({ ...p, retrialTargetStage: e.target.value }))
+                                        }
+                                        className={`${personalFieldClass(Boolean(errorMap.retrialTargetStage))} appearance-none`}
+                                    >
+                                        <option value="" disabled>
+                                            اختر المرحلة...
+                                        </option>
+                                        {underlyingOptions.map((opt) => (
+                                            <option key={opt} value={opt} className="bg-[#0B1021]">
+                                                {opt}
                                             </option>
-                                            {underlyingOptions.map((opt) => (
-                                                <option key={opt} value={opt} className="bg-[#1A1018]">
-                                                    {opt}
-                                                </option>
-                                            ))}
-                                        </select>
-                                        {errorMap.retrialTargetStage ? (
-                                            <p className="text-[10px] text-amber-400/90">{errorMap.retrialTargetStage}</p>
-                                        ) : null}
-                                    </div>
-                                ) : (
-                                    <PersonalLawSelector
-                                        value={applicableLaw}
-                                        onChange={(id) => setApplicableLaw(id as PersonalApplicableLaw)}
-                                        options={LAW_CARD_OPTIONS}
-                                        error={errorMap.applicableLaw}
-                                    />
-                                )}
-                            </div>
-                        </PersonalSectionShell>
-                    </motion.div>
-                ) : null}
+                                        ))}
+                                    </select>
+                                    {errorMap.retrialTargetStage ? (
+                                        <p className="text-[10px] text-amber-400/90">{errorMap.retrialTargetStage}</p>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <PersonalLawSelector
+                                    value={applicableLaw}
+                                    onChange={(id) => setApplicableLaw(id as PersonalApplicableLaw)}
+                                    options={LAW_CARD_OPTIONS}
+                                    error={errorMap.applicableLaw}
+                                />
+                            )}
+                        </div>
+                    </PersonalSectionShell>
+                </div>
+            ) : null}
 
-                {step === 'parties' ? (
-                    <motion.div key="parties" initial={{ opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -24 }}>
-                        <PersonalStatusPartiesPanel
-                            stage={caseDetails.stage || 'أحوال شخصية'}
-                            parties1={parties1}
-                            parties2={parties2}
-                            onUpdate={onUpdateParty}
-                            onRemove={onRemoveParty}
-                            onAdd={onAddParty}
-                            errorMap={errorMap}
-                            clientError={errorMap.lawyer_client}
-                        />
-                        <PersonalStatusThirdPartiesPanel
-                            thirdParties={thirdParties}
-                            onAdd={onAddThirdParty}
-                            onRemove={onRemoveThirdParty}
-                            onUpdate={onUpdateThirdParty}
-                        />
-                    </motion.div>
-                ) : null}
-            </AnimatePresence>
+            {step === 'parties' ? (
+                <div>
+                    <PersonalStatusPartiesPanel
+                        stage={caseDetails.stage || 'أحوال شخصية'}
+                        parties1={parties1}
+                        parties2={parties2}
+                        onUpdate={onUpdateParty}
+                        onRemove={onRemoveParty}
+                        onAdd={onAddParty}
+                        errorMap={errorMap}
+                        clientError={errorMap.lawyer_client}
+                    />
+                    <PersonalStatusThirdPartiesPanel
+                        thirdParties={thirdParties}
+                        onAdd={onAddThirdParty}
+                        onRemove={onRemoveThirdParty}
+                        onUpdate={onUpdateThirdParty}
+                    />
+                </div>
+            ) : null}
         </div>
     );
 }

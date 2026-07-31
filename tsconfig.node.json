@@ -5,10 +5,9 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/app/*": ["src/app/*"]
+      "@/*": ["./src/*"],
+      "@/app/*": ["./src/app/*"]
     }
   },
   "include": [

@@ -1,39 +1,41 @@
 import React from 'react';
-import { CheckCircle, Clock, Lock, Sofa, XCircle } from 'lucide-react';
+import { Sofa } from 'lucide-react';
+import type { TimelineEvent } from '@/app/types/execution';
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
-import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
+import type { MaritalFurnitureItem, MaritalFurnitureDeliveryOutcome } from '@/app/types/maritalFurniture';
 import {
+    DECISIONS_RELOAD_EVENT,
     dispatchDecisionsReload,
     isExecutorRowRejectedAndFinal,
-    patchExecutorDecisionRow,
-    readExecutorDecisionsArray,
+    resolveExecutorDecisionRowContext,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
-    buildArabicScheduleLabel,
     isMaritalDeliveryInventoryStepComplete,
     isMaritalDeliveryScheduleStepComplete,
     isMaritalFurnitureDeliveryWorkflowComplete,
-    isScheduleYmdReached,
     mergeMaritalDeliveryLifecycleSummaries,
-    readFieldVisitScheduleYmd,
+    readFollowupMergedExecutorDecisions,
+    resolveMaritalFurnitureDeliveryState,
     type MaritalFurnitureDeliveryMode,
 } from '@/app/utils/maritalFurnitureDeliveryWorkflow';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { syncExecutorDecisionResolution } from '@/app/utils/syncExecutorDecisionResolution';
+import { resolveFollowupDecisionsStorageId } from '@/app/utils/openDecisionsModalFromFollowup';
 import { FollowupProcedureCard } from './FollowupProcedureCard';
 import {
     ExecutionInlineAccordion,
     ExecutionInlineExecutorDecisionActions,
     type ExecutionInlineStep,
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
-import { MaritalFurnitureDeliveryInventoryForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm';
+import { MaritalFurnitureDeliveryAfterApproveForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryAfterApproveForm';
+import { runPersistMaritalFurnitureItemDeliveryOutcome } from '@/app/utils/maritalFurnitureDeliveryPersistence';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 
 export interface MaritalFurnitureDeliveryProcedureCardProps {
     executionId: string | undefined;
     decisionsStorageExecutionId: string;
+    executionData?: Record<string, unknown> | null;
+    decisionRows?: Record<string, unknown>[];
     mode: MaritalFurnitureDeliveryMode;
     unifiedRow: Record<string, unknown> | null;
     fieldVisitRow: Record<string, unknown> | null;
@@ -52,7 +54,7 @@ export interface MaritalFurnitureDeliveryProcedureCardProps {
         title: string;
         description: string;
         supersedeCompletedHub?: boolean;
-    }) => void;
+    }) => boolean;
     maritalDeliveryActionId: EvictionTimelineActionId;
     saveMaritalFurnitureDeliveryInventory?: (input: {
         decisionId: string;
@@ -60,7 +62,10 @@ export interface MaritalFurnitureDeliveryProcedureCardProps {
     }) => void;
     finalizeBreakInventoryRequest?: (input: { decisionId: string }) => void;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info') => void;
-    openAppeals: (decisionId: string) => void;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
+    pushTimelineEvent?: (event: TimelineEvent) => void;
+    nextTimelineId?: () => string;
+    openAppeals: (decisionId: string, decisionRow?: Record<string, unknown> | null) => void;
 }
 
 function rowApproved(
@@ -84,113 +89,53 @@ function rowRejected(row: Record<string, unknown> | null | undefined): boolean {
     return Boolean(row?.id && isExecutorRowRejectedAndFinal(row));
 }
 
-function MaritalFurnitureUnifiedExecutorActions({
-    executionId,
-    rows,
-    allDecisions,
+function resolvePanelStorageExecutionId(
+    hint: string | undefined,
+    decisionId: string
+): string | undefined {
+    const h = String(hint || '').trim();
+    if (!decisionId) return h || undefined;
+    const ctx = resolveExecutorDecisionRowContext(h, decisionId);
+    return String(ctx?.storageExecutionId || h).trim() || undefined;
+}
+
+function MaritalFurnitureExecutorStepPanel({
+    storageExecutionId,
+    row,
     openAppeals,
+    onResolved,
 }: {
-    executionId: string | undefined;
-    rows: Array<Record<string, unknown> | null | undefined>;
-    allDecisions: Record<string, unknown>[];
-    openAppeals: (decisionId: string) => void;
+    storageExecutionId: string | undefined;
+    row: Record<string, unknown> | null | undefined;
+    openAppeals: (decisionId: string, decisionRow?: Record<string, unknown> | null) => void;
+    onResolved?: () => void;
 }) {
-    const activeRows = rows.filter((r) => r?.id) as Record<string, unknown>[];
-    const pendingRows = activeRows.filter((r) => rowPending(r));
-    const rejectedRows = activeRows.filter((r) => rowRejected(r));
-    const allApproved =
-        activeRows.length > 0 && activeRows.every((r) => rowApproved(r, allDecisions));
-    const anyRejected = rejectedRows.length > 0;
-    const anyPending = pendingRows.length > 0;
-    const [busy, setBusy] = React.useState(false);
+    if (!row?.id) return null;
+    const decisionId = String(row.id || '').trim();
+    const resolvedStorageId = resolvePanelStorageExecutionId(storageExecutionId, decisionId);
+    const pending = rowPending(row);
+    const rejected = rowRejected(row);
 
-    const resolveAll = (outcome: 'approved' | 'rejected') => {
-        if (!executionId || busy || pendingRows.length === 0) return;
-        setBusy(true);
-        try {
-            for (const row of pendingRows) {
-                const decisionId = String(row.id || '').trim();
-                if (!decisionId) continue;
-                syncExecutorDecisionResolution({
-                    executionId,
-                    decisionId,
-                    resolution: outcome,
-                    row,
-                    suppressNavigatorToast: true,
-                });
-            }
-            dispatchDecisionsReload();
-        } finally {
-            queueMicrotask(() => setBusy(false));
-        }
-    };
-
-    const statusLabel = allApproved
-        ? 'معتمد'
-        : anyRejected
-          ? 'مرفوض'
-          : anyPending
-            ? 'بانتظار المنفذ'
-            : '—';
-
-    const StatusIcon = anyRejected ? XCircle : allApproved ? CheckCircle : Clock;
-    const statusCls = anyRejected
-        ? 'text-rose-300 bg-rose-500/15 border-rose-500/25'
-        : allApproved
-          ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/25'
-          : 'text-amber-300 bg-amber-500/15 border-amber-500/25';
-
-    if (activeRows.length === 0) return null;
+    if (!pending && !rejected) return null;
 
     return (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 space-y-3">
-            <div className="flex flex-row-reverse items-center justify-between gap-2">
-                <p className="text-[11px] font-bold text-white text-right">قرار المنفذ على طلب تسليم الأثاث</p>
-                <span
-                    className={`inline-flex shrink-0 flex-row-reverse items-center gap-1 rounded-lg border px-2 py-0.5 text-[9px] font-bold ${statusCls}`}
-                >
-                    <StatusIcon size={11} />
-                    {statusLabel}
-                </span>
-            </div>
-            {anyPending && executionId ? (
-                <div className="grid grid-cols-2 gap-2">
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            resolveAll('rejected');
-                        }}
-                        className="rounded-xl border border-rose-500/35 bg-rose-500/10 px-3 py-2 text-[11px] font-extrabold text-rose-200 hover:bg-rose-500/15 disabled:opacity-40"
-                    >
-                        رفض
-                    </button>
-                    <button
-                        type="button"
-                        disabled={busy}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            resolveAll('approved');
-                        }}
-                        className="rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[11px] font-extrabold text-emerald-200 hover:bg-emerald-500/15 disabled:opacity-40"
-                    >
-                        موافقة
-                    </button>
-                </div>
-            ) : null}
-            {anyRejected && rejectedRows[0] ? (
-                <ExecutionInlineExecutorDecisionActions
-                    executionId={executionId}
-                    decisionId={String(rejectedRows[0].id || '').trim()}
-                    requestKind="eviction_procedure"
-                    disabled
-                    onOpenAppealCenter={() =>
-                        openAppeals(String(rejectedRows[0].id || '').trim())
-                    }
-                />
-            ) : null}
-        </div>
+        <ExecutionInlineExecutorDecisionActions
+            executionId={resolvedStorageId}
+            decisionId={decisionId}
+            decisionRow={row}
+            requestKind="eviction_procedure"
+            disabled={rejected}
+            suppressNavigatorToast
+            onResolved={(result) => {
+                if (result.ok) {
+                    dispatchDecisionsReload();
+                    onResolved?.();
+                }
+            }}
+            onOpenAppealCenter={
+                rejected ? () => openAppeals(decisionId, row) : undefined
+            }
+        />
     );
 }
 
@@ -199,10 +144,8 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
 > = ({
     executionId,
     decisionsStorageExecutionId,
-    mode,
-    unifiedRow,
-    fieldVisitRow,
-    breakInventoryRow,
+    executionData = null,
+    decisionRows: decisionRowsProp,
     lifecycleUnified,
     lifecycleFieldVisit,
     lifecycleBreakInventory,
@@ -217,177 +160,168 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
     saveMaritalFurnitureDeliveryInventory,
     finalizeBreakInventoryRequest,
     showToast,
+    persistExecutionMerge,
+    pushTimelineEvent,
+    nextTimelineId,
     openAppeals,
 }) => {
-    const [scheduleDraft, setScheduleDraft] = React.useState('');
-    const [earlyDeliveryUnlocked, setEarlyDeliveryUnlocked] = React.useState(false);
+    const [reloadTick, setReloadTick] = React.useState(0);
+    const executorStorageId = String(decisionsStorageExecutionId || executionId || '').trim() || undefined;
 
-    const isUnified = mode === 'unified' && Boolean(unifiedRow?.id);
-    const scheduleRow = isUnified ? unifiedRow : fieldVisitRow;
-    const inventoryRow = isUnified ? unifiedRow : breakInventoryRow;
+    React.useEffect(() => {
+        const bump = () => setReloadTick((n) => n + 1);
+        window.addEventListener(DECISIONS_RELOAD_EVENT, bump);
+        window.addEventListener('hami-execution-decision-outcome', bump as EventListener);
+        return () => {
+            window.removeEventListener(DECISIONS_RELOAD_EVENT, bump);
+            window.removeEventListener('hami-execution-decision-outcome', bump as EventListener);
+        };
+    }, []);
+
+    const allDecisions = React.useMemo(
+        () =>
+            readFollowupMergedExecutorDecisions(
+                decisionsStorageExecutionId || executionId,
+                executionData,
+                Array.isArray(decisionRowsProp) ? decisionRowsProp : []
+            ),
+        [decisionRowsProp, decisionsStorageExecutionId, executionId, executionData, reloadTick]
+    );
+
+    const deliveryState = React.useMemo(
+        () => resolveMaritalFurnitureDeliveryState(allDecisions),
+        [allDecisions]
+    );
+
+    const effectiveUnifiedRow = deliveryState.unifiedRow;
+    const effectiveFieldVisitRow = deliveryState.fieldVisitRow;
+    const effectiveBreakInventoryRow = deliveryState.breakInventoryRow;
+    const effectiveMode = deliveryState.mode;
+
+    const isUnified = effectiveMode === 'unified' && Boolean(effectiveUnifiedRow?.id);
+    const scheduleRow = isUnified ? effectiveUnifiedRow : effectiveFieldVisitRow;
+    const inventoryRow = isUnified ? effectiveUnifiedRow : effectiveBreakInventoryRow;
 
     const workflowComplete = isMaritalFurnitureDeliveryWorkflowComplete(
-        mode,
-        unifiedRow,
-        fieldVisitRow,
-        breakInventoryRow
+        effectiveMode,
+        effectiveUnifiedRow,
+        effectiveFieldVisitRow,
+        effectiveBreakInventoryRow
     );
 
     const scheduleComplete = isMaritalDeliveryScheduleStepComplete(scheduleRow);
     const inventoryComplete = isMaritalDeliveryInventoryStepComplete(inventoryRow);
 
     const hasAnyRow =
-        Boolean(unifiedRow?.id) || Boolean(fieldVisitRow?.id) || Boolean(breakInventoryRow?.id);
+        Boolean(effectiveUnifiedRow?.id) ||
+        Boolean(effectiveFieldVisitRow?.id) ||
+        Boolean(effectiveBreakInventoryRow?.id);
 
     const hasActiveRequest = hasAnyRow && !workflowComplete;
 
-    const scheduleYmd = readFieldVisitScheduleYmd(scheduleRow);
+    React.useEffect(() => {
+        if (hasActiveRequest && !expanded) {
+            onToggleExpanded();
+        }
+    }, [hasActiveRequest, hasAnyRow, expanded, onToggleExpanded]);
+
     const scheduleLabel = String(
         (scheduleRow as { executorScheduleLabel?: string } | null)?.executorScheduleLabel || ''
     ).trim();
-    const scheduleReached =
-        earlyDeliveryUnlocked || (scheduleYmd ? isScheduleYmdReached(scheduleYmd) : false);
 
     const lifecycleSummary = isUnified
         ? lifecycleUnified
         : mergeMaritalDeliveryLifecycleSummaries(lifecycleFieldVisit, lifecycleBreakInventory);
 
-    const allDecisions = React.useMemo(
-        () =>
-            (readExecutorDecisionsArray(decisionsStorageExecutionId) as Record<string, unknown>[]) ||
-            [],
-        [decisionsStorageExecutionId, unifiedRow, fieldVisitRow, breakInventoryRow]
-    );
+    const governingRow = isUnified
+        ? effectiveUnifiedRow
+        : effectiveFieldVisitRow ?? effectiveBreakInventoryRow;
 
-    const inventoryDecisionId = String(inventoryRow?.id || '').trim();
-    const inventoryApproved = rowApproved(inventoryRow, allDecisions);
-    const ledgerSaved = Boolean(
-        String(
-            (inventoryRow as { breakInventoryFurnitureLedgerAt?: string } | null)
-                ?.breakInventoryFurnitureLedgerAt || ''
-        ).trim()
-    );
-    const showDeliveryForm = inventoryApproved && Boolean(saveMaritalFurnitureDeliveryInventory);
-
-    const executorRows = isUnified ? [unifiedRow] : [fieldVisitRow, breakInventoryRow];
-
-    const executorRowsActive = executorRows.filter((r) => r?.id) as Record<string, unknown>[];
-    const executorAllApproved =
-        executorRowsActive.length > 0 &&
-        executorRowsActive.every((r) => rowApproved(r, allDecisions));
-    const executorAnyPending = executorRowsActive.some((r) => rowPending(r));
-    const executorAnyRejected = executorRowsActive.some((r) => rowRejected(r));
+    const executorAllApproved = Boolean(governingRow?.id && rowApproved(governingRow, allDecisions));
+    const executorAnyPending = Boolean(governingRow?.id && rowPending(governingRow));
+    const executorAnyRejected = Boolean(governingRow?.id && rowRejected(governingRow));
     const executorStepDone = executorAllApproved && !executorAnyPending;
     const executorStepActive = executorAnyPending || executorAnyRejected;
 
-    const scheduleStepActive =
-        executorStepDone && rowApproved(scheduleRow, allDecisions) && !scheduleComplete;
-    const inventoryStepActive =
-        executorStepDone && scheduleComplete && inventoryApproved && !inventoryComplete;
+    const deliveryStepComplete =
+        scheduleComplete && inventoryComplete && Boolean(inventoryRow?.id);
+    const deliveryStepActive =
+        executorStepDone && rowApproved(scheduleRow, allDecisions) && !deliveryStepComplete;
 
-    const saveSchedule = () => {
-        const decisionId = String(scheduleRow?.id || '').trim();
-        const ymd = scheduleDraft.trim();
-        if (!decisionId) return;
-        if (!ymd) {
-            showToast('أدخل تاريخ موعد التسليم', 'warning');
-            return;
-        }
-        const displayAr = buildArabicScheduleLabel(ymd);
-        const ok = patchExecutorDecisionRow(decisionsStorageExecutionId, decisionId, {
-            executorScheduleYmd: ymd,
-            executorScheduleLabel: `موعد التسليم: ${displayAr}`,
-        });
-        if (!ok) {
-            showToast('تعذر تثبيت الموعد', 'error');
-            return;
-        }
-        dispatchDecisionsReload();
-        setScheduleDraft('');
-        showToast('تم تثبيت موعد التسليم.', 'success');
-    };
+    const scheduleStorageId = React.useMemo(
+        () =>
+            resolveFollowupDecisionsStorageId({
+                storageExecutionId: decisionsStorageExecutionId || executionId,
+                decisionId: String(scheduleRow?.id || ''),
+                decisionRow: scheduleRow,
+                executionData,
+            }),
+        [decisionsStorageExecutionId, executionId, scheduleRow, executionData]
+    );
+
+    const bumpReload = () => setReloadTick((n) => n + 1);
+
+    const handleItemDeliveryOutcome = React.useCallback(
+        (input: {
+            itemId: string;
+            outcome: Exclude<MaritalFurnitureDeliveryOutcome, 'pending'>;
+            decisionId: string;
+        }) => {
+            if (!persistExecutionMerge) {
+                showToast('تعذر حفظ حالة التسليم — الإضبارة غير جاهزة', 'error');
+                return;
+            }
+            const ok = runPersistMaritalFurnitureItemDeliveryOutcome(
+                {
+                    itemId: input.itemId,
+                    outcome: input.outcome,
+                    decisionId: input.decisionId,
+                    decisionsStorageId: scheduleStorageId,
+                },
+                {
+                    executionData,
+                    items: maritalFurnitureItems,
+                    persistExecutionMerge,
+                    pushTimelineEvent,
+                    nextTimelineId,
+                    showToast,
+                },
+            );
+            if (ok) bumpReload();
+        },
+        [executionData, maritalFurnitureItems, persistExecutionMerge, pushTimelineEvent, nextTimelineId, showToast, scheduleStorageId],
+    );
 
     const executorContent =
-        isUnified && unifiedRow?.id ? (
-            rowPending(unifiedRow) || rowRejected(unifiedRow) ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                    <ExecutionInlineExecutorDecisionActions
-                        executionId={executionId}
-                        decisionId={String(unifiedRow.id || '').trim()}
-                        requestKind="eviction_procedure"
-                        disabled={rowRejected(unifiedRow)}
-                        onOpenAppealCenter={
-                            rowRejected(unifiedRow)
-                                ? () => openAppeals(String(unifiedRow.id || '').trim())
-                                : undefined
-                        }
-                    />
-                </div>
-            ) : null
-        ) : (
-            <MaritalFurnitureUnifiedExecutorActions
-                executionId={executionId}
-                rows={executorRows}
-                allDecisions={allDecisions}
+        executorStepActive && governingRow?.id ? (
+            <MaritalFurnitureExecutorStepPanel
+                storageExecutionId={executorStorageId}
+                row={governingRow}
                 openAppeals={openAppeals}
+                onResolved={bumpReload}
             />
-        );
-
-    const scheduleContent =
-        rowApproved(scheduleRow, allDecisions) && !scheduleComplete ? (
-            <div className="space-y-2">
-                <input
-                    type="date"
-                    min={getLocalTodayYmd()}
-                    value={scheduleDraft}
-                    onChange={(e) => setScheduleDraft(e.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-[11px] text-slate-100"
-                    style={{ direction: 'ltr', textAlign: 'right' }}
-                />
-                <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={saveSchedule}
-                    className="w-full rounded-xl bg-gradient-to-l from-[#E6C673] to-amber-600 py-2.5 text-[11px] font-black text-[#0A0F1C] disabled:opacity-40"
-                >
-                    تأكيد موعد التسليم
-                </button>
-            </div>
-        ) : scheduleComplete && scheduleLabel ? (
-            <p className="text-[10px] text-emerald-300/90 text-right">{scheduleLabel}</p>
         ) : null;
 
-    const inventoryContent = showDeliveryForm ? (
-        <div className="space-y-2">
-            {!scheduleReached && scheduleYmd ? (
-                <p className="flex flex-row-reverse items-center gap-1.5 text-[10px] text-amber-300/90">
-                    <Lock size={12} />
-                    يُفتح الجرد في أو بعد {scheduleYmd}
-                </p>
-            ) : null}
-            <MaritalFurnitureDeliveryInventoryForm
-                items={maritalFurnitureItems}
+    const deliveryContent =
+        deliveryStepActive && scheduleRow?.id ? (
+            <MaritalFurnitureDeliveryAfterApproveForm
+                row={scheduleRow}
+                decisionsStorageExecutionId={scheduleStorageId}
+                executionData={executionData}
+                maritalFurnitureItems={maritalFurnitureItems}
                 disabled={disabled}
-                ledgerSaved={ledgerSaved}
-                scheduleLocked={Boolean(scheduleYmd) && !scheduleReached}
-                scheduleLabel={scheduleLabel || scheduleYmd}
-                onRequestEarlyDelivery={() => {
-                    if (window.confirm('تسليم مبكر قبل موعد التسليم — هل أنت متأكد؟')) {
-                        setEarlyDeliveryUnlocked(true);
-                    }
-                }}
-                onSave={(items) =>
-                    saveMaritalFurnitureDeliveryInventory!({
-                        decisionId: inventoryDecisionId,
-                        items,
-                    })
-                }
-                onFinalize={() =>
-                    finalizeBreakInventoryRequest?.({ decisionId: inventoryDecisionId })
-                }
+                showToast={showToast}
+                persistExecutionMerge={persistExecutionMerge}
+                pushTimelineEvent={pushTimelineEvent}
+                nextTimelineId={nextTimelineId}
+                saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
+                onItemDeliveryOutcome={persistExecutionMerge ? handleItemDeliveryOutcome : undefined}
+                finalizeBreakInventoryRequest={finalizeBreakInventoryRequest}
+                onSaved={bumpReload}
             />
-        </div>
-    ) : null;
+        ) : deliveryStepComplete && scheduleLabel ? (
+            <p className="text-[10px] text-emerald-300/90 text-right">{scheduleLabel}</p>
+        ) : null;
 
     const steps: ExecutionInlineStep[] = [
         {
@@ -404,34 +338,30 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
                 ? 'تم اعتماد طلب التسليم'
                 : executorAnyRejected
                   ? 'مرفوض — راجع التفاصيل أو قدّم طعناً'
-                  : 'بانتظار موافقة المنفذ على طلب التسليم',
-            status: executorStepActive ? 'active' : executorStepDone ? 'done' : 'locked',
+                  : hasAnyRow
+                    ? 'بانتظار موافقة المنفذ على طلب التسليم'
+                    : 'أرسل الطلب أولاً',
+            status: hasAnyRow
+                ? executorStepActive
+                    ? 'active'
+                    : executorStepDone
+                      ? 'done'
+                      : 'locked'
+                : 'locked',
             tone: executorAnyRejected ? 'danger' : executorStepDone ? 'success' : 'neutral',
-            content: executorContent,
+            content: executorContent ?? undefined,
         },
         {
-            id: 'schedule',
-            title: 'تثبيت موعد التسليم',
-            subtitle: scheduleComplete
-                ? 'تم تحديد الموعد'
-                : scheduleStepActive
-                  ? 'حدّد تاريخ الخروج الميداني للتسليم'
+            id: 'delivery',
+            title: 'موعد التسليم والجرد',
+            subtitle: deliveryStepComplete
+                ? 'اكتمل الموعد والجرد والتسليم'
+                : deliveryStepActive
+                  ? 'حدّد الموعد ثم سجّل حالة كل قطعة'
                   : 'بعد اعتماد المنفذ',
-            status: scheduleComplete ? 'done' : scheduleStepActive ? 'active' : 'locked',
-            tone: scheduleComplete ? 'success' : 'neutral',
-            content: scheduleContent,
-        },
-        {
-            id: 'inventory',
-            title: 'جرد وتسليم قطع الأثاث',
-            subtitle: inventoryComplete
-                ? 'اكتمل الجرد والتسليم'
-                : inventoryStepActive
-                  ? 'سجّل حالة كل قطعة (مُسلَّم / غير مُسلَّم)'
-                  : 'بعد تثبيت الموعد',
-            status: inventoryComplete ? 'done' : inventoryStepActive ? 'active' : 'locked',
-            tone: inventoryComplete ? 'success' : 'neutral',
-            content: inventoryContent,
+            status: deliveryStepComplete ? 'done' : deliveryStepActive ? 'active' : 'locked',
+            tone: deliveryStepComplete ? 'success' : 'neutral',
+            content: deliveryContent ?? undefined,
         },
     ];
 
@@ -461,13 +391,19 @@ export const MaritalFurnitureDeliveryProcedureCard: React.FC<
             disabled={disabled}
             resubmitWarningMessage="سبق إتمام مسار تسليم الأثاث. يمكنك تقديم دورة جديدة أو التراجع."
             onConfirmSend={({ resubmit } = {}) => {
-                appendEvictionProcedure({
+                const ok = appendEvictionProcedure({
                     actionId: maritalDeliveryActionId,
                     title: '🛋️ طلب تسليم أثاث',
                     description:
                         'طلب موحّد لمنفذ العدل: تحديد موعد التسليم الميداني وجرد قطع الأثاث الزوجية وتسجيل حالة التسليم.',
                     supersedeCompletedHub: resubmit,
                 });
+                if (!ok) return;
+                bumpReload();
+                dispatchDecisionsReload();
+                if (!expanded) {
+                    onToggleExpanded();
+                }
             }}
             panelBody={hasAnyRow ? panelBody : undefined}
         />

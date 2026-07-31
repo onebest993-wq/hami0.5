@@ -3,10 +3,11 @@
  */
 import React from 'react';
 import { ChevronDown } from 'lucide-react';
+import { FocInstantShell } from '@/app/components/lawyer/FinancialOperationsCenter/FocInstantShell';
 
 export { formatUnifiedLedgerDate } from './helpers/formatUnifiedLedgerDate';
 export const EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode = null;
-export const EXEC_FOC_LAZY_FALLBACK: React.ReactNode = null;
+export const EXEC_FOC_LAZY_FALLBACK: React.ReactNode = <FocInstantShell />;
 export const EXEC_SECTION_LAZY_FALLBACK: React.ReactNode = (
     <div className="mx-1 my-3 h-28 animate-pulse rounded-2xl bg-white/[0.04]" aria-hidden />
 );

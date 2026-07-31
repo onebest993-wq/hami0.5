@@ -50,16 +50,59 @@ export function randomizeProfileAppearance(
         nextAccent = pickRandom(PROFILE_ACCENT_COLORS).id;
         accentGuard += 1;
     }
-    return { accentColor: nextAccent, material };
+    return {
+        accentColor: nextAccent,
+        material,
+        portraitFrame: current?.portraitFrame ?? 'classic',
+    };
 }
 
 export function resolveProfileAccentHex(color: ProfileAppearanceColor): string {
     return PROFILE_ACCENT_COLORS.find((c) => c.id === color)?.hex ?? '#E6C673';
 }
 
+/** نص/أيقونات على سطح داكن — ألوان غامقة (كحلي/خمري) تُفتّح لتبقى مقروءة */
+const ACCENT_INK_OVERRIDE: Partial<Record<ProfileAppearanceColor, string>> = {
+    navy: '#A8C4D4',
+    wine: '#E8A8BC',
+};
+
+/** نص فوق زر مملوء بلون التمييز */
+const ACCENT_ON_SOLID_OVERRIDE: Partial<Record<ProfileAppearanceColor, string>> = {
+    navy: '#F4F0E8',
+    wine: '#F4F0E8',
+};
+
+export function resolveProfileAccentInkHex(color: ProfileAppearanceColor): string {
+    return ACCENT_INK_OVERRIDE[color] ?? resolveProfileAccentHex(color);
+}
+
+export function resolveProfileAccentOnSolidHex(color: ProfileAppearanceColor): string {
+    return ACCENT_ON_SOLID_OVERRIDE[color] ?? '#0a0c12';
+}
+
 export function resolveProfilePageBackground(color: ProfileAppearanceColor): string {
     const hex = resolveProfileAccentHex(color);
     return `color-mix(in srgb, ${hex} 9%, #020408)`;
+}
+
+/**
+ * المالك يرى بياناته كاملة خارج الاستوديو.
+ * أثناء فتح الاستوديو (أو للزائر) تُطبَّق أعلام الخصوصية للمعاينة الحية.
+ */
+export function shouldApplyVisitorPrivacy(isVisitor: boolean, settingsOpen: boolean): boolean {
+    return isVisitor || settingsOpen;
+}
+
+export function isProfileMetaFieldVisible(
+    value: string | undefined | null,
+    showFlag: boolean,
+    isVisitor: boolean,
+    settingsOpen: boolean,
+): boolean {
+    if (!value) return false;
+    if (!shouldApplyVisitorPrivacy(isVisitor, settingsOpen)) return true;
+    return showFlag;
 }
 
 export function filterActionsForVisitor<T extends { id: string }>(

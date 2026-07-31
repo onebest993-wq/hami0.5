@@ -1,56 +1,84 @@
-import React, { memo } from 'react';
-import { motion } from 'motion/react';
-import type { LucideIcon } from 'lucide-react';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import React, { memo, useRef } from 'react';
+import type { HomeStemIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
+
+export type HeaderToolbarIconComponent = HomeStemIcon;
 
 export type HeaderToolbarIconProps = {
-    icon: LucideIcon;
+    icon: HeaderToolbarIconComponent;
     label: string;
     onClick: () => void;
     onPointerEnter?: () => void;
     onPointerDown?: () => void;
+    /**
+     * فتح عند pointerdown — أسرع على اللمس من انتظار click
+     * (يمنع شعور «الضغط لم يستجب» مع تأخير الحركة).
+     */
+    activateOnPointerDown?: boolean;
     active?: boolean;
     accent?: boolean;
     badge?: React.ReactNode;
     testId?: string;
 };
 
+/**
+ * زر شريط الأدوات — زر أصلي بلا motion gestures
+ * (whileTap/whileHover كانت تسرق أحداث اللمس وتؤخر click).
+ */
 export const HeaderToolbarIcon = memo(function HeaderToolbarIcon({
     icon: Icon,
     label,
     onClick,
     onPointerEnter,
     onPointerDown,
+    activateOnPointerDown = false,
     active,
     accent,
     badge,
     testId,
 }: HeaderToolbarIconProps) {
-    const reduceMotion = useReduceMotion();
+    const armedRef = useRef(false);
+    const armClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const warmIntent = () => {
-        onPointerEnter?.();
+    const clearArm = () => {
+        armedRef.current = false;
+        if (armClearTimerRef.current) {
+            clearTimeout(armClearTimerRef.current);
+            armClearTimerRef.current = null;
+        }
     };
 
     return (
-        <motion.button
+        <button
             type="button"
-            onClick={onClick}
+            onClick={() => {
+                if (activateOnPointerDown && armedRef.current) {
+                    clearArm();
+                    return;
+                }
+                onClick();
+            }}
             onPointerEnter={onPointerEnter}
             onPointerDown={(event) => {
-                if (event.button === 0) onPointerDown?.();
+                if (event.button !== 0) return;
+                onPointerDown?.();
+                if (activateOnPointerDown) {
+                    armedRef.current = true;
+                    onClick();
+                    if (armClearTimerRef.current) clearTimeout(armClearTimerRef.current);
+                    /* إن لم يصل click (سحب/إلغاء) لا تبقَ الحالة مغلقة على الضغط التالي */
+                    armClearTimerRef.current = setTimeout(clearArm, 400);
+                }
             }}
-            onFocus={onPointerEnter ? warmIntent : undefined}
+            onPointerCancel={clearArm}
+            onFocus={onPointerEnter}
             aria-label={label}
             title={label}
             data-testid={testId}
-            whileHover={reduceMotion ? undefined : { scale: 1.06, y: -1 }}
-            whileTap={reduceMotion ? undefined : { scale: 0.92 }}
-            transition={{ type: 'spring', stiffness: 420, damping: 26 }}
-            className="group relative w-11 h-11 rounded-[1.1rem] flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]"
+            className="group relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-[1.1rem] flex items-center justify-center touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C] active:scale-[0.97] transition-transform duration-75"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
         >
             <span
-                className="absolute inset-0 rounded-[1.1rem] transition-colors duration-200"
+                className="absolute inset-0 rounded-[1.1rem] transition-colors duration-200 pointer-events-none"
                 style={{
                     background: active
                         ? 'color-mix(in srgb, var(--hami-primary, #E6C673) 14%, rgba(255,255,255,0.05))'
@@ -64,20 +92,10 @@ export const HeaderToolbarIcon = memo(function HeaderToolbarIcon({
                 }}
                 aria-hidden
             />
-            {!reduceMotion ? (
-                <motion.span
-                    className="absolute inset-[3px] rounded-[0.95rem] pointer-events-none opacity-0 group-hover:opacity-100"
-                    style={{
-                        background:
-                            'radial-gradient(circle at 30% 20%, color-mix(in srgb, var(--hami-primary, #E6C673) 22%, transparent), transparent 70%)',
-                    }}
-                    aria-hidden
-                />
-            ) : null}
             <Icon
                 size={19}
                 strokeWidth={active || accent ? 2.1 : 1.75}
-                className={`relative z-[1] transition-colors duration-200 ${
+                className={`relative z-[1] ${
                     accent || active ? 'text-[#E6C673]' : 'text-white/88 group-hover:text-[#E6C673]'
                 }`}
                 style={{
@@ -86,6 +104,6 @@ export const HeaderToolbarIcon = memo(function HeaderToolbarIcon({
                 aria-hidden
             />
             {badge}
-        </motion.button>
+        </button>
     );
 });

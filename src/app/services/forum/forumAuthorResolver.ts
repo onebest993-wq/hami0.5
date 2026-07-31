@@ -23,8 +23,10 @@ function writeCachedName(userId: string, name: string): void {
 }
 
 async function readProfileNameFromKv(userId: string): Promise<string> {
+    if (typeof window !== 'undefined') return '';
     try {
-        const { kvGet } = await import('@/app/api/security/kvStoreAdmin.ts');
+        const spec = '@/app/api/security/kvStoreAdmin.ts';
+        const { kvGet } = await import(/* @vite-ignore */ spec);
         const raw = await kvGet(`profile:${userId}`);
         if (!raw || typeof raw !== 'object') return '';
         const header = (raw as { header?: { name?: unknown } }).header;

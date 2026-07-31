@@ -39,6 +39,16 @@ Thumbs.db
 # Dev-only local law injection (no service_role)
 data/dev-iraqi-laws.json
 
+# مدخل وهمي من إعادة توجيه صدفة فاشلة — لا يُمثّله ويندوز تمثيلاً صحيحاً ويمنع git add
+/...
+
+# تقارير الفحص الخام — يُعاد توليدها. خطوط أساس المِسنَنات تبقى متتبَّعة لأن CI يحتاجها.
+.audit/vitest-baseline.json
+.audit/vitest-run.json
+.audit/eslint-baseline.json
+.audit/tsc-baseline.txt
+.audit/_gitstatus.txt
+
 .vercel
 
 .vercel

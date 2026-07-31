@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useEffect, useRef, useState } from 'react';
 import { PROCEDURAL_PATH_COLOR_PRESETS, normalizePathColor } from '../../proceduralPathsEngine';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';

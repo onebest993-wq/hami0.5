@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import { useSmartFileProceduralActions } from './useSmartFileProceduralActions';

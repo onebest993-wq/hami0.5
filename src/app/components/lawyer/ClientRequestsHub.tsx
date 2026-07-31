@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { X, MessageCircle, Clock, Inbox, User, CheckCircle } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ClientRequestsHubProps, ClientRequest, RequestStatus } from '@/app/types/common';
@@ -7,6 +7,7 @@ import {
     useLegalMarketplaceStore,
     formatRequestElapsedArabic,
 } from '@/app/stores/legalMarketplaceStore';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 export const ClientRequestsHub = ({ onClose, onConvertToCase }: ClientRequestsHubProps) => {
     const [activeTab, setActiveTab] = useState<RequestStatus>('new');
@@ -15,6 +16,8 @@ export const ClientRequestsHub = ({ onClose, onConvertToCase }: ClientRequestsHu
     const acceptRequest = useLegalMarketplaceStore((s) => s.acceptRequest);
     const rejectRequest = useLegalMarketplaceStore((s) => s.rejectRequest);
     const setRequestContacting = useLegalMarketplaceStore((s) => s.setRequestContacting);
+
+    useBodyScrollLock(true);
 
     const typeBadgeClass: Record<string, string> = {
         'قضية تجارية': 'text-amber-500 bg-amber-500/10 border-amber-500/20',
@@ -54,7 +57,7 @@ export const ClientRequestsHub = ({ onClose, onConvertToCase }: ClientRequestsHu
 
     const handleContact = (id: string) => {
         setRequestContacting(id);
-        window.open('https://wa.me/', '_blank');
+        window.open('https://wa.me/', '_blank', 'noopener,noreferrer');
     };
 
     const displayElapsed = (req: ClientRequest) =>
@@ -65,11 +68,11 @@ export const ClientRequestsHub = ({ onClose, onConvertToCase }: ClientRequestsHu
 
     return (
         <div className="fixed inset-0 z-[60] bg-[#0B1021] flex flex-col animate-in slide-in-from-bottom-10 duration-300 font-sans">
-            <div className="h-20 border-b border-white/10 flex items-center justify-between px-6 bg-[#0B1021]/95 backdrop-blur-xl sticky top-0 z-50">
+            <div className="border-b border-white/10 flex items-center justify-between px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-4 bg-[#0B1021]/95 backdrop-blur-xl sticky top-0 z-50">
                 <div className="flex items-center gap-4">
                     <button type="button"
                         onClick={onClose}
-                        className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-colors text-white"
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full bg-white/5 hover:bg-white/10 transition-colors text-white touch-manipulation"
                     >
                         <X size={24} />
                     </button>
@@ -98,7 +101,7 @@ export const ClientRequestsHub = ({ onClose, onConvertToCase }: ClientRequestsHu
                         <button type="button"
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as RequestStatus)}
-                            className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                            className={`min-h-[44px] px-4 py-2 rounded-lg text-sm font-bold transition-all touch-manipulation ${
                                 activeTab === tab.id
                                     ? 'bg-[#E6C673] text-black shadow-lg shadow-[#E6C673]/20'
                                     : 'text-white/50 hover:text-white hover:bg-white/5'

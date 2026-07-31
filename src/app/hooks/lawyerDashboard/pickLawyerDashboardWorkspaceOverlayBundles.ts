@@ -4,7 +4,7 @@ import type {
     LawyerDashboardExecutionCreateBundle,
     LawyerDashboardNewCaseBundle,
     LawyerDashboardNotepadBundle,
-} from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysHostBundles';
+} from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import type { useLawyerDashboardWorkspace } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspace';
 
 type Workspace = ReturnType<typeof useLawyerDashboardWorkspace>;

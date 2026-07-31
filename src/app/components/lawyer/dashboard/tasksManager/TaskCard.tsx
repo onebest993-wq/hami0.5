@@ -237,6 +237,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                 {!readOnly ? (
                                     <button
                                         type="button"
+                                        data-testid={`tasks-task-reopen-${task.id}`}
                                         onClick={() => onReopenTask(task)}
                                         onPointerUp={releaseTouchFocus}
                                         className="min-h-[44px] text-[10px] font-bold text-sky-300/90 hover:text-sky-200 underline-offset-2 hover:underline touch-manipulation px-1"
@@ -251,7 +252,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                 data-testid={`tasks-task-complete-${task.id}`}
                                 onClick={() => onCompleteRequest(task)}
                                 onPointerUp={releaseTouchFocus}
-                                className="inline-flex flex-row-reverse items-center gap-1.5 min-h-[40px] px-3 py-1.5 rounded-full border border-[#1A7059]/38 bg-[#1A7059]/10 text-[11px] font-extrabold text-[#6BC4A8] hover:bg-[#1A7059]/16 active:scale-[0.98] transition touch-manipulation whitespace-nowrap"
+                                className="inline-flex flex-row-reverse items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-full border border-[#1A7059]/38 bg-[#1A7059]/10 text-[11px] font-extrabold text-[#6BC4A8] hover:bg-[#1A7059]/16 active:scale-[0.98] transition touch-manipulation whitespace-nowrap"
                             >
                                 <span className="size-5 rounded-full border border-[#6BC4A8]/50 flex items-center justify-center bg-[#1A7059]/15">
                                     <Check className="size-3" strokeWidth={2.5} aria-hidden />

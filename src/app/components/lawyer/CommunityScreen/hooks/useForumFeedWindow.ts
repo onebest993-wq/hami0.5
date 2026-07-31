@@ -1,23 +1,29 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { isLitePerformanceActiveFromDom } from '@/app/runtime/devicePerformanceTier';
 
 const DEFAULT_INITIAL_WINDOW = 24;
+const LITE_INITIAL_WINDOW = 10;
 const WINDOW_STEP = 16;
+const LITE_WINDOW_STEP = 8;
 
 /**
  * نافذة عرض تدريجية — تقلّل DOM nodes دون تغيير بصري.
- * يُوسَّع تلقائياً عند الاقتراب من نهاية القائمة المعروضة.
+ * على الأجهزة المتواضعة تبدأ أصغر وتتوسّع بخطوات أقل.
  */
 export function useForumFeedWindow(
     posts: CommunityPost[],
-    initialWindow = DEFAULT_INITIAL_WINDOW,
+    initialWindow?: number,
 ) {
-    const [renderCount, setRenderCount] = useState(initialWindow);
+    const lite = isLitePerformanceActiveFromDom() === true;
+    const resolvedInitial = initialWindow ?? (lite ? LITE_INITIAL_WINDOW : DEFAULT_INITIAL_WINDOW);
+    const step = lite ? LITE_WINDOW_STEP : WINDOW_STEP;
+    const [renderCount, setRenderCount] = useState(resolvedInitial);
     const sentinelRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        setRenderCount(Math.min(initialWindow, posts.length || initialWindow));
-    }, [posts.length, initialWindow]);
+        setRenderCount(Math.min(resolvedInitial, posts.length || resolvedInitial));
+    }, [posts.length, resolvedInitial]);
 
     const windowedPosts = useMemo(
         () => posts.slice(0, Math.min(renderCount, posts.length)),
@@ -25,8 +31,8 @@ export function useForumFeedWindow(
     );
 
     const expandWindow = useCallback(() => {
-        setRenderCount((prev) => Math.min(posts.length, prev + WINDOW_STEP));
-    }, [posts.length]);
+        setRenderCount((prev) => Math.min(posts.length, prev + step));
+    }, [posts.length, step]);
 
     useEffect(() => {
         const node = sentinelRef.current;
@@ -38,11 +44,11 @@ export function useForumFeedWindow(
                     expandWindow();
                 }
             },
-            { rootMargin: '240px 0px' },
+            { rootMargin: lite ? '120px 0px' : '240px 0px' },
         );
         observer.observe(node);
         return () => observer.disconnect();
-    }, [expandWindow, posts.length, windowedPosts.length]);
+    }, [expandWindow, lite, posts.length, windowedPosts.length]);
 
     return {
         windowedPosts,

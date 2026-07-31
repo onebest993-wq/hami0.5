@@ -5,7 +5,6 @@ import { classifyDecisionLedgerKind } from './decisionsLedgerVisuals';
 import { decisionAlreadyHasCassationAppeal } from './judicialDecisionsEngine';
 import { shouldShowCassationAppealFileAction } from './decisionAppealPeriodEngine';
 import {
-    isInvestigationPurgeDecisionTemplate,
     investigationPurgeDecisionAllowsCassationAppeal,
     isInvestigationStructuralCassationTemplate,
 } from './investigationDefendantPurge';

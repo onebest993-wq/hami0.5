@@ -29,4 +29,38 @@ describe('buildCloudSavePayload', () => {
         expect(payload.activeStageIndex).toBe(0);
         expect(payload.currentStage).toBe('الاستئناف');
     });
+
+    it('prefers active stage caseNo/court/docType over stale parent values', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'البداءة',
+                caseNo: '99/2026',
+                court: 'محكمة جديدة',
+                docType: 'تعويض',
+                judge: 'قاضي جديد',
+                parties: [],
+                timeline: [],
+                status: 'active',
+            },
+        ] as unknown as CaseStage[];
+
+        const payload = buildCloudSavePayload(
+            stages,
+            {
+                id: 1,
+                caseNo: 'قديم',
+                court: 'محكمة قديمة',
+                docType: 'نوع قديم',
+                judge: 'قاضي قديم',
+            },
+            0,
+            'نشطة',
+        );
+
+        expect(payload.caseNo).toBe('99/2026');
+        expect(payload.court).toBe('محكمة جديدة');
+        expect(payload.docType).toBe('تعويض');
+        expect(payload.judge).toBe('قاضي جديد');
+    });
 });

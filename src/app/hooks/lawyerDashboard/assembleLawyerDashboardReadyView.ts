@@ -3,7 +3,7 @@ import { buildLawyerDashboardTabStackMask } from '@/app/hooks/lawyerDashboard/bu
 import { shouldMaskLawyerDashboardTabStack, isLawyerDashboardTabMounted } from '@/app/hooks/lawyerDashboard/lawyerDashboardTabStack';
 import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { buildLawyerDashboardShellProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardShellProps';
-import { buildLawyerDashboardOverlaysHostProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysHostProps';
+import { buildLawyerDashboardOverlaysBundleProps } from '@/app/hooks/lawyerDashboard/buildLawyerDashboardOverlaysBundleProps';
 import { buildLawyerDashboardSurface } from '@/app/hooks/lawyerDashboard/lawyerDashboardSurfaceUtils';
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
 import type { useLawyerDashboardCoreOrchestration } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration';
@@ -46,18 +46,23 @@ export function assembleLawyerDashboardReadyView({
     navigation,
     calendarUserId,
     clusterScanSources,
+    onClusterScanSources,
     criminalCasesForCluster,
     criminalBridge,
     globalSearchNav,
     quantumPendingForField,
     pendingFieldTasksCount,
+    storeCases,
+    hydrateCasesFromLawsuitFiles,
+    dashboardExecutionFiles,
+    deferredFeatureSurfacesProps,
 }: AssembleLawyerDashboardReadyViewParams): Extract<LawyerDashboardCoreViewModel, { status: 'ready' }> {
     const { wallpaperSrc, hasWallpaper, dashboardBg, dashboardSurfaceStyle } = buildLawyerDashboardSurface({
         appearance: settings.appearance,
         themeBg: theme.bg,
     });
 
-    const overlaysHostProps = buildLawyerDashboardOverlaysHostProps({
+    const overlaysBundle = buildLawyerDashboardOverlaysBundleProps({
         onLogout,
         onAppNavigate,
         onNavigateToCase,
@@ -99,7 +104,6 @@ export function assembleLawyerDashboardReadyView({
         enterHomeLayoutEdit: dashboardHome.enterHomeLayoutEdit,
         exitHomeLayoutEdit: dashboardHome.exitHomeLayoutEdit,
         homeTabSessionKey: dashboardHome.homeTabSessionKey,
-        homeHubCardSessionKey: dashboardHome.homeHubCardSessionKey,
         homeDockChromeSessionKey: dashboardHome.homeDockChromeSessionKey,
         isNewCaseModalOpen: workspace.isNewCaseModalOpen,
         isNotepadOpen: dashboardRepository.isRepositoryOpen,
@@ -135,6 +139,7 @@ export function assembleLawyerDashboardReadyView({
         dismissAppAlert: appAlerts.dismissAppAlert,
         handleAlertResolved: appAlerts.handleAlertResolved,
         setArchiveType: archiveAndSync.setArchiveType,
+        armExecutionArchiveHost: overlays.armExecutionArchiveHost,
         openNormalNewCaseModal: workspace.openNormalNewCaseModal,
         openCommunityTab: dashboardCommunity.openCommunityTab,
         setLawsuitsDossierSection: overlays.setLawsuitsDossierSection,
@@ -209,6 +214,7 @@ export function assembleLawyerDashboardReadyView({
         }),
         notificationPanel: {
             isOpen: notifications.showNotifications,
+            hostMounted: notifications.notificationHostMounted,
             panelSessionKey: notifications.notificationPanelSessionKey,
             userId: (() => {
                 const uid = resolveShellAuthUserId(authUser?.id, user?.id);
@@ -227,6 +233,8 @@ export function assembleLawyerDashboardReadyView({
             ...scheduleTabProps,
             active: isLawyerDashboardTabMounted(scheduleTabProps.visible, tabStackMask),
         },
+        scheduleHostMounted: overlays.scheduleHostMounted ?? false,
+        profileHostMounted: profileTab.profileHostMounted ?? false,
         profileTab: {
             visible: overlays.activeTab === 'profile',
             sessionKey: profileTab.profileTabSessionKey,
@@ -234,6 +242,36 @@ export function assembleLawyerDashboardReadyView({
             onBack: profileTab.closeProfileTab,
         },
         tabStackHidden,
-        overlaysHostProps,
+        overlaysBundle,
+        postInteractiveRuntimeProps: {
+            onClusterScanSources,
+            enabled: backgroundRuntimeEnabled,
+            userId: user?.id,
+            authUserId: authUser?.id,
+            files: workspace.files,
+            executionFiles: (dashboardExecutionFiles ?? workspace.executionFiles) as import('@/app/components/lawyer/LawyerDashboardParts/types').ExecutionFile[],
+            globalNotes: workspace.globalNotes,
+            quantumTasks: quantumPendingForField,
+            criminalCasesForCluster,
+            backgroundRuntimeEnabled,
+            user,
+            authUser,
+            searchNotifications: notifications.searchNotifications,
+            searchIndexVersion: overlays.searchIndexVersion ?? 0,
+            showLawsuitsWorkspace: overlays.showLawsuitsWorkspace,
+            lawsuitsDossierSection: overlays.lawsuitsDossierSection,
+            storeCases,
+            hydrateCasesFromLawsuitFiles,
+            refreshAppAlerts: appAlerts.refreshAppAlerts,
+            reloadLawsuitFiles: workspace.reloadLawsuitFiles,
+            reloadExecutionFiles: workspace.reloadExecutionFiles,
+            setGlobalNotes: workspace.setGlobalNotes,
+            setActiveFile: workspace.setActiveFile,
+            setArchiveType: archiveAndSync.setArchiveType,
+            setLawsuitsDossierSection: overlays.setLawsuitsDossierSection,
+            setLawsuitsWorkspaceTab: overlays.setLawsuitsWorkspaceTab,
+            setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
+        },
+        deferredFeatureSurfacesProps,
     };
 }

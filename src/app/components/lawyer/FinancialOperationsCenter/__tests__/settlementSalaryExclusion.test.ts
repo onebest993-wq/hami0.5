@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
     SETTLEMENT_DEFAULT_DUE_DAYS,
-    hasActiveSalarySeizurePath,
     hasActiveSettlementPath,
     releaseSalarySeizedAssets,
     resolveSalaryGarnishmentBlockedBySettlement,

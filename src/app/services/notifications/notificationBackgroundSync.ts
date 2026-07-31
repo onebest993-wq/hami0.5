@@ -1,11 +1,7 @@
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import { ForumApiService } from '@/app/services/forumApiService';
-import {
-    emitForumUnreadCount,
-    syncForumNotificationsToAppStore,
-} from '@/app/services/forum/forumNotificationBridge';
-import { purgeLegacyNotificationsIfNeeded } from '@/app/services/notifications/notificationLegacyMigration';
-import { retryLegacyPrefixCleanupIfPartial } from '@/app/services/notifications/notificationForumKvMigration';
+import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
+import { syncForumNotificationsToAppStore } from '@/app/services/forum/forumNotificationBridge';
+
 export type RefreshNotificationShellBadgeOptions = {
     /** جلب blob الإشعارات من KV — يُتخطّى عند فتح اللوحة (polling اللوحة يكفي). */
     includeStoreFetch?: boolean;
@@ -25,6 +21,11 @@ export async function refreshNotificationShellBadge(
     const includeLegacyPurge = options?.includeLegacyPurge !== false;
 
     if (includeLegacyPurge) {
+        const [{ purgeLegacyNotificationsIfNeeded }, { retryLegacyPrefixCleanupIfPartial }] =
+            await Promise.all([
+                import('@/app/services/notifications/notificationLegacyMigration'),
+                import('@/app/services/notifications/notificationForumKvMigration'),
+            ]);
         await purgeLegacyNotificationsIfNeeded(userId).catch(() => undefined);
         await retryLegacyPrefixCleanupIfPartial(userId).catch(() => undefined);
     }
@@ -36,10 +37,12 @@ export async function refreshNotificationShellBadge(
     }
     if (includeForumSync) {
         tasks.push(
-            ForumApiService.listForumNotifications(userId).then(({ notifications, unreadCount }) => {
-                syncForumNotificationsToAppStore(userId, notifications);
-                emitForumUnreadCount(unreadCount);
-            }),
+            import('@/app/services/forumApiService').then(({ ForumApiService }) =>
+                ForumApiService.listForumNotifications(userId).then(({ notifications, unreadCount }) => {
+                    syncForumNotificationsToAppStore(userId, notifications);
+                    emitForumUnreadCount(unreadCount);
+                }),
+            ),
         );
     }
 

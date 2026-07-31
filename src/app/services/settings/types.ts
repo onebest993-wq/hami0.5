@@ -2,6 +2,7 @@ import type { FontSize, Language, ShapeKey, ThemeKey, ThemeMode } from '@/app/ty
 import type { BackgroundPresetId } from './backgroundPresets';
 import type { HomeLayoutSettings } from './homeLayout';
 
+export type { HomeLayoutSettings };
 export const SETTINGS_SCHEMA_VERSION = 2 as const;
 
 export type ViewMode = 'list' | 'grid';
@@ -18,6 +19,10 @@ export interface AppearanceSettings {
     glassOpacity: number;
     /** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */
     homeContainerBorder: boolean;
+    /** تطبيق السمة على الواجهة و/أو الوثائق */
+    themeApplyTarget?: 'ui' | 'docs' | 'both';
+    /** تطبيق نمط الخلفية: واجهة / وثائق / كلاهما / أقسام (كتل) فقط */
+    patternApplyTarget?: 'ui' | 'docs' | 'both' | 'blocks';
     /** @deprecated — تُخزَّن في lawyer_wallpaper فقط، لا في حالة React */
     wallpaper?: string;
     /** نبضة تحديث بعد رفع/حذف الخلفية دون تخزين blob في الذاكرة */

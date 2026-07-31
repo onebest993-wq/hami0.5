@@ -15,9 +15,17 @@
     "bootTtfiMs": 2500,
     "lighthouseMobileMin": 85
   },
+  "namedChunkMaxRawKb": {
+    "ExecutionDashboard": 420,
+    "criminal-runtime": 300,
+    "LawyerDashboard": 210,
+    "boot-ui-primitives": 250
+  },
   "chunkRegression": {
     "maxPercentIncrease": 5,
     "watchPrefixes": [
+      "criminal-runtime",
+      "boot-ui-primitives",
       "execution-dashboard",
       "execution-shared",
       "execution-dashboard-static-scope",

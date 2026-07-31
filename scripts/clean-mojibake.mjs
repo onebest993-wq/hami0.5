@@ -1,5 +1,5 @@
 /**
- * تصحيح نصوص U+FFFD تحت src/ (آمن للتشغيل المتكرر).
+ * تصحيح نصوص U+FFFD تحت src/ وملفات القوانين العامة JSON.
  * تشغيل: node scripts/clean-mojibake.mjs
  * فحص:   node scripts/clean-mojibake.mjs --check
  */
@@ -9,7 +9,8 @@ import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SRC = path.join(__dirname, "../src");
-const EXT = new Set([".ts", ".tsx", ".js", ".jsx"]);
+const STATIC_LAW_DATA = path.join(__dirname, "../public/static-law-data");
+const EXT = new Set([".ts", ".tsx", ".js", ".jsx", ".json"]);
 const R = "\uFFFD";
 const checkOnly = process.argv.includes("--check");
 
@@ -109,26 +110,32 @@ function clean(s) {
 }
 
 let touched = 0;
-for (const file of walk(SRC)) {
-  const s = fs.readFileSync(file, "utf8");
-  if (!s.includes(R)) continue;
-  const next = clean(s);
-  if (next !== s && !checkOnly) {
-    fs.writeFileSync(file, next, "utf8");
-    touched++;
+for (const root of [SRC, STATIC_LAW_DATA]) {
+  if (!fs.existsSync(root)) continue;
+  for (const file of walk(root)) {
+    const s = fs.readFileSync(file, "utf8");
+    if (!s.includes(R)) continue;
+    const next = clean(s);
+    if (next !== s && !checkOnly) {
+      fs.writeFileSync(file, next, "utf8");
+      touched++;
+    }
   }
 }
 
 let remaining = 0;
-for (const file of walk(SRC)) {
-  if (fs.readFileSync(file, "utf8").includes(R)) {
-    remaining++;
-    if (checkOnly) console.log("still:", path.relative(SRC, file));
+for (const root of [SRC, STATIC_LAW_DATA]) {
+  if (!fs.existsSync(root)) continue;
+  for (const file of walk(root)) {
+    if (fs.readFileSync(file, "utf8").includes(R)) {
+      remaining++;
+      if (checkOnly) console.log("still:", path.relative(path.join(__dirname, ".."), file));
+    }
   }
 }
 
 if (checkOnly) {
-  console.log(remaining ? `FAIL: ${remaining} file(s) contain U+FFFD` : "OK: no U+FFFD under src/");
+  console.log(remaining ? `FAIL: ${remaining} file(s) contain U+FFFD` : "OK: no U+FFFD under src/ and public/static-law-data/");
   process.exit(remaining ? 1 : 0);
 }
 

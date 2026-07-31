@@ -1,0 +1,158 @@
+/* إطارات البورتريه — CSS خفيف (gradients + transform فقط) */
+
+[data-profile-portrait-float] {
+    --portrait-ornament-opacity: 1;
+}
+
+[data-lawyer-profile-root][data-hami-lite='1'] [data-profile-portrait-float],
+[data-lawyer-profile-root][data-profile-settings-open='true'] [data-profile-portrait-float],
+[data-lawyer-profile-root][data-profile-reduce-motion='true'] [data-profile-portrait-float] {
+    --portrait-ornament-opacity: 0.88;
+}
+
+[data-profile-portrait-shell] {
+    position: relative;
+    display: inline-block;
+}
+
+[data-profile-portrait-ornament] {
+    position: absolute;
+    inset: -10px;
+    pointer-events: none;
+    z-index: 2;
+    opacity: var(--portrait-ornament-opacity, 1);
+    border-radius: 999px;
+    will-change: auto;
+}
+
+/* ── كلاسيكي: إطار ذهبي هادئ بلا زخرفة متحركة ── */
+[data-lawyer-profile-root][data-profile-portrait-frame='classic'] [data-profile-portrait-ornament] {
+    display: none;
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='classic'] .hami-profile-portrait-frame {
+    border-color: color-mix(in srgb, #e6c673 62%, var(--profile-accent-ink, #e6c673));
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.38),
+        0 0 0 1px color-mix(in srgb, #e6c673 28%, transparent);
+}
+
+/* ── أزهار: بتلات ثابتة تقريباً + تنفس خفيف ── */
+[data-lawyer-profile-root][data-profile-portrait-frame='ornate'] .hami-profile-portrait-frame {
+    border-color: color-mix(in srgb, #f9a8d4 48%, var(--profile-accent, #e6c673));
+    box-shadow:
+        0 12px 32px rgba(0, 0, 0, 0.36),
+        0 0 16px color-mix(in srgb, #f9a8d4 18%, transparent);
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='ornate'] [data-profile-portrait-ornament] {
+    background:
+        radial-gradient(circle at 18% 22%, #fda4af 0 3px, transparent 4px),
+        radial-gradient(circle at 78% 16%, #f9a8d4 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 90% 48%, #fb7185 0 2px, transparent 3px),
+        radial-gradient(circle at 12% 70%, #fbcfe8 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 70% 86%, #fda4af 0 3px, transparent 4px),
+        radial-gradient(circle at 44% 6%, #f9a8d4 0 2px, transparent 3px);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #f9a8d4 38%, transparent);
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='ornate'] [data-profile-portrait-ornament]::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border-radius: inherit;
+    border: 1px solid color-mix(in srgb, #fbcfe8 40%, transparent);
+    box-shadow:
+        10px -18px 0 -11px color-mix(in srgb, #fb7185 70%, transparent),
+        -16px 8px 0 -11px color-mix(in srgb, #f9a8d4 65%, transparent),
+        18px 14px 0 -12px color-mix(in srgb, #fda4af 60%, transparent);
+}
+
+/* ── بسيط: خط رفيع فقط ── */
+[data-lawyer-profile-root][data-profile-portrait-frame='minimal'] [data-profile-portrait-ornament] {
+    display: none;
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='minimal'] .hami-profile-portrait-ring {
+    opacity: 0.25;
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='minimal'] .hami-profile-portrait-frame {
+    border-width: 1.5px;
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.32);
+}
+
+/* ── نجوم راقصة: نقاط تدور ببطء (transform فقط) ── */
+[data-lawyer-profile-root][data-profile-portrait-frame='circle'] .hami-profile-portrait-frame {
+    border-color: color-mix(in srgb, #818cf8 52%, var(--profile-accent, #e6c673));
+    box-shadow:
+        0 12px 34px rgba(0, 0, 0, 0.4),
+        0 0 14px color-mix(in srgb, #6366f1 18%, transparent);
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='circle'] [data-profile-portrait-ornament] {
+    background:
+        radial-gradient(circle at 12% 30%, #e0e7ff 0 1.2px, transparent 2px),
+        radial-gradient(circle at 86% 24%, #c7d2fe 0 1.5px, transparent 2.5px),
+        radial-gradient(circle at 78% 70%, #a5b4fc 0 1.2px, transparent 2px),
+        radial-gradient(circle at 22% 78%, #fef3c7 0 2px, transparent 3px),
+        radial-gradient(circle at 50% 6%, #ddd6fe 0 1px, transparent 2px),
+        radial-gradient(circle at 94% 52%, #fde68a 0 2.5px, transparent 3.5px),
+        radial-gradient(circle at 8% 52%, #fef9c3 0 1.2px, transparent 2px);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, #818cf8 36%, transparent);
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='circle'] [data-profile-portrait-ornament]::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: inherit;
+    border: 1px dashed color-mix(in srgb, #a5b4fc 32%, transparent);
+}
+
+/* ── ثقب أسود: دوامة conic خفيفة ── */
+[data-lawyer-profile-root][data-profile-portrait-frame='arch'] .hami-profile-portrait-ring {
+    opacity: 0.2;
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='arch'] .hami-profile-portrait-frame {
+    border-color: color-mix(in srgb, #6366f1 45%, #0a0f1c);
+    box-shadow:
+        0 12px 36px rgba(0, 0, 0, 0.48),
+        0 0 18px color-mix(in srgb, #4338ca 22%, transparent),
+        inset 0 0 12px rgba(2, 4, 8, 0.55);
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='arch'] [data-profile-portrait-ornament] {
+    inset: -14px;
+    background: conic-gradient(
+        from 0deg,
+        #020408 0deg,
+        #1e1b4b 70deg,
+        #6366f1 120deg,
+        #020408 180deg,
+        #312e81 250deg,
+        #a5b4fc 300deg,
+        #020408 360deg
+    );
+    mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 9px), #000 calc(100% - 8px));
+    opacity: 0.92;
+}
+
+[data-lawyer-profile-root][data-profile-portrait-frame='arch'] [data-profile-portrait-ornament]::before {
+    content: '';
+    position: absolute;
+    inset: 18%;
+    border-radius: inherit;
+    background: radial-gradient(circle, transparent 52%, rgba(99, 102, 241, 0.18) 72%, transparent 78%);
+}
+
+/* إطارات ثابتة — بلا دوران/تنفس مستمر (أداء أولاً) */
+@media (prefers-reduced-motion: reduce) {
+    [data-profile-portrait-ornament],
+    [data-profile-portrait-ornament]::before {
+        animation: none !important;
+    }
+}

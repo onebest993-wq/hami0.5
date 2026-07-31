@@ -18,6 +18,37 @@ export function buildTimelineEventRowSignature(events: TimelineEvent[]): string 
         .join('|');
 }
 
+/** دمج آمن بين الحالة المحلية والوارد من التخزين — لا يمسح الأحداث الأحدث محلياً */
+export function reconcileTimelineEventsState(
+    local: TimelineEvent[],
+    incoming: TimelineEvent[],
+    options?: { forceReplace?: boolean },
+): TimelineEvent[] {
+    if (options?.forceReplace) return Array.isArray(incoming) ? [...incoming] : [];
+    const localList = Array.isArray(local) ? local : [];
+    const incomingList = Array.isArray(incoming) ? incoming : [];
+    const localActive = localList.filter((e) => !e.trashedAt);
+    const incomingActive = incomingList.filter((e) => !e.trashedAt);
+
+    if (incomingActive.length === 0 && localActive.length > 0) return localList;
+
+    const localSig = buildTimelineEventRowSignature(localActive);
+    const incomingSig = buildTimelineEventRowSignature(incomingActive);
+    if (localSig === incomingSig) return localList;
+
+    if (incomingActive.length >= localActive.length) {
+        const localOnly = localList.filter(
+            (e) => e?.id && !incomingList.some((x) => String(x.id) === String(e.id)),
+        );
+        return [...incomingList, ...localOnly];
+    }
+
+    const incomingOnly = incomingList.filter(
+        (e) => e?.id && !localList.some((x) => String(x.id) === String(e.id)),
+    );
+    return [...localList, ...incomingOnly];
+}
+
 export function scopeTimelineEventsForActiveDossier(
     timelineEvents: TimelineEvent[],
     executionId: string,
@@ -49,13 +80,7 @@ export function planTimelineDedupePersist(input: {
 }): TimelineDedupePersistPlan | null {
     if (!input.executionId) return null;
 
-    const scoped = scopeTimelineEventsForActiveDossier(
-        input.timelineEvents,
-        input.executionId,
-        input.activeSubFileId,
-        input.parentDossierId,
-    );
-    const cleaned = dedupeTimelineEventsForDisplay(scoped);
+    const cleaned = dedupeTimelineEventsForDisplay(input.timelineEvents || []);
     const signature = buildTimelineEventRowSignature(cleaned);
     if (signature === input.previousSignature) return null;
 

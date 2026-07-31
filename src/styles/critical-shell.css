@@ -3,14 +3,22 @@
  * lawyerHomeFx الكامل في deferred-app.css
  */
 @import './app-screen.css';
+@import './mobile-gpu-safety.css';
 @import '../app/components/lawyer/dashboard/lawyerHomeFx-critical.css';
+@import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';
+@import '../app/components/lawyer/CommunityScreen/forumPlumChrome.css';
+@import '../app/components/lawyer/RoyalLawyerProfile/profileChrome.css';
 @import './critical-lawyer-utils.css';
 
 :root {
     --glass-opacity: 0.92;
     --hami-brand: #e6c673;
     --hami-primary: #e6c673;
+    --hami-secondary: #b8943f;
     --hami-surface-bg: #0b1021;
+    --hami-glass-base: #0b1021;
+    --hami-ring-offset: #0b1021;
+    --hami-pearl: #fff9ee;
     --hami-font-size: 16px;
 }
 
@@ -19,6 +27,6 @@ html {
 }
 
 body {
-    background-color: #05060d;
+    background-color: var(--hami-surface-bg, #0a0f1c);
     color: #fff;
 }

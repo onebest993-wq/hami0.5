@@ -1,19 +1,11 @@
-import { createElement, type ReactNode } from 'react';
-import { stripEmojisFromText } from '@/app/utils/timelineSmartDisplay';
-import type { ExecutionDecisionAppealPhase, ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../types';
 import {
     decisionCardGlassClasses,
     type DecisionCardEnforcementVisual,
 } from '../decisionCardGlassShell';
 import {
-    appealCreditorRequestPauseGateMessage,
-    appealCreditorRequestRevokedGateMessage,
-    appealRelabelTimelineMessage,
-    isAppealResultFavorableToDebtorClient,
     type AppealUiPerspective,
 } from '../appealUiLabels';
-import { DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE } from '@/app/utils/otherPartyManualTrackDecisionSync';
 import {
     appealPipelineRowForCard,
     resolveCreditorDecisionEnforcementState,

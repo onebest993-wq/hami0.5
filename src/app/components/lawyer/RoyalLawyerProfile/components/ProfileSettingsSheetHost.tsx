@@ -1,5 +1,4 @@
 import React, { useCallback, useLayoutEffect, useState } from 'react';
-import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import {
     getCachedProfileSettingsSheet,
@@ -8,14 +7,15 @@ import {
 } from '@/app/runtime/profileSettingsSheetLoader';
 import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
 import { ProfileSettingsSheetLoadingFallback } from './ProfileSettingsSheetLoadingFallback';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
 type ProfileSettingsSheetProps = {
     open: boolean;
     onClose: () => void;
+    onRegisterDiscard?: (fn: (() => void) | null) => void;
     customization: ProfilePageCustomization;
-    actions: ProfileAction[];
     userId: string;
-    onSave: (next: ProfilePageCustomization) => Promise<boolean>;
+    onSave: (next: ProfilePageCustomization, options?: { silent?: boolean }) => Promise<boolean>;
     onDraftChange?: (draft: ProfilePageCustomization) => void;
     saving?: boolean;
 };
@@ -33,6 +33,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
     );
     const [loadFailed, setLoadFailed] = useState(false);
     const [loadGeneration, setLoadGeneration] = useState(0);
+    useBodyScrollLock(Boolean(open && (!Component || loadFailed)));
 
     const retryLoad = useCallback(() => {
         setLoadFailed(false);
@@ -96,14 +97,14 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
                             <button
                                 type="button"
                                 onClick={retryLoad}
-                                className="rounded-lg border border-[#E6C673]/35 px-4 py-2 text-sm font-bold text-[#E6C673]"
+                                className="min-h-[44px] rounded-lg border border-[#E6C673]/35 px-4 py-2 text-sm font-bold text-[#E6C673] touch-manipulation"
                             >
                                 إعادة المحاولة
                             </button>
                             <button
                                 type="button"
                                 onClick={props.onClose}
-                                className="block mx-auto text-xs text-white/50"
+                                className="block mx-auto min-h-[44px] px-3 text-xs text-white/50 touch-manipulation"
                             >
                                 إغلاق
                             </button>
@@ -111,7 +112,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
                     </div>
                 );
             }
-            return <ProfileSettingsSheetLoadingFallback />;
+            return <ProfileSettingsSheetLoadingFallback onClose={props.onClose} />;
         }
         return null;
     }

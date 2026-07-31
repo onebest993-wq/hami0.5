@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
@@ -9,6 +8,7 @@ import {
 import { applyEvictionAppealClosure } from '@/app/utils/evictionAppealSync';
 import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoerciveAppealSync';
 import { dispatchDecisionsReload, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
+import { resolveExecutorDecisionRowContext } from '@/app/utils/executorDecisionReadQueries';
 import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
 import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 
@@ -27,7 +27,7 @@ function isAppealPipelineOpen(hub: Decision): boolean {
     return false;
 }
 
-/** قرار المنفذ لصالح مقدّم الطلب — لا نستبدل موقف الطرف الذي له حق الطعن */
+/** قرار المنفذ لصالح مقدّم الطلب — إغلاق المهلة دون انتظار طعن الطرف الآخر */
 export function canWaiveFavorableExecutorOutcome(
     hub: Decision,
     perspective: AppealUiPerspective = 'creditor_agent'
@@ -35,10 +35,32 @@ export function canWaiveFavorableExecutorOutcome(
     const ex = hub.executorOutcome;
     if (ex !== 'approved' && ex !== 'alternative') return false;
     const harmed = resolveHarmedPartyAppealActor(hub, perspective);
-    if (perspective === 'creditor_agent' && hub.appealRequestOrigin === 'creditor_side') {
+    const origin = hub.appealRequestOrigin;
+    const partyDeath =
+        hub.requestKind === 'creditor_party_death' || hub.requestKind === 'debtor_party_death';
+
+    /**
+     * إحلال الورثة / وفاة الخصم: الطرف الرابح يحق له ختم الدورة («لا حاجة للطعن»)
+     * دون انتظار مهلة الطرف المتضرر — بخلاف الإحضار الجبري وغيره حيث يبقى حق الطعن قائماً.
+     */
+    if (partyDeath) {
+        if (perspective === 'creditor_agent' && (origin === 'creditor_side' || !origin)) {
+            return harmed === 'debtor';
+        }
+        if (perspective === 'debtor_agent' && origin === 'debtor_side') {
+            return harmed === 'lawyer';
+        }
+        if (perspective === 'debtor_agent' && (origin === 'creditor_side' || !origin)) {
+            // المدين متضرر من موافقة طلب الدائن — يستغني عن طعنه
+            return harmed === 'debtor';
+        }
+        return false;
+    }
+
+    if (perspective === 'creditor_agent' && origin === 'creditor_side') {
         return harmed !== 'debtor';
     }
-    if (perspective === 'debtor_agent' && hub.appealRequestOrigin === 'debtor_side') {
+    if (perspective === 'debtor_agent' && origin === 'debtor_side') {
         return harmed !== 'lawyer';
     }
     return false;
@@ -110,14 +132,18 @@ export function applyWaiveInitialAppealForExecution(input: {
     decisionId: string | undefined;
     appealPerspective?: AppealUiPerspective;
 }): WaiveInitialAppealApplyResult {
-    const executionId = String(input.executionId ?? '').trim();
+    const executionIdProp = String(input.executionId ?? '').trim();
     const decisionId = String(input.decisionId ?? '').trim();
-    if (!executionId || !decisionId) {
+    if (!executionIdProp || !decisionId) {
         return { ok: false, message: 'معرّف التنفيذ أو القرار غير صالح.' };
     }
 
-    const decisions = readExecutorDecisionsArray(executionId) as Decision[];
-    const row = decisions.find((d) => String(d.id ?? '').trim() === decisionId);
+    const ctx = resolveExecutorDecisionRowContext(executionIdProp, decisionId);
+    const executionId = String(ctx?.storageExecutionId || executionIdProp).trim();
+    const decisions = readExecutorDecisionsArray(executionId) as unknown as Decision[];
+    const row =
+        (ctx?.row as unknown as Decision | undefined) ||
+        decisions.find((d) => String(d.id ?? '').trim() === decisionId);
     if (!row) {
         return { ok: false, message: 'لم يُعثر على بطاقة القرار.' };
     }

@@ -12,6 +12,7 @@ import {
     sanitizeRepositoryUploadTitle,
     validateRepositoryUploadFile,
 } from '../repositoryUploadValidation';
+import '../forumPlumChrome.css';
 
 const DOCUMENT_TYPES = ['عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;
 
@@ -185,7 +186,7 @@ export const UploadDocumentModal = ({
             />
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
                 <div
-                    className="w-full max-w-lg bg-[#1A1D2D] rounded-2xl border border-white/10 shadow-2xl pointer-events-auto"
+                    className="w-full max-w-lg hami-forum-modal-glass rounded-2xl pointer-events-auto"
                     onClick={(e) => e.stopPropagation()}
                     role="dialog"
                     aria-modal="true"
@@ -214,7 +215,7 @@ export const UploadDocumentModal = ({
                                         className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors touch-manipulation min-h-[44px] ${
                                             uploadKind === 'document'
                                                 ? 'border-[#E6C673]/50 bg-[#E6C673]/10 text-[#E6C673]'
-                                                : 'border-white/10 bg-[#25293C] text-white/60 hover:text-white'
+                                                : 'border-white/10 hami-forum-input text-white/60 hover:text-white'
                                         }`}
                                     >
                                         <FileText size={18} />
@@ -226,7 +227,7 @@ export const UploadDocumentModal = ({
                                         className={`flex flex-col items-center gap-1.5 rounded-xl border px-3 py-3 text-xs font-bold transition-colors touch-manipulation min-h-[44px] ${
                                             uploadKind === 'image'
                                                 ? 'border-sky-400/50 bg-sky-500/10 text-sky-200'
-                                                : 'border-white/10 bg-[#25293C] text-white/60 hover:text-white'
+                                                : 'border-white/10 hami-forum-input text-white/60 hover:text-white'
                                         }`}
                                     >
                                         <FileImage size={18} />
@@ -242,7 +243,7 @@ export const UploadDocumentModal = ({
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     placeholder="أدخل عنوان المستند..."
-                                    className="w-full h-11 bg-[#25293C] rounded-xl px-4 text-white text-sm placeholder-white/20 border border-white/5 focus:border-[#E6C673]/30 focus:outline-none transition-colors"
+                                    className="w-full h-11 hami-forum-input rounded-xl px-4 text-white text-sm placeholder-white/20 border border-white/5 focus:border-[#E6C673]/30 focus:outline-none transition-colors"
                                 />
                             </div>
 
@@ -252,7 +253,7 @@ export const UploadDocumentModal = ({
                                     <button
                                         type="button"
                                         onClick={() => setIsTypeMenuOpen((prev) => !prev)}
-                                        className={`w-full h-11 min-h-[44px] bg-[#25293C] rounded-xl pr-4 pl-10 text-right text-white text-sm border transition-colors touch-manipulation flex items-center ${
+                                        className={`w-full h-11 min-h-[44px] hami-forum-input rounded-xl pr-4 pl-10 text-right text-white text-sm border transition-colors touch-manipulation flex items-center ${
                                             isTypeMenuOpen
                                                 ? 'border-[#E6C673]/40 ring-1 ring-[#E6C673]/15'
                                                 : 'border-white/5 hover:border-white/10'
@@ -311,7 +312,7 @@ export const UploadDocumentModal = ({
                                     onChange={(e) => setDescription(e.target.value)}
                                     placeholder="أدخل وصفاً تفصيلياً للمستند..."
                                     rows={4}
-                                    className="w-full bg-[#25293C] rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 border border-white/5 focus:border-[#E6C673]/30 focus:outline-none transition-colors resize-none"
+                                    className="w-full hami-forum-input rounded-xl px-4 py-3 text-white text-sm placeholder-white/20 border border-white/5 focus:border-[#E6C673]/30 focus:outline-none transition-colors resize-none"
                                 />
                             </div>
 
@@ -328,7 +329,7 @@ export const UploadDocumentModal = ({
                                                 className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors touch-manipulation ${
                                                     active
                                                         ? 'bg-[#E6C673]/15 border-[#E6C673]/40 text-[#E6C673]'
-                                                        : 'bg-[#25293C] border-white/10 text-white/45 hover:text-white/75'
+                                                        : 'hami-forum-input border-white/10 text-white/45 hover:text-white/75'
                                                 }`}
                                             >
                                                 #{tag.replace(/\s+/g, '_')}
@@ -362,11 +363,11 @@ export const UploadDocumentModal = ({
                                     type="file"
                                     accept={acceptValue}
                                     onChange={handleFileChange}
-                                    className="w-full h-11 min-h-[44px] bg-[#25293C] rounded-xl px-4 text-white/70 text-sm border border-white/5 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[#E6C673]/10 file:text-[#E6C673] file:text-xs file:font-bold hover:file:bg-[#E6C673]/15 transition-colors cursor-pointer touch-manipulation"
+                                    className="w-full h-11 min-h-[44px] hami-forum-input rounded-xl px-4 text-white/70 text-sm border border-white/5 file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:bg-[#E6C673]/10 file:text-[#E6C673] file:text-xs file:font-bold hover:file:bg-[#E6C673]/15 transition-colors cursor-pointer touch-manipulation"
                                 />
                                 {fileError ? <p className="mt-1.5 text-[11px] text-red-400">{fileError}</p> : null}
                                 {file && !fileError ? (
-                                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 bg-[#25293C] p-2.5">
+                                    <div className="mt-2 flex items-center gap-3 rounded-xl border border-white/10 hami-forum-input p-2.5">
                                         {previewUrl ? (
                                             <img src={previewUrl} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
                                         ) : (

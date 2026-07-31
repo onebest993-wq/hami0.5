@@ -30,7 +30,10 @@ export async function POST(request: Request): Promise<Response> {
         if (result.upvoted) {
             void import('../../../services/forum/forumNotificationDispatch').then(
                 async ({ dispatchCommentUpvoteNotification }) => {
-                    const admin = (await import('../../../services/forum/supabaseAdmin')).getForumSupabaseAdmin();
+                    const { loadForumSupabaseAdmin } = await import(
+                        '../../../services/forum/loadForumSupabaseAdmin'
+                    );
+                    const admin = await loadForumSupabaseAdmin();
                     if (!admin) return;
                     const { data } = await admin
                         .from('forum_comments')

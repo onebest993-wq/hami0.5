@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CaseStage, JourneyNode } from '@/app/types/criminal';
 import type { LawyerRequest, Statement } from './criminalCaseModel';
 import type { JudicialDecision } from './judicialDecisionsEngine';

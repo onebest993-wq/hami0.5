@@ -3,6 +3,16 @@ const HEX_COLOR = /^#[0-9A-Fa-f]{3,8}$/;
 const RGBA_COLOR =
     /^rgba?\(\s*[\d.]+%?\s*,\s*[\d.]+%?\s*,\s*[\d.]+%?\s*(,\s*[\d.]+%?\s*)?\)$/i;
 
+/** نص عادي آمن للعرض (React text) — يزيل تحكم/وسوم محتملة ويحد الطول */
+export function sanitizeProfilePlainText(raw: unknown, maxLen: number): string {
+    if (typeof raw !== 'string') return '';
+    return raw
+        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<\/?[a-z][^>]*>/gi, '')
+        .slice(0, Math.max(0, maxLen));
+}
+
 /** Validates canvas / block background colors before CSS injection. */
 export function sanitizeProfileCanvasColor(raw: string | undefined): string | undefined {
     if (!raw) return undefined;
@@ -23,6 +33,8 @@ const DATA_IMAGE_BASE64_RE =
     /^data:image\/(jpeg|jpg|png|webp|gif);base64,([A-Za-z0-9+/]+=*?)$/i;
 const MAX_DATA_IMAGE_LEN = 512_000;
 const MIN_DATA_IMAGE_PAYLOAD = 48;
+/** روابط HTTPS الموقّعة قد تتجاوز 2048 — لا تُقصّ (القص يكسر التوقيع ويُظهر صورة فارغة) */
+const MAX_HTTP_MEDIA_URL_LEN = 8192;
 
 function isValidDataImageUrl(raw: string): boolean {
     if (raw.length > MAX_DATA_IMAGE_LEN) return false;
@@ -47,17 +59,27 @@ export function sanitizeProfileMediaUrl(raw: string | undefined): string | undef
         return isValidDataImageUrl(trimmed) ? trimmed : undefined;
     }
 
-    const httpCandidate = trimmed.slice(0, 2048);
-    if (!httpCandidate || /[<>'"`\s]/.test(httpCandidate)) return undefined;
+    if (trimmed.length > MAX_HTTP_MEDIA_URL_LEN) return undefined;
+    if (/[<>'"`\s]/.test(trimmed)) return undefined;
 
     try {
-        const url = new URL(httpCandidate);
+        const url = new URL(trimmed);
         if (url.protocol !== 'https:' && url.protocol !== 'http:') return undefined;
         if (url.username || url.password) return undefined;
-        return url.href.slice(0, 2048);
+        return url.href;
     } catch {
         return undefined;
     }
+}
+
+/** مسار تخزين آمن لإعادة توقيع الروابط — لا يُعرض للزائر */
+export function sanitizeProfileStoragePath(raw: string | undefined): string | undefined {
+    if (!raw || typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim().slice(0, 512);
+    if (!trimmed) return undefined;
+    if (/[<>'"`\s]/.test(trimmed)) return undefined;
+    if (/^(javascript|data|file):/i.test(trimmed)) return undefined;
+    return trimmed;
 }
 
 /** Safe `background-image` value — quoted url() only after validation. */

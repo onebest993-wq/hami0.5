@@ -141,10 +141,10 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
             const viewportPadding = 8;
             const gap = 6;
             const estimatedHeight = 318;
-            const width = Math.min(Math.max(rect.width, 280), window.innerWidth - viewportPadding * 2);
-            let left = rect.left;
-            if (left + width > window.innerWidth - viewportPadding) {
-                left = window.innerWidth - width - viewportPadding;
+            const calendarWidth = Math.min(304, window.innerWidth - viewportPadding * 2);
+            let left = rect.left + (rect.width - calendarWidth) / 2;
+            if (left + calendarWidth > window.innerWidth - viewportPadding) {
+                left = window.innerWidth - calendarWidth - viewportPadding;
             }
             if (left < viewportPadding) left = viewportPadding;
 
@@ -158,7 +158,7 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                   ? aboveTop
                   : Math.max(viewportPadding, window.innerHeight - estimatedHeight - viewportPadding);
 
-            setPopoverPos({ top, left, width });
+            setPopoverPos({ top, left, width: calendarWidth });
         };
         update();
         window.addEventListener('resize', update);

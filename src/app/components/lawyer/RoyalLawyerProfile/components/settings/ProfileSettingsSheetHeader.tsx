@@ -15,8 +15,10 @@ export function ProfileSettingsSheetHeader({ onClose }: ProfileSettingsSheetHead
                 <button
                     type="button"
                     onClick={onClose}
-                    className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white/70 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 text-white/70 hover:text-white min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation"
+                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                     aria-label="إغلاق"
+                    data-testid="profile-settings-close"
                 >
                     <X size={16} />
                 </button>

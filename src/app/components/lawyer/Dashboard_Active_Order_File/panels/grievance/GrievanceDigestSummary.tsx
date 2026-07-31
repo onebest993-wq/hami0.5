@@ -39,7 +39,7 @@ export function GrievanceDigestSummary({
                                                                 onClick={() => setGrievanceDigestOpen((o) => !o)}
                                                                 className="w-full px-4 py-3 flex items-center justify-between gap-3 text-right text-white/90 text-xs font-bold"
                                                             >
-                                                                <span>📋 ملخص مرحلة التظلم</span>
+                                                                <span>ملخص مرحلة التظلم</span>
                                                                 <ChevronDown
                                                                     size={16}
                                                                     className={`shrink-0 text-white/60 transition-transform duration-200 ${
@@ -59,7 +59,7 @@ export function GrievanceDigestSummary({
                                                                         <motion.div className="px-4 pb-3 space-y-2 text-white/80 text-xs font-bold border-t border-white/10">
                                                                             {showGrievanceTimingSummary ? (
                                                                                 <div>
-                                                                                    📌 التوقيت القانوني:{' '}
+                                                                                    التوقيت القانوني:{' '}
                                                                                     {!hasIntervention
                                                                                         ? `التبليغ ${formatDateText(effectiveRejectionNotificationDate) || '—'} | `
                                                                                         : null}

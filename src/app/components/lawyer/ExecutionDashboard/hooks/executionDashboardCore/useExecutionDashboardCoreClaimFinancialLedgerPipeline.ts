@@ -1,89 +1,116 @@
-// @ts-nocheck
 /** Phase C Slice 25 — claim financials + ledger sync + seizure matrix + followup seizure tabs */
 import { useMemo, useRef } from 'react';
+import type { MutableRefObject } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { useDynamicExpenses } from '../useDynamicExpenses';
 import { useFinancialComputed } from '../useFinancialComputed';
-import { useExecutionDashboardClaimFinancials } from './useExecutionDashboardClaimFinancials';
+import { usePostEntryHeavyComputeReady } from '../usePostEntryHeavyComputeReady';
+import {
+    useExecutionDashboardClaimFinancials,
+    type UseExecutionDashboardClaimFinancialsParams,
+} from './useExecutionDashboardClaimFinancials';
 import { useExecutionDashboardEvictionLawyerFeeBackfill } from './useExecutionDashboardDecisionAndEventSync';
 import { useExecutionDashboardSeizureLedgerOutcomeEffects } from './useExecutionDashboardSeizureLedgerOutcomeEffects';
 import { useExecutionDashboardLedgerSync } from './useExecutionDashboardLedgerSync';
-import { useExecutionDashboardFollowupSeizureTabs } from './useExecutionDashboardFollowupSeizureTabs';
+import {
+    useExecutionDashboardFollowupSeizureTabs,
+    type UseExecutionDashboardFollowupSeizureTabsParams,
+} from './useExecutionDashboardFollowupSeizureTabs';
 import { resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
 import { resolveIsPersonalStatusExecutionClaim } from './executionDashboardClaimFinancials';
+import type { ExecutionDashboardFollowupClusterInput } from './useExecutionDashboardFollowupCluster';
+import type { SeizureDecisionOutcomeContext } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureDecisionOutcomeHandler.types';
+import type { FinancialHubLedgerOpenContext } from '@/app/components/lawyer/ExecutionDashboard/utils/financialHubLedgerOpenHandler';
+import type { UseThirdPartyFundsReceivedOutcomeInput } from '../useThirdPartyFundsReceivedOutcome';
 
-export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(p: {
+type ClaimFinancialsInput = UseExecutionDashboardClaimFinancialsParams;
+type SeizureLedgerEffectsInput = Parameters<typeof useExecutionDashboardSeizureLedgerOutcomeEffects>[0];
+type FollowupSeizureTabsInput = UseExecutionDashboardFollowupSeizureTabsParams;
+type ActiveWorkspaceDebtorForFollowup =
+    ExecutionDashboardFollowupClusterInput['activeWorkspaceDebtorForFollowup'];
+type SeizureMatrixRef = MutableRefObject<ReturnType<typeof resolveSeizureMatrixFromExecution> | null>;
+type ShowToast = (msg: string, type?: string) => void;
+type MoneyLike = string | number | null | undefined;
+
+export type ExecutionDashboardCoreClaimFinancialLedgerPipelineInput = {
     executionData: ExecutionFile | null | undefined;
     viewExecutionData: ExecutionFile | null | undefined;
     executionId: string | undefined;
     claimType: string;
     totalAmount: number;
-    debtAmount: string;
-    lawyerFeesAmount: string;
-    executionFee: string;
-    clientFeesAmount: string;
-    courtFees: string;
-    directorateFees: string;
+    debtAmount: MoneyLike;
+    lawyerFeesAmount: MoneyLike;
+    executionFee: MoneyLike;
+    clientFeesAmount: MoneyLike;
+    courtFees: MoneyLike;
+    directorateFees: MoneyLike;
     evictionCaseExpensesSum: number;
-    liabilityGroupTabsMode: boolean;
-    activeLiabilityGroup: unknown;
-    allDebtorRowsForLiability: unknown;
-    activeTimelineEvents: unknown[];
+    liabilityGroupTabsMode: ClaimFinancialsInput['liabilityGroupTabsMode'];
+    activeLiabilityGroup: ClaimFinancialsInput['activeLiabilityGroup'];
+    allDebtorRowsForLiability: ClaimFinancialsInput['allDebtorRowsForLiability'];
+    activeTimelineEvents: ClaimFinancialsInput['activeTimelineEvents'];
     decisionsStorageExecutionId: string;
-    debtorNotificationDate: string | null;
-    effectiveDebtors: unknown;
+    debtorNotificationDate: ClaimFinancialsInput['debtorNotificationDate'];
+    effectiveDebtors: ClaimFinancialsInput['effectiveDebtors'];
     executionFileKey: string;
     decisionsReloadEpoch: number;
-    persistExecutionMergeRef: { current: unknown };
-    executionDataRef: { current: ExecutionFile | null };
-    setThirdPartySeizuresUi: (v: unknown) => void;
-    clearThirdPartyFundsDraft: () => void;
-    setTimelineEvents: (v: unknown) => void;
+    persistExecutionMergeRef: SeizureLedgerEffectsInput['persistExecutionMergeRef'];
+    executionDataRef: UseThirdPartyFundsReceivedOutcomeInput['executionDataRef'];
+    setThirdPartySeizuresUi: UseThirdPartyFundsReceivedOutcomeInput['setThirdPartySeizuresUi'];
+    clearThirdPartyFundsDraft: UseThirdPartyFundsReceivedOutcomeInput['clearThirdPartyFundsDraft'];
+    setTimelineEvents: UseThirdPartyFundsReceivedOutcomeInput['setTimelineEvents'];
     nextTimelineId: () => string;
-    showToast: (msg: string, type?: string) => void;
-    applyThirdPartySeizuresFromPatch: (...args: unknown[]) => unknown;
-    pushTimelineEventRef: { current: unknown };
-    focusSeizurePropertyInlineRef: { current: unknown };
-    focusSeizureMovableInlineRef: { current: unknown };
-    focusSeizureThirdPartyInlineRef: { current: unknown };
-    focusSeizureNoticeInlineRef: { current: unknown };
-    openSeizureRequestsTabRef: { current: unknown };
-    setShowCoerciveActionForm: (v: string | null) => void;
-    setSeizureDetailCompletion: (v: unknown) => void;
-    setShowUnifiedExecutionModal: (v: boolean) => void;
-    setEvictionAssetsTabUnlocked: (v: boolean) => void;
-    seizedAssetsSnapshotRef: { current: unknown };
-    setSeizedAssets: (v: unknown) => void;
-    setFinancialHubAutoOpenMode: (v: unknown) => void;
-    setFinancialHubSeizedMovableId: (v: unknown) => void;
-    setFinancialHubSeizedPropertyId: (v: unknown) => void;
-    openFinancialHubLedger: (...args: unknown[]) => unknown;
+    showToast: ShowToast;
+    applyThirdPartySeizuresFromPatch: SeizureDecisionOutcomeContext['applyThirdPartySeizuresFromPatch'];
+    pushTimelineEventRef: SeizureDecisionOutcomeContext['pushTimelineEventRef'];
+    focusSeizurePropertyInlineRef: SeizureDecisionOutcomeContext['focusSeizurePropertyInlineRef'];
+    focusSeizureMovableInlineRef: SeizureDecisionOutcomeContext['focusSeizureMovableInlineRef'];
+    focusSeizureThirdPartyInlineRef: SeizureDecisionOutcomeContext['focusSeizureThirdPartyInlineRef'];
+    focusSeizureNoticeInlineRef: SeizureDecisionOutcomeContext['focusSeizureNoticeInlineRef'];
+    openSeizureRequestsTabRef: SeizureDecisionOutcomeContext['openSeizureRequestsTabRef'];
+    setShowCoerciveActionForm: SeizureDecisionOutcomeContext['setShowCoerciveActionForm'];
+    setSeizureDetailCompletion: SeizureDecisionOutcomeContext['setSeizureDetailCompletion'];
+    setShowUnifiedExecutionModal: SeizureDecisionOutcomeContext['setShowUnifiedExecutionModal'];
+    setEvictionAssetsTabUnlocked: SeizureLedgerEffectsInput['setEvictionAssetsTabUnlocked'];
+    seizedAssetsSnapshotRef: SeizureLedgerEffectsInput['seizedAssetsSnapshotRef'];
+    setSeizedAssets: SeizureLedgerEffectsInput['setSeizedAssets'];
+    setFinancialHubAutoOpenMode: FinancialHubLedgerOpenContext['setFinancialHubAutoOpenMode'];
+    setFinancialHubSeizedMovableId: FinancialHubLedgerOpenContext['setFinancialHubSeizedMovableId'];
+    setFinancialHubSeizedPropertyId: FinancialHubLedgerOpenContext['setFinancialHubSeizedPropertyId'];
+    openFinancialHubLedger: FinancialHubLedgerOpenContext['openFinancialHubLedger'];
     debtorBrowserTabsMode: boolean;
-    activeWorkspaceDebtorForFollowup: { d: unknown } | null | undefined;
+    activeWorkspaceDebtorForFollowup: ActiveWorkspaceDebtorForFollowup;
     activeDebtorIsEmployee: boolean;
     docType: string;
     classification: string;
-    activeDebtorEntityKind: unknown;
+    activeDebtorEntityKind: string | null | undefined;
     activeDebtorIsDeceased: boolean;
-    followupSpecialization: Record<string, unknown>;
-    followupSectionTabOrder: unknown;
-    followupModalTabs: unknown;
-    followupTabsRestricted: boolean;
-    restrictedFollowupTabIds: unknown;
-    setUnifiedModalTab: (v: string) => void;
-    showUnifiedExecutionModal: boolean;
-    unifiedModalTab: string;
+    followupSpecialization: FollowupSeizureTabsInput['followupSpecialization'];
+    followupSectionTabOrder: FollowupSeizureTabsInput['followupSectionTabOrder'];
+    followupModalTabs: FollowupSeizureTabsInput['followupModalTabs'];
+    followupTabsRestricted: FollowupSeizureTabsInput['followupTabsRestricted'];
+    restrictedFollowupTabIds: FollowupSeizureTabsInput['restrictedFollowupTabIds'];
+    setUnifiedModalTab: FollowupSeizureTabsInput['setUnifiedModalTab'];
+    showUnifiedExecutionModal: FollowupSeizureTabsInput['showUnifiedExecutionModal'];
+    unifiedModalTab: FollowupSeizureTabsInput['unifiedModalTab'];
+    hideFollowupCoerciveTab: boolean;
     hideCoerciveTabsForDebtorAgent: boolean;
     showPersonalCoerciveFollowupTab: boolean;
-    setShowSolidaryCoerciveTargetModal: (v: boolean) => void;
-    setSolidaryCoerciveActionPending: (v: unknown) => void;
-    followupModalChipTablistRef: { current: unknown };
-    followupModalDebtorTabsRef: { current: unknown };
+    setShowSolidaryCoerciveTargetModal:
+        FollowupSeizureTabsInput['setShowSolidaryCoerciveTargetModal'];
+    setSolidaryCoerciveActionPending: FollowupSeizureTabsInput['setSolidaryCoerciveActionPending'];
+    followupModalChipTablistRef: FollowupSeizureTabsInput['followupModalChipTablistRef'];
+    followupModalDebtorTabsRef: FollowupSeizureTabsInput['followupModalDebtorTabsRef'];
     isSolidaryLiability: boolean;
-    allDebtorsUnified: unknown[];
-    seizureMatrixRef: { current: unknown };
-}) {
+    allDebtorsUnified: ReadonlyArray<unknown>;
+    seizureMatrixRef: SeizureMatrixRef;
+};
+
+export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(
+    p: ExecutionDashboardCoreClaimFinancialLedgerPipelineInput,
+) {
+    const heavyComputeReady = usePostEntryHeavyComputeReady(true);
     const dynamicExpenses = useDynamicExpenses();
 
     const {
@@ -95,7 +122,8 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(p: {
         parsedDirectorateFees,
         total_execution_expenses,
     } = useFinancialComputed(
-        p.executionData,
+        // بعد أول paint فقط — تجنّب حلقات تخصيص الدين على مسار التركيب البارد
+        heavyComputeReady ? p.executionData : null,
         p.totalAmount,
         p.debtAmount,
         p.lawyerFeesAmount,
@@ -223,11 +251,18 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(p: {
         () =>
             resolveSeizureMatrixFromExecution({
                 remainingBalanceIqd: remainingBalanceForSeizure,
-                executionData: p.viewExecutionData ?? p.executionData,
-                activeDebtor: activeFollowupDebtorForSeizureMatrix,
-                activeDebtorIsEmployee: p.activeDebtorIsEmployee,
+                executionData: heavyComputeReady
+                    ? (p.viewExecutionData ?? p.executionData)
+                    : null,
+                activeDebtor: heavyComputeReady
+                    ? activeFollowupDebtorForSeizureMatrix
+                    : undefined,
+                activeDebtorIsEmployee: heavyComputeReady
+                    ? p.activeDebtorIsEmployee
+                    : false,
             }),
         [
+            heavyComputeReady,
             remainingBalanceForSeizure,
             p.viewExecutionData,
             p.executionData,
@@ -266,7 +301,7 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(p: {
         showToast: p.showToast,
         showUnifiedExecutionModal: p.showUnifiedExecutionModal,
         unifiedModalTab: p.unifiedModalTab,
-        hideFollowupCoerciveTab: p.followupSpecialization.hideFollowupCoerciveTab,
+        hideFollowupCoerciveTab: p.hideFollowupCoerciveTab,
         hideCoerciveTabsForDebtorAgent: p.hideCoerciveTabsForDebtorAgent,
         showPersonalCoerciveFollowupTab: p.showPersonalCoerciveFollowupTab,
         setShowSolidaryCoerciveTargetModal: p.setShowSolidaryCoerciveTargetModal,

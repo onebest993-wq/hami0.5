@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -7,22 +6,33 @@ import {
     FIELD_TASKS_SHELL_FEATURE,
     openFieldTasksFromShell,
 } from '@/app/services/fieldTasks/fieldTasksShellNavigation';
-import {
-    warmFieldTasksOnHover,
-    warmFieldTasksOnOpen,
-} from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
-import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
-import {
-    loadFieldTasksSheetModule,
-    loadTasksManagerModule,
-} from '@/app/runtime/fieldTasksHubLoader';
+import { warmFieldTasksOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
 import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTasksOverlayEscape';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
-import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
-    dismissTransientOverlays,
-} from '@/app/utils/bodyScrollLock';
+    HAMI_OPEN_TASKS_HELP_INBOX_EVENT,
+    persistFieldTasksSessionOpen,
+    readInitialFieldTasksSession,
+    type LawyerDashboardTab,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
+import {
+    warmQuantumTasksDiskRead,
+    loadFieldTasksBootHydrator,
+    loadFieldTasksHubLoader,
+} from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
+import {
+    commitFieldTasksSheetOpen,
+    commitTasksManagerOpen,
+} from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksShellOpenFlow';
+import {
+    concealFieldTasksInstantLayer,
+    useFieldTasksInstantPaintRef,
+} from '@/app/hooks/lawyerDashboard/fieldTasks/useFieldTasksInstantPaint';
+import {
+    primeFieldTasksHostMount,
+    useFieldTasksHostLifecycle,
+} from '@/app/hooks/lawyerDashboard/fieldTasks/useFieldTasksHostLifecycle';
 
 export type UseLawyerDashboardFieldTasksParams = {
     userId: string | null;
@@ -35,26 +45,45 @@ export function useLawyerDashboardFieldTasks({
     setActiveTab,
     closeCommunity,
 }: UseLawyerDashboardFieldTasksParams) {
+    const [initialSession] = useState(() => readInitialFieldTasksSession());
     const [fieldTasksSheetSessionKey, setFieldTasksSheetSessionKey] = useState(0);
-    const [fieldTasksHostMounted, setFieldTasksHostMounted] = useState(false);
-    const [fieldTasksManagerHostMounted, setFieldTasksManagerHostMounted] = useState(false);
-    const [fieldTasksSheetOpen, setFieldTasksSheetOpen] = useState(false);
-    const [showTasksManager, setShowTasksManager] = useState(false);
+    const [fieldTasksHostMounted, setFieldTasksHostMounted] = useState(
+        () => initialSession.open && initialSession.surface === 'sheet',
+    );
+    const [fieldTasksManagerHostMounted, setFieldTasksManagerHostMounted] = useState(
+        () => initialSession.open && initialSession.surface === 'manager',
+    );
+    const [fieldTasksSheetOpen, setFieldTasksSheetOpen] = useState(() => {
+        const open = initialSession.open && initialSession.surface === 'sheet';
+        if (open) warmQuantumTasksDiskRead();
+        return open;
+    });
+    const [showTasksManager, setShowTasksManager] = useState(
+        () => initialSession.open && initialSession.surface === 'manager',
+    );
     const [tasksManagerFocusTaskId, setTasksManagerFocusTaskId] = useState<string | undefined>();
     const [tasksManagerSessionKey, setTasksManagerSessionKey] = useState(0);
+    const sheetOpenRef = useRef(false);
+    sheetOpenRef.current = fieldTasksSheetOpen;
+
+    const { instantPaintRef, withInstantPaint } = useFieldTasksInstantPaintRef();
 
     const closeFieldTasksSheet = useCallback(() => {
+        concealFieldTasksInstantLayer(withInstantPaint);
+        sheetOpenRef.current = false;
         setFieldTasksSheetOpen(false);
-    }, []);
+        persistFieldTasksSessionOpen(false);
+    }, [withInstantPaint]);
 
     const closeTasksManager = useCallback(() => {
+        concealFieldTasksInstantLayer(withInstantPaint);
         setTasksManagerFocusTaskId(undefined);
         setShowTasksManager(false);
-    }, []);
+        persistFieldTasksSessionOpen(false);
+    }, [withInstantPaint]);
 
     const primeFieldTasksShellMount = useCallback(() => {
-        warmFieldTasksOnHover();
-        setFieldTasksHostMounted(true);
+        primeFieldTasksHostMount(setFieldTasksHostMounted);
     }, []);
 
     const armFieldTasksManagerHost = useCallback(() => {
@@ -62,21 +91,17 @@ export function useLawyerDashboardFieldTasks({
     }, []);
 
     useEffect(() => {
-        const onPageShow = (event: PageTransitionEvent) => {
-            if (event.persisted) {
-                setFieldTasksSheetOpen(false);
-                setShowTasksManager(false);
-            }
+        const closeField = () => {
+            concealFieldTasksInstantLayer(withInstantPaint);
+            sheetOpenRef.current = false;
+            setFieldTasksSheetOpen(false);
+            persistFieldTasksSessionOpen(false);
         };
-        window.addEventListener('pageshow', onPageShow);
-        return () => window.removeEventListener('pageshow', onPageShow);
-    }, []);
-
-    useEffect(() => {
-        const closeField = () => setFieldTasksSheetOpen(false);
         const closeManager = () => {
+            concealFieldTasksInstantLayer(withInstantPaint);
             setShowTasksManager(false);
             setTasksManagerFocusTaskId(undefined);
+            persistFieldTasksSessionOpen(false);
         };
         const unregField = registerDashboardOverlayCloser('field-tasks', closeField);
         const unregManager = registerDashboardOverlayCloser('tasks-manager', closeManager);
@@ -84,7 +109,7 @@ export function useLawyerDashboardFieldTasks({
             unregField();
             unregManager();
         };
-    }, []);
+    }, [withInstantPaint]);
 
     useLawyerDashboardTasksOverlayEscape({
         fieldTasksSheetOpen,
@@ -93,19 +118,53 @@ export function useLawyerDashboardFieldTasks({
         onCloseTasksManager: closeTasksManager,
     });
 
-    useKeepAliveIdleRelease(fieldTasksSheetOpen, () => setFieldTasksHostMounted(false));
+    /** جلسة مهام مفتوحة بلا هوية — أغلق وامسح الـ hosts (T2) */
+    useEffect(() => {
+        if (isRealSignedIn(userId)) return;
+        concealFieldTasksInstantLayer(withInstantPaint);
+        sheetOpenRef.current = false;
+        setFieldTasksSheetOpen(false);
+        setShowTasksManager(false);
+        setTasksManagerFocusTaskId(undefined);
+        setFieldTasksHostMounted(false);
+        setFieldTasksManagerHostMounted(false);
+        persistFieldTasksSessionOpen(false);
+    }, [userId, withInstantPaint]);
 
+    useKeepAliveIdleRelease(fieldTasksSheetOpen, () => setFieldTasksHostMounted(false));
     useKeepAliveIdleRelease(showTasksManager, () => setFieldTasksManagerHostMounted(false));
+
+    useFieldTasksHostLifecycle({
+        initialSessionOpen: initialSession.open,
+        initialSessionSurface: initialSession.surface,
+        fieldTasksSheetOpen,
+        armFieldTasksManagerHost,
+    });
+
+    useEffect(() => {
+        if (showTasksManager) {
+            persistFieldTasksSessionOpen(true, 'manager');
+            return;
+        }
+        if (fieldTasksSheetOpen) {
+            persistFieldTasksSessionOpen(true, 'sheet');
+            return;
+        }
+        persistFieldTasksSessionOpen(false);
+    }, [fieldTasksSheetOpen, showTasksManager]);
 
     const revealTasksManager = useCallback(
         (focusTaskId?: string) => {
+            concealFieldTasksInstantLayer(withInstantPaint);
+            sheetOpenRef.current = false;
             setFieldTasksSheetOpen(false);
             closeCommunity?.();
             setActiveTab('home');
             setTasksManagerFocusTaskId(focusTaskId);
             setShowTasksManager(true);
+            persistFieldTasksSessionOpen(true, 'manager');
         },
-        [closeCommunity, setActiveTab],
+        [closeCommunity, setActiveTab, withInstantPaint],
     );
 
     const openFieldTasksSheet = useCallback(() => {
@@ -114,25 +173,31 @@ export function useLawyerDashboardFieldTasks({
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${FIELD_TASKS_SHELL_FEATURE}`),
             onOpen: () => {
-                flushSync(() => {
-                    primeFieldTasksShellMount();
-                    setTasksManagerFocusTaskId(undefined);
-                    setShowTasksManager(false);
-                    setFieldTasksSheetOpen(true);
-                });
-
-                warmFieldTasksOnOpen();
-                void loadFieldTasksSheetModule().catch(() => undefined);
-                void hydrateFieldTasksShellForInstantOpen(true).catch(() => undefined);
-
-                queueMicrotask(() => {
-                    dismissTransientOverlays('field-tasks');
-                    closeCommunity?.();
-                    setActiveTab('home');
+                if (sheetOpenRef.current) return;
+                sheetOpenRef.current = true;
+                commitFieldTasksSheetOpen({
+                    sheetOpenRef,
+                    instantPaint: instantPaintRef.current,
+                    setFieldTasksHostMounted,
+                    setTasksManagerFocusTaskId,
+                    setShowTasksManager,
+                    setFieldTasksSheetOpen,
+                    closeCommunity,
+                    setActiveTab: () => setActiveTab('home'),
                 });
             },
         });
-    }, [closeCommunity, primeFieldTasksShellMount, setActiveTab, userId]);
+    }, [closeCommunity, instantPaintRef, setActiveTab, userId]);
+
+    const afterTasksManagerOpen = useCallback(() => {
+        warmFieldTasksOnOpen();
+        void loadFieldTasksBootHydrator()
+            .then((m) => m.hydrateFieldTasksShellForInstantOpen(true))
+            .catch(() => undefined);
+        void loadFieldTasksHubLoader()
+            .then((m) => m.loadTasksManagerModule())
+            .catch(() => undefined);
+    }, []);
 
     const openTasksManager = useCallback(
         (focusTaskId?: string) => {
@@ -141,17 +206,16 @@ export function useLawyerDashboardFieldTasks({
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${FIELD_TASKS_SHELL_FEATURE}`),
                 onOpen: () => {
-                    dismissTransientOverlays('tasks-manager');
-                    warmFieldTasksOnOpen();
-                    primeFieldTasksShellMount();
-                    armFieldTasksManagerHost();
-                    void hydrateFieldTasksShellForInstantOpen(true);
-                    revealTasksManager(focusTaskId);
-                    void loadTasksManagerModule().catch(() => undefined);
+                    commitTasksManagerOpen({
+                        focusTaskId,
+                        armFieldTasksManagerHost,
+                        revealTasksManager,
+                        afterOpen: afterTasksManagerOpen,
+                    });
                 },
             });
         },
-        [primeFieldTasksShellMount, revealTasksManager, userId],
+        [afterTasksManagerOpen, armFieldTasksManagerHost, revealTasksManager, userId],
     );
 
     const switchToTasksManager = useCallback(() => {
@@ -159,20 +223,40 @@ export function useLawyerDashboardFieldTasks({
             SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${FIELD_TASKS_SHELL_FEATURE}`);
             return;
         }
-        dismissTransientOverlays('tasks-manager');
-        armFieldTasksManagerHost();
-        void hydrateFieldTasksShellForInstantOpen(true);
-        revealTasksManager(undefined);
-        void loadTasksManagerModule().catch(() => undefined);
+        commitTasksManagerOpen({
+            armFieldTasksManagerHost,
+            revealTasksManager,
+            afterOpen: () => {
+                void loadFieldTasksBootHydrator()
+                    .then((m) => m.hydrateFieldTasksShellForInstantOpen(true))
+                    .catch(() => undefined);
+                void loadFieldTasksHubLoader()
+                    .then((m) => m.loadTasksManagerModule())
+                    .catch(() => undefined);
+            },
+        });
     }, [armFieldTasksManagerHost, revealTasksManager, userId]);
 
+    useEffect(() => {
+        const onOpenHelpInbox = () => openTasksManager();
+        window.addEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, onOpenHelpInbox);
+        return () => window.removeEventListener(HAMI_OPEN_TASKS_HELP_INBOX_EVENT, onOpenHelpInbox);
+    }, [openTasksManager]);
+
     const resetFieldTasksShell = useCallback(() => {
+        withInstantPaint((m) => {
+            m.concealFieldTasksWarmSheet();
+            m.clearFieldTasksForceVisible();
+            m.clearFieldTasksInstantPaint();
+        });
         setFieldTasksSheetSessionKey((k) => k + 1);
         setTasksManagerSessionKey((k) => k + 1);
+        sheetOpenRef.current = false;
         setFieldTasksSheetOpen(false);
         setShowTasksManager(false);
         setTasksManagerFocusTaskId(undefined);
-    }, []);
+        persistFieldTasksSessionOpen(false);
+    }, [withInstantPaint]);
 
     return {
         fieldTasksSheetSessionKey,

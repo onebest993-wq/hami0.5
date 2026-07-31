@@ -5,10 +5,10 @@ import { X, Mic, Square, Sparkles, Play, Trash2 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { VoiceNoteSavePayload } from '@/app/components/lawyer/commandCenterTypes';
 import {
-    VAULT_INPUT,
     VAULT_SHEET,
     VAULT_SHEET_OVERLAY_VIEWPORT,
 } from '@/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme';
+import { HUB_TOPMOST_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import {
     createArabicTranscriptSession,
     isSpeechRecognitionSupported,
@@ -23,6 +23,10 @@ interface VoiceRecorderModalProps {
     onClose: () => void;
     onSaveVoice?: (payload: VoiceNoteSavePayload) => void | Promise<void>;
 }
+
+/** فوق نوافذ الإضبارة (ملاحظات z-250 / محضر z-260) — مع الإبقاء على أنماط الـ vault */
+const VOICE_RECORDER_OVERLAY =
+    VAULT_SHEET_OVERLAY_VIEWPORT.replace(/z-\[\d+]/, HUB_TOPMOST_OVERLAY_Z_CLASS);
 
 const GOLD = '#E6C673';
 const VAULT_RECORDER_SHELL =
@@ -319,10 +323,11 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
 
     return createPortal(
         <div
-            className={`${VAULT_SHEET_OVERLAY_VIEWPORT} p-4`}
+            className={`${VOICE_RECORDER_OVERLAY} p-4`}
             dir="rtl"
             onClick={requestClose}
             role="presentation"
+            data-testid="voice-recorder-overlay"
         >
             <motion.div
                 initial={{ y: 20, opacity: 0 }}

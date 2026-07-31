@@ -31,7 +31,8 @@ type PremiumTimelineAuditLogComponent = React.ComponentType<{
 
 export interface ExecutionFullTimelineModalContainerProps {
     showTimelineModal: boolean;
-    setShowTimelineModal: (show: boolean) => void;
+    setShowTimelineModal?: (show: boolean) => void;
+    onCloseTimelineModal?: () => void;
     debtorBrowserTabsMode: boolean;
     activeTimelineEventsDebtorScoped: TimelineEvent[];
     activeTimelineEvents: TimelineEvent[];
@@ -53,6 +54,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
 > = ({
     showTimelineModal,
     setShowTimelineModal,
+    onCloseTimelineModal,
     debtorBrowserTabsMode,
     activeTimelineEventsDebtorScoped,
     activeTimelineEvents,
@@ -70,6 +72,14 @@ export const ExecutionFullTimelineModalContainer: React.FC<
 }) => {
     const filterChipRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const eventsScrollRef = useRef<HTMLDivElement | null>(null);
+
+    const closeTimelineModal = () => {
+        if (typeof onCloseTimelineModal === 'function') {
+            onCloseTimelineModal();
+        } else {
+            setShowTimelineModal?.(false);
+        }
+    };
 
     const dedupedAllEvents = useMemo(() => {
         const base = debtorBrowserTabsMode
@@ -130,7 +140,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         if (!showTimelineModal) return;
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === 'Escape') {
-                setShowTimelineModal(false);
+                closeTimelineModal();
                 return;
             }
             if (e.key === 'ArrowRight') {
@@ -147,7 +157,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
         return () => {
             window.removeEventListener('keydown', onKeyDown);
         };
-    }, [showTimelineModal, setShowTimelineModal, activeTimelineFilter, setActiveTimelineFilter, timelineFilterOptions]);
+    }, [showTimelineModal, closeTimelineModal, activeTimelineFilter, setActiveTimelineFilter, timelineFilterOptions]);
 
     if (typeof document === 'undefined') return null;
 
@@ -162,7 +172,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                     className={`fixed inset-0 flex flex-col overflow-hidden bg-slate-950/75 p-0 backdrop-blur-2xl sm:p-3 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                     style={{ zIndex: EXEC_MODAL_Z.timelineFullModal }}
                     onClick={(e) => {
-                        if (e.target === e.currentTarget) setShowTimelineModal(false);
+                        if (e.target === e.currentTarget) closeTimelineModal();
                     }}
                     role="presentation"
                 >
@@ -177,7 +187,7 @@ export const ExecutionFullTimelineModalContainer: React.FC<
                         <div className={`flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                             <button
                                 type="button"
-                                onClick={() => setShowTimelineModal(false)}
+                                onClick={closeTimelineModal}
                                 className={EXEC_MODAL_CLOSE_BTN_CLASS}
                                 aria-label="إغلاق"
                             >

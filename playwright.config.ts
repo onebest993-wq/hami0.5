@@ -5,6 +5,18 @@
  */
 
 import { defineConfig, devices } from '@playwright/test';
+import { existsSync } from 'fs';
+
+const distReady = existsSync('dist/index.html');
+
+/** بعد `npm run build` — يتجنّب إعادة استخدام dev server معطوب/قديم */
+const usePreview =
+    process.env.E2E_USE_PREVIEW === '1' ||
+    process.env.E2E_USE_PREVIEW === 'true' ||
+    (process.env.E2E_USE_PREVIEW !== '0' && distReady);
+const previewPort = process.env.E2E_PREVIEW_PORT ?? '8090';
+const baseURL = usePreview ? `http://127.0.0.1:${previewPort}` : 'http://localhost:8080';
+const skipWebServer = process.env.E2E_SKIP_WEBSERVER === '1';
 
 export default defineConfig({
   testDir: './e2e',
@@ -33,8 +45,7 @@ export default defineConfig({
   
   /* Shared settings for all the projects below */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')` - matches Vite port 8080 */
-    baseURL: 'http://localhost:8080',
+    baseURL,
     
     /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
@@ -75,11 +86,22 @@ export default defineConfig({
       : []),
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:8080',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  /* dev للتطوير؛ preview بعد build لبوابات الإصدار (E2E_USE_PREVIEW=1) */
+  ...(skipWebServer
+    ? {}
+    : {
+          webServer: usePreview
+              ? {
+                    command: `npm run preview -- --port ${previewPort} --host 127.0.0.1 --strictPort`,
+                    url: baseURL,
+                    reuseExistingServer: true,
+                    timeout: 120 * 1000,
+                }
+              : {
+                    command: 'npm run dev',
+                    url: 'http://localhost:8080',
+                    reuseExistingServer: !process.env.CI,
+                    timeout: 120 * 1000,
+                },
+      }),
 });

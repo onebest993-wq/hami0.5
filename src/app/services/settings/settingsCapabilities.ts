@@ -9,12 +9,12 @@ const WIRING_HINTS: Record<string, string | undefined> = {
     'appearance.theme': 'لون خلفية اللوحة ولون الزخرفة',
     'appearance.backgroundPatternOpacity': 'حدة ووضوح الزخرفة — ارفعها للنمط أو خفّضها للنعومة (حتى 78%)',
     'appearance.shape': 'زوايا بطاقات الدعاوى ومركز القيادة والنوافذ',
-    'appearance.wallpaper': 'صورة خلفية للوحة المحامي — تُحفظ على هذا الجهاز',
+    'appearance.wallpaper': 'صورة خلفية للوحة المحامي من الجهاز — تُحفظ محلياً وتظهر حتى مع الأداء الخفيف',
     'appearance.fontSize': 'حجم النص في لوحة المحامي الرئيسية',
     'appearance.language': 'لغة واجهة التطبيق واتجاه النص',
     'appearance.glassOpacity': 'شفافية بطاقات لوحة القيادة — اخفضها للزجاج الشفاف، ارفعها لمنع اختراق الخلفية',
     'appearance.homeContainerBorder': 'إطار ثابت حول بطاقات لوحة القيادة — مفيد عند الشفافية المنخفضة لتمييز أبعاد الحاوية',
-    'appearance.highContrast': 'زيادة وضوح النصوص والحدود',
+    'appearance.highContrast': 'يزيد وضوح النص والحدود بلطف — دون إطارات سميكة مزعجة',
     'appearance.reduceMotion': 'يقلّل الحركات والانتقالات في التطبيق',
     'performance.enableAnimations': 'إيقافه يُبطئ الانتقالات مع «تقليل الحركة»',
     'performance.prefetchScreens': 'تحميل مسبق عند اللمس/القرب فقط — لا موجات خلفية تلقائية',
@@ -29,7 +29,8 @@ const WIRING_HINTS: Record<string, string | undefined> = {
     'data.cloudSync': 'تفعيل المزامنة السحابية — يتطلب تسجيل الدخول وربط الخادم (VITE_ENABLE_CLOUD_SYNC)',
     'data.businessBackup': 'تصدير واستيراد القضايا والتنفيذ والملاحظات كملف JSON',
     'data.clearLocal': 'مسح شامل للبيانات المحلية والسحابية — يتطلب تأكيدين مع انتظار 10 ثوانٍ',
-    'data.resetSettings': 'يعيد تفضيلات المنظر والأمان فقط — لا يمس ملفات القضايا',
+    'data.resetSettings':
+        'يعيد تفضيلات المنظر والأمان والبيانات والأداء وتخطيط المنزل — لا يمس ملفات القضايا',
 };
 
 export function settingWiringHint(key: string): string | undefined {

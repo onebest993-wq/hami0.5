@@ -31,6 +31,7 @@ export function applyJudgmentConfirm(
         setShowAppealModal,
         setShowObjectionRegistrationModal,
         setShowJudgmentModal,
+        status,
     } = options;
 
     try {
@@ -84,6 +85,7 @@ export function applyJudgmentConfirm(
             openAppealModalAfterSave: false,
             openObjectionModalAfterSave: false,
             remandNewActiveIndex: null,
+            nextCaseStatus: undefined,
         };
 
         dispatchJudgmentScenarios(scope, rt);
@@ -98,12 +100,21 @@ export function applyJudgmentConfirm(
             return false;
         }
 
+        const cloudStageIndex = rt.remandNewActiveIndex ?? activeStageIndex;
+        const cloudStatus = rt.nextCaseStatus ?? status;
+        const cloudParent = rt.nextCaseStatus
+            ? { ...parentData, status: rt.nextCaseStatus }
+            : parentData;
+
         setStages(rt.updatedStages);
-        saveToCloud(rt.updatedStages, parentData);
         if (rt.remandNewActiveIndex !== null) {
             setActiveStageIndex(rt.remandNewActiveIndex);
             setViewingStageIndex(rt.remandNewActiveIndex);
         }
+        if (rt.nextCaseStatus) {
+            setStatus(rt.nextCaseStatus);
+        }
+        saveToCloud(rt.updatedStages, cloudParent, cloudStageIndex, cloudStatus);
         setShowJudgmentModal(false);
 
         debug.log('✅ تم حفظ قرار الحكم بنجاح');

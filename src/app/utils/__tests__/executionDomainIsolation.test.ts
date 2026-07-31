@@ -3,6 +3,7 @@ import {
     canPersistExecutorRequestKind,
     filterDecisionsForDomainContext,
     filterOtherPartyCatalogOptionIds,
+    gateExecutorRequestPersist,
     isFollowupRequestKindAllowed,
     otherPartyCatalogIdToRequestKind,
     resolveExecutionDomainContext,
@@ -79,6 +80,28 @@ describe('executionDomainIsolation', () => {
             debtors: [{ name: 'مستأجر' }],
         });
         expect(canPersistExecutorRequestKind(ctx, 'eviction_procedure').allowed).toBe(true);
+    });
+
+    it('6b) marital furniture allows eviction_procedure for delivery workflow', () => {
+        const ctx = resolveExecutionDomainContext({
+            id: 'exec-mf',
+            claimType: 'أثاث زوجية',
+            creditors: [{ name: 'زوجة', isClient: true }],
+            debtors: [{ name: 'زوج' }],
+        });
+        expect(ctx.claimModules).toContain('marital_furniture');
+        expect(canPersistExecutorRequestKind(ctx, 'eviction_procedure').allowed).toBe(true);
+    });
+
+    it('6c) gate uses live child dossier data when parent storage id differs', () => {
+        const gate = gateExecutorRequestPersist('parent-exec', 'eviction_procedure', {
+            executionData: {
+                id: 'child-exec',
+                parentDossierId: 'parent-exec',
+                claimType: 'أثاث زوجية',
+            },
+        });
+        expect(gate.allowed).toBe(true);
     });
 
     it('7) guarantor request only on financial path', () => {

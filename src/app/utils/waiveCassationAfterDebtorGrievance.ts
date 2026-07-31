@@ -15,7 +15,6 @@ import { applyPersonalCoerciveAppealClosure } from '@/app/utils/personalCoercive
 import { dispatchDecisionsReload, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 import { writeExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
 import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
-import SecureStoreService from '@/app/services/SecureStoreService';
 
 export type WaiveCassationApplyResult = {
     ok: boolean;

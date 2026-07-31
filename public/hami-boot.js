@@ -5,10 +5,29 @@
 (function () {
   if (typeof performance !== 'undefined' && performance.mark) {
     try {
+      /* أصل الجدول الزمني قبل أي مرحلة — يمنع ms سالبة لـ static-shell */
+      performance.mark('hami:boot:start');
       performance.mark('hami:boot:static-shell-visible');
-    } catch (e) {
+    } catch (_e) {
       /* ignore */
     }
+  }
+
+  /** إن اكتمل الإقلاع في الجلسة — لا تُبقِ الهيكل الثابت مرئياً عند الرجوع/إعادة الدخول */
+  try {
+    var bootDone =
+      sessionStorage.getItem('hami_boot_complete') === '1' ||
+      sessionStorage.getItem('hami_splash_executed') === '1';
+    if (bootDone) {
+      window.__hamiBootRevealDone__ = true;
+      var staticBoot = document.getElementById('hami-static-boot');
+      if (staticBoot && staticBoot.parentNode) staticBoot.parentNode.removeChild(staticBoot);
+      if (document.documentElement) {
+        document.documentElement.classList.remove('hami-boot-static-active');
+      }
+    }
+  } catch (_eSplash) {
+    /* ignore */
   }
 
   /** كشف مبكر — قبل React — لتعطيل الضبابية الثقيلة على الأجهزة المتواضعة */
@@ -38,26 +57,42 @@
         window.matchMedia('(pointer: coarse)').matches &&
         window.innerWidth <= 520
       ) {
-        modest = true;
+        /* على الأصلي لا نفعّل lite من حجم الشاشة وحده — يقتل زخرفة اللوحة */
+        var isCapNative =
+          typeof window.Capacitor !== 'undefined' &&
+          typeof window.Capacitor.isNativePlatform === 'function' &&
+          window.Capacitor.isNativePlatform();
+        if (!isCapNative) modest = true;
       }
       if (modest) document.documentElement.setAttribute('data-hami-lite', '1');
     }
 
     try {
       var cap = typeof window !== 'undefined' ? window.Capacitor : null;
+      var ua = typeof navigator !== 'undefined' ? String(navigator.userAgent || '') : '';
+      var alreadyNative = document.documentElement.getAttribute('data-hami-native') === '1';
       if (cap && typeof cap.isNativePlatform === 'function' && cap.isNativePlatform()) {
         document.documentElement.setAttribute('data-hami-native', '1');
         var plat = typeof cap.getPlatform === 'function' ? cap.getPlatform() : 'web';
         document.documentElement.setAttribute('data-hami-platform', plat || 'web');
         document.documentElement.classList.add('hami-native-shell');
-      } else if (document.documentElement) {
+        /* نص الإقلاع يبقى في #hami-static-boot حتى جاهزية اللوحة — بلا تخطي مبكر */
+      } else if (
+        !alreadyNative &&
+        /Android/i.test(ua) &&
+        (/;\s*wv\)/i.test(ua) || /Capacitor/i.test(ua))
+      ) {
+        document.documentElement.setAttribute('data-hami-native', '1');
+        document.documentElement.setAttribute('data-hami-platform', 'android');
+        document.documentElement.classList.add('hami-native-shell');
+      } else if (!alreadyNative && document.documentElement) {
         document.documentElement.setAttribute('data-hami-native', '0');
         document.documentElement.setAttribute('data-hami-platform', 'web');
       }
-    } catch (e2) {
+    } catch (_e2) {
       /* ignore */
     }
-  } catch (e) {
+  } catch (_e) {
     /* ignore */
   }
 
@@ -73,7 +108,11 @@
     return layer;
   }
 
+  var bootFailureShown = false;
+
   function showBootFailure(title, detail) {
+    if (bootFailureShown) return;
+    bootFailureShown = true;
     var layer = ensureBootFailureLayer();
     layer.style.display = 'flex';
     layer.style.flexDirection = 'column';
@@ -88,6 +127,21 @@
       'color:#fff;text-align:left;background:#111;padding:12px;border-radius:8px;max-width:92vw;overflow:auto;direction:ltr;font-size:12px;border:1px solid #333;white-space:pre-wrap;';
     pre.textContent = detail || 'Unknown boot error';
 
+    var hint = null;
+    if (/Maximum call stack size exceeded/i.test(String(detail || ''))) {
+      hint = document.createElement('p');
+      hint.style.cssText =
+        'color:#E6C673;margin:12px 0 0;max-width:92vw;font-size:13px;line-height:1.5;text-align:center;font-family:Tajawal,Cairo,sans-serif;';
+      hint.textContent =
+        'غالباً من HMR تالف أثناء التطوير. أوقف npm run dev، امسح node_modules/.vite، أعد التشغيل، ثم Ctrl+Shift+R.';
+    } else if (/Component is not a function/i.test(String(detail || ''))) {
+      hint = document.createElement('p');
+      hint.style.cssText =
+        'color:#E6C673;margin:12px 0 0;max-width:92vw;font-size:13px;line-height:1.5;text-align:center;font-family:Tajawal,Cairo,sans-serif;';
+      hint.textContent =
+        'غالباً وحدة React تالفة بعد HMR. اضغط Reload أو Ctrl+Shift+R. إن استمر: امسح node_modules/.vite وأعد npm run dev.';
+    }
+
     var btn = document.createElement('button');
     btn.textContent = 'Reload';
     btn.setAttribute('data-testid', 'hami-boot-failure-retry');
@@ -99,6 +153,7 @@
 
     layer.appendChild(h1);
     layer.appendChild(pre);
+    if (hint) layer.appendChild(hint);
     layer.appendChild(btn);
 
     var onEscape = function (event) {
@@ -124,12 +179,24 @@
     );
   }
 
+  /**
+   * HMR بعد invalidate كثيف قد يترك JSX بمكوّن undefined أو chunk stale.
+   * ملاحظة: لا نُعد تحميلاً تلقائياً هنا — كان يسبب حلقة reload عند أخطاء متكررة.
+   */
+  function tryReloadOnceForHmrGlitch(_message) {
+    return false;
+  }
+
   window.removeLoader = function () {
     /* legacy no-op */
   };
 
-  window.onerror = function (msg, url, line) {
-    var detail = [msg, url, line != null ? 'line ' + line : ''].filter(Boolean).join('\n');
+  window.onerror = function (msg, url, line, _col, error) {
+    var stack = error && error.stack ? String(error.stack) : '';
+    var detail = stack
+      ? stack
+      : [msg, url, line != null ? 'line ' + line : ''].filter(Boolean).join('\n');
+    if (tryReloadOnceForHmrGlitch(String(msg))) return true;
     if (isRecoverableBootError(String(msg))) return false;
     showBootFailure('System Error', detail);
     return false;
@@ -143,6 +210,16 @@
         var src = target.src || 'module script';
         if (/favicon|hami-boot/i.test(src)) return;
         showBootFailure('Failed to load application script', src);
+        return;
+      }
+      if (event.error && event.error.stack) {
+        var msg = event.error.message || String(event.message || '');
+        if (tryReloadOnceForHmrGlitch(msg)) {
+          event.preventDefault();
+          return;
+        }
+        if (isRecoverableBootError(msg)) return;
+        showBootFailure('System Error', event.error.stack);
       }
     },
     true,
@@ -156,6 +233,10 @@
         : typeof reason === 'string'
           ? reason
           : String(reason);
+    if (tryReloadOnceForHmrGlitch(message)) {
+      event.preventDefault();
+      return;
+    }
     if (isRecoverableBootError(message)) {
       event.preventDefault();
       return;

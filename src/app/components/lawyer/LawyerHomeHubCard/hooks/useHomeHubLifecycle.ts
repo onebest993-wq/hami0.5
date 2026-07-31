@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveHomeHubShellReady } from '@/app/services/alerts/homeHubCardLogic';
 import {
     markHomeHubPerfPhase,
@@ -31,8 +31,10 @@ export function useHomeHubLifecycle({
 }: UseHomeHubLifecycleParams) {
     const [hadRadarCache, setHadRadarCache] = useState(false);
     const [hadAlertsCache, setHadAlertsCache] = useState(false);
+    const reportedRef = useRef(false);
 
     useEffect(() => {
+        reportedRef.current = false;
         if (!lawyerId) {
             setHadRadarCache(false);
             setHadAlertsCache(false);
@@ -79,7 +81,8 @@ export function useHomeHubLifecycle({
     });
 
     useEffect(() => {
-        if (!isShellReady) return;
+        if (!isShellReady || reportedRef.current) return;
+        reportedRef.current = true;
         markHomeHubPerfPhase('first-paint');
         markHomeHubPerfPhase('interactive');
         reportHomeHubPerf({
@@ -90,6 +93,28 @@ export function useHomeHubLifecycle({
             hadAlertsCache,
         });
     }, [alertsTabCount, hadAlertsCache, hadRadarCache, isShellReady, lawyerId, pinsCount]);
+
+    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (H1/H9) */
+    useEffect(() => {
+        if (reportedRef.current) return;
+
+        const markInteractiveFallback = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            markHomeHubPerfPhase('first-paint');
+            markHomeHubPerfPhase('interactive');
+            reportHomeHubPerf({
+                userId: lawyerId ?? undefined,
+                alertsTabCount,
+                pinsCount,
+                hadRadarCache,
+                hadAlertsCache,
+            });
+        };
+
+        const fallback = window.setTimeout(markInteractiveFallback, 1_200);
+        return () => window.clearTimeout(fallback);
+    }, [alertsTabCount, hadAlertsCache, hadRadarCache, lawyerId, pinsCount]);
 
     return { isShellReady, hadRadarCache, hadAlertsCache };
 }

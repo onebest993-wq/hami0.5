@@ -47,8 +47,8 @@ export function useProfileSettingsDraft(
     const toggleContactVisibility = useCallback((actionId: string, hidden: boolean) => {
         setDraft((prev) => {
             const hiddenSet = new Set(prev.privacy.hiddenContactIds);
-            if (hidden) hiddenSet.delete(actionId);
-            else hiddenSet.add(actionId);
+            if (hidden) hiddenSet.add(actionId);
+            else hiddenSet.delete(actionId);
             return {
                 ...prev,
                 privacy: { ...prev.privacy, hiddenContactIds: [...hiddenSet] },

@@ -1,10 +1,11 @@
-// @ts-nocheck
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode } from 'react';
-import type { CriminalCase } from '@/app/types/criminal';
+import type { CriminalCase } from './criminalStore';
 import {
     getBackgroundServicesDeferMs,
     scheduleIdleWork,
 } from '@/app/runtime/mobileRuntimePolicy';
+import { filterCriminalCasesForLawyer } from './criminalCaseOwner';
+import { criminalArchiveHearingFingerprint } from '@/app/components/lawyer/ArchivePortal/utils/criminalArchiveHearing';
 
 export type CriminalDashboardBridge = {
     ready: boolean;
@@ -51,11 +52,12 @@ function casesListFingerprint(casesById: Record<string, CriminalCase | undefined
                 caseId,
                 c.dossierStatus ?? '',
                 c.mergedIntoCaseId ?? '',
-                c.basics?.caseNumber ?? '',
+                c.courtCaseNumber ?? c.location?.caseNumber ?? '',
                 c.basics?.crimeType ?? '',
                 c.basics?.stage ?? '',
                 c.isArchived ? '1' : '0',
                 c.isFrozen ? '1' : '0',
+                criminalArchiveHearingFingerprint(c as unknown as Record<string, unknown>),
             ].join(':');
         })
         .join('|');
@@ -75,6 +77,7 @@ export function CriminalDashboardBridgeProvider({
     const listFingerprintRef = useRef('');
     const loadStartedRef = useRef(false);
     const loadCleanupRef = useRef<(() => void) | null>(null);
+    const claimedUnownedRef = useRef(false);
 
     const startBridgeLoad = useCallback(() => {
         if (loadStartedRef.current) return loadCleanupRef.current ?? undefined;
@@ -82,6 +85,7 @@ export function CriminalDashboardBridgeProvider({
 
         let cancelled = false;
         let unsubStore: (() => void) | undefined;
+        let offHydration: (() => void) | undefined;
 
         void import('./criminalStore').then((mod) => {
             if (cancelled) return;
@@ -94,41 +98,85 @@ export function CriminalDashboardBridgeProvider({
                     useCriminalStore.getState().prepareNormalCriminalCaseForm(),
             };
 
+            /**
+             * مهم: لا نستدعي set() متداخلاً ولا نرمي من داخل subscribe —
+             * أي استثناء هنا كان يمنع onClose لمودال الإفادة رغم نجاح الحفظ.
+             */
             const publish = () => {
-                const casesById = useCriminalStore.getState().casesById ?? {};
-                const cases = Object.values(casesById);
-                const fingerprint = casesListFingerprint(casesById);
+                try {
+                    const uid = lawyerId;
+                    const store = useCriminalStore.getState();
+                    if (uid && store.sessionOwnerLawyerId !== uid) {
+                        store.setSessionOwnerLawyerId(uid);
+                    }
+                    if (uid && !claimedUnownedRef.current) {
+                        claimedUnownedRef.current = true;
+                        store.claimUnownedCasesForSession(uid);
+                    }
 
-                const uid = lawyerId;
-                if (uid) {
-                    const prev = prevCasesRef.current;
-                    const next = casesById;
-                    for (const caseId of Object.keys(next)) {
-                        if (prev[caseId] !== next[caseId]) {
-                            const record = next[caseId] as unknown as Record<string, unknown>;
-                            void import('@/app/services/calendarDossierSync').then((m) =>
-                                m.syncCriminalCaseToCalendar(record, uid),
-                            );
+                    const casesById = useCriminalStore.getState().casesById ?? {};
+                    const allCases = Object.values(casesById);
+                    const cases = filterCriminalCasesForLawyer(allCases, uid);
+                    const fingerprint = casesListFingerprint(
+                        Object.fromEntries(cases.map((c) => [c.id, c])),
+                    );
+
+                    if (uid) {
+                        const prev = prevCasesRef.current;
+                        const next = Object.fromEntries(cases.map((c) => [c.id, c])) as Record<
+                            string,
+                            CriminalCase
+                        >;
+                        const changedIds = Object.keys(next).filter((caseId) => prev[caseId] !== next[caseId]);
+                        const removedIds = Object.keys(prev).filter((caseId) => !next[caseId]);
+                        prevCasesRef.current = next;
+                        // مزامنة التقويم خارج مكدس set/subscribe لتفادي كسر مسارات الحفظ
+                        if (changedIds.length || removedIds.length) {
+                            queueMicrotask(() => {
+                                if (cancelled) return;
+                                void Promise.all([
+                                    import('@/app/services/calendar/dossierSync/criminalSync'),
+                                    import('@/app/services/calendar/dossierSync/prune'),
+                                ])
+                                    .then(([criminalSync, prune]) => {
+                                        if (cancelled) return;
+                                        for (const caseId of changedIds) {
+                                            const record = next[caseId] as unknown as Record<
+                                                string,
+                                                unknown
+                                            >;
+                                            try {
+                                                criminalSync.syncCriminalCaseToCalendar(record, uid);
+                                            } catch {
+                                                /* لا تُسقط مسار الـ UI */
+                                            }
+                                        }
+                                        for (const caseId of removedIds) {
+                                            void prune.removeAllBridgedEventsForEntity(
+                                                'criminal',
+                                                caseId,
+                                                uid,
+                                            );
+                                        }
+                                    })
+                                    .catch(() => undefined);
+                            });
                         }
                     }
-                    for (const caseId of Object.keys(prev)) {
-                        if (!next[caseId]) {
-                            void import('@/app/services/calendarDossierSync').then((m) =>
-                                m.removeAllBridgedEventsForEntity('criminal', caseId, uid),
-                            );
-                        }
-                    }
-                    prevCasesRef.current = next as Record<string, CriminalCase>;
-                }
 
-                if (fingerprint !== listFingerprintRef.current) {
-                    listFingerprintRef.current = fingerprint;
-                    onCasesChange?.(cases);
-                    setBridge({
-                        ready: true,
-                        criminalCases: cases,
-                        ...stableActions,
-                    });
+                    if (fingerprint !== listFingerprintRef.current) {
+                        listFingerprintRef.current = fingerprint;
+                        onCasesChange?.(cases);
+                        setBridge({
+                            ready: true,
+                            criminalCases: cases,
+                            ...stableActions,
+                        });
+                    }
+                } catch (err) {
+                    if (import.meta.env.DEV) {
+                        console.warn('[criminalDashboardBridge] publish failed', err);
+                    }
                 }
             };
 
@@ -140,8 +188,9 @@ export function CriminalDashboardBridgeProvider({
             if (useCriminalStore.persist.hasHydrated()) {
                 startPublishing();
             } else {
-                const offHydration = useCriminalStore.persist.onFinishHydration(() => {
-                    offHydration();
+                offHydration = useCriminalStore.persist.onFinishHydration(() => {
+                    offHydration?.();
+                    offHydration = undefined;
                     if (cancelled) return;
                     startPublishing();
                 });
@@ -150,7 +199,10 @@ export function CriminalDashboardBridgeProvider({
 
         const cleanup = () => {
             cancelled = true;
+            offHydration?.();
+            offHydration = undefined;
             unsubStore?.();
+            unsubStore = undefined;
         };
         loadCleanupRef.current = cleanup;
         return cleanup;

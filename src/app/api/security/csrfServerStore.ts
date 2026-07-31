@@ -3,6 +3,9 @@
  * Binds CSRF token to authenticated subject (sub).
  */
 
+import { createClient } from '@supabase/supabase-js';
+import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.ts';
+
 const DEFAULT_CSRF_TABLE = 'wife_csrf_store';
 const CSRF_TTL_MS = 24 * 60 * 60 * 1000;
 const memoryStore = new Map<string, { token: string; expiresAtMs: number }>();
@@ -30,11 +33,10 @@ function pruneMemory(nowMs: number): void {
   }
 }
 
-function getSupabaseAdminClient(): ReturnType<typeof import('@supabase/supabase-js').createClient> | null {
+function getSupabaseAdminClient(): ReturnType<typeof createClient> | null {
   const supabaseUrl = getEnv('SUPABASE_URL');
-  const serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+  const serviceRoleKey = readSupabasePrivilegedKey();
   if (!supabaseUrl || !serviceRoleKey) return null;
-  const { createClient } = require('@supabase/supabase-js') as typeof import('@supabase/supabase-js');
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });

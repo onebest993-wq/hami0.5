@@ -1,7 +1,6 @@
 import React from 'react';
 import type { ProfileBlockCanvasStyle } from '@/app/services/profile/profilePageCustomization';
 import { PROFILE_CANVAS_MATERIALS } from '@/app/services/profile/profilePageCustomization';
-import { ProfileTextCanvasMaterialStack } from '../profileTextCanvas/ProfileTextCanvasMaterialStack';
 
 type CanvasMaterialGridProps = {
     selected: ProfileBlockCanvasStyle['material'];
@@ -10,6 +9,7 @@ type CanvasMaterialGridProps = {
     onSelect: (material: NonNullable<ProfileBlockCanvasStyle['material']>) => void;
 };
 
+/** شبكة خامات مسطّحة — بلا طبقات MaterialStack المصغّرة */
 export function CanvasMaterialGrid({
     selected,
     accentColor,
@@ -28,14 +28,13 @@ export function CanvasMaterialGrid({
                     className="profile-studio-material-chip min-h-[44px]"
                     onClick={() => onSelect(m.id)}
                 >
-                    <span className="profile-studio-material-chip__stage" aria-hidden>
-                        <ProfileTextCanvasMaterialStack
-                            material={m.id}
-                            accentColor={accentColor}
-                            backgroundColor={backgroundColor}
-                            mini
-                        />
-                    </span>
+                    <span
+                        className="profile-studio-material-chip__swatch"
+                        style={{
+                            background: `linear-gradient(135deg, ${accentColor}33, ${backgroundColor})`,
+                        }}
+                        aria-hidden
+                    />
                     <span className="profile-studio-material-chip__label">{m.label}</span>
                 </button>
             ))}

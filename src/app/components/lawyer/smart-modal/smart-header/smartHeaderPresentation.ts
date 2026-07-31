@@ -29,6 +29,6 @@ export const PARTY_STRIP_SHELL =
 
 /** بطاقة الأطراف المنفصلة عن ترويسة القضية */
 export const PARTIES_CARD_SHELL =
-    'rounded-[22px] mb-1.5 backdrop-blur-2xl bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.09),transparent_34%),linear-gradient(180deg,rgba(12,18,31,0.94),rgba(8,12,22,0.96))] border border-[#E6C673]/12 shadow-[0_18px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden';
+    'rounded-[22px] mb-1.5 backdrop-blur-2xl bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.09),transparent_34%),linear-gradient(180deg,rgba(12,18,31,0.94),rgba(8,12,22,0.96))] border border-[#E6C673]/12 shadow-[0_18px_40px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.05)] overflow-visible';
 
 export const CLIENT_MARKER_SLOT = 'shrink-0 min-w-[2.25rem] flex items-center justify-center';

@@ -2,32 +2,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const warmGlobalSearchPipeline = vi.fn();
 const warmGlobalSearchExtras = vi.fn();
+const prefetchGlobalSearchOverlayChunk = vi.fn();
+const prefetchGlobalSearchSearchEngine = vi.fn();
+const isLitePerformanceActive = vi.fn(() => false);
+const shouldAllowIntentWarmFromDom = vi.fn(() => true);
 
 vi.mock('@/app/services/globalSearchWarm', () => ({
-    warmGlobalSearchPipeline,
+    warmGlobalSearchPipeline: (...args: unknown[]) => warmGlobalSearchPipeline(...args),
 }));
 
 vi.mock('@/app/services/globalSearchLoad', () => ({
-    warmGlobalSearchExtras,
+    warmGlobalSearchExtras: (...args: unknown[]) => warmGlobalSearchExtras(...args),
 }));
 
 vi.mock('@/app/runtime/globalSearchLoader', () => ({
-    prefetchGlobalSearchOverlay: vi.fn(),
-    prefetchGlobalSearchOverlayChunk: vi.fn(),
-    prefetchGlobalSearchSearchEngine: vi.fn(),
+    prefetchGlobalSearchOverlayChunk: (...args: unknown[]) => prefetchGlobalSearchOverlayChunk(...args),
+    prefetchGlobalSearchSearchEngine: (...args: unknown[]) => prefetchGlobalSearchSearchEngine(...args),
 }));
 
-import {
-    clearGlobalSearchWarmSnapshot,
-    registerGlobalSearchWarmSnapshot,
-    warmGlobalSearchOnHover,
-    warmGlobalSearchOnOpen,
-} from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import {
-    prefetchGlobalSearchOverlay,
-    prefetchGlobalSearchOverlayChunk,
-    prefetchGlobalSearchSearchEngine,
-} from '@/app/runtime/globalSearchLoader';
+vi.mock('@/app/services/settings/intentWarmGate', () => ({
+    shouldAllowIntentWarmFromDom: () => shouldAllowIntentWarmFromDom(),
+}));
+
+vi.mock('@/app/runtime/devicePerformanceTier', () => ({
+    isLitePerformanceActive: () => isLitePerformanceActive(),
+}));
 
 const snapshot = {
     userId: 'guest-lawyer-1',
@@ -41,22 +40,20 @@ const snapshot = {
 
 describe('globalSearchIntentWarm', () => {
     beforeEach(() => {
-        clearGlobalSearchWarmSnapshot();
-        warmGlobalSearchPipeline.mockClear();
-        warmGlobalSearchExtras.mockClear();
-        vi.mocked(prefetchGlobalSearchOverlay).mockClear();
-        vi.mocked(prefetchGlobalSearchOverlayChunk).mockClear();
-        vi.mocked(prefetchGlobalSearchSearchEngine).mockClear();
+        vi.clearAllMocks();
+        isLitePerformanceActive.mockReturnValue(false);
+        shouldAllowIntentWarmFromDom.mockReturnValue(true);
+        Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     });
 
     it('warmGlobalSearchOnOpen يبدأ فهرس idle في الخلفية بعد paint', async () => {
-        registerGlobalSearchWarmSnapshot(snapshot);
-        warmGlobalSearchOnOpen();
-        expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
-        expect(warmGlobalSearchPipeline).not.toHaveBeenCalled();
-        await Promise.resolve();
-        expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
+        const mod = await import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+        mod.clearGlobalSearchWarmSnapshot();
+        mod.registerGlobalSearchWarmSnapshot(snapshot);
+        mod.warmGlobalSearchOnOpen();
         await vi.waitFor(() => {
+            expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+            expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
             expect(warmGlobalSearchExtras).toHaveBeenCalledWith(snapshot.userId);
             expect(warmGlobalSearchPipeline).toHaveBeenCalledWith(snapshot, false);
         });
@@ -64,28 +61,38 @@ describe('globalSearchIntentWarm', () => {
 
     it('warmGlobalSearchOnOpen لا يشغّل extras ولا pipeline عند document.hidden', async () => {
         Object.defineProperty(document, 'hidden', { configurable: true, value: true });
-        registerGlobalSearchWarmSnapshot(snapshot);
-        warmGlobalSearchOnOpen();
-        expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+        const mod = await import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+        mod.clearGlobalSearchWarmSnapshot();
+        mod.registerGlobalSearchWarmSnapshot(snapshot);
+        mod.warmGlobalSearchOnOpen();
+        await vi.waitFor(() => {
+            expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+            expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
+        });
         expect(warmGlobalSearchExtras).not.toHaveBeenCalled();
-        await Promise.resolve();
         expect(warmGlobalSearchPipeline).not.toHaveBeenCalled();
         Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     });
 
     it('warmGlobalSearchOnOpen يعمل بلا snapshot', async () => {
-        warmGlobalSearchOnOpen();
-        expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+        const mod = await import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+        mod.clearGlobalSearchWarmSnapshot();
+        mod.warmGlobalSearchOnOpen();
+        await vi.waitFor(() => {
+            expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+            expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
+        });
         expect(warmGlobalSearchPipeline).not.toHaveBeenCalled();
-        await Promise.resolve();
-        expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
     });
 
-    it('warmGlobalSearchOnHover prefetches overlay, warms extras, and starts core pipeline', async () => {
-        registerGlobalSearchWarmSnapshot(snapshot);
-        warmGlobalSearchOnHover();
-        expect(prefetchGlobalSearchOverlay).toHaveBeenCalled();
+    it('warmGlobalSearchOnHover prefetches overlay chunk, warms extras, and starts core pipeline', async () => {
+        const mod = await import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+        mod.clearGlobalSearchWarmSnapshot();
+        mod.registerGlobalSearchWarmSnapshot(snapshot);
+        mod.warmGlobalSearchOnHover();
         await vi.waitFor(() => {
+            expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalled();
+            expect(prefetchGlobalSearchSearchEngine).toHaveBeenCalled();
             expect(warmGlobalSearchExtras).toHaveBeenCalledWith(snapshot.userId);
             expect(warmGlobalSearchPipeline).toHaveBeenCalledWith(snapshot, false);
         });

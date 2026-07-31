@@ -1,58 +1,64 @@
 import type {
-    AppointmentType,
-    CaseStage,
-    ConsolidationSecondaryRef,
-    DocumentCategory,
-    IncidentalCase,
-    IncidentalStatus,
-    Party,
+    AppointmentType as _AppointmentType,
+    CaseStage as _CaseStage,
+    ConsolidationSecondaryRef as _ConsolidationSecondaryRef,
+    DocumentCategory as _DocumentCategory,
+    IncidentalCase as _IncidentalCase,
+    IncidentalStatus as _IncidentalStatus,
+    Party as _Party,
     Task,
     TimelineEvent,
 } from '../../../LawyerShared';
-import { formatConsolidatedChipLabel } from '../../smartFile/caseConsolidationLinking';
+import { formatConsolidatedChipLabel as _formatConsolidatedChipLabel } from '../../smartFile/caseConsolidationLinking';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    validateDocumentData,
-    validatePaymentData,
-    validateTaskData,
+    validateDocumentData as _validateDocumentData,
+    validatePaymentData as _validatePaymentData,
+    validateTaskData as _validateTaskData,
 } from '@/app/utils/validationUtils';
-import { logError } from '@/app/utils/errorHandler';
-import { debug } from '@/app/utils/debug';
-import { getLocalTodayYmd, parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
-import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
-import { str, type SmartFileAttachment } from '../../smartFile/judgmentTypes';
-import { normalizeFastTrackRecord } from '../../smartFile/fastTrackNormalize';
+import { logError as _logError } from '@/app/utils/errorHandler';
+import { debug as _debug } from '@/app/utils/debug';
+import { getLocalTodayYmd, parseLocalNotificationDate as _parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
+import { addCalendarDaysYmd as _addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
+import { str as _str, type SmartFileAttachment as _SmartFileAttachment } from '../../smartFile/judgmentTypes';
+import { normalizeFastTrackRecord as _normalizeFastTrackRecord } from '../../smartFile/fastTrackNormalize';
 import {
-    buildAttachmentTimelineEvent,
-    buildFastTrackTimelineEvent,
-    patchTimelineEvent,
-    resolveAttachmentTimelineEventId,
-    resolveFastTrackTimelineEventId,
+    buildAttachmentTimelineEvent as _buildAttachmentTimelineEvent,
+    buildFastTrackTimelineEvent as _buildFastTrackTimelineEvent,
+    patchTimelineEvent as _patchTimelineEvent,
+    resolveAttachmentTimelineEventId as _resolveAttachmentTimelineEventId,
+    resolveFastTrackTimelineEventId as _resolveFastTrackTimelineEventId,
 } from '../../smartFile/timelineRequestSync';
-import type { FastTrackRecord, UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
+import type { FastTrackRecord as _FastTrackRecord, UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 import {
-    formatDateToLocalYmd,
-    stageAttachmentsList,
-    stageFastTrackPetitions,
-    stageIncidentalCases,
+    formatDateToLocalYmd as _formatDateToLocalYmd,
+    stageAttachmentsList as _stageAttachmentsList,
+    stageFastTrackPetitions as _stageFastTrackPetitions,
+    stageIncidentalCases as _stageIncidentalCases,
     stageTasks,
     stageTimeline,
-    ymdPlusDays,
+    ymdPlusDays as _ymdPlusDays,
 } from '../../smartFile/proceduralTypes';
 import {
-    buildIncidentalEntryDecisionEvent,
-    buildIncidentalResolveEvent,
-    buildIncidentalTimelineEvent,
-    filterHeaderIncidentalCases,
-    isLinkedSpawnIncidentalType,
+    buildIncidentalEntryDecisionEvent as _buildIncidentalEntryDecisionEvent,
+    buildIncidentalResolveEvent as _buildIncidentalResolveEvent,
+    buildIncidentalTimelineEvent as _buildIncidentalTimelineEvent,
+    filterHeaderIncidentalCases as _filterHeaderIncidentalCases,
+    isLinkedSpawnIncidentalType as _isLinkedSpawnIncidentalType,
 } from '../../smartFile/incidentalCaseLinking';
-import { syncLawsuitTaskDue, syncLawsuitTimelineAppointment } from '@/app/services/calendarDossierSync';
+import { syncLawsuitTaskDue, syncLawsuitTimelineAppointment as _syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync';
 import {
-    isPetitionVoidRevivalExpired,
-    PETITION_VOID_APPEAL_DAYS,
-    resolvePetitionVoidMenuLabel,
+    isPetitionVoidRevivalExpired as _isPetitionVoidRevivalExpired,
+    PETITION_VOID_APPEAL_DAYS as _PETITION_VOID_APPEAL_DAYS,
+    resolvePetitionVoidMenuLabel as _resolvePetitionVoidMenuLabel,
 } from '../../smartFile/petitionVoidFlow';
 import { buildLawsuitCalendarContext } from './lawsuitCalendarContext';
+import { isCassationStageName } from '../../smartFile/judgmentTypes';
+import {
+    findCassationStageIndex,
+    resolveRetrialTargetStageIndex,
+} from '../../smartFile/extraordinaryAppealGateway';
+import { applyCassationCorrectionOpen } from '../../smartFile/appealStageTransition';
 
 
 export function useProceduralPauseActions(options: UseSmartFileProceduralActionsOptions) {
@@ -61,6 +67,8 @@ export function useProceduralPauseActions(options: UseSmartFileProceduralActions
         setStages,
         activeStageIndex,
         viewingStageIndex,
+        setActiveStageIndex,
+        setViewingStageIndex,
         currentStage,
         parentData,
         setParentData,
@@ -71,17 +79,17 @@ export function useProceduralPauseActions(options: UseSmartFileProceduralActions
         setLinkedCaseNo,
         setIsInterrupted,
         setInterruptionData,
-        setEditingTask,
-        setEditingIncidental,
-        setEditingFastTrack,
-        setEditingAttachment,
+        setEditingTask: _setEditingTask,
+        setEditingIncidental: _setEditingIncidental,
+        setEditingFastTrack: _setEditingFastTrack,
+        setEditingAttachment: _setEditingAttachment,
         setEditingEvent,
-        setShowFastTrackModal,
-        setShowAttachmentModal,
-        setShowJudgeRecusalModal,
-        setShowTransferJurisdictionModal,
-        setShowCaseConsolidationModal,
-        setShowMaterialErrorModal,
+        setShowFastTrackModal: _setShowFastTrackModal,
+        setShowAttachmentModal: _setShowAttachmentModal,
+        setShowJudgeRecusalModal: _setShowJudgeRecusalModal,
+        setShowTransferJurisdictionModal: _setShowTransferJurisdictionModal,
+        setShowCaseConsolidationModal: _setShowCaseConsolidationModal,
+        setShowMaterialErrorModal: _setShowMaterialErrorModal,
         setShowPauseModal,
         setShowInterruptionModal,
         setShowResumeInterruptionModal,
@@ -94,7 +102,7 @@ export function useProceduralPauseActions(options: UseSmartFileProceduralActions
         interruptionData,
         status,
         calendarUserId,
-        setAppealOutcomeTask,
+        setAppealOutcomeTask: _setAppealOutcomeTask,
     } = options;
 
     const lawsuitCalendarContext = () => buildLawsuitCalendarContext(parentData, calendarUserId);
@@ -187,59 +195,113 @@ const handleExtraordinaryAppeal = (data: { type: string; date: string; court: st
     const updatedStages = [...stages];
     
     let newStatus = status;
-    let statusLabel = '';
     let timelineTitle = '';
     let timelineDetails = `تاريخ التقديم: ${date}\nمقدمة إلى: ${court}\n\nالأسباب:\n${reasons}`;
+    let targetIndex = activeStageIndex;
+    let nextParent = parentData;
 
     // 1. STATE OVERRIDE MUTATIONS (The Legal Re-opening)
     if (type === 'إعادة المحاكمة') {
         newStatus = 'قيد نظر إعادة المحاكمة';
-        statusLabel = 'قيد نظر إعادة المحاكمة';
         timelineTitle = '🔄 تسجيل طلب إعادة المحاكمة';
-        // Un-freeze slightly
-        updatedStages[activeStageIndex].status = 'active'; 
-    } else if (type === 'تصحيح القرار التمييزي') {
+        targetIndex = resolveRetrialTargetStageIndex(updatedStages);
+        const targetStage = updatedStages[targetIndex];
+        if (!targetStage) {
+            SmartToast.error('تعذّر تحديد مرحلة إعادة المحاكمة');
+            return;
+        }
+        const targetName = String(targetStage.stageName ?? targetStage.name ?? '');
+        updatedStages[targetIndex] = {
+            ...targetStage,
+            status: 'active',
+            isPleadingsClosed: false,
+            awaitingOpponentAppeal: false,
+            finalDecision: null,
+            decisionDate: null,
+            wasReopened: true,
+            extraordinaryAppealType: type,
+            timeline: [
+                {
+                    id: `extra_appeal_${Date.now()}`,
+                    type: 'decision',
+                    date,
+                    title: timelineTitle,
+                    details: timelineDetails,
+                    isNew: true,
+                    isSystemLog: true,
+                    tags: ['#طعن_استثنائي', type],
+                },
+                ...stageTimeline(targetStage),
+            ],
+        };
+        nextParent = {
+            ...parentData,
+            status: newStatus,
+            retrialTargetStage: targetName,
+        };
+        setParentData(nextParent);
+        setStatus(newStatus);
+        setActiveStageIndex?.(targetIndex);
+        setViewingStageIndex?.(targetIndex);
+        setStages(updatedStages);
+        saveToCloud(updatedStages, nextParent, targetIndex);
+        setShowExtraordinaryAppealModal(false);
+        SmartToast.success(`تم تسجيل ${type} بنجاح في مرحلة ${targetName} ⚖️`);
+        return;
+    }
+
+    if (type === 'تصحيح القرار التمييزي') {
         newStatus = 'قيد نظر التصحيح التمييزي';
-        statusLabel = 'قيد نظر التصحيح التمييزي';
-        timelineTitle = '⚠️ طلب تصحيح القرار التمييزي';
-         // Un-freeze slightly
-        updatedStages[activeStageIndex].status = 'active';
-    } else if (type === 'اعتراض الغير') {
-        // Objection doesn't necessarily freeze, but we note it
+        const cassationIdx =
+            viewingStageIndex >= 0 && isCassationStageName(updatedStages[viewingStageIndex]?.stageName)
+                ? viewingStageIndex
+                : findCassationStageIndex(updatedStages);
+        if (cassationIdx < 0) {
+            SmartToast.error('تعذّر تحديد مرحلة التمييز');
+            return;
+        }
+        const { updatedStages: openedStages, newActiveIndex } = applyCassationCorrectionOpen(
+            updatedStages,
+            cassationIdx,
+            { judgmentDate: date, notes: timelineDetails },
+        );
+        nextParent = { ...parentData, status: newStatus };
+        setParentData(nextParent);
+        setStatus(newStatus);
+        setActiveStageIndex?.(newActiveIndex);
+        setViewingStageIndex?.(newActiveIndex);
+        setStages(openedStages);
+        saveToCloud(openedStages, nextParent, newActiveIndex);
+        setShowExtraordinaryAppealModal(false);
+        SmartToast.success('تم فتح مرحلة تصحيح قرار تمييزي');
+        return;
+    }
+
+    if (type === 'اعتراض الغير') {
         timelineTitle = '🙋‍♂️ تسجيل اعتراض الغير على الحكم';
-        statusLabel = 'اعتراض الغير';
-        // Status might remain 'active' or specific if needed, but per prompt: "do not necessarily freeze... unless manually requested"
-        // We just add event.
     } else if (type === 'رد القاضي') {
-        // 🔥 NEW: Judge Recusal - Freezes the case immediately
         newStatus = 'قيد نظر طلب رد القاضي';
-        statusLabel = 'قيد نظر طلب رد القاضي';
         timelineTitle = '⚖️ طلب رد القاضي أو نقل الدعوى';
-        // Freeze case completely
         setIsPaused(true);
         setPauseReason('قيد نظر طلب رد القاضي');
     }
 
-    // 2. Update Global Status if changed
     if (newStatus !== status) {
         setStatus(newStatus);
     }
 
-    // 3. Add Timeline Event (High Contrast)
     const newEvent: TimelineEvent = {
         id: `extra_appeal_${Date.now()}`,
-        type: 'decision', // Uses decision icon/type base
+        type: 'decision',
         date: date,
         title: timelineTitle,
         details: timelineDetails,
         isNew: true,
-        isSystemLog: true, // Mark as special system event
-        tags: ['#طعن_استثنائي', type] // Add tag for filtering
+        isSystemLog: true,
+        tags: ['#طعن_استثنائي', type]
     };
 
     updatedStages[activeStageIndex].timeline = [newEvent, ...stageTimeline(currentStage)];
-    
-    // 4. Update Stage Metadata to reflect this extraordinary state
     updatedStages[activeStageIndex].extraordinaryAppealType = type;
 
     setStages(updatedStages);

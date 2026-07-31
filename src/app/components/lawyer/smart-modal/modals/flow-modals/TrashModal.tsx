@@ -1,35 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-    AlertTriangle,
-    Check,
-    Gavel,
-    Lock,
-    PauseCircle,
     RotateCcw,
     Trash2,
     X,
 } from 'lucide-react';
-import type { AffiliationSide, Party, ThirdPartyEntryMode } from '../../../LawyerShared';
 import { TimelineEvent } from '../../../LawyerShared';
-import {
-    affiliationSideLabel,
-    groupPartiesBySide,
-} from '../../smartFile/incidentalCaseLinking';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import {
-    GLASS_BTN,
-    GLASS_CHIP,
-    GLASS_CHIP_ACTIVE,
-    GLASS_CLOSE,
-    GLASS_FIELD,
-    GLASS_MODAL_HEADER,
-    GLASS_MODAL_OVERLAY,
-    GLASS_MODAL_SHELL,
-    GLASS_SELECT,
-    MoroccanCloseButton,
-    MoroccanGlassShell,
-    MoroccanHeaderDivider,
-} from '../../smartFile/moroccanGlassShell';
+
+
+
+
 
 export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermanentDelete, onEmptyTrash }: { 
     isOpen: boolean; 
@@ -78,7 +57,8 @@ export const TrashModal = ({ isOpen, onClose, deletedItems, onRestore, onPermane
                                                     item.type === 'document' ? 'bg-purple-500/20 text-purple-400' :
                                                     item.type === 'note' ? 'bg-amber-500/20 text-amber-400' :
                                                     'bg-green-500/20 text-green-400'
-                                                }`}>
+                                                }`}
+                                                >
                                                     {item.type === 'appointment' ? 'موعد' :
                                                      item.type === 'document' ? 'مستند' :
                                                      item.type === 'note' ? 'ملاحظة' : 'قرار'}

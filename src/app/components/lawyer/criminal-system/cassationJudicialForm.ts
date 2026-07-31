@@ -7,8 +7,6 @@ import type {
 import {
     buildProceduralCassationBadgeText,
     DISPOSITIVE_CASSATION_RESULT_OPTIONS,
-    getCassationResultFormOptions,
-    isDispositiveCassationResult,
     isProceduralCassationResult,
     PROCEDURAL_CASSATION_RESULT_OPTIONS,
 } from './proceduralCassationResults';

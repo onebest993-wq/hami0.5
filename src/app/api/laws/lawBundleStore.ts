@@ -15,6 +15,7 @@ import {
   extractArticleSortNumber,
   parseOptionalArticleBound,
 } from './lawsAdminUtils.ts';
+import { readSupabasePrivilegedKey } from '@/app/api/security/supabasePrivilegedEnv.ts';
 
 export type DevLawRow = {
   id: string;
@@ -29,10 +30,10 @@ function isProductionNodeEnv(): boolean {
   return (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
 }
 
-/** تفعيل تلقائي في التطوير عند غياب service_role. */
+/** تفعيل تلقائي في التطوير عند غياب مفتاح الإدارة. */
 export function shouldUseDevLocalLawsStore(): boolean {
   if (isProductionNodeEnv()) return false;
-  return !(process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  return !readSupabasePrivilegedKey();
 }
 
 function getBundleRoot(): string {

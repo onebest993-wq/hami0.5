@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useState, useEffect, useRef } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import { buildInitialStagesFromFile } from '../smartFile/stageInit';

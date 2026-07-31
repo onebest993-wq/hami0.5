@@ -8,12 +8,14 @@ describe('procedureCategory', () => {
     it('classifies petition orders types', () => {
         expect(resolveProcedureCategory(null, 'وضع إشارة عدم التصرف')).toBe('petition_orders');
         expect(resolveProcedureCategory(null, 'أمر ولائي آخر (تحديد يدوي)')).toBe('petition_orders');
+        expect(resolveProcedureCategory(null, 'الحجز الاحتياطي')).toBe('petition_orders');
+        expect(resolveProcedureCategory(null, 'منع السفر')).toBe('petition_orders');
     });
 
-    it('classifies urgent judiciary types including الحجز الاحتياطي', () => {
-        expect(resolveProcedureCategory(null, 'الحجز الاحتياطي')).toBe('urgent_judiciary');
-        expect(resolveProcedureCategory(null, 'منع السفر')).toBe('urgent_judiciary');
+    it('classifies urgent judiciary types', () => {
         expect(resolveProcedureCategory(null, 'الكشف المستعجل وتثبيت الحالة')).toBe('urgent_judiciary');
+        expect(resolveProcedureCategory(null, 'سماع شاهد (خطر الفوات)')).toBe('urgent_judiciary');
+        expect(resolveProcedureCategory(null, 'استكتاب وإقرار بالسندات')).toBe('urgent_judiciary');
     });
 
     it('uses stored category when present', () => {

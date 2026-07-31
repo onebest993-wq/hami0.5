@@ -13,6 +13,7 @@ import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashb
 export type LawyerDashboardHeaderOverlayPatchInput = {
     showSettings: boolean;
     showGlobalSearch: boolean;
+    showCommunity?: boolean;
     showNotifications: boolean;
     notificationsUnreadCount: number;
     activeTab: LawyerDashboardTab;
@@ -33,17 +34,17 @@ export function patchLawyerDashboardHeaderOverlayOpen(
     const scheduleTabBaseActive = input.activeTab === 'schedule';
     const homeTabMounted = isLawyerDashboardTabMounted(homeTabBaseActive, input.tabStackMask);
     const scheduleTabMounted = isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask);
-    const overlaysHostOverlayChanged =
-        view.overlaysHostProps.overlays.showSettings !== input.showSettings ||
-        view.overlaysHostProps.overlays.showGlobalSearch !== input.showGlobalSearch;
+    const overlaysBundleOverlayChanged =
+        view.overlaysBundle.overlays.showSettings !== input.showSettings ||
+        view.overlaysBundle.overlays.showGlobalSearch !== input.showGlobalSearch;
 
     if (
         view.tabStackHidden === tabStackHidden &&
         view.headerProps.shouldShow === headerShouldShow &&
         view.notificationPanel.isOpen === input.showNotifications &&
         view.headerProps.unreadCount === input.notificationsUnreadCount &&
-        view.overlaysHostProps.overlays.showSettings === input.showSettings &&
-        view.overlaysHostProps.overlays.showGlobalSearch === input.showGlobalSearch &&
+        view.overlaysBundle.overlays.showSettings === input.showSettings &&
+        view.overlaysBundle.overlays.showGlobalSearch === input.showGlobalSearch &&
         view.homeTabProps.visible === homeTabMounted &&
         view.scheduleTabProps.visible === scheduleTabMounted
     ) {
@@ -70,15 +71,15 @@ export function patchLawyerDashboardHeaderOverlayOpen(
             ...view.notificationPanel,
             isOpen: input.showNotifications,
         },
-        overlaysHostProps: overlaysHostOverlayChanged
+        overlaysBundle: overlaysBundleOverlayChanged
             ? {
-                  ...view.overlaysHostProps,
+                  ...view.overlaysBundle,
                   overlays: {
-                      ...view.overlaysHostProps.overlays,
+                      ...view.overlaysBundle.overlays,
                       showSettings: input.showSettings,
                       showGlobalSearch: input.showGlobalSearch,
                   },
               }
-            : view.overlaysHostProps,
+            : view.overlaysBundle,
     };
 }

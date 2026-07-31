@@ -1,7 +1,7 @@
 import { CommunityDB, getCommunityPostById } from '@/app/services/forum/forumCommunityRuntime';
 import type { CommunityPost } from '@/app/services/forum/forumTypes';
 import { communityPostToInsertRow, type ForumPostRow } from './forumMapper';
-import { getForumSupabaseAdmin, isForumSupabaseConfigured } from './supabaseAdmin';
+import { loadForumSupabaseAdmin, isForumSupabaseConfigured } from './loadForumSupabaseAdmin';
 import { buildForumEditPatch } from './forumEditUtils';
 import {
     hydrateForumPosts,
@@ -21,7 +21,7 @@ const postRepository = {
         offset = 0,
         options?: ForumListPostsOptions,
     ): Promise<{ posts: CommunityPost[]; total: number }> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const all = (await CommunityDB.listPosts()).filter((p) => matchesForumListScope(p, options));
             const sorted = sortForumRepositoryPosts(all);
@@ -57,7 +57,7 @@ const postRepository = {
     },
 
     async getPostById(postId: string): Promise<CommunityPost | null> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return getCommunityPostById(postId);
         }
@@ -70,8 +70,32 @@ const postRepository = {
         return post ?? null;
     },
 
+    /**
+     * إنشاء منشور جديد فقط — insert بدون upsert (يمنع overwrite بمعرّف عميل).
+     */
+    async createPost(post: CommunityPost): Promise<CommunityPost> {
+        const admin = await loadForumSupabaseAdmin();
+        if (!admin) {
+            const existing = await getCommunityPostById(post.id);
+            if (existing) throw new Error('معرّف المنشور مستخدم مسبقاً');
+            await CommunityDB.savePost(post);
+            return post;
+        }
+
+        const row = communityPostToInsertRow(post);
+        const { error } = await admin.from('forum_posts').insert(row);
+        if (error) {
+            if (error.code === '23505') throw new Error('معرّف المنشور مستخدم مسبقاً');
+            throw new Error(error.message);
+        }
+
+        const saved = await postRepository.getPostById(post.id);
+        return saved ?? post;
+    },
+
+    /** تحديث/مزامنة منشور موجود — upsert مسموح فقط لمعرّفات معروفة من الخادم. */
     async savePost(post: CommunityPost): Promise<CommunityPost> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await CommunityDB.savePost(post);
             return post;
@@ -86,7 +110,7 @@ const postRepository = {
     },
 
     async deletePost(postId: string): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await CommunityDB.deletePost(postId);
             return;
@@ -148,7 +172,7 @@ const postRepository = {
         if (!requesterIsAdmin && post.authorId !== requesterId) {
             throw new Error('ليس لديك صلاحية لقفل النقاش');
         }
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const updated: CommunityPost = {
                 ...post,

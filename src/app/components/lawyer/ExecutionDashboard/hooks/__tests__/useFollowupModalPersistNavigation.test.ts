@@ -6,6 +6,14 @@ vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell'
     prefetchExecutionFollowupAllTabs: vi.fn(),
 }));
 
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch', () => ({
+    prefetchExecutionFollowupOverlay: vi.fn(),
+}));
+
+vi.mock('@/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch', () => ({
+    prefetchExecutionFollowupTab: vi.fn(),
+}));
+
 function createRefs() {
     return {
         followupModalBodyScrollRef: { current: null as HTMLDivElement | null },

@@ -1,41 +1,36 @@
 import React, { memo } from 'react';
 import { Calendar, FileText, Paperclip, Scale, type LucideIcon } from 'lucide-react';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
-import { GLASS_ACTION_BTN } from '../smartFile/moroccanGlassShell';
+import { MOROCCAN_ZELLIGE_BG } from '../smartFile/moroccanGlassShell';
 
 type QuickActionItem = {
     id: string;
     icon: LucideIcon;
     label: string;
-    iconClass: string;
 };
 
 const APPOINTMENT_ACTION: QuickActionItem = {
     id: 'appointment',
     icon: Calendar,
     label: 'موعد جديد',
-    iconClass: 'text-[#E6C673]',
 };
 
 const NOTE_ACTION: QuickActionItem = {
     id: 'note',
     icon: FileText,
     label: 'ملاحظة',
-    iconClass: 'text-[#E6C673]',
 };
 
 const DOCUMENT_ACTION: QuickActionItem = {
     id: 'document',
     icon: Paperclip,
     label: 'مستند',
-    iconClass: 'text-[#E6C673]',
 };
 
 const LEGAL_ACTION: QuickActionItem = {
     id: 'legal',
     icon: Scale,
     label: 'إجراءات الدعوى',
-    iconClass: 'text-[#E6C673]',
 };
 
 const QUICK_ACTION_TEST_IDS: Record<string, string> = {
@@ -57,21 +52,29 @@ function QuickActionButton({
         <button
             type="button"
             onClick={onClick}
-            className={`${GLASS_ACTION_BTN} h-24 sm:h-28 w-full min-w-0 items-center justify-center gap-3 px-4 py-3 text-center`}
             data-testid={QUICK_ACTION_TEST_IDS[action.id]}
+            className={`group relative isolate flex h-[4.75rem] w-full min-w-0 flex-col items-center justify-center gap-1.5 overflow-hidden rounded-2xl border border-[#E6C673]/28 px-2 py-2 text-center touch-manipulation transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] ${MOROCCAN_ZELLIGE_BG}`}
+            style={{
+                background: `
+                    linear-gradient(155deg, rgba(230,198,115,0.22) 0%, rgba(11,16,33,0.88) 46%, rgba(201,162,39,0.14) 100%)
+                `,
+                boxShadow: `
+                    inset 0 1px 0 rgba(255,249,230,0.22),
+                    inset 0 -1px 0 rgba(0,0,0,0.35),
+                    0 12px 28px rgba(0,0,0,0.32)
+                `,
+                backdropFilter: 'blur(14px) saturate(1.2)',
+            }}
         >
-            <span className="flex w-full items-center justify-between gap-3">
-                <span className="flex min-w-0 flex-1 flex-col items-center gap-1 leading-tight">
-                    <span className="text-[10px] font-bold tracking-[0.2em] text-white/28">
-                        إجراء سريع
-                    </span>
-                    <span className="min-w-0 truncate text-[14px] sm:text-[15px] font-black text-[#F4E9CD] group-hover:text-[#FFF7E7] transition-colors">
-                        {action.label}
-                    </span>
-                </span>
-                <span className="flex items-center justify-center w-12 h-12 rounded-2xl border border-[#E6C673]/18 bg-[#E6C673]/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] group-hover:scale-105 transition-transform shrink-0">
-                    <Icon size={18} className={action.iconClass} strokeWidth={2.2} />
-                </span>
+            <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-3 top-0 h-px bg-gradient-to-l from-transparent via-[#E6C673]/55 to-transparent"
+            />
+            <span className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-[#E6C673]/30 bg-[#0B1021]/45 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform duration-200 group-hover:scale-105">
+                <Icon size={17} className="text-[#E6C673]" strokeWidth={2.1} aria-hidden />
+            </span>
+            <span className="relative min-w-0 truncate text-[12px] font-extrabold leading-tight text-[#F4E9CD] group-hover:text-[#FFF7E7]">
+                {action.label}
             </span>
         </button>
     );
@@ -97,8 +100,8 @@ export const QuickActions = memo(function QuickActions({
 
     return (
         <div
-            className={`mb-4 grid w-full gap-2 ${
-                variant === 'notes-only' ? 'grid-cols-2 gap-3' : 'grid-cols-4 gap-3'
+            className={`mb-4 grid w-full gap-2.5 ${
+                variant === 'notes-only' ? 'grid-cols-2' : 'grid-cols-4'
             }`}
         >
             {actions.map((action) => (

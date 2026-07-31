@@ -58,40 +58,6 @@ export function useAppealEntryButtonsRenderer(args: UseDecisionsAppealsAppealRen
 
         const decisionAppealYmd = decisionAppealClockYmd(decision);
 
-        if (decision.appealRequestOrigin === 'executor_side') {
-            const grievanceOpen =
-                (decision.appealStatus === 'tadhallum_filed' ||
-                    decision.appealPhase === 'grievance') &&
-                !String(decision.appealResult ?? '').trim();
-            if (grievanceOpen) {
-                return null;
-            }
-            const showWaiveExecutorAppeal = canWaiveInitialAppeal(
-                decision,
-                decisions,
-                appealPerspective
-            );
-            const debtorOnly = creditorAgentDebtorIsSoleAppellant(decision, appealPerspective);
-            return (
-                <ExecutorSideAppealEntryPanel
-                    windows={windows}
-                    locked={locked}
-                    debtorOnly={debtorOnly}
-                    cassationOnly={decision.cassationOnlyAppeal === true}
-                    appealPerspective={appealPerspective}
-                    challengeBtnClass={DECISION_BTN_APPEAL_CHALLENGE}
-                    primaryBtnClass={DECISION_BTN_PRIMARY_WFULL}
-                    secondaryBtnClass={DECISION_BTN_SECONDARY_WFULL}
-                    showWaive={showWaiveExecutorAppeal}
-                    onWaive={() => applyWaiveInitialAppeal(decision)}
-                    onCommit={(stage, appellants) =>
-                        commitExecutorSideAppealEntry(decision, stage, appellants)
-                    }
-                    decisionAppealYmd={decisionAppealYmd}
-                />
-            );
-        }
-
         if (isSettledExecutorQueueRequest(appealHub)) {
             const queueActor = resolveHarmedPartyAppealActor(decision, appealPerspective);
             if (!queueActor) return null;
@@ -130,6 +96,40 @@ export function useAppealEntryButtonsRenderer(args: UseDecisionsAppealsAppealRen
                 <DecisionHintTooltip label={APPEAL_ORIGINAL_LOCKED_HINT}>{panel}</DecisionHintTooltip>
             ) : (
                 panel
+            );
+        }
+
+        if (decision.appealRequestOrigin === 'executor_side') {
+            const grievanceOpen =
+                (decision.appealStatus === 'tadhallum_filed' ||
+                    decision.appealPhase === 'grievance') &&
+                !String(decision.appealResult ?? '').trim();
+            if (grievanceOpen) {
+                return null;
+            }
+            const showWaiveExecutorAppeal = canWaiveInitialAppeal(
+                decision,
+                decisions,
+                appealPerspective
+            );
+            const debtorOnly = creditorAgentDebtorIsSoleAppellant(decision, appealPerspective);
+            return (
+                <ExecutorSideAppealEntryPanel
+                    windows={windows}
+                    locked={locked}
+                    debtorOnly={debtorOnly}
+                    cassationOnly={decision.cassationOnlyAppeal === true}
+                    appealPerspective={appealPerspective}
+                    challengeBtnClass={DECISION_BTN_APPEAL_CHALLENGE}
+                    primaryBtnClass={DECISION_BTN_PRIMARY_WFULL}
+                    secondaryBtnClass={DECISION_BTN_SECONDARY_WFULL}
+                    showWaive={showWaiveExecutorAppeal}
+                    onWaive={() => applyWaiveInitialAppeal(decision)}
+                    onCommit={(stage, appellants) =>
+                        commitExecutorSideAppealEntry(decision, stage, appellants)
+                    }
+                    decisionAppealYmd={decisionAppealYmd}
+                />
             );
         }
 

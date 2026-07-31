@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useRef, useState, memo } from 'react';
-import { motion } from 'motion/react';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { resolveInitialTransactionsView } from '@/app/services/transactions/resolveInitialTransactionsView';
+import {
+  consumeOpenTransactionsAddSheet,
+  subscribeOpenTransactionsHub,
+} from '@/app/services/transactions/procedureGuideNavigation';
 import { TransactionsListScreen } from './TransactionsListScreen';
 import { TransactionDetailsScreen } from './TransactionDetailsScreen';
 import { TX_OVERLAY } from './transactionsGlassTheme';
@@ -36,16 +38,11 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
   const closeDetailsOverlayRef = useRef<(patch: Partial<TransactionsDetailsEscapeSnapshot>) => void>(
     () => undefined,
   );
-  const hasOpenedRef = useRef(false);
-  const reduceMotion = useReduceMotion();
 
   useBodyScrollLock(open);
 
   useEffect(() => {
-    if (open) {
-      hasOpenedRef.current = true;
-      return;
-    }
+    if (open) return;
     setListAddSheetOpen(false);
     setView('list');
     setSelectedId(null);
@@ -54,22 +51,68 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
 
   useEffect(() => {
     if (!open) return;
+    return subscribeOpenTransactionsHub((detail) => {
+      if (!detail.openAddSheet) return;
+      consumeOpenTransactionsAddSheet();
+      setView('list');
+      setSelectedId(null);
+      setDetailsEscape(null);
+      setListAddSheetOpen(true);
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (open) return;
+    /* keepAlive مخفي: جهّز المخزن قبل أول فتح */
     ensureTransactionsUserBound(userId);
     let cancelled = false;
-    void (async () => {
-      await setUserId(userId);
+    void setUserId(userId)
+      .then(() => (cancelled ? undefined : refreshTransactions()))
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, refreshTransactions, setUserId, userId]);
+
+  useEffect(() => {
+    if (!open) return;
+    ensureTransactionsUserBound(userId);
+    let cancelled = false;
+
+    const applyResolvedView = () => {
       if (cancelled) return;
-      void refreshTransactions().catch(() => undefined);
       const resolved = resolveInitialTransactionsView(
         initialTransactionId,
         useTransactionsThreadingStore.getState().transactions,
       );
-      if (cancelled) return;
       if (resolved.missingFocusId) {
         SmartToast.warning('تعذر فتح المعاملة المطلوبة');
       }
       setView(resolved.view);
       setSelectedId(resolved.selectedId);
+      if (consumeOpenTransactionsAddSheet()) {
+        setView('list');
+        setSelectedId(null);
+        setListAddSheetOpen(true);
+      }
+    };
+
+    /* إن وُجدت بيانات دافئة — طبّق العرض فوراً بلا انتظار refresh */
+    const warmed = useTransactionsThreadingStore.getState();
+    if (warmed.userId === userId) {
+      applyResolvedView();
+    }
+
+    void (async () => {
+      await setUserId(userId);
+      if (cancelled) return;
+      try {
+        await refreshTransactions();
+      } catch {
+        /* hydrate may still have seeded the store */
+      }
+      if (cancelled) return;
+      applyResolvedView();
     })();
     return () => {
       cancelled = true;
@@ -81,6 +124,14 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
     setView('details');
   }, []);
 
+  const onTransactionCreated = useCallback(
+    (tx: Transaction) => {
+      setListAddSheetOpen(false);
+      openDetails(tx);
+    },
+    [openDetails],
+  );
+
   const backToList = useCallback(() => {
     setView('list');
     setSelectedId(null);
@@ -88,7 +139,22 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
   }, []);
 
   const handleDetailsEscapeSnapshot = useCallback((snapshot: TransactionsDetailsEscapeSnapshot) => {
-    setDetailsEscape(snapshot);
+    setDetailsEscape((prev) => {
+      if (
+        prev &&
+        prev.addTaskSheetOpen === snapshot.addTaskSheetOpen &&
+        prev.reportOpen === snapshot.reportOpen &&
+        prev.completeOpen === snapshot.completeOpen &&
+        prev.saveTemplateOpen === snapshot.saveTemplateOpen &&
+        prev.templatesOpen === snapshot.templatesOpen &&
+        prev.shareProcedureOpen === snapshot.shareProcedureOpen &&
+        prev.taskEditOpen === snapshot.taskEditOpen &&
+        prev.taskDeleteOpen === snapshot.taskDeleteOpen
+      ) {
+        return prev;
+      }
+      return snapshot;
+    });
   }, []);
 
   const registerDetailsEscapeCloser = useCallback(
@@ -129,13 +195,9 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
     onCloseDetailsOverlay: (patch) => closeDetailsOverlayRef.current(patch),
   });
 
-  const shouldFadeIn = !reduceMotion && !hasOpenedRef.current;
-
+  /** بلا fade عند الفتح — التأخير البصري كان يُقرأ كانتظار تحميل */
   return (
-    <motion.div
-      initial={shouldFadeIn ? { opacity: 0 } : undefined}
-      animate={{ opacity: open ? 1 : 0 }}
-      exit={reduceMotion ? undefined : { opacity: 0 }}
+    <div
       className={`${TX_OVERLAY}${open ? '' : ' hidden pointer-events-none'}`}
       aria-hidden={!open}
       data-testid="transactions-hub"
@@ -148,6 +210,7 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
           onAddSheetOpenChange={setListAddSheetOpen}
           hubOpen={open}
           hubUserId={userId}
+          onTransactionCreated={onTransactionCreated}
         />
       ) : selectedId ? (
         <TransactionDetailsScreen
@@ -158,7 +221,7 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
           hubOpen={open}
         />
       ) : null}
-    </motion.div>
+    </div>
   );
 });
 export default TransactionsThreadingSystem;

@@ -5,7 +5,6 @@ import { ClientRequestService } from '@/app/services/ClientRequestService';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 import {
@@ -22,7 +21,6 @@ import {
 import {
     buildDossierRegistry,
     contextFromCalendarEvent,
-    isActiveLawsuitFile,
     isActiveUrgentCaseRecord,
     mergeDossierContext,
     type DossierRegistry,

@@ -1,8 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import SecureStoreService from '@/app/services/SecureStoreService';
-import { readLatestDossierBackup } from '@/app/services/dossierPersistence/dossierBackupStore';
 import { prepareAgendaTasks } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     agendaTasksLifecycleRevision,
@@ -15,15 +13,15 @@ import {
     persistQuantumTasksBackground,
     persistQuantumTasksSync,
     QUANTUM_TASKS_STORAGE_KEY,
-    readQuantumTasksFromDiskSync,
 } from '@/app/utils/quantumTasksStorage';
-import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/hooks/useIncrementalCalendarSync';
+import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
 import {
     QuantumTasksActionsContext,
     QuantumTasksContext,
     QuantumTasksDataContext,
 } from '@/app/context/quantumTasksContext';
 import { publishQuantumTasksMetrics } from '@/app/utils/quantumTasksMetrics';
+import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 
 export type { QuantumTasksContextValue } from '@/app/context/quantumTasksContext';
 export { QuantumTasksContext } from '@/app/context/quantumTasksContext';
@@ -33,14 +31,11 @@ const ASYNC_PERSIST_DEBOUNCE_MS = 500;
 
 /** Provider فقط — الـ hook في `useQuantumTasksContext.ts` لتوافق Fast Refresh */
 export function QuantumTasksProvider({ children }: { children: React.ReactNode }) {
-    const bootTasksRef = useRef<LegalTask[] | null>(null);
-    if (bootTasksRef.current === null) {
-        bootTasksRef.current = readQuantumTasksFromDiskSync();
-    }
-
-    const [storageHydrated, setStorageHydrated] = useState(true);
+    /** إقلاع فارغ — القرص يُقرأ async أدناه (لا SecureStore sync على أول رسم للوحة). */
+    const bootTasksRef = useRef<LegalTask[]>([]);
+    const [storageHydrated, setStorageHydrated] = useState(false);
     const agendaDayRef = useRef(new Date().toDateString());
-    const tasksRef = useRef<LegalTask[]>(bootTasksRef.current);
+    const tasksRef = useRef<LegalTask[]>([]);
     const asyncPersistTimerRef = useRef<number | null>(null);
     const pendingAsyncPersistRef = useRef<LegalTask[] | null>(null);
     const hiddenFlushTimerRef = useRef<number | null>(null);
@@ -127,6 +122,12 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
             addDocumentRequirement: value.addDocumentRequirement,
             toggleDocumentRequirement: value.toggleDocumentRequirement,
             addExpense: value.addExpense,
+            requestTaskHelp: value.requestTaskHelp,
+            acceptTaskHelp: value.acceptTaskHelp,
+            addSharedTaskNote: value.addSharedTaskNote,
+            markHelpCompleted: value.markHelpCompleted,
+            confirmHelpReview: value.confirmHelpReview,
+            delegatedTasks: value.delegatedTasks,
             setTasks: value.setTasks,
             flushPersist,
         }),
@@ -148,6 +149,12 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
             value.addDocumentRequirement,
             value.toggleDocumentRequirement,
             value.addExpense,
+            value.requestTaskHelp,
+            value.acceptTaskHelp,
+            value.addSharedTaskNote,
+            value.markHelpCompleted,
+            value.confirmHelpReview,
+            value.delegatedTasks,
             value.setTasks,
             flushPersist,
         ],
@@ -155,30 +162,39 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
 
     useEffect(() => {
         let cancelled = false;
-        void (async () => {
-            await SecureStoreService.ensurePersistedReady();
-            let blob = await persistenceRepository.loadAsync<unknown>(QUANTUM_TASKS_STORAGE_KEY);
-            if (!blob) {
-                const backup = await readLatestDossierBackup('tasks');
-                if (backup?.payload.length) {
-                    blob = { tasks: backup.payload };
+        const startHydrate = () => {
+            void (async () => {
+                const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
+                await SecureStoreService.ensurePersistedReady();
+                let blob = await persistenceRepository.loadAsync<unknown>(QUANTUM_TASKS_STORAGE_KEY);
+                if (!blob) {
+                    const { readLatestDossierBackup } = await import(
+                        '@/app/services/dossierPersistence/dossierBackupStore'
+                    );
+                    const backup = await readLatestDossierBackup('tasks');
+                    if (backup?.payload.length) {
+                        blob = { tasks: backup.payload };
+                    }
                 }
-            }
-            if (cancelled) return;
+                if (cancelled) return;
 
-            const loaded = prepareAgendaTasks(deserializeQuantumTasks(blob), new Date(), {
-                skipRetentionPurge: true,
-            });
+                const loaded = prepareAgendaTasks(deserializeQuantumTasks(blob), new Date(), {
+                    skipRetentionPurge: true,
+                });
 
-            value.setTasks((prev) => {
-                const merged = mergeHydratedQuantumTasks(prev, loaded);
-                tasksRef.current = merged;
-                return merged;
-            });
-            setStorageHydrated(true);
-        })();
+                value.setTasks((prev) => {
+                    const merged = mergeHydratedQuantumTasks(prev, loaded);
+                    tasksRef.current = merged;
+                    return merged;
+                });
+                setStorageHydrated(true);
+            })();
+        };
+        /** بعد content-ready — لا تنافس I/O القرص مع HomeTab قبل كشف الشعار */
+        const unbind = onBootContentReady(startHydrate);
         return () => {
             cancelled = true;
+            unbind();
         };
     }, [value.setTasks]);
 

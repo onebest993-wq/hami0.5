@@ -1,10 +1,11 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Plus, UserPlus, Users } from 'lucide-react';
 import PartyCard, { type PartyCardProps } from './PartyCard';
 import { ecg } from './executionCreationGlassUi';
 import { ExecutionCreationSection } from './ExecutionCreationSection';
 import {
     shouldShowIndependentDebtorSharePanels,
+    isPersonalStatusClassification,
 } from '../hooks/executionFormUtils';
 import { IndependentDebtorSharePanel } from './IndependentDebtorSharePanel';
 import { handleMoneyInputChange } from '@/app/utils/moneyInput';
@@ -115,8 +116,10 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
         totalDebtorCount,
         totalCreditorCount,
     );
+    const hideDebtorEntityKind = isPersonalStatusClassification(classification);
 
-    const showDebtorLiabilityLabels = showDebtorSolidarySplit;
+    /** تسميات ضامن/مستقل فقط عند تعدد المدينين */
+    const showDebtorLiabilityLabels = showDebtorSolidarySplit && totalDebtorCount > 1;
 
     const renderIndependentDebtPanel = (debtorKey: string, isSolidary: boolean) => {
         if (!showIndependentDebtorSharePanels || isSolidary) return null;
@@ -199,6 +202,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                                     type="debtor"
                                     debtorLiabilityLabel={liabilityLabelFor(isSolidary)}
                                     lockedEntityKind={lockedEntityKind}
+                                    hideDebtorEntityKind={hideDebtorEntityKind}
                                     onUpdate={onUpdateDebtor as PartyCardProps['onUpdate']}
                                     onRemove={() => {}}
                                 />
@@ -217,6 +221,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                                     type="debtor"
                                     debtorLiabilityLabel={liabilityLabelFor(isSolidary)}
                                     lockedEntityKind={lockedEntityKind}
+                                    hideDebtorEntityKind={hideDebtorEntityKind}
                                     onUpdate={(id, field, value) =>
                                         onUpdateAdditionalDebtor(String(id), field, value)
                                     }

@@ -1,0 +1,11 @@
+# O-e2e batch 1 — 10 files / 1720 lines
+e2e/helpers/executionStorageFixtures.ts  (434 lines)
+e2e/execution-critical-paths.spec.ts  (314 lines)
+e2e/execution-flow.spec.ts  (237 lines)
+e2e/executionDashboard.spec.ts  (186 lines)
+e2e/helpers/criminalDossierFixtures.ts  (146 lines)
+e2e/execution-open-perf-probe.spec.ts  (116 lines)
+e2e/execution-console-hygiene.spec.ts  (114 lines)
+e2e/urgent-dossier-open.spec.ts  (66 lines)
+e2e/execution-storage-persist.spec.ts  (64 lines)
+e2e/criminal-dossier-open.spec.ts  (43 lines)

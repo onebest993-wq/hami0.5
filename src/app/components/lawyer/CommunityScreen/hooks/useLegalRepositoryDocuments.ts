@@ -51,6 +51,8 @@ export type LegalRepositoryFilters = {
     selectedType?: string;
     sortBy?: RepositorySortKey;
     selectedTag?: string | null;
+    /** keepAlive مغلق: أغلق نوافذ الرفع/المعاينة/الحذف */
+    surfaceOpen?: boolean;
 };
 
 export type RepositoryUploadPayload = {
@@ -73,6 +75,7 @@ export function useLegalRepositoryDocuments({
     selectedType = 'الكل',
     sortBy = 'newest',
     selectedTag = null,
+    surfaceOpen = true,
 }: LegalRepositoryFilters = {}) {
     const { user, hasRole } = useAuthSafe();
     const userId = user?.id ?? null;
@@ -171,7 +174,7 @@ export function useLegalRepositoryDocuments({
             cancelled = true;
             setSyncing(false);
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- bootstrap once on mount
+         
     }, [applyDocuments]);
 
     const filteredDocuments = useMemo(() => {
@@ -346,6 +349,15 @@ export function useLegalRepositoryDocuments({
         setIsUploadModalOpen(false);
         setEditingDoc(null);
     }, [isSubmitting]);
+
+    useEffect(() => {
+        if (surfaceOpen !== false) return;
+        closeUploadModal({ force: true });
+        setPreviewDoc(null);
+        setPreviewSignedUrl(null);
+        setPreviewMode('peek');
+        if (!deletingId) setDeleteTarget(null);
+    }, [surfaceOpen, closeUploadModal, deletingId]);
 
     const syncRepositoryDocToCloud = useCallback(
         async (savedDoc: RepositoryDocument, file: File, ownerId: string) => {

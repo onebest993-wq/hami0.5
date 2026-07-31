@@ -1,4 +1,10 @@
-import { readLatestDossierBackup } from '@/app/services/dossierPersistence/dossierBackupStore';
+/**
+ * سياسة استعادة plaintext بعد فشل فك التشفير (معلنة — ليست صامتة):
+ * - مسار هجرة متعمّد من localStorage قديم / نسخة احتياطية للدومين.
+ * - يُستدعى مرة واحدة لكل مفتاح (memo عبر decryptRecoveryAttempted).
+ * - كل استعادة ناجحة تُسجَّل عبر debug.warn (لا نجاح صامت).
+ * - افتراضياً مُعطَّل؛ يُفعَّل صراحةً بـ VITE_SECURE_STORE_PLAINTEXT_RECOVERY=true أثناء الهجرة فقط.
+ */
 import type { BackupDomain } from '@/app/services/dossierPersistence/dossierPersistenceTypes';
 import {
     backupDomainForStorageKey,
@@ -9,6 +15,7 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
 } from '@/app/services/dossierPersistence/dossierStorageKeys';
+import { debug } from '@/app/utils/debug';
 
 const LAWYER_NOTES_STORAGE_KEY = 'lawyer_notes';
 
@@ -42,49 +49,78 @@ function executionDomainForKey(key: string): boolean {
 }
 
 async function readBackup(domain: BackupDomain): Promise<string | null> {
+    const { readLatestDossierBackup } = await import(
+        '@/app/services/dossierPersistence/dossierBackupStore'
+    );
     const backup = await readLatestDossierBackup(domain);
     if (!backup?.payload.length) return null;
     return JSON.stringify(backup.payload);
 }
 
+/** هل مسار استعادة plaintext مفعّل صراحةً؟ (افتراضي: لا) */
+export function isPlaintextRecoveryEnabled(): boolean {
+    return import.meta.env.VITE_SECURE_STORE_PLAINTEXT_RECOVERY === 'true';
+}
+
 /** استعادة plaintext عند فشل فك التشفير — نسخة احتياطية أو localStorage قديم */
 export async function recoverPlaintextAfterDecryptFailure(storageKey: string): Promise<string | null> {
+    if (!isPlaintextRecoveryEnabled()) {
+        return null;
+    }
     if (decryptRecoveryAttempted.has(storageKey)) return null;
     decryptRecoveryAttempted.add(storageKey);
 
+    const announce = (source: string, value: string | null): string | null => {
+        if (!value) return null;
+        debug.warn(
+            `[SecureStoreRecovery] plaintext recovery used for key=${storageKey} source=${source}`,
+        );
+        return value;
+    };
+
     for (const legacyKey of LAWSUIT_FILES_STORAGE_KEYS_LEGACY) {
         if (storageKey === legacyKey || storageKey === LAWSUIT_FILES_STORAGE_KEY) {
-            const fromLs = readLegacyPlaintextFromLocalStorage(legacyKey);
+            const fromLs = announce(`legacy-ls:${legacyKey}`, readLegacyPlaintextFromLocalStorage(legacyKey));
             if (fromLs) return fromLs;
         }
     }
     for (const legacyKey of EXECUTION_FILES_STORAGE_KEYS_LEGACY) {
         if (storageKey === legacyKey || storageKey === EXECUTION_FILES_STORAGE_KEY) {
-            const fromLs = readLegacyPlaintextFromLocalStorage(legacyKey);
+            const fromLs = announce(`legacy-ls:${legacyKey}`, readLegacyPlaintextFromLocalStorage(legacyKey));
             if (fromLs) return fromLs;
         }
     }
 
-    const fromPrimaryLs = readLegacyPlaintextFromLocalStorage(storageKey);
+    const fromPrimaryLs = announce('primary-ls', readLegacyPlaintextFromLocalStorage(storageKey));
     if (fromPrimaryLs) return fromPrimaryLs;
 
     if (lawsuitDomainForKey(storageKey)) {
-        return readBackup('lawsuit');
+        return announce('backup:lawsuit', await readBackup('lawsuit'));
     }
     if (executionDomainForKey(storageKey)) {
-        return readBackup('execution');
+        return announce('backup:execution', await readBackup('execution'));
     }
 
     const backupDomain = backupDomainForStorageKey(storageKey);
     if (backupDomain && backupDomain !== 'lawsuit' && backupDomain !== 'execution') {
-        return readBackup(backupDomain);
+        return announce(`backup:${backupDomain}`, await readBackup(backupDomain));
     }
 
-    if (storageKey === LAWYER_NOTES_STORAGE_KEY) return readBackup('notes');
-    if (storageKey === 'hami:community:posts:v1') return readBackup('community');
-    if (storageKey === 'hami:smartvault:docs:v1') return readBackup('vault');
-    if (storageKey === 'hami:calendar:events:v1') return readBackup('calendar');
-    if (storageKey === 'hami_quantum_legal_tasks_v1') return readBackup('tasks');
+    if (storageKey === LAWYER_NOTES_STORAGE_KEY) {
+        return announce('backup:notes', await readBackup('notes'));
+    }
+    if (storageKey === 'hami:community:posts:v1') {
+        return announce('backup:community', await readBackup('community'));
+    }
+    if (storageKey === 'hami:smartvault:docs:v1') {
+        return announce('backup:vault', await readBackup('vault'));
+    }
+    if (storageKey === 'hami:calendar:events:v1') {
+        return announce('backup:calendar', await readBackup('calendar'));
+    }
+    if (storageKey === 'hami_quantum_legal_tasks_v1') {
+        return announce('backup:tasks', await readBackup('tasks'));
+    }
 
     return null;
 }

@@ -1,32 +1,18 @@
-import { createElement, type ReactNode } from 'react';
-import { stripEmojisFromText } from '@/app/utils/timelineSmartDisplay';
-import type { ExecutionDecisionAppealPhase, ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../../types';
+
+
 import {
-    decisionCardGlassClasses,
-    type DecisionCardEnforcementVisual,
-} from '../../decisionCardGlassShell';
-import {
-    appealCreditorRequestPauseGateMessage,
-    appealCreditorRequestRevokedGateMessage,
     appealRelabelTimelineMessage,
-    isAppealResultFavorableToDebtorClient,
     type AppealUiPerspective,
 } from '../../appealUiLabels';
 import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
 import {
     EXECUTOR_QUEUE_REQUEST_KINDS,
     hubWithInferredAppealOrigin,
-    inferDecisionAppealRequestOrigin,
-    isCreditorInitiatedExecutorRequest,
-    isCreditorExecutorAppealSubject,
-    isCreditorPartyRequest,
-    isDecisionLikeRow,
-    resolveRequestFilerFromDebtorAgentView,
-    resolveRequestProponent,
 } from '../appealRequestOrigin';
 import { appealWindowsForDecision, todayYmd, appealGrievanceFilingClockPatch, isOpenGrievancePipeline, decisionHasAppealClock } from './appealDates';
 import { buildGrievanceResolutionPatch, inferAppealMethodsUsed } from './appealWorkflowActors';
+import { appealPipelineRowForCard, isExecutorDecisionAppealFinal } from './decisionHubPipeline';
 import type { CreditorDecisionEnforcementState, ExecutorDecisionStatusFlag } from './appealTypes';
 import { hasManualExecutorAppealAppellants } from './appealProceedingsTypes';
 import {
@@ -408,6 +394,61 @@ export function reconcileTerminatedDecisionArchives(all: Decision[]): {
     let mutated = false;
     const rows = all.map((row) => {
         if (!shouldAutoArchiveTerminatedDecision(row)) return row;
+        mutated = true;
+        return { ...row, ...manualExecutorArchiveClosurePatch() };
+    });
+    return { rows, mutated };
+}
+
+function isHubSettledForArchive(hub: Decision): boolean {
+    if (hub.lawyerWithdrawn === true || hub.executorOutcome === 'withdrawn') return true;
+    if (hub.requestKind && EXECUTOR_QUEUE_REQUEST_KINDS.includes(hub.requestKind)) {
+        const ex = hub.executorOutcome;
+        return ex === 'approved' || ex === 'rejected' || ex === 'alternative';
+    }
+    const ex = hub.executorOutcome;
+    return ex !== undefined && ex !== 'pending';
+}
+
+/** قرار محسوم وطعنه نهائي — يُؤرشف تلقائياً في سجل الأرشيف */
+export function shouldAutoArchiveAppealFinalDecision(hub: Decision, all: Decision[]): boolean {
+    if (hub.isArchived || hub.appealSourceDecisionId) return false;
+    if (shouldAutoArchiveTerminatedDecision(hub)) return false;
+
+    const hubRow = hubWithInferredAppealOrigin(hub);
+    if (!isHubSettledForArchive(hubRow)) return false;
+
+    const pipe = appealPipelineRowForCard(hubRow, all);
+    if (isExecutorSideAwaitingAppealEntry(hubRow, pipe)) return false;
+
+    const windows = appealWindowsForDecision(hubRow);
+    const appealLegallyFinal = isExecutorDecisionAppealFinal(hubRow, pipe, {
+        appealWindowClosed: !windows.canTamyeez,
+        appealTrackActive: false,
+    });
+
+    return canArchiveExecutorDecisionCard(hubRow, pipe, {
+        hubTab: 'previous',
+        settled: true,
+        appealLegallyFinal,
+    });
+}
+
+/** يُؤرشف القرارات الأصلية بعد اكتمال الطعن، ونسخ الطعن المرتبطة بها */
+export function reconcileAppealFinalDecisionArchives(all: Decision[]): {
+    rows: Decision[];
+    mutated: boolean;
+} {
+    let mutated = false;
+    let rows = all.map((row) => {
+        if (!shouldAutoArchiveAppealFinalDecision(row, all)) return row;
+        mutated = true;
+        return { ...row, ...manualExecutorArchiveClosurePatch() };
+    });
+    rows = rows.map((row) => {
+        if (row.isArchived || !row.appealSourceDecisionId) return row;
+        const src = rows.find((d) => d.id === row.appealSourceDecisionId);
+        if (!src?.isArchived) return row;
         mutated = true;
         return { ...row, ...manualExecutorArchiveClosurePatch() };
     });

@@ -20,6 +20,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         showToast,
         setTimelineEvents,
         pushTimelineEventRef,
+        timelineEventsRef,
         nextTimelineId,
         linkSeizureAuctionToAppointments,
         pushSeizureAuctionCalendarAppointment,
@@ -42,6 +43,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         executionDataRef,
         persistExecutionMerge,
         setTimelineEvents,
+        timelineEventsRef,
     });
 
     const { pushTimelineEvent } = pushTimelineEventBinding;

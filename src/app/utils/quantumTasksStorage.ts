@@ -4,14 +4,73 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
+import type {
+    CollaborationStatus,
+    ShareScope,
+    SharedTaskNote,
+} from '@/app/types/taskHelpTypes';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import SecureStoreService from '@/app/services/SecureStoreService';
-import { countFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { countFieldDaySheetTasksLite } from '@/app/services/tasks/fieldCurtainDayCountLite';
 import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossierWipeGuard';
 import { scheduleProtectedBackupFromRaw } from '@/app/services/dossierPersistence/protectedBackupService';
 import { prepareAgendaTasks } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorageKey';
 
-export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
+export { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorageKey';
+
+const COLLAB_STATUSES: ReadonlySet<string> = new Set([
+    'NONE',
+    'PENDING',
+    'ACCEPTED',
+    'REJECTED',
+    'COMPLETED',
+    'AWAITING_OWNER_REVIEW',
+]);
+
+function mapSharedNotes(raw: unknown): SharedTaskNote[] | undefined {
+    if (!Array.isArray(raw)) return undefined;
+    const notes = raw
+        .map((x) => {
+            const o = x as Record<string, unknown>;
+            const id = String(o.id ?? '');
+            const authorId = String(o.authorId ?? '');
+            const text = String(o.text ?? '').trim();
+            const timestamp = String(o.timestamp ?? '');
+            if (!id || !authorId || !text || !timestamp) return null;
+            const note: SharedTaskNote = { id, authorId, text, timestamp };
+            if (typeof o.authorName === 'string' && o.authorName.trim()) {
+                note.authorName = o.authorName.trim();
+            }
+            return note;
+        })
+        .filter((n): n is SharedTaskNote => n != null);
+    return notes.length > 0 ? notes : undefined;
+}
+
+function mapCollaborationFields(r: Record<string, unknown>): Partial<LegalTask> {
+    const out: Partial<LegalTask> = {};
+    if (typeof r.helpRequestId === 'string' && r.helpRequestId.trim()) {
+        out.helpRequestId = r.helpRequestId.trim();
+    }
+    if (typeof r.requesterId === 'string' && r.requesterId.trim()) {
+        out.requesterId = r.requesterId.trim();
+    }
+    if (typeof r.assigneeId === 'string' && r.assigneeId.trim()) {
+        out.assigneeId = r.assigneeId.trim();
+    }
+    if (r.shareScope === 'PRIVATE_DIRECT' || r.shareScope === 'PUBLIC_FORUM') {
+        out.shareScope = r.shareScope as ShareScope;
+    }
+    if (typeof r.collaborationStatus === 'string' && COLLAB_STATUSES.has(r.collaborationStatus)) {
+        out.collaborationStatus = r.collaborationStatus as CollaborationStatus;
+    }
+    if (typeof r.isSanitised === 'boolean') {
+        out.isSanitised = r.isSanitised;
+    }
+    const notes = mapSharedNotes(r.sharedNotes);
+    if (notes) out.sharedNotes = notes;
+    return out;
+}
 
 function mapSubTasks(raw: unknown): LegalSubTask[] {
     if (!Array.isArray(raw)) return [];
@@ -67,7 +126,8 @@ function readRawFromDiskSync(): string | null {
     } catch {
         /* ignore */
     }
-    return SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY);
+    // بلا SecureStore sync على المسار البارد — IndexedDB يُقرأ async في Provider
+    return null;
 }
 
 function shouldRejectQuantumTasksWipe(incomingSerialized: string): boolean {
@@ -76,8 +136,21 @@ function shouldRejectQuantumTasksWipe(incomingSerialized: string): boolean {
     return shouldRejectDossierWipe(QUANTUM_TASKS_STORAGE_KEY, incomingSerialized, existing);
 }
 
-/** قراءة فورية عند الإقلاع — localStorage أولاً (يبقى بعد F5) */
-export function readQuantumTasksFromDiskSync(now = new Date()): LegalTask[] {
+/** كاش تسخين — pointerdown يفرّغ تكلفة JSON.parse قبل فتح الستارة */
+let warmDiskTasks: LegalTask[] | null = null;
+
+export function invalidateQuantumTasksDiskWarmCache(): void {
+    warmDiskTasks = null;
+}
+
+/** تسخين قراءة القرص قبل النقر — يستدعيه dock pointerDown */
+export function warmQuantumTasksDiskRead(now = new Date()): LegalTask[] {
+    if (warmDiskTasks) return warmDiskTasks;
+    warmDiskTasks = readQuantumTasksFromDiskSyncUncached(now);
+    return warmDiskTasks;
+}
+
+function readQuantumTasksFromDiskSyncUncached(now = new Date()): LegalTask[] {
     const raw = readRawFromDiskSync();
     if (!raw?.trim()) return [];
     try {
@@ -86,6 +159,12 @@ export function readQuantumTasksFromDiskSync(now = new Date()): LegalTask[] {
     } catch {
         return [];
     }
+}
+
+/** قراءة فورية عند الإقلاع — localStorage أولاً (يبقى بعد F5) */
+export function readQuantumTasksFromDiskSync(now = new Date()): LegalTask[] {
+    if (warmDiskTasks) return warmDiskTasks;
+    return warmQuantumTasksDiskRead(now);
 }
 
 /** استعادة المهام من blob التخزين (localStorage). */
@@ -151,6 +230,7 @@ export function deserializeQuantumTasks(raw: unknown): LegalTask[] {
                     typeof r.voiceDurationSec === 'number' && Number.isFinite(r.voiceDurationSec)
                         ? r.voiceDurationSec
                         : null,
+                ...mapCollaborationFields(r),
             } as LegalTask;
         })
         .filter((t) => t.id.length > 0);
@@ -171,17 +251,16 @@ export function serializeQuantumTasks(tasks: LegalTask[]): { tasks: Record<strin
 
 /** عداد شارة الدوك — مهام مثبتة على الستارة فقط */
 export function countPendingFieldTasks(pendingTasks: LegalTask[]): number {
-    return countFieldDaySheetTasks(pendingTasks);
+    return countFieldDaySheetTasksLite(pendingTasks);
 }
 
-/** حفظ متزامن — يُكتب فوراً في localStorage قبل أي إعادة تحميل */
+/** حفظ متزامن — localStorage فوري (بلا SecureStore sync على stem) */
 export function persistQuantumTasksSync(tasks: LegalTask[]): boolean {
     const blob = serializeQuantumTasks(tasks);
     const serialized = JSON.stringify(blob);
     if (shouldRejectQuantumTasksWipe(serialized)) return false;
 
     persistenceRepository.primeEntry(QUANTUM_TASKS_STORAGE_KEY, serialized, blob);
-    SecureStoreService.setItemSync(QUANTUM_TASKS_STORAGE_KEY, serialized);
     try {
         if (typeof localStorage !== 'undefined') {
             localStorage.setItem(QUANTUM_TASKS_STORAGE_KEY, serialized);
@@ -189,23 +268,27 @@ export function persistQuantumTasksSync(tasks: LegalTask[]): boolean {
     } catch {
         /* ignore quota / private mode */
     }
+    invalidateQuantumTasksDiskWarmCache();
     return true;
 }
 
 function readPersistedQuantumTasksRaw(tasks: LegalTask[]): string {
-    return (
-        (typeof localStorage !== 'undefined'
-            ? localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY)
-            : null) ??
-        SecureStoreService.getItemSync(QUANTUM_TASKS_STORAGE_KEY) ??
-        JSON.stringify(serializeQuantumTasks(tasks))
-    );
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const fromLs = localStorage.getItem(QUANTUM_TASKS_STORAGE_KEY);
+            if (fromLs?.trim()) return fromLs;
+        }
+    } catch {
+        /* ignore */
+    }
+    return JSON.stringify(serializeQuantumTasks(tasks));
 }
 
-/** IndexedDB + نسخة احتياطية — بعد persistQuantumTasksSync */
+/** IndexedDB + SecureStore async + نسخة احتياطية — بعد persistQuantumTasksSync */
 export async function persistQuantumTasksBackground(tasks: LegalTask[]): Promise<void> {
     const serialized = readPersistedQuantumTasksRaw(tasks);
     scheduleProtectedBackupFromRaw(QUANTUM_TASKS_STORAGE_KEY, serialized);
+    const { default: SecureStoreService } = await import('@/app/services/SecureStoreService');
     await SecureStoreService.setItem(QUANTUM_TASKS_STORAGE_KEY, serialized);
 }
 

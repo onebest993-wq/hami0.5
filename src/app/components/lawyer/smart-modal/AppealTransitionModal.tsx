@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { motion, AnimatePresence } from 'motion/react';
-import { X, Scale, ArrowRightLeft, Check, CalendarDays, Hash, Gavel } from 'lucide-react';
+import { X, Scale, Check, CalendarDays, Hash, Gavel } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { IncidentalCase, Party } from '../LawyerShared';
 import { resolveOpponentAsAppellant } from './smartFile/appealStageTransition';
@@ -24,7 +23,6 @@ import {
 import { resolveAllowedOpponentAppealMethods, resolveFirstInstanceHadoriAppealRights } from './smartFile/judgmentTypes';
 import { isAbsentJudgmentForm } from './smartFile/absentJudgmentFlow';
 import {
-    filterPersonalStatusAppealMethods,
     isPersonalStatusStageName,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 import { useJudgmentModalStyles } from './smartFile/smartModalChrome';
@@ -110,45 +108,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
         Boolean(judgmentForm) &&
         !String(stageName ?? '').includes('استئناف') &&
         !String(stageName ?? '').includes('تمييز');
-    useEffect(() => {
-        if (!isOpen) return;
-        // #region debug-point B:appeal-transition-modal-open
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            body: JSON.stringify({
-                sessionId: 'opponent-appeal-crash',
-                runId: 'pre-fix',
-                hypothesisId: 'B',
-                location: 'AppealTransitionModal.tsx:useEffect:isOpen',
-                msg: '[DEBUG] AppealTransitionModal opened',
-                data: {
-                    mode,
-                    stageName: stageName ?? null,
-                    judgmentType: judgmentType ?? null,
-                    judgmentForm: judgmentForm ?? null,
-                    lastJudgmentType: lastJudgmentType ?? null,
-                    representedParty: representedParty ?? null,
-                    partyCount: Array.isArray(currentParties) ? currentParties.length : 0,
-                    incidentalCount: Array.isArray(incidentalCases) ? incidentalCases.length : 0,
-                    appealRouteStage: appealRoute?.stageName ?? appealRoute?.currentStage ?? null,
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
-    }, [
-        isOpen,
-        mode,
-        stageName,
-        judgmentType,
-        judgmentForm,
-        lastJudgmentType,
-        representedParty,
-        currentParties,
-        incidentalCases,
-        appealRoute,
-    ]);
-
     const allowedOpponentMethods = useMemo(
         () =>
             isOpponentRegistration
@@ -410,32 +369,20 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className={s.overlay} dir="rtl">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                        className={s.shell}
-                    >
+        <div className={s.overlay} dir="rtl">
+            <div className={s.shell}>
                         <div className={s.header}>
-                            <div className="flex items-center gap-3 min-w-0">
-                                <span className={s.headerIconWrap}>
-                                    <ArrowRightLeft size={18} className={s.headerIcon} />
-                                </span>
-                                <div className="min-w-0">
-                                    <h2 className={s.headerTitle}>
-                                        {isOpponentRegistration
-                                            ? isGhayabi
-                                                ? 'تسجيل طعن الحكم الغيابي'
-                                                : 'تسجيل طعن الخصم'
-                                            : 'بوابة الطعن'}
-                                    </h2>
-                                    <p className={`text-[11px] truncate ${s.isPearl ? 'text-[#9894A0]' : 'text-white/40'}`}>
-                                        انقلاب المراكز وإنشاء إضبارة الطعن
-                                    </p>
-                                </div>
+                            <div className="min-w-0 text-right">
+                                <h2 className={s.headerTitle}>
+                                    {isOpponentRegistration
+                                        ? isGhayabi
+                                            ? 'تسجيل طعن الحكم الغيابي'
+                                            : 'تسجيل طعن الخصم'
+                                        : 'بوابة الطعن'}
+                                </h2>
+                                <p className={`text-[11px] truncate ${s.isPearl ? 'text-[#9894A0]' : 'text-white/40'}`}>
+                                    انقلاب المراكز وإنشاء إضبارة الطعن
+                                </p>
                             </div>
                             <button
                                 type="button"
@@ -612,24 +559,20 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                 <button
                                     type="button"
                                     onClick={handleSubmit}
-                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${s.btnPrimary}`}
+                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-colors ${s.btnPrimary}`}
                                 >
-                                    <Scale size={16} />
                                     {isOpponentRegistration ? 'تسجيل الطعن' : 'تأكيد الانتقال'}
                                 </button>
                                 <button
                                     type="button"
                                     onClick={onClose}
-                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${s.btnNeutral}`}
+                                    className={`min-h-[50px] w-full rounded-xl font-bold text-sm transition-colors ${s.btnNeutral}`}
                                 >
-                                    <X size={16} />
                                     إلغاء
                                 </button>
                             </div>
                         </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
+            </div>
+        </div>
     );
 };

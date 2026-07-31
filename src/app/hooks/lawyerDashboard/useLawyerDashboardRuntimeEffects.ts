@@ -1,33 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { Dispatch, SetStateAction } from 'react';
-import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
-import type { CalendarSourcePatchDetail } from '@/app/services/calendarBridgePersistence';
+import type { CalendarSourcePatchDetail } from '@/app/services/calendar/bridgePersistence/lite';
 import { buildCalendarDossierFingerprint } from '@/app/services/calendar/calendarDossierFingerprint';
-import { runSmartCalendarReconcileIfNeeded } from '@/app/services/calendar/calendarReconcileScheduler';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import SecureStoreService from '@/app/services/SecureStoreService';
 import { STORAGE_KEYS } from '@/app/utils/constants';
-import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
-import { enqueueStaggeredBootTask } from '@/app/bootstrap/staggeredBootOrchestrator';
-import { bindDashboardPostInteractiveWarm } from '@/app/runtime/dashboardPostInteractiveWarm';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import {
-    clearGlobalSearchWarmSnapshot,
-    registerGlobalSearchWarmSnapshotProvider,
-    type GlobalSearchWarmSnapshot,
-} from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { consumeOpenCriminalCasesListRequest } from '@/app/components/lawyer/criminal-system/criminalDevEntry';
-import { useNotificationStore } from '@/app/stores/notificationStore';
-import { refreshNotificationShellBadge } from '@/app/services/notifications/notificationBackgroundSync';
+import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
+import type { GlobalSearchWarmSnapshot } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
+
+function loadGlobalSearchIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+}
+
+function loadDashboardPostInteractiveWarm() {
+    return import('@/app/runtime/dashboardPostInteractiveWarm');
+}
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { LegalCase } from '@/app/stores/caseStore';
-import { mapLawsuitFilesToLegalCases } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import type { LegalTask } from '@/app/types/TaskEngine';
 
 export type UseLawyerDashboardRuntimeEffectsParams = {
@@ -81,8 +76,6 @@ export function useLawyerDashboardRuntimeEffects({
     setLawsuitsWorkspaceTab,
     setShowLawsuitsWorkspace,
 }: UseLawyerDashboardRuntimeEffectsParams) {
-    const setNotificationUserId = useNotificationStore((s) => s.setUserId);
-
     const calendarDossierFingerprint = useMemo(
         () =>
             !backgroundRuntimeEnabled
@@ -134,18 +127,84 @@ export function useLawyerDashboardRuntimeEffects({
           }
         : null;
 
-    /** intent-only: نكتفي هنا بتسخين الهيدر الخفيف، ولا نُطلق hydrates الأقسام عند أول دخول. */
+    /** تسخين الهيدر الخفيف بعد interactive. */
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!uid) return;
-        return bindDashboardPostInteractiveWarm(uid);
+        let unbind = () => undefined;
+        void loadDashboardPostInteractiveWarm().then((m) => {
+            unbind = m.bindDashboardPostInteractiveWarm(uid);
+        });
+        return () => unbind();
+    }, [user?.id, authUser?.id]);
+
+    /**
+     * Hydrators بعد BOOT_REVEAL_DONE + تأخير — لا تنافس أول طلاء المنزل.
+     * ويب ~800ms / Capacitor ~400ms ثم idle bind.
+     */
+    useEffect(() => {
+        const uid = resolveShellAuthUserId(authUser?.id, user?.id);
+        if (!uid) return;
+        let cancelled = false;
+        let unbindExec = () => undefined;
+        let unbindCriminal = () => undefined;
+        let unbindSmart = () => undefined;
+        let delayTimer: number | null = null;
+        let cancelIdle = () => undefined;
+
+        const bindHydrators = () => {
+            if (cancelled) return;
+            void Promise.all([
+                import('@/app/runtime/executionBootHydrator'),
+                import('@/app/runtime/criminalBootHydrator'),
+                import('@/app/runtime/smartFileBootHydrator'),
+            ]).then(([exec, criminal, smart]) => {
+                if (cancelled) return;
+                unbindExec = exec.bindExecutionBootHydrator(uid);
+                unbindCriminal = criminal.bindCriminalBootHydrator(uid);
+                unbindSmart = smart.bindSmartFileBootHydrator(uid);
+            });
+        };
+
+        const scheduleAfterReveal = () => {
+            const delayMs = isCapacitorNativePlatform() ? 400 : 800;
+            delayTimer = window.setTimeout(() => {
+                delayTimer = null;
+                cancelIdle = scheduleIdleWork(bindHydrators, import.meta.env.DEV ? 400 : 800);
+            }, delayMs);
+        };
+
+        if (isBootRevealDone()) {
+            scheduleAfterReveal();
+        } else {
+            window.addEventListener(BOOT_REVEAL_DONE_EVENT, scheduleAfterReveal, { once: true });
+        }
+
+        return () => {
+            cancelled = true;
+            window.removeEventListener(BOOT_REVEAL_DONE_EVENT, scheduleAfterReveal);
+            if (delayTimer != null) window.clearTimeout(delayTimer);
+            cancelIdle();
+            unbindExec();
+            unbindCriminal();
+            unbindSmart();
+        };
     }, [user?.id, authUser?.id]);
 
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!uid) return;
-        setNotificationUserId(uid);
-    }, [user?.id, authUser?.id, setNotificationUserId]);
+        let cancelled = false;
+        void import('@/app/stores/notificationStore')
+            .then((m) => {
+                if (cancelled) return;
+                m.useNotificationStore.getState().setUserId(uid);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id, authUser?.id]);
 
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
@@ -154,7 +213,9 @@ export function useLawyerDashboardRuntimeEffects({
         const timerId = window.setTimeout(() => {
             cancelIdle = scheduleIdleWork(() => {
                 if (typeof document !== 'undefined' && document.hidden) return;
-                void refreshNotificationShellBadge(uid!);
+                void import('@/app/services/notifications/notificationBackgroundSync')
+                    .then((m) => m.refreshNotificationShellBadge(uid!))
+                    .catch(() => undefined);
             }, import.meta.env.DEV ? 2_500 : 12_000);
         }, import.meta.env.DEV ? 1_500 : 8_000);
         return () => {
@@ -172,6 +233,11 @@ export function useLawyerDashboardRuntimeEffects({
             cancelIdle = scheduleIdleWork(() => {
                 if (typeof document !== 'undefined' && document.hidden) return;
                 void (async () => {
+                    const [{ default: SecureStoreService }, { runSmartCalendarReconcileIfNeeded }] =
+                        await Promise.all([
+                            import('@/app/services/SecureStoreService'),
+                            import('@/app/services/calendar/calendarReconcileScheduler'),
+                        ]);
                     await SecureStoreService.ensurePersistedReady();
                     await runSmartCalendarReconcileIfNeeded(uid, debouncedCalendarFingerprint);
                 })();
@@ -184,14 +250,21 @@ export function useLawyerDashboardRuntimeEffects({
     }, [backgroundRuntimeEnabled, user?.id, authUser?.id, debouncedCalendarFingerprint]);
 
     useEffect(() => {
+        let disposed = false;
         if (!shellAuthUserId) {
-            clearGlobalSearchWarmSnapshot();
+            void loadGlobalSearchIntentWarm().then((m) => m.clearGlobalSearchWarmSnapshot());
             return;
         }
 
-        registerGlobalSearchWarmSnapshotProvider(() => searchWarmSnapshotRef.current);
+        void loadGlobalSearchIntentWarm().then((m) => {
+            if (disposed) return;
+            m.registerGlobalSearchWarmSnapshotProvider(() => searchWarmSnapshotRef.current);
+        });
 
-        return () => clearGlobalSearchWarmSnapshot();
+        return () => {
+            disposed = true;
+            void loadGlobalSearchIntentWarm().then((m) => m.clearGlobalSearchWarmSnapshot());
+        };
     }, [shellAuthUserId]);
 
     useEffect(() => {
@@ -213,8 +286,10 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const reloadFromStorage = (opts?: { clear?: boolean }) => {
             reloadLawsuitFiles();
-            const nextNotes = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [];
-            setGlobalNotes(Array.isArray(nextNotes) ? nextNotes : []);
+            void import('@/app/infrastructure/persistence/LocalStorageRepository').then(({ persistenceRepository }) => {
+                const nextNotes = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [];
+                setGlobalNotes(Array.isArray(nextNotes) ? nextNotes : []);
+            });
             reloadExecutionFiles();
 
             if (opts?.clear) {
@@ -236,29 +311,67 @@ export function useLawyerDashboardRuntimeEffects({
     }, [refreshAppAlerts, reloadExecutionFiles, reloadLawsuitFiles, setActiveFile, setArchiveType, setGlobalNotes]);
 
     useEffect(() => {
-        if (consumeOpenCriminalCasesListRequest()) {
-            prefetchCriminalDashboard();
-            setLawsuitsDossierSection('criminal');
-            setLawsuitsWorkspaceTab('civil');
-            setShowLawsuitsWorkspace(true);
-        }
+        let cancelled = false;
+        void import('@/app/components/lawyer/criminal-system/criminalDevEntry')
+            .then((m) => {
+                if (cancelled || !m.consumeOpenCriminalCasesListRequest()) return;
+                void import('@/app/utils/lazyComponentsIntent')
+                    .then((mod) => mod.prefetchCriminalDashboard())
+                    .catch(() => undefined);
+                setLawsuitsDossierSection('criminal');
+                setLawsuitsWorkspaceTab('civil');
+                setShowLawsuitsWorkspace(true);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
     }, [setLawsuitsDossierSection, setLawsuitsWorkspaceTab, setShowLawsuitsWorkspace]);
 
     useEffect(() => {
         if (!showLawsuitsWorkspace) return;
-        warmLawsuitWorkspace();
-        if (lawsuitsDossierSection !== 'criminal') return;
-        return scheduleIdleWork(() => prefetchCriminalDashboard(), 1_500);
+        let cancelIdle = () => undefined;
+        let cancelled = false;
+        void import('@/app/utils/lazyComponentsIntent')
+            .then((m) => {
+                if (cancelled) return;
+                m.warmLawsuitWorkspace();
+                if (lawsuitsDossierSection !== 'criminal') return;
+                cancelIdle = scheduleIdleWork(() => {
+                    void import('@/app/utils/lazyComponentsIntent')
+                        .then((mod) => mod.prefetchCriminalDashboard())
+                        .catch(() => undefined);
+                }, 1_500);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+            cancelIdle();
+        };
     }, [lawsuitsDossierSection, showLawsuitsWorkspace]);
 
     useEffect(() => {
         if (files.length === 0 || storeCases.length > 0) return;
-        return enqueueStaggeredBootTask(
-            'case-store-hydrate',
-            () => {
-                hydrateCasesFromLawsuitFiles(mapLawsuitFilesToLegalCases(files));
-            },
-            'deferred',
-        );
+        let cancelled = false;
+        let cancelTask: (() => void) | undefined;
+        void Promise.all([
+            import('@/app/bootstrap/staggeredBootOrchestrator'),
+            import('@/app/components/lawyer/LawyerDashboardParts/utils'),
+        ])
+            .then(([boot, utils]) => {
+                if (cancelled) return;
+                cancelTask = boot.enqueueStaggeredBootTask(
+                    'case-store-hydrate',
+                    () => {
+                        hydrateCasesFromLawsuitFiles(utils.mapLawsuitFilesToLegalCases(files));
+                    },
+                    'deferred',
+                );
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+            cancelTask?.();
+        };
     }, [files, hydrateCasesFromLawsuitFiles, storeCases.length]);
 }

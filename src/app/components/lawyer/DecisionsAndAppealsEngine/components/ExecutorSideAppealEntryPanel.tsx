@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ManualAppealAppellantActor } from '../utils';
 import type { AppealDeadlineWindows } from '../utils';
 import type { AppealUiPerspective } from '../appealUiLabels';
@@ -75,10 +76,22 @@ export function ExecutorSideAppealEntryPanel({
 
     useEffect(() => {
         if (!open) return;
+        if (lockedAppellant) {
+            setAppellants([lockedAppellant]);
+            return;
+        }
         if (!showAppellantPicker && availableAppellants.length === 1) {
             setAppellants([availableAppellants[0]!]);
+            return;
         }
-    }, [open, showAppellantPicker, availableAppellants]);
+        if (showAppellantPicker) {
+            const defaultActor: ManualAppealAppellantActor =
+                appealPerspective === 'debtor_agent' ? 'debtor' : 'lawyer';
+            if (availableAppellants.includes(defaultActor)) {
+                setAppellants([defaultActor]);
+            }
+        }
+    }, [open, showAppellantPicker, availableAppellants, lockedAppellant, appealPerspective]);
 
     const stageAllowed = stage === 'grievance' ? windows.canTadhallum : windows.canTamyeez;
     const effectiveAppellants = showAppellantPicker
@@ -223,13 +236,22 @@ export function ExecutorSideAppealEntryPanel({
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
                 <button
                     type="button"
-                    disabled={!canSubmit}
+                    aria-disabled={!canSubmit}
                     onClick={() => {
-                        if (!canSubmit) return;
+                        if (!canSubmit) {
+                            if (locked) {
+                                SmartToast.error('الطعن مقفول على هذا القرار');
+                            } else if (!stageAllowed) {
+                                SmartToast.error('انتهت مهلة هذه المرحلة');
+                            } else if (effectiveAppellants.length === 0) {
+                                SmartToast.error('اختر طرفاً واحداً على الأقل');
+                            }
+                            return;
+                        }
                         onCommit(stage, effectiveAppellants);
                         resetPanel();
                     }}
-                    className={primaryBtnClass}
+                    className={`${primaryBtnClass}${!canSubmit ? ' opacity-40' : ''}`}
                 >
                     تسجيل الطعن
                 </button>

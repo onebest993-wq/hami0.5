@@ -5,9 +5,10 @@ export type TransactionsDetailsEscapeSnapshot = {
     completeOpen: boolean;
     saveTemplateOpen: boolean;
     templatesOpen: boolean;
-    taskCompleteOpen: boolean;
+    taskCompleteOpen?: boolean;
     taskEditOpen: boolean;
     taskDeleteOpen: boolean;
+    shareProcedureOpen?: boolean;
 };
 
 export type TransactionsEscapeSnapshot = {

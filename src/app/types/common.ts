@@ -322,16 +322,6 @@ export interface GlassCardProps {
     style?: React.CSSProperties;
 }
 
-export interface GoldButtonProps {
-    children: React.ReactNode;
-    onClick?: () => void;
-    className?: string;
-    icon?: LucideIcon;
-    fullWidth?: boolean;
-    variant?: ButtonVariant;
-    disabled?: boolean;
-}
-
 export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 /** للتوافق مع أيقونات SVG عامة؛ لـ lucide استخدم LucideIcon في الواجهات */
@@ -506,6 +496,8 @@ export interface ArchivePortalProps {
     embedded?: boolean;
     hideHeader?: boolean;
     hideTopActionBar?: boolean;
+    /** false عندما يملك MainView Escape/native-back */
+    escapeEnabled?: boolean;
     /** دعاوى نشطة لاستخراج الربط العنقودي عند تثبيت إضبارة تنفيذ */
     lawsuitFilesForCluster?: unknown[];
     /** إضابير جزائية من المخزن */
@@ -536,6 +528,25 @@ export interface ArchivePortalProps {
     onRestoreArchivedLawsuit?: (fileId: string | number) => void;
     /** حذف نهائي لدعاوى من السلة */
     onPermanentlyDeleteLawsuits?: (fileIds: Array<string | number>) => void;
+    /** دعاوى مضمّنة: شبكة فقط داخل InstantShell — بلا غلاف/رأس مكرر */
+    gridOnly?: boolean;
+    /** عنصر التمرير الأب (InstantShell / Chrome) لـ virtualizer */
+    archiveScrollParent?: HTMLElement | null;
+    /** شريط البحث/العرض — تتحكم به Host عند InstantShell */
+    dossierSearchOpen?: boolean;
+    onDossierSearchOpenChange?: (open: boolean) => void;
+    dossierSearchQuery?: string;
+    onDossierSearchQueryChange?: (query: string) => void;
+    dossierViewMode?: 'grid' | 'compact';
+    onDossierViewModeChange?: (mode: 'grid' | 'compact') => void;
+    /** رفع حالة شريط دورة حياة الدعاوى إلى InstantShell */
+    onLawsuitShellChrome?: (chrome: {
+        lawsuitViewMode: 'active' | 'trash' | 'archived';
+        setLawsuitViewMode: (mode: 'active' | 'trash' | 'archived') => void;
+        unifiedArchivedCount: number;
+        lawsuitTrashedCount: number;
+        hasLawsuitLifecycle: boolean;
+    } | null) => void;
 }
 
 export type ArchiveType = 'lawsuits' | 'executions' | 'criminal' | 'all' | 'transaction' | 'deleted';

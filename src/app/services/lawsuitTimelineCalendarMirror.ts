@@ -1,12 +1,24 @@
 import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
-import { normalizeDateToYmd } from '@/app/services/calendarBridge';
-import { syncLawsuitTimelineAppointment } from '@/app/services/calendarDossierSync';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
+import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
 
 export const LAWSUIT_CAL_APPT = {
     sessionNext: (sessionId: string) => `appt_session_next_${sessionId}`,
     appealDeadline: (stageId: string) => `appt_appeal_deadline_${stageId}`,
     judgmentDate: (stageId: string) => `appt_judgment_${stageId}`,
+    cassationDeadline: (stageId: string) => `appt_cassation_deadline_${stageId}`,
+    reviewDeadline: (stageId: string) => `appt_review_deadline_${stageId}`,
+    finalAppealDeadline: (stageId: string) => `appt_final_appeal_deadline_${stageId}`,
+    defaultObjectionDeadline: (stageId: string) => `appt_default_objection_deadline_${stageId}`,
 } as const;
+
+export type LawsuitLegalCalendarSpec = {
+    id: string;
+    date: string | null;
+    title: string;
+    details?: string;
+    subType?: TimelineEvent['subType'];
+};
 
 type MirrorContext = {
     userId?: string | null;
@@ -122,6 +134,70 @@ function readAppealDeadline(stage: CaseStage): string | null {
     return normalizeDateToYmd(timers?.appealDeadline ?? null);
 }
 
+/** يستخرج كل المُهل/التواريخ القانونية المخزّنة صراحةً في المرحلة (لا حساب آلي). */
+export function collectStageLegalCalendarSpecs(
+    stage: CaseStage | Record<string, unknown>,
+    stageIndex = 0,
+): LawsuitLegalCalendarSpec[] {
+    const s = stage as CaseStage;
+    const stageId = String(s.id ?? `stage_${stageIndex}`).trim() || `stage_${stageIndex}`;
+    const timers = (s.legalTimers ?? {}) as {
+        appealDeadline?: string;
+        cassationDeadline?: string;
+        reviewDeadline?: string;
+        finalAppealDeadline?: string;
+        defaultObjectionDeadline?: string;
+    };
+    const appealMeta = resolveAppealDeadlineMirrorMeta(s);
+    const judgmentMeta = resolveJudgmentMirrorMeta(s);
+    const stageLabel = String(s.stageName ?? '').trim();
+
+    return [
+        {
+            id: LAWSUIT_CAL_APPT.appealDeadline(stageId),
+            date: readAppealDeadline(s),
+            title: appealMeta.title,
+            details: appealMeta.details,
+            subType: 'other',
+        },
+        {
+            id: LAWSUIT_CAL_APPT.judgmentDate(stageId),
+            date: normalizeDateToYmd(s.decisionDate ?? null),
+            title: judgmentMeta.title,
+            details: judgmentMeta.details ? String(judgmentMeta.details).slice(0, 120) : undefined,
+            subType: 'verdict',
+        },
+        {
+            id: LAWSUIT_CAL_APPT.cassationDeadline(stageId),
+            date: normalizeDateToYmd(timers.cassationDeadline ?? null),
+            title: 'مهلة التمييز',
+            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            subType: 'other',
+        },
+        {
+            id: LAWSUIT_CAL_APPT.reviewDeadline(stageId),
+            date: normalizeDateToYmd(timers.reviewDeadline ?? null),
+            title: 'مهلة إعادة المحاكمة',
+            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            subType: 'other',
+        },
+        {
+            id: LAWSUIT_CAL_APPT.finalAppealDeadline(stageId),
+            date: normalizeDateToYmd(timers.finalAppealDeadline ?? null),
+            title: 'مهلة الطعن النهائي',
+            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            subType: 'other',
+        },
+        {
+            id: LAWSUIT_CAL_APPT.defaultObjectionDeadline(stageId),
+            date: normalizeDateToYmd(timers.defaultObjectionDeadline ?? null),
+            title: 'مهلة الاعتراض على الحكم الغيابي',
+            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            subType: 'other',
+        },
+    ];
+}
+
 function syncMirrorAppointment(
     ctx: MirrorContext,
     event: { id: string; date?: string | null; title: string; details?: string },
@@ -189,7 +265,7 @@ export function mirrorSessionNextHearingToCalendar(
     return next;
 }
 
-/** يرفع مهلة الطعن وتاريخ الحكم من المرحلة إلى مواعيد في الخط الزمني + التقويم */
+/** يرفع مهلة الطعن وتاريخ الحكم والمُهل القانونية المخزّنة إلى مواعيد في الخط الزمني + التقويم */
 export function mirrorStageLegalDatesToCalendar(
     stages: CaseStage[],
     stageIndex: number,
@@ -199,45 +275,29 @@ export function mirrorStageLegalDatesToCalendar(
     const stage = next[stageIndex];
     if (!stage) return stages;
 
-    const stageId = String(stage.id ?? `stage_${stageIndex}`);
-    const appealYmd = readAppealDeadline(stage);
-    const judgmentYmd = normalizeDateToYmd(stage.decisionDate ?? null);
-    const appealMeta = resolveAppealDeadlineMirrorMeta(stage);
-    const judgmentMeta = resolveJudgmentMirrorMeta(stage);
-
+    const specs = collectStageLegalCalendarSpecs(stage, stageIndex);
     let timeline = stage.timeline ?? [];
 
-    timeline = upsertTimelineAppointment(timeline, {
-        id: LAWSUIT_CAL_APPT.appealDeadline(stageId),
-        date: appealYmd,
-        title: appealMeta.title,
-        details: appealMeta.details,
-        subType: 'other',
-    });
-
-    timeline = upsertTimelineAppointment(timeline, {
-        id: LAWSUIT_CAL_APPT.judgmentDate(stageId),
-        date: judgmentYmd,
-        title: judgmentMeta.title,
-        details: judgmentMeta.details ? String(judgmentMeta.details).slice(0, 120) : undefined,
-        subType: 'verdict',
-    });
+    for (const spec of specs) {
+        timeline = upsertTimelineAppointment(timeline, {
+            id: spec.id,
+            date: spec.date,
+            title: spec.title,
+            details: spec.details,
+            subType: spec.subType,
+        });
+    }
 
     next[stageIndex] = { ...stage, timeline };
 
-    syncMirrorAppointment(ctx, {
-        id: LAWSUIT_CAL_APPT.appealDeadline(stageId),
-        date: appealYmd,
-        title: appealMeta.title,
-        details: appealMeta.details,
-    });
-
-    syncMirrorAppointment(ctx, {
-        id: LAWSUIT_CAL_APPT.judgmentDate(stageId),
-        date: judgmentYmd,
-        title: judgmentMeta.title,
-        details: judgmentMeta.details ? String(judgmentMeta.details).slice(0, 120) : undefined,
-    });
+    for (const spec of specs) {
+        syncMirrorAppointment(ctx, {
+            id: spec.id,
+            date: spec.date,
+            title: spec.title,
+            details: spec.details,
+        });
+    }
 
     return next;
 }

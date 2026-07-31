@@ -13,7 +13,6 @@ import {
     TX_DROPDOWN_FOCUS,
     TX_GOLD_BTN,
     TX_ICON_BTN,
-    TX_TEXT_MUTED,
     TX_TEXT_OCHRE,
     TX_TEXT_PRIMARY,
 } from './transactionsGlassTheme';

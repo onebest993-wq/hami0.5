@@ -3,10 +3,10 @@
  */
 import fs from 'node:fs';
 import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
+import { isExecutionShellExplicitCloseProp } from './lib/executionShellExplicitCloseProps.mjs';
 
 const SHELL_KEYS_PATH =
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionShellOverlayPropKeys.ts';
-const CORE_PATH = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts';
 
 const OVERLAY_PROP_SOURCES = [
     {
@@ -44,14 +44,18 @@ function extractRequiredInterfaceProps(src, interfaceName) {
 const shellKeys = new Set(
     extractConstKeys(fs.readFileSync(SHELL_KEYS_PATH, 'utf8'), 'EXECUTION_SHELL_OVERLAY_PROP_KEYS'),
 );
-const scopeKeys = resolveExecutionChunkScopeKeys(fs.readFileSync(CORE_PATH, 'utf8'));
+const scopeKeys = resolveExecutionChunkScopeKeys();
 
 let failed = false;
 for (const source of OVERLAY_PROP_SOURCES) {
     const src = fs.readFileSync(source.file, 'utf8');
     const required = extractRequiredInterfaceProps(src, source.interfaceName);
-    const missingRegistry = required.filter((k) => !shellKeys.has(k));
-    const missingScope = required.filter((k) => !scopeKeys.has(k));
+    const missingRegistry = required.filter(
+        (k) => !shellKeys.has(k) && !isExecutionShellExplicitCloseProp(k),
+    );
+    const missingScope = required.filter(
+        (k) => !scopeKeys.has(k) && !isExecutionShellExplicitCloseProp(k),
+    );
     console.log(`[${source.label}] ${required.length} required props`);
     if (missingRegistry.length) {
         failed = true;

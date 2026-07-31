@@ -38,15 +38,16 @@ test.describe('بطاقة التنبيهات والتثبيت', () => {
         await seedLawyerFiles(page);
     });
 
-    test('تعرض الحالة المطوية عند عدم وجود تنبيهات أو تثبيت', async ({ page }) => {
+    test('تعرض الحالة الفارغة مع التبويبات عند عدم وجود تنبيهات أو تثبيت', async ({ page }) => {
         await page.goto('/');
         await ensureLawyerDashboard(page);
         await dismissProductivityBlockers(page);
 
         const card = await hubCard(page);
-        await expect(card.getByTestId('home-hub-fully-empty')).toBeVisible();
+        await expect(card.getByTestId('home-hub-tab-alerts')).toBeVisible();
+        await expect(card.getByTestId('home-hub-tab-pins')).toBeVisible();
+        await expect(card.getByTestId('home-hub-fully-empty')).toBeVisible({ timeout: 20_000 });
         await expect(card.getByText('لا يوجد تنبيه أو تثبيت')).toBeVisible();
-        await expect(card.getByTestId('home-hub-tab-alerts')).toHaveCount(0);
     });
 
     test('تُبدّل بين تبويبي التنبيهات والتثبيت', async ({ page }) => {

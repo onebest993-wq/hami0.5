@@ -1,11 +1,10 @@
 import { lazy, Suspense } from 'react';
 import { Pin } from 'lucide-react';
-import { clusterPinDisplayMeta } from '@/app/workspace/clusterPinDisplay';
-import { workspacePinVisual } from '@/app/workspace/workspacePinVisuals';
 import type { ClusterPinView } from '@/app/workspace/types';
 import type { HomeHubPanel } from '@/app/services/alerts/homeHubCardLogic';
 import { shouldVirtualizeHomeHubPins } from '@/app/services/alerts/homeHubCarouselVirtual';
 import { useHomeHubPanelMount } from '../hooks/useHomeHubPanelMount';
+import { HomeHubPinRow } from './HomeHubPinRow';
 
 const HomeHubPinsVirtualList = lazy(() =>
     import('./HomeHubPinsVirtualList').then((m) => ({ default: m.HomeHubPinsVirtualList })),
@@ -16,6 +15,7 @@ export type HomeHubPinsPanelProps = {
     clusterViews: ClusterPinView[];
     onNavigate: (routePath: string) => void;
     onUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
+    hubFullyEmpty?: boolean;
 };
 
 function HomeHubPinsStaticList({
@@ -25,51 +25,14 @@ function HomeHubPinsStaticList({
 }: Pick<HomeHubPinsPanelProps, 'clusterViews' | 'onNavigate' | 'onUnpin'>) {
     return (
         <ul className="space-y-1">
-            {clusterViews.map(({ pin, related }) => {
-                const meta = clusterPinDisplayMeta(pin);
-                const visual = workspacePinVisual(pin.type);
-                return (
-                    <li
-                        key={`${pin.type}:${pin.id}`}
-                        className="[content-visibility:auto] [contain-intrinsic-size:auto_52px]"
-                    >
-                        <div
-                            data-testid={`home-hub-pin-${pin.type}-${pin.id}`}
-                            className={`flex items-center gap-1.5 border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 ${visual.shell}`}
-                        >
-                            <span
-                                className={`shrink-0 inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1 text-[9px] font-extrabold border ${visual.chip}`}
-                            >
-                                {visual.shortLabel}
-                            </span>
-                            <button
-                                type="button"
-                                onClick={() => onNavigate(pin.routePath)}
-                                className="flex-1 min-w-0 text-right min-h-[44px] touch-manipulation"
-                            >
-                                <p className="text-[11px] font-bold text-white/85 truncate">{meta.headline}</p>
-                                <p className="text-[9px] text-white/40 truncate">
-                                    {meta.sectionLabel}
-                                    {meta.clientLine ? ` · ${meta.clientLine.replace('الموكل: ', '')}` : ''}
-                                    {related.length > 0 ? ` · ${related.length} ارتباط` : ''}
-                                </p>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onUnpin(pin.id, pin.type);
-                                }}
-                                className={`min-w-[44px] min-h-[44px] flex items-center justify-center border shrink-0 touch-manipulation ${visual.button} ${visual.accent}`}
-                                title="إلغاء التثبيت"
-                                aria-label="إلغاء التثبيت"
-                            >
-                                <Pin size={11} className="fill-current" />
-                            </button>
-                        </div>
-                    </li>
-                );
-            })}
+            {clusterViews.map((view) => (
+                <li
+                    key={`${view.pin.type}:${view.pin.id}`}
+                    className="[content-visibility:auto] [contain-intrinsic-size:auto_52px]"
+                >
+                    <HomeHubPinRow view={view} onNavigate={onNavigate} onUnpin={onUnpin} />
+                </li>
+            ))}
         </ul>
     );
 }
@@ -85,9 +48,10 @@ export function HomeHubPinsPanel({ hubPanel, clusterViews, onNavigate, onUnpin }
             id="home-hub-panel-pins"
             role="tabpanel"
             aria-labelledby="home-hub-tab-pins"
-            hidden={!pinsActive}
+            aria-hidden={!pinsActive}
             data-testid="home-hub-panel-pins"
             className="flex flex-col min-h-0 flex-1"
+            style={{ display: pinsActive ? undefined : 'none' }}
         >
             <div className="flex items-center gap-2 mb-2">
                 <div

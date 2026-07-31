@@ -1,16 +1,50 @@
 import React, { useEffect } from 'react';
+import { GlobalSearchInstantShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantShell';
 import { TransactionsHubInstantShell } from '@/app/components/lawyer/TransactionsThreading/TransactionsHubInstantShell';
+import { ForumInstantShell } from '@/app/components/lawyer/CommunityScreen/components/ForumInstantShell';
 
-/** أجندة المهام — overlay ثابت فوق الستارة (z-230) */
+/** أجندة المهام — skeleton شبكة أسبوعية أثناء lazy load (z-230) */
 export const TasksManagerFallback: React.ReactNode = (
     <div
-        className="fixed inset-0 z-[230] flex flex-col items-center justify-center font-['Tajawal','Cairo',sans-serif] bg-gradient-to-b from-[#061612] via-[#0A2E25] to-[#051410]"
+        className="fixed inset-0 z-[230] flex flex-col font-['Tajawal','Cairo',sans-serif] bg-gradient-to-b from-[#0A0F1C] via-[#0C1220] to-[#05060D]"
         role="dialog"
         aria-label="أجندة المهام"
         aria-busy="true"
         data-testid="tasks-manager-loading"
     >
-        <div className="text-[#D4B896]/80 text-sm font-extrabold animate-pulse">جاري فتح أجندة المهام...</div>
+        <div className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b border-[#A67C52]/20">
+            <div className="flex items-center justify-between gap-3">
+                <div className="h-5 w-36 rounded-lg bg-slate-800/50 animate-pulse" aria-hidden />
+                <div className="h-9 w-9 rounded-full bg-slate-800/45 animate-pulse shrink-0" aria-hidden />
+            </div>
+            <div className="mt-3 flex gap-2 overflow-hidden">
+                {Array.from({ length: 7 }, (_, i) => (
+                    <div
+                        key={i}
+                        className="h-14 w-11 shrink-0 rounded-xl bg-slate-800/45 animate-pulse"
+                        aria-hidden
+                    />
+                ))}
+            </div>
+        </div>
+        <div className="flex-1 overflow-hidden px-4 py-4 space-y-3" aria-hidden>
+            {Array.from({ length: 5 }, (_, i) => (
+                <div
+                    key={i}
+                    className="rounded-2xl border border-white/5 bg-slate-800/35 p-3.5 space-y-2.5 animate-pulse"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-slate-800/55 shrink-0" />
+                        <div className="flex-1 space-y-2 min-w-0">
+                            <div className="h-3.5 w-[55%] rounded-md bg-slate-800/55" />
+                            <div className="h-2.5 w-[35%] rounded-md bg-slate-800/40" />
+                        </div>
+                    </div>
+                    <div className="h-2.5 w-full rounded-md bg-slate-800/40" />
+                </div>
+            ))}
+        </div>
+        <span className="sr-only">جاري فتح أجندة المهام</span>
     </div>
 );
 
@@ -31,22 +65,98 @@ export const FieldTasksSheetFallback: React.ReactNode = (
 
 export { FieldTasksSheetFallback as FIELD_TASKS_SHEET_FALLBACK };
 
-/** أرشيف الإضابير — overlay ثابت (z-60) حتى لا يختفي خلف تبويب الرئيسية أثناء lazy load */
+/** المستودع الذكي — قشرة خفيفة أثناء lazy (بلا InstantShell الكامل في stem) */
+export function RepositoryHubLoadingFallback({ onClose }: { onClose?: () => void }) {
+    useEffect(() => {
+        if (!onClose) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            onClose();
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [onClose]);
+
+    return (
+        <div
+            className="fixed inset-0 z-[95] flex flex-col font-['Tajawal','Cairo',sans-serif] text-right"
+            style={{
+                background:
+                    'linear-gradient(168deg, #0A0F1C 0%, #0E1424 42%, #0A0F1C 100%)',
+            }}
+            role="dialog"
+            aria-label="المستودع الذكي"
+            aria-busy="true"
+            dir="rtl"
+            data-testid="smart-repository-loading"
+        >
+            <div className="border-b border-white/10 sticky top-0 z-10 px-4 py-3 flex items-center gap-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="min-h-[44px] min-w-[44px] rounded-full bg-white/5 touch-manipulation"
+                    aria-label="إغلاق"
+                    data-testid="smart-repository-close"
+                />
+                <div className="flex-1 h-5 rounded-lg bg-white/5 animate-pulse" aria-hidden />
+            </div>
+            <div className="flex-1" aria-hidden />
+            <span className="sr-only">جاري فتح المستودع الذكي</span>
+        </div>
+    );
+}
+
+export { RepositoryHubLoadingFallback as REPOSITORY_HUB_FALLBACK };
+
+/** أرشيف/مخزن الإضابير — يطابق InstantChrome (كان pulse مركزي يسبب وميض عند الانتقال للقشرة) */
 export const ArchivePortalFallback: React.ReactNode = (
     <div
-        className="fixed inset-0 z-[60] bg-[#0B1021]/95 backdrop-blur-md flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
+        className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex flex-col"
         role="dialog"
-        aria-label="أرشيف الإضابير"
+        aria-modal="true"
+        aria-label="مخزن الأضابير التنفيذية"
         aria-busy="true"
+        data-testid="execution-archive-portal-fallback"
     >
-        <div className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري فتح الأرشيف...</div>
+        <div className="shrink-0 border-b border-white/10 bg-[#0B1021]">
+            <div className="px-4 sm:px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 flex items-center justify-between gap-3">
+                <div className="text-right min-w-0">
+                    <h2 className="text-white font-extrabold text-lg sm:text-xl">مخزن الأضابير التنفيذية</h2>
+                </div>
+                <span
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl border border-white/10 bg-white/5"
+                    aria-hidden
+                />
+            </div>
+        </div>
+        <div className="flex-1 min-h-0 overflow-hidden">
+            <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
+                <div className="w-full max-w-[520px] space-y-3" aria-hidden>
+                    {Array.from({ length: 4 }).map((_, index) => (
+                        <div
+                            key={index}
+                            className="h-16 rounded-xl border border-white/10 bg-white/[0.04] animate-pulse"
+                        />
+                    ))}
+                </div>
+                <p className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري تحميل مخزن التنفيذ...</p>
+            </div>
+        </div>
     </div>
 );
 
 export { ArchivePortalFallback as ARCHIVE_PORTAL_FALLBACK };
 
-/** المنتدى القانوني — واجهة plum فورية أثناء lazy load (بدون شاشة سوداء عامة) */
-export function CommunityScreenLoadingFallback({ onBack }: { onBack?: () => void }) {
+/** المنتدى — قشرة Obsidian فورية أثناء lazy (بلا برقوقي قديم / بلا شاشة فارغة) */
+export function CommunityScreenLoadingFallback({
+    onBack,
+    embedded = false,
+}: {
+    onBack?: () => void;
+    /** داخل Host الذي يملك الطبقة والخلفية — لا تكرّر fixed/inset */
+    embedded?: boolean;
+}) {
     useEffect(() => {
         if (!onBack) return;
         const onKey = (e: KeyboardEvent) => {
@@ -59,24 +169,8 @@ export function CommunityScreenLoadingFallback({ onBack }: { onBack?: () => void
     }, [onBack]);
 
     return (
-        <div
-            className="fixed inset-0 z-[95] h-[100dvh] flex flex-col font-['Tajawal','Cairo',sans-serif] text-right"
-            style={{ background: 'linear-gradient(155deg, #0E0812 0%, #140A18 48%, #1A1020 100%)' }}
-            role="dialog"
-            aria-label="المنتدى القانوني"
-            aria-busy="true"
-            dir="rtl"
-            data-testid="forum-screen-loading"
-        >
-            <div className="bg-[#140A18] border-b border-[#4A3D52]/40 sticky top-0 z-10 px-4 py-3 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-[#342C3A] animate-pulse shrink-0" aria-hidden />
-                <div className="flex-1 h-5 rounded-lg bg-[#342C3A]/80 animate-pulse" aria-hidden />
-                <div className="w-9 h-9 rounded-full bg-[#342C3A] animate-pulse shrink-0" aria-hidden />
-            </div>
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6">
-                <div className="w-16 h-16 rounded-2xl bg-[#38303E] border border-[#4A3D52]/50 animate-pulse" aria-hidden />
-                <p className="text-[#F0B896]/55 text-sm font-bold animate-pulse">جاري فتح المنتدى...</p>
-            </div>
+        <div data-testid="forum-screen-loading" className={embedded ? 'h-full w-full' : undefined}>
+            <ForumInstantShell onBack={onBack} embedded={embedded} />
         </div>
     );
 }
@@ -87,46 +181,90 @@ export { CommunityScreenLoadingFallback as COMMUNITY_SCREEN_FALLBACK };
 
 export const LawsuitsWorkspaceFallback: React.ReactNode = (
     <div
-        className="fixed inset-0 z-[70] bg-[#0B1021] flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
+        className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex flex-col"
         role="dialog"
-        aria-label="مساحة الدعاوى"
+        aria-label="مخزن الإضابير"
         aria-busy="true"
         data-testid="lawsuits-workspace"
     >
-        <div className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري فتح الدعاوى...</div>
+        <div className="shrink-0 border-b border-white/10 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
+            <h2 className="text-white font-extrabold text-lg text-right">مخزن الإضابير</h2>
+        </div>
+        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 content-start">
+            {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                    key={i}
+                    className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 min-h-[132px] animate-pulse"
+                    aria-hidden
+                />
+            ))}
+        </div>
+        <p className="sr-only">جاري فتح الدعاوى</p>
     </div>
 );
 
 export function TransactionsHubLoadingFallback({ onBack }: { onBack?: () => void }) {
-    if (onBack) {
-        return <TransactionsHubInstantShell onBack={onBack} />;
+    /* قشرة Instant الحقيقية — بلا رسالة انتظار نصية */
+    if (!onBack) {
+        return (
+            <div
+                className="fixed inset-0 z-[200] bg-[#061014]/98"
+                data-testid="transactions-hub-loading"
+                aria-busy="true"
+            />
+        );
     }
-
-    return (
-        <div
-            className="fixed inset-0 z-[200] bg-[#061014]/98 flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
-            role="dialog"
-            aria-label="معاملات"
-            aria-busy="true"
-            data-testid="transactions-hub-loading"
-        >
-            <div className="text-[#D8D4CE]/70 text-sm font-bold animate-pulse">جاري فتح المعاملات...</div>
-        </div>
-    );
+    return <TransactionsHubInstantShell onBack={onBack} />;
 }
 
-export const TransactionsHubFallback: React.ReactNode = <TransactionsHubLoadingFallback />;
+export const TransactionsHubFallback: React.ReactNode = (
+    <div
+        className="fixed inset-0 z-[200] bg-[#061014]/98"
+        data-testid="transactions-hub-loading"
+        aria-busy="true"
+    />
+);
 
-/** المستودع الذكي — overlay ثابت أثناء lazy load */
+/** المستودع الذكي — skeleton هيكلي أثناء lazy load (بدون نص خام) */
 export const RepositoryShellFallback: React.ReactNode = (
     <div
-        className="fixed inset-0 z-[120] bg-[#0B1021]/95 flex items-center justify-center font-['Tajawal','Cairo',sans-serif]"
+        className="fixed inset-0 z-[120] flex flex-col bg-[#0B1021]/96 font-['Tajawal','Cairo',sans-serif]"
         role="dialog"
         aria-label="المستودع الذكي"
         aria-busy="true"
-        data-testid="smart-repository-modal"
+        data-testid="smart-repository-loading"
     >
-        <div className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري فتح المستودع...</div>
+        <div className="shrink-0 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 border-b border-white/[0.05]">
+            <div className="flex items-center justify-between gap-3">
+                <div className="h-6 w-40 rounded-lg bg-slate-800/50 animate-pulse" aria-hidden />
+                <div className="h-10 w-10 rounded-full bg-slate-800/45 animate-pulse shrink-0" aria-hidden />
+            </div>
+            <div className="mt-3 flex gap-2 overflow-hidden" aria-hidden>
+                {[0, 1, 2, 3].map((i) => (
+                    <div key={i} className="h-9 min-w-[5rem] flex-1 rounded-xl bg-slate-800/40 animate-pulse" />
+                ))}
+            </div>
+        </div>
+        <div className="flex-1 overflow-hidden px-4 py-4" aria-hidden>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }, (_, i) => (
+                    <div
+                        key={i}
+                        className="rounded-2xl border border-white/5 bg-slate-800/35 p-4 space-y-3 animate-pulse"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="h-10 w-10 rounded-xl bg-slate-800/55 shrink-0" />
+                            <div className="flex-1 space-y-2 min-w-0">
+                                <div className="h-3.5 w-3/4 rounded-md bg-slate-800/55" />
+                                <div className="h-2.5 w-1/2 rounded-md bg-slate-800/40" />
+                            </div>
+                        </div>
+                        <div className="h-20 w-full rounded-xl bg-slate-800/40" />
+                    </div>
+                ))}
+            </div>
+        </div>
+        <span className="sr-only">جاري فتح المستودع الذكي</span>
     </div>
 );
 
@@ -144,10 +282,17 @@ export const ScheduleTabFallback: React.ReactNode = (
     </div>
 );
 
-/** مركز الإعدادات — واجهة فورية أثناء lazy load (بدون شاشة فارغة) */
-export function SettingsScreenLoadingFallback({ onClose }: { onClose?: () => void }) {
+/** مركز الإعدادات — قشرة معتمة فورية أثناء lazy (z يطابق Host؛ بلا شاشة فارغة) */
+export function SettingsScreenLoadingFallback({
+    onClose,
+    open = true,
+}: {
+    onClose?: () => void;
+    /** false أثناء keepAlive بعد إغلاق — لا تُظهر قشرة معلّقة فوق اللوحة */
+    open?: boolean;
+}) {
     useEffect(() => {
-        if (!onClose) return;
+        if (!open || !onClose) return;
         const onKey = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             e.preventDefault();
@@ -155,34 +300,72 @@ export function SettingsScreenLoadingFallback({ onClose }: { onClose?: () => voi
         };
         window.addEventListener('keydown', onKey, true);
         return () => window.removeEventListener('keydown', onKey, true);
-    }, [onClose]);
+    }, [onClose, open]);
+
+    if (!open) return null;
 
     return (
         <div
-            className="fixed inset-0 z-[150] flex flex-col bg-[#05060d] font-sans"
+            className="fixed inset-0 z-[200] flex flex-col bg-[#0B1021] font-sans"
             role="dialog"
             aria-modal="true"
             aria-label="مركز الإعدادات"
             aria-busy="true"
             data-testid="hami-settings-shell-loading"
             data-settings-loading="1"
+            data-settings-root
+            dir="rtl"
         >
-            <div className="hami-settings-header shrink-0 px-6 pt-[max(3rem,env(safe-area-inset-top))] pb-5 border-b border-white/[0.04]">
-                <div className="flex items-center justify-between mb-4">
-                    <h1 className="text-2xl font-bold text-white">مركز الإعدادات</h1>
-                    <div className="w-10 h-10 rounded-full bg-white/[0.05] shrink-0" aria-hidden />
+            <div className="hami-settings-header shrink-0 px-4 pt-[max(0.65rem,env(safe-area-inset-top))] pb-3">
+                <div className="flex items-center justify-between gap-3 mb-3.5">
+                    <div className="min-w-0">
+                        <p className="text-[10px] font-bold tracking-[0.14em] uppercase text-[#E6C673]/85 opacity-85 m-0 mb-[0.15rem]">
+                            لوحة التحكم
+                        </p>
+                        <h1 className="text-[1.45rem] font-extrabold tracking-[-0.03em] leading-[1.15] text-white m-0">
+                            مركز الإعدادات
+                        </h1>
+                    </div>
+                    <button
+                        type="button"
+                        onPointerDown={(event) => {
+                            if (
+                                (typeof event.button === 'number' && event.button !== 0) ||
+                                !onClose
+                            ) {
+                                return;
+                            }
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onClose();
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            onClose?.();
+                        }}
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/[0.06] touch-manipulation"
+                        style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                        aria-label="إغلاق الإعدادات"
+                        data-testid="settings-shell-close"
+                    />
                 </div>
                 <div className="flex gap-0.5 p-1 rounded-2xl bg-white/[0.03] border border-white/[0.06]">
                     {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="flex-1 min-w-[4.5rem] min-h-[44px] rounded-xl bg-white/[0.04]" aria-hidden />
+                        <div
+                            key={i}
+                            className="flex-1 min-w-[4.5rem] min-h-[44px] rounded-xl bg-white/[0.04]"
+                            aria-hidden
+                        />
                     ))}
                 </div>
             </div>
-            <div className="flex-1 px-6 pt-6 space-y-3" aria-hidden>
+            <div className="flex-1 px-5 pt-4 space-y-3" aria-hidden>
                 <div className="h-24 rounded-2xl bg-white/[0.04]" />
                 <div className="h-16 rounded-2xl bg-white/[0.03]" />
                 <div className="h-16 rounded-2xl bg-white/[0.03]" />
             </div>
+            <span className="sr-only">جاري فتح مركز الإعدادات</span>
         </div>
     );
 }
@@ -310,42 +493,9 @@ export function LawyerProfileTabLoadingFallback({ onBack }: { onBack?: () => voi
 
 export const LawyerProfileFallback: React.ReactNode = <LawyerProfileTabLoadingFallback />;
 
-/** طبقة بحث خفيفة — bottom sheet على الهاتف */
-export function GlobalSearchOverlayLoadingFallback({ onClose }: { onClose?: () => void }) {
-    useEffect(() => {
-        if (!onClose) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            e.preventDefault();
-            onClose();
-        };
-        window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
-    }, [onClose]);
+/**
+ * قشرة Suspense = InstantShell (مسودة + scroll + Cap) — لا هيكل ميت بلا كتابة.
+ */
+export const GlobalSearchOverlayLoadingFallback = GlobalSearchInstantShell;
 
-    return (
-        <div
-            className="fixed inset-0 z-[100] flex flex-col justify-end"
-            role="dialog"
-            aria-label="بحث شامل"
-            aria-busy="true"
-            data-testid="global-search-overlay-loading"
-        >
-            <div className="absolute inset-0 bg-[#010308]/75 backdrop-blur-[18px]" aria-hidden />
-            <div className="relative w-full rounded-t-[28px] border-t border-x border-[#E6C673]/12 bg-[#080D18]/98 overflow-hidden pb-[max(12px,env(safe-area-inset-bottom))]">
-                <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-4" aria-hidden />
-                <div className="px-4 pb-4 flex items-center gap-3">
-                    <div
-                        className="flex-1 h-[52px] rounded-2xl bg-white/[0.05] border border-white/[0.08] animate-pulse"
-                        aria-hidden
-                    />
-                </div>
-                <div className="px-4 pb-6 flex justify-center">
-                    <div className="text-[#E6C673]/45 text-xs font-bold animate-pulse">جاري فتح البحث...</div>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-export const GlobalSearchOverlayFallback: React.ReactNode = <GlobalSearchOverlayLoadingFallback />;
+export const GlobalSearchOverlayFallback: React.ReactNode = <GlobalSearchInstantShell />;

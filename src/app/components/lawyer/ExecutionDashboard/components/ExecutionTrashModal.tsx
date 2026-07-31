@@ -18,6 +18,7 @@ import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
     EXEC_MODAL_CLOSE_BTN_CLASS,
     EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
     EXEC_MODAL_TRASH_SHELL_MAX,
 } from '../executionModalMobileShell';
 
@@ -201,7 +202,7 @@ const TrashedItemCard: React.FC<TrashedItemCardProps> = ({
                 <button
                     type="button"
                     onClick={onRestore}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-950/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200 hover:bg-emerald-950/20"
+                    className={`${EXEC_MODAL_TOUCH_TARGET} inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-950/10 px-2.5 py-1 text-[10px] font-bold text-emerald-200 hover:bg-emerald-950/20`}
                 >
                     <CheckCircle size={12} className="opacity-90" />
                     استرجاع
@@ -209,7 +210,7 @@ const TrashedItemCard: React.FC<TrashedItemCardProps> = ({
                 <button
                     type="button"
                     onClick={onPermanentDelete}
-                    className="rounded-lg border border-rose-500/25 bg-rose-950/10 px-2.5 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-950/20"
+                    className={`${EXEC_MODAL_TOUCH_TARGET} rounded-lg border border-rose-500/25 bg-rose-950/10 px-2.5 py-1 text-[10px] font-bold text-rose-200 hover:bg-rose-950/20`}
                 >
                     حذف نهائي
                 </button>

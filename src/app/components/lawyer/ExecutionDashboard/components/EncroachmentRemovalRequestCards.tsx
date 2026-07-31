@@ -26,7 +26,7 @@ import {
     type EncroachmentRemovalWorkflowKey,
     type EncroachmentCaseExpenseRow,
 } from '@/app/utils/encroachmentRemovalRequests';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 
 export type EncroachmentRemovalCardsVariant = 'full' | 'surveyor_only';
 

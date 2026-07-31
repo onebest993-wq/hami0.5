@@ -5,10 +5,10 @@ import {
     PROFILE_CANVAS_FRAME_SHAPES,
     PROFILE_CANVAS_INTERACTIONS,
     PROFILE_CANVAS_MATERIALS,
-    PROFILE_FONT_SIZES,
     PROFILE_IMAGE_INTERACTIONS,
     PROFILE_MATERIALS,
     PROFILE_MEDIA_TEMPLATES,
+    PROFILE_PORTRAIT_FRAMES,
     PROFILE_TEXT_EFFECTS,
     PROFILE_TEXT_FONTS,
 } from './profilePageCatalog';
@@ -22,7 +22,11 @@ import {
     inferProfileBlockKind,
     resolveBlockPosition,
 } from './profilePageLayout';
-import { sanitizeProfileCanvasColor, sanitizeProfileMediaUrl } from './profileUrlSanitize';
+import {
+    sanitizeProfileCanvasColor,
+    sanitizeProfileMediaUrl,
+    sanitizeProfileStoragePath,
+} from './profileUrlSanitize';
 import type {
     ProfileAppearanceSettings,
     ProfileBlockCanvasStyle,
@@ -30,6 +34,7 @@ import type {
     ProfileBlockTextStyle,
     ProfileCanvasInteraction,
     ProfileCustomBlock,
+    ProfileFontSize,
     ProfileImageFrameStyle,
     ProfilePageCustomization,
     ProfilePrivacySettings,
@@ -44,27 +49,74 @@ function migrateCanvasInteraction(raw: unknown): ProfileCanvasInteraction | unde
     return undefined;
 }
 
+function coerceProfileFontSize(raw: unknown): ProfileFontSize {
+    switch (raw) {
+        case 'xs':
+            return 'xs';
+        case 'sm':
+        case 'base':
+            return 'base';
+        case 'lg':
+        case 'xl':
+            return 'lg';
+        case '2xl':
+        case '3xl':
+            return '2xl';
+        default:
+            return 'base';
+    }
+}
+
 export function normalizeBlockTextStyle(raw: unknown): ProfileBlockTextStyle | undefined {
     if (!raw || typeof raw !== 'object') return undefined;
     const o = raw as ProfileBlockTextStyle;
-    const fontSize = PROFILE_FONT_SIZES.find((f) => f.id === o.fontSize)?.id ?? 'sm';
-    const effect = PROFILE_TEXT_EFFECTS.find((e) => e.id === o.effect)?.id ?? 'none';
-    const align = o.align === 'center' || o.align === 'left' ? o.align : 'right';
-    const fontWeight = o.fontWeight === 'bold' ? 'bold' : 'normal';
-    const color = typeof o.color === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(o.color) ? o.color : undefined;
-    const fontFamily = PROFILE_TEXT_FONTS.find((f) => f.id === o.fontFamily)?.id ?? 'tajawal';
-    const lineHeight =
-        typeof o.lineHeight === 'number' ? Math.max(1, Math.min(3, o.lineHeight)) : undefined;
-    const letterSpacing =
-        typeof o.letterSpacing === 'number' ? Math.max(-1, Math.min(8, o.letterSpacing)) : undefined;
-    return { color, fontSize, fontWeight, effect, align, fontFamily, lineHeight, letterSpacing };
+    /* placeholder فارغ من patchTextBlockStyle — لا تملأه بخطوط افتراضية تُفسد باقي الأسطر */
+    if (Object.keys(o).length === 0) return {};
+
+    const out: ProfileBlockTextStyle = {};
+    if ('fontSize' in o) out.fontSize = coerceProfileFontSize(o.fontSize);
+    if ('effect' in o) {
+        out.effect = PROFILE_TEXT_EFFECTS.find((e) => e.id === o.effect)?.id ?? 'none';
+    }
+    if ('align' in o) {
+        out.align = o.align === 'center' || o.align === 'left' ? o.align : 'right';
+    }
+    if ('fontWeight' in o) {
+        out.fontWeight = o.fontWeight === 'bold' ? 'bold' : 'normal';
+    }
+    if ('color' in o) {
+        out.color =
+            typeof o.color === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(o.color) ? o.color : undefined;
+    }
+    if ('fontFamily' in o) {
+        out.fontFamily = PROFILE_TEXT_FONTS.find((f) => f.id === o.fontFamily)?.id ?? 'literary';
+    }
+    if ('lineHeight' in o) {
+        out.lineHeight =
+            typeof o.lineHeight === 'number' ? Math.max(1, Math.min(3, o.lineHeight)) : undefined;
+    }
+    if ('letterSpacing' in o) {
+        out.letterSpacing =
+            typeof o.letterSpacing === 'number'
+                ? Math.max(-1, Math.min(8, o.letterSpacing))
+                : undefined;
+    }
+    return out;
 }
 
 export function mergeBlockTextStyles(
     base?: ProfileBlockTextStyle,
     override?: ProfileBlockTextStyle,
 ): ProfileBlockTextStyle {
-    return { ...(base ?? {}), ...(override ?? {}) };
+    const result: ProfileBlockTextStyle = { ...(base ?? {}) };
+    if (!override) return result;
+    (Object.keys(override) as (keyof ProfileBlockTextStyle)[]).forEach((key) => {
+        const value = override[key];
+        if (value !== undefined) {
+            (result as Record<string, unknown>)[key] = value;
+        }
+    });
+    return result;
 }
 
 function normalizeTextSpan(raw: unknown, index: number): ProfileTextSpanStyle | undefined {
@@ -98,6 +150,10 @@ function normalizeCanvasStyle(raw: unknown): ProfileBlockCanvasStyle | undefined
     if (typeof o.backgroundImage === 'string') {
         const safe = sanitizeProfileMediaUrl(o.backgroundImage);
         if (safe) out.backgroundImage = safe;
+    }
+    if (typeof o.backgroundStoragePath === 'string') {
+        const path = sanitizeProfileStoragePath(o.backgroundStoragePath);
+        if (path) out.backgroundStoragePath = path;
     }
     if (PROFILE_CANVAS_MATERIALS.some((m) => m.id === o.material)) out.material = o.material;
     if (PROFILE_CANVAS_FRAME_SHAPES.some((s) => s.id === o.frameShape)) out.frameShape = o.frameShape;
@@ -151,7 +207,12 @@ export function normalizeProfilePageCustomization(raw: unknown): ProfilePageCust
 
     if (o.privacy && typeof o.privacy === 'object') {
         const p = o.privacy as Partial<ProfilePrivacySettings>;
+        const pageAccess =
+            p.pageAccess === 'public' || p.pageAccess === 'followers' || p.pageAccess === 'private'
+                ? p.pageAccess
+                : base.privacy.pageAccess ?? 'public';
         base.privacy = {
+            pageAccess,
             showPhoneMeta: p.showPhoneMeta !== false,
             showCityMeta: p.showCityMeta !== false,
             showSyndicate: p.showSyndicate !== false,
@@ -168,7 +229,9 @@ export function normalizeProfilePageCustomization(raw: unknown): ProfilePageCust
         const a = o.appearance as Partial<ProfileAppearanceSettings>;
         const color = PROFILE_ACCENT_COLORS.find((c) => c.id === a.accentColor)?.id ?? 'gold';
         const material = PROFILE_MATERIALS.find((m) => m.id === a.material)?.id ?? 'glass';
-        base.appearance = { accentColor: color, material };
+        const portraitFrame =
+            PROFILE_PORTRAIT_FRAMES.find((f) => f.id === a.portraitFrame)?.id ?? 'classic';
+        base.appearance = { accentColor: color, material, portraitFrame };
     }
 
     if (Array.isArray(o.customBlocks)) {
@@ -182,7 +245,11 @@ export function normalizeProfilePageCustomization(raw: unknown): ProfilePageCust
                     rawTemplate === 'polaroid'
                         ? 'arch'
                         : PROFILE_MEDIA_TEMPLATES.find((t) => t.id === rawTemplate)?.id;
-                const hasPos = typeof b.posX === 'number' && typeof b.posY === 'number';
+                const hasPos =
+                    typeof b.posX === 'number' &&
+                    typeof b.posY === 'number' &&
+                    Number.isFinite(b.posX) &&
+                    Number.isFinite(b.posY);
                 const migrated = hasPos
                     ? {
                           posX: clampPct(Number(b.posX), 0, 94),
@@ -206,6 +273,11 @@ export function normalizeProfilePageCustomization(raw: unknown): ProfilePageCust
                     minHeightPx: Math.max(80, Math.min(480, Number(b.minHeightPx) || 140)),
                     imageUrl: sanitizeProfileMediaUrl(
                         typeof b.imageUrl === 'string' ? b.imageUrl : undefined,
+                    ),
+                    imageStoragePath: sanitizeProfileStoragePath(
+                        typeof (b as { imageStoragePath?: string }).imageStoragePath === 'string'
+                            ? (b as { imageStoragePath?: string }).imageStoragePath
+                            : undefined,
                     ),
                     mediaTemplate: kind === 'image' ? legacyTemplate ?? 'circle' : undefined,
                     body:
@@ -249,9 +321,10 @@ export function normalizeProfilePageCustomization(raw: unknown): ProfilePageCust
                         lineHeight: 1.85,
                     },
                     lineStyles: Array.isArray(b.lineStyles)
-                        ? b.lineStyles
-                              .map((line) => normalizeBlockTextStyle(line))
-                              .filter((line): line is ProfileBlockTextStyle => Boolean(line))
+                        ? b.lineStyles.map((line) => {
+                              if (!line || typeof line !== 'object') return {};
+                              return normalizeBlockTextStyle(line) ?? {};
+                          })
                         : undefined,
                     textSpans: Array.isArray(b.textSpans)
                         ? b.textSpans

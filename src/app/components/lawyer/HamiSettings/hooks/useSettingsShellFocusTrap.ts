@@ -1,27 +1,55 @@
 import { useCallback, useEffect, type KeyboardEvent, type RefObject } from 'react';
 import { dismissActiveSmartDialog, isSmartDialogOpen } from '@/app/components/ui/smartDialogBus';
-import { resolveSettingsEscapeAction } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
+import {
+    readSettingsEscapeGuards,
+    resolveSettingsEscapeAction,
+} from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
 import { isSettingsFilePickerGraceActive } from '@/app/components/lawyer/HamiSettings/settingsFilePickerGrace';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+function runSettingsEscape(onClose: () => void): void {
+    const guards = readSettingsEscapeGuards();
+    const action = resolveSettingsEscapeAction({
+        smartDialogOpen: isSmartDialogOpen(),
+        wipeCountdownActive: guards.wipeCountdownActive,
+        backupUiOpen: guards.backupUiOpen,
+    });
+    if (action === 'dismiss-dialog') {
+        dismissActiveSmartDialog();
+        return;
+    }
+    if (action === 'cancel-wipe-countdown') {
+        guards.cancelWipeCountdown?.();
+        return;
+    }
+    if (action === 'dismiss-backup-ui') {
+        guards.dismissBackupUi?.();
+        return;
+    }
+    onClose();
+}
 
 export function useSettingsShellEscape(onClose: () => void, enabled = true): void {
     useEffect(() => {
         if (!enabled) return;
         const onKey = (e: globalThis.KeyboardEvent) => {
             if (e.key !== 'Escape') return;
-            const action = resolveSettingsEscapeAction({ smartDialogOpen: isSmartDialogOpen() });
             e.preventDefault();
             e.stopPropagation();
-            if (action === 'dismiss-dialog') {
-                dismissActiveSmartDialog();
-                return;
-            }
-            onClose();
+            runSettingsEscape(onClose);
         };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            runSettingsEscape(onClose);
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [enabled, onClose]);
 }
 
@@ -51,6 +79,8 @@ export function useSettingsShellFocusTrap(
         document.addEventListener('focusin', onFocusIn, true);
         const closeBtn = root.querySelector<HTMLElement>('[data-testid="settings-shell-close"]');
         const focusRaf = requestAnimationFrame(() => {
+            /* لا تسرق التركيز في التبديل السريع إن كان داخل الصدفة أصلاً */
+            if (root.contains(document.activeElement)) return;
             closeBtn?.focus({ preventScroll: true });
         });
 

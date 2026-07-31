@@ -2,8 +2,6 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLawyerDashboardCommunity } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCommunity';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
-import { warmForumOnOpen } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
-import { loadCommunityScreenModule } from '@/app/runtime/communityHubLoader';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -20,11 +18,17 @@ vi.mock('@/app/hooks/lawyerDashboard/forumIntentWarm', () => ({
 
 vi.mock('@/app/runtime/communityBootHydrator', () => ({
     hydrateCommunityShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    prefetchForumAfterBootReveal: vi.fn(),
+    bindCommunityBootHydrator: vi.fn(() => () => undefined),
 }));
 
 vi.mock('@/app/runtime/communityHubLoader', () => ({
     loadCommunityScreenModule: vi.fn(() => Promise.resolve({})),
     prefetchCommunityScreenModule: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/communityOverlayEntryLoader', () => ({
+    prefetchCommunityOverlayEntry: vi.fn(),
 }));
 
 vi.mock('@/app/services/forum/forumPostsWarmCache', () => ({
@@ -39,6 +43,15 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     },
 }));
 
+vi.mock('@/app/bootstrap/bootReveal', () => ({
+    BOOT_REVEAL_DONE_EVENT: 'hami:boot-reveal-done',
+    isBootRevealDone: () => false,
+}));
+
+vi.mock('@/app/runtime/devicePerformanceTier', () => ({
+    isLitePerformanceActive: () => false,
+}));
+
 describe('useLawyerDashboardCommunity', () => {
     beforeEach(() => {
         vi.clearAllMocks();
@@ -47,21 +60,33 @@ describe('useLawyerDashboardCommunity', () => {
         } catch {
             /* ignore */
         }
+        if (typeof window !== 'undefined' && window.location.hash) {
+            window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+        }
     });
 
-    it('يفتح المنتدى فوراً (flushSync)', () => {
+    it('يفتح المنتدى فوراً (flushSync)', async () => {
+        const intentMod = await import('@/app/hooks/lawyerDashboard/forumIntentWarm');
+        const hubMod = await import('@/app/runtime/communityHubLoader');
+
         const { result } = renderHook(() =>
             useLawyerDashboardCommunity({ userId: 'lawyer-1', activeTab: 'home' }),
         );
 
-        act(() => {
+        expect(result.current.showCommunity).toBe(false);
+
+        await act(async () => {
             result.current.openCommunityTab();
+            await Promise.resolve();
+            await Promise.resolve();
+            await Promise.resolve();
         });
 
         expect(result.current.showCommunity).toBe(true);
+        expect(result.current.communityHostMounted).toBe(true);
         expect(result.current.communitySessionKey).toBe(0);
-        expect(warmForumOnOpen).toHaveBeenCalled();
-        expect(loadCommunityScreenModule).toHaveBeenCalled();
+        expect(intentMod.warmForumOnOpen).toHaveBeenCalled();
+        expect(hubMod.loadCommunityScreenModule).toHaveBeenCalled();
     });
 
     it('لا يعيد remount عند إعادة فتح المنتدى', async () => {

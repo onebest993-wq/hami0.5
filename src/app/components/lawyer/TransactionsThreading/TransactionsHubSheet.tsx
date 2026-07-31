@@ -8,6 +8,7 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
     children,
     testId,
     keepMounted = false,
+    ariaLabel,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -15,6 +16,7 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
     testId?: string;
     /** يُبقي DOM جاهزاً داخل الـ hub لتفادي تأخير أول فتح */
     keepMounted?: boolean;
+    ariaLabel?: string;
 }) {
     const reduceMotion = useReduceMotion();
     const mounted = keepMounted || open;
@@ -51,6 +53,7 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
             <div
                 role="dialog"
                 aria-modal="true"
+                aria-label={ariaLabel}
                 data-testid={testId}
                 data-state={open ? 'open' : 'closed'}
                 className={`absolute inset-x-0 bottom-0 mx-auto max-w-[100vw] ${TX_DRAWER_SHELL} ${panelMotion} ${

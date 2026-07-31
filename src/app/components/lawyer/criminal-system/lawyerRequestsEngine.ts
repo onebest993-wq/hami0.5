@@ -3,7 +3,6 @@ import { isLawyerRequestFinalStatus, isLawyerRequestLocked } from './lawyerReque
 import { validateDetentionDateRange } from './detentionEngine';
 import { isTimelineNextDateInvalid } from './criminalStageUtils';
 import {
-    CUSTOM_LAWYER_MOTION_TYPE,
     isAssetSeizureTemplate,
     isCustomJudicialTemplate,
     isCustomLawyerMotionTemplate,

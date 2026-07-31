@@ -4,6 +4,8 @@ import type { PhysicalLocation, StageConclusion } from './criminalStore';
 import { isInvestigationStoredStage } from './criminalStageUtils';
 import { useColleagueConsultation } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
+import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -98,6 +100,10 @@ export type CriminalDashboardHeaderProps = {
     /** إضبارة تحقيق مُجمّدة بغلق مؤقت — زر إنهاء الغلق في زاوية الترويسة. */
     showEndTemporaryClosureAction?: boolean;
     onEndTemporaryClosure?: () => void;
+    /** رجوع إلى مخزن الإضابير */
+    onNavBack?: () => void;
+    /** مغادرة إلى الواجهة الرئيسية */
+    onNavExit?: () => void;
 };
 
 export const CriminalDashboardHeader = ({
@@ -137,6 +143,8 @@ export const CriminalDashboardHeader = ({
     trashCount = 0,
     showEndTemporaryClosureAction = false,
     onEndTemporaryClosure,
+    onNavBack,
+    onNavExit,
 }: CriminalDashboardHeaderProps) => {
     const consultation = useColleagueConsultation();
     const [locationLocal, setLocationLocal] = useState<PhysicalLocation>(physicalLocation);
@@ -156,6 +164,7 @@ export const CriminalDashboardHeader = ({
         return custom.trim() ? custom.trim() : 'مكان مخصص';
     };
 
+    const showDossierNav = Boolean(onNavExit);
     const isInvestigationStage = isInvestigationStoredStage(stage);
 
     const canShowSeverance = Boolean(showSeverance && onOpenSeverance);
@@ -447,7 +456,9 @@ export const CriminalDashboardHeader = ({
         <>
             <div className="w-full px-4 md:px-6 pt-3 pb-1.5 print:p-0">
                 <div
-                    className="max-w-6xl mx-auto w-full flex flex-col gap-2 p-3 md:p-3.5 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl print:bg-white print:border-slate-300 print:backdrop-blur-none print:shadow-none print:p-0 print:gap-3 relative"
+                    className={`max-w-6xl mx-auto w-full flex flex-col gap-2.5 p-3 md:p-3.5 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 shadow-2xl print:bg-white print:border-slate-300 print:backdrop-blur-none print:shadow-none print:p-0 print:gap-3 relative min-h-[5.5rem] ${
+                        showEndTemporaryClosureAction ? 'pe-2 ps-14 sm:ps-16' : ''
+                    }`}
                     dir="rtl"
                 >
                     {showEndTemporaryClosureAction && onEndTemporaryClosure ? (
@@ -460,8 +471,21 @@ export const CriminalDashboardHeader = ({
                             إعادة الشكوى وإنهاء الغلق المؤقت
                         </button>
                     ) : null}
+                    {showDossierNav ? (
+                        <div className="flex w-full items-center gap-2 print:hidden shrink-0">
+                            <DossierHeaderNavButtons
+                                onBack={onNavBack}
+                                onExit={onNavExit!}
+                                backTestId={CRIMINAL_DOSSIER_TEST_IDS.back}
+                                exitTestId={CRIMINAL_DOSSIER_TEST_IDS.exit}
+                            />
+                            <div className="min-w-0 flex-1" />
+                            <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
+                            <span className="inline-flex h-9 w-9 shrink-0" aria-hidden />
+                        </div>
+                    ) : null}
                     {showHeaderToolbarRow ? (
-                        <div className="flex flex-row flex-wrap items-center gap-2 w-full min-w-0 print:hidden">
+                        <div className="flex flex-row flex-wrap items-center gap-2 w-full min-w-0 print:hidden shrink-0">
                             {hasHeaderToolbar ? (
                                 <div className="flex flex-row flex-wrap items-center gap-2 shrink-0 min-w-0">
                                     {renderHeaderToolbar()}
@@ -490,34 +514,48 @@ export const CriminalDashboardHeader = ({
                         </div>
                     ) : null}
 
-                    <div className="flex flex-row flex-wrap items-baseline gap-x-2 gap-y-1 w-full min-w-0">
-                        {titleLineSegments.map((segment, i) => (
-                            <Fragment key={`${segment.text}-${i}`}>
-                                {i > 0 ? (
-                                    <span
-                                        className="text-[#E6C673]/45 text-xs shrink-0 select-none"
-                                        aria-hidden
-                                    >
-                                        ·
-                                    </span>
+                    <div className="flex flex-col gap-1.5 w-full min-w-0">
+                        <h1
+                            className="text-xl md:text-2xl font-bold leading-tight whitespace-normal break-words min-w-0 w-full bg-gradient-to-b from-white to-white/85 bg-clip-text text-transparent [text-shadow:0_0_14px_rgba(255,255,255,0.12)] print:text-black print:bg-none"
+                        >
+                            {titleText}
+                        </h1>
+                        {titleLineSegments.length > 1 || isMutualComplaint ? (
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 w-full min-w-0">
+                                {titleLineSegments.slice(1).map((segment, i) => (
+                                    <Fragment key={`${segment.text}-${i}`}>
+                                        {i > 0 ? (
+                                            <span
+                                                className="text-[#E6C673]/45 text-xs shrink-0 select-none"
+                                                aria-hidden
+                                            >
+                                                ·
+                                            </span>
+                                        ) : null}
+                                        <span className={`${titleLineClass(segment)} min-w-0`}>
+                                            {segment.text}
+                                        </span>
+                                    </Fragment>
+                                ))}
+                                {isMutualComplaint ? (
+                                    <>
+                                        {titleLineSegments.length > 1 ? (
+                                            <span
+                                                className="text-[#E6C673]/45 text-xs shrink-0 select-none"
+                                                aria-hidden
+                                            >
+                                                ·
+                                            </span>
+                                        ) : null}
+                                        <span
+                                            className="inline-flex shrink-0 items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] md:text-[11px] font-black text-amber-100 whitespace-nowrap print:border-amber-500/40 print:text-amber-700"
+                                            title="إضبارة جزائية ناشئة عن شكوى متقابلة (ازدواجية الصفة)"
+                                        >
+                                            شكوى متقابلة
+                                        </span>
+                                    </>
                                 ) : null}
-                                <span className={`${titleLineClass(segment)} ${segment.compact ? 'min-w-0' : 'shrink-0'}`}>
-                                    {segment.text}
-                                </span>
-                            </Fragment>
-                        ))}
-                        {isMutualComplaint ? (
-                            <>
-                                <span className="text-[#E6C673]/45 text-sm shrink-0 select-none" aria-hidden>
-                                    ·
-                                </span>
-                                <span
-                                    className="inline-flex shrink-0 items-center rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] md:text-[11px] font-black text-amber-100 whitespace-nowrap print:border-amber-500/40 print:text-amber-700"
-                                    title="إضبارة جزائية ناشئة عن شكوى متقابلة (ازدواجية الصفة)"
-                                >
-                                    ⚖️ شكوى متقابلة
-                                </span>
-                            </>
+                            </div>
                         ) : null}
                     </div>
 

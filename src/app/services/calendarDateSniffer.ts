@@ -60,6 +60,7 @@ const CANONICAL_PATH_PATTERNS: RegExp[] = [
     /^history\.\d+\.date$/,
     /^notes\.\d+\.apptDate$/,
     /^nextDate$/,
+    /^firstHearingDate$/,
     /^stayReviewDate$/,
     /^timelineEvents\.\d+\.date$/,
     /^timelineEvents\.\d+\.nextDate$/,
@@ -109,6 +110,7 @@ function isCalendarRelevantKey(key: string): boolean {
 const KEY_AR_LABELS: Record<string, string> = {
     date: 'تاريخ',
     nextDate: 'موعد قادم',
+    firstHearingDate: 'أول مرافعة',
     dueDate: 'موعد الاستحقاق',
     apptDate: 'موعد',
     sessionDate: 'تاريخ الجلسة',

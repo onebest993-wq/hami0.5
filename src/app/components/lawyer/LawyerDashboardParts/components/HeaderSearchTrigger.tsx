@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search } from 'lucide-react';
+import { HomeSearchIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { HeaderToolbarIcon } from './HeaderToolbarIcon';
 
 interface HeaderSearchTriggerProps {
@@ -11,11 +11,13 @@ interface HeaderSearchTriggerProps {
 export function HeaderSearchTrigger({ onClick, onPointerEnter, onPointerDown }: HeaderSearchTriggerProps) {
     return (
         <HeaderToolbarIcon
-            icon={Search}
+            icon={HomeSearchIcon}
             label="بحث شامل"
             onClick={onClick}
             onPointerEnter={onPointerEnter}
             onPointerDown={onPointerDown}
+            /* فتح عند pointerdown — أسرع على اللمس من انتظار click (مثل الإعدادات) */
+            activateOnPointerDown
             accent
             testId="header-search-trigger"
         />

@@ -1,4 +1,4 @@
-import { SecureFetchError } from '@/app/services/SecureAPIClient';
+import { SecureFetchError } from '@/app/services/SecureFetchError';
 
 /** أخطاء BFF متوقعة في التطوير أو بدون جلسة — لا تُلوّث الكونسول */
 export function isBenignSecureFetchError(error: unknown): boolean {

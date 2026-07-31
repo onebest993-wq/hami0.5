@@ -1,4 +1,4 @@
-import { Hono } from 'npm:hono';
+import { Hono, type Context, type Next } from 'npm:hono';
 import { cors } from 'npm:hono/cors';
 import { logger } from 'npm:hono/logger';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -8,9 +8,24 @@ import * as kv from './kv_store.tsx';
 import { isKeyOwnedBy, isPrefixOwnedBy } from './kvProxyKeyOwnership.ts';
 
 const app = new Hono();
+const serverLog = (...args: unknown[]) => globalThis.console.log(...args);
+
+type TwilioDispatchPayload = {
+    to: string;
+    message: string;
+    channel: 'sms' | 'whatsapp';
+};
+
+type ConnectionInfoRequest = Request & {
+    connInfo?: {
+        remoteAddr?: {
+            hostname?: string;
+        };
+    };
+};
 
 // --- MIDDLEWARE ---
-app.use('*', logger(console.log));
+app.use('*', logger(serverLog));
 app.use('*', cors());
 
 // --- RAG MEMORY (disabled in V1 — returns empty matches) ---
@@ -37,10 +52,10 @@ app.post('/make-server-f09713ba/comms-dispatcher', async (c) => {
         const authToken = Deno.env.get('TWILIO_AUTH_TOKEN');
         const fromNumber = Deno.env.get('TWILIO_PHONE_NUMBER');
 
-        const { to, message, channel } = await c.req.json();
+        const { to, message, channel } = (await c.req.json()) as TwilioDispatchPayload;
 
         if (!accountSid || !authToken || !fromNumber) {
-            console.log(`[Mock SMS] Sending to ${to}: ${message}`);
+            serverLog(`[Mock SMS] Sending to ${to}: ${message}`);
             await new Promise(r => setTimeout(r, 1000));
             return c.json({ 
                 success: true, 
@@ -60,9 +75,10 @@ app.post('/make-server-f09713ba/comms-dispatcher', async (c) => {
 
         return c.json({ success: true, sid: result.sid });
 
-    } catch (e: any) {
-        console.error("Twilio Error:", e);
-        return c.json({ error: e.message }, 500);
+    } catch (e: unknown) {
+        globalThis.console.error("Twilio Error:", e);
+        const message = e instanceof Error ? e.message : 'Unknown Twilio error';
+        return c.json({ error: message }, 500);
     }
 });
 
@@ -77,7 +93,7 @@ const kvProxySupabase = createClient(
     { auth: { autoRefreshToken: false, persistSession: false } },
 );
 
-async function extractUserIdFromAuth(c: any): Promise<string | null> {
+async function extractUserIdFromAuth(c: Context): Promise<string | null> {
     const authHeader = c.req.header('Authorization') ?? '';
     if (!authHeader.toLowerCase().startsWith('bearer ')) return null;
     const token = authHeader.slice(7).trim();
@@ -147,9 +163,10 @@ app.post('/make-server-f09713ba/kv-proxy', async (c) => {
         }
         if (result === undefined) result = null;
         return c.json(result);
-    } catch (e: any) {
-        console.error("KV Proxy Error:", e.message);
-        return c.json({ error: e.message }, 500);
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Unknown KV proxy error';
+        globalThis.console.error("KV Proxy Error:", message);
+        return c.json({ error: message }, 500);
     }
 });
 
@@ -186,7 +203,7 @@ function getClientIP(request: Request): string {
     if (realIP) return realIP;
     
     // Fallback to connection info (Deno Deploy)
-    const connInfo = (request as any).connInfo;
+    const connInfo = (request as ConnectionInfoRequest).connInfo;
     if (connInfo?.remoteAddr) {
         return connInfo.remoteAddr.hostname || 'unknown';
     }
@@ -222,13 +239,13 @@ function logAccess(
         accessLog.shift();
     }
     
-    console.log(`🛡️ [W.I.F.E] ${action}: ${ip} → ${route}`);
+    serverLog(`🛡️ [W.I.F.E] ${action}: ${ip} → ${route}`);
 }
 
 /**
  * Middleware: Block restricted IPs
  */
-async function wifeProtectionMiddleware(c: any, next: any) {
+async function wifeProtectionMiddleware(c: Context, next: Next) {
     const ip = getClientIP(c.req.raw);
     const path = new URL(c.req.url).pathname;
     
@@ -361,7 +378,7 @@ app.post('/make-server-f09713ba/unblock-ip', async (c) => {
     
     if (blockedIPs.has(ip)) {
         blockedIPs.delete(ip);
-        console.log(`🔓 [W.I.F.E] Unblocked IP: ${ip}`);
+        serverLog(`🔓 [W.I.F.E] Unblocked IP: ${ip}`);
         return c.json({ success: true, message: `IP ${ip} unblocked` });
     }
     

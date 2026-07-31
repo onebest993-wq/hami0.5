@@ -21,9 +21,16 @@
 
 .profile-studio-scope-tab[data-active='true'],
 .profile-studio-panel-tab[data-active='true'] {
-    color: var(--profile-accent, #e6c673);
-    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 40%, transparent);
-    background: color-mix(in srgb, var(--profile-accent, #e6c673) 10%, transparent);
+    color: #0a0c12;
+    border-color: color-mix(in srgb, var(--profile-accent, #e6c673) 55%, #fff);
+    background: linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--profile-accent, #e6c673) 92%, #fff),
+        var(--profile-accent, #e6c673)
+    );
+    box-shadow:
+        0 4px 14px color-mix(in srgb, var(--profile-accent, #e6c673) 28%, transparent),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .profile-studio-word-chip {

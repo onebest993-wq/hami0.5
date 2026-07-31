@@ -2,7 +2,6 @@ import type React from 'react';
 import { Fragment } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import {
-    X,
     Edit2,
     Trash2,
     Lock,
@@ -11,9 +10,12 @@ import { buildChromeStageStripItems } from '../smartFile/stepperPipeline';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { CaseFlowActionsPanel } from '../parts/CaseFlowActionsPanel';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
+import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
 
 export type SmartFileChromeProps = {
     onClose: () => void;
+    onDossierBack?: () => void;
+    onDossierExit?: () => void;
     setShowEditInfoModal: (v: boolean) => void;
     isTrashOpen: boolean;
     setIsTrashOpen: (v: boolean) => void;
@@ -48,6 +50,8 @@ export type SmartFileChromeProps = {
 };
 export function SmartFileChrome({
     onClose,
+    onDossierBack,
+    onDossierExit,
     setShowEditInfoModal,
     isTrashOpen,
     setIsTrashOpen,
@@ -72,22 +76,20 @@ export function SmartFileChrome({
     hideCaseFlowActions = false,
 }: SmartFileChromeProps) {
     const stageStripItems = buildChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
+    const dossierBack = onDossierBack ?? onClose;
+    const dossierExit = onDossierExit ?? onClose;
 
     return (
         <>
             <div className="sticky top-0 z-50 w-full shrink-0 bg-slate-950/90 border-b border-white/10 print:hidden overflow-visible">
                 <div className="flex items-center justify-between px-3 py-3.5 overflow-visible">
                     <div className="flex items-center gap-3">
-                        <button
-                            type="button"
-                            data-testid={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
-                            onClick={onClose}
-                            className="flex items-center gap-2 px-3 py-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all"
-                            aria-label="إغلاق"
-                        >
-                            <X size={18} />
-                            <span className="text-sm font-semibold">رجوع</span>
-                        </button>
+                        <DossierHeaderNavButtons
+                            onBack={dossierBack}
+                            onExit={dossierExit}
+                            backTestId={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
+                            exitTestId={CIVIL_LAWSUIT_TEST_IDS.dossierExit}
+                        />
                     </div>
 
                     <div className="flex items-center justify-center flex-1 gap-2">
@@ -110,28 +112,40 @@ export function SmartFileChrome({
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowEditInfoModal(true)}
-                            className="p-2 rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all hover:text-[#E6C673] hover:bg-[#E6C673]/10"
-                            title="تعديل بيانات الدعوى"
-                        >
-                            <Edit2 size={20} />
-                        </button>
+                        {!isViewingArchived ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditInfoModal(true)}
+                                    className="p-2 rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all hover:text-[#E6C673] hover:bg-[#E6C673]/10"
+                                    title="تعديل بيانات الدعوى"
+                                >
+                                    <Edit2 size={20} />
+                                </button>
 
-                        <button
-                            type="button"
-                            onClick={() => setIsTrashOpen(!isTrashOpen)}
-                            className={`p-2 rounded-full transition-all ${
-                                isTrashOpen
-                                    ? 'bg-rose-500/20 text-rose-400 shadow-lg shadow-rose-500/20'
-                                    : 'text-slate-400/70 hover:text-rose-400 hover:bg-rose-500/10'
-                            }`}
-                            title="سلة المهملات"
-                            aria-label="سلة المهملات"
-                        >
-                            <Trash2 size={20} strokeWidth={1.5} />
-                        </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsTrashOpen(!isTrashOpen)}
+                                    className={`p-2 rounded-full transition-all ${
+                                        isTrashOpen
+                                            ? 'bg-rose-500/20 text-rose-400 shadow-lg shadow-rose-500/20'
+                                            : 'text-slate-400/70 hover:text-rose-400 hover:bg-rose-500/10'
+                                    }`}
+                                    title="سلة المهملات"
+                                    aria-label="سلة المهملات"
+                                >
+                                    <Trash2 size={20} strokeWidth={1.5} />
+                                </button>
+                            </>
+                        ) : (
+                            <span
+                                className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-white/60"
+                                title="مرحلة أو إضبارة للقراءة فقط"
+                            >
+                                <Lock size={12} aria-hidden />
+                                أرشيف
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>

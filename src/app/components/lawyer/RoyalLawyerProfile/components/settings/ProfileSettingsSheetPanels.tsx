@@ -1,5 +1,4 @@
 import React, { useLayoutEffect, useMemo, useState } from 'react';
-import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import type { ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
 import type { ContainerKindTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
@@ -7,7 +6,6 @@ import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCusto
 import {
     getCachedProfileSettingsAppearanceTab,
     getCachedProfileSettingsContainersTab,
-    getCachedProfileSettingsPrivacyTab,
     isProfileSettingsStudioTabsResolved,
     loadProfileSettingsStudioTabs,
     prefetchProfileSettingsStudioTabsModule,
@@ -18,9 +16,6 @@ import { ProfileSettingsTabSkeleton } from './ProfileSettingsTabSkeleton';
 type ProfileSettingsSheetPanelsProps = {
     tab: ProfileSettingsTab;
     draft: ProfilePageCustomization;
-    actions: ProfileAction[];
-    randomDisabled: boolean;
-    randomCooldownSec: number;
     containerKind: ContainerKindTab;
     setContainerKind: (kind: ContainerKindTab) => void;
     textBlocks: ProfileCustomBlock[];
@@ -30,21 +25,19 @@ type ProfileSettingsSheetPanelsProps = {
     uploadingBlockId: string | null;
     uploadingCanvasBlockId: string | null;
     onDraftChange: (updater: (prev: ProfilePageCustomization) => ProfilePageCustomization) => void;
-    onToggleContactVisibility: (actionId: string, hidden: boolean) => void;
-    onRandomAppearance: () => void;
     onAddBlock: (kind: 'text' | 'image') => void;
     onUpdateBlock: (id: string, patch: Partial<ProfileCustomBlock>) => void;
     onRemoveBlock: (id: string) => void;
     onPickBlockImage: (blockId: string) => void;
     onUploadCanvasBg: (blockId: string) => void;
+    onClearBlockImage?: (blockId: string) => void;
+    onClearCanvasBg?: (blockId: string) => void;
+    saving?: boolean;
 };
 
 export function ProfileSettingsSheetPanels({
     tab,
     draft,
-    actions,
-    randomDisabled,
-    randomCooldownSec,
     containerKind,
     setContainerKind,
     textBlocks,
@@ -54,71 +47,64 @@ export function ProfileSettingsSheetPanels({
     uploadingBlockId,
     uploadingCanvasBlockId,
     onDraftChange,
-    onToggleContactVisibility,
-    onRandomAppearance,
     onAddBlock,
     onUpdateBlock,
     onRemoveBlock,
     onPickBlockImage,
     onUploadCanvasBg,
+    onClearBlockImage,
+    onClearCanvasBg,
+    saving = false,
 }: ProfileSettingsSheetPanelsProps) {
     const [tabsReady, setTabsReady] = useState(() => isProfileSettingsStudioTabsResolved());
+    const [tabsError, setTabsError] = useState(false);
+    const [loadAttempt, setLoadAttempt] = useState(0);
 
     useLayoutEffect(() => {
         prefetchProfileSettingsStudioTabsModule();
         if (isProfileSettingsStudioTabsResolved()) {
             setTabsReady(true);
+            setTabsError(false);
             return;
         }
 
         let cancelled = false;
+        setTabsError(false);
         void loadProfileSettingsStudioTabs()
             .then(() => {
-                if (!cancelled) setTabsReady(true);
+                if (!cancelled) {
+                    setTabsReady(true);
+                    setTabsError(false);
+                }
             })
-            .catch(() => undefined);
+            .catch(() => {
+                if (!cancelled) setTabsError(true);
+            });
 
         return () => {
             cancelled = true;
         };
-    }, []);
+    }, [loadAttempt]);
 
     const expandedContainerBlock = useMemo(() => {
         if (tab !== 'containers' || !expandedBlockId) return null;
-        return (
-            textBlocks.find((b) => b.id === expandedBlockId) ??
-            imageBlocks.find((b) => b.id === expandedBlockId) ??
-            null
-        );
-    }, [tab, expandedBlockId, textBlocks, imageBlocks]);
+        const pool = containerKind === 'text' ? textBlocks : imageBlocks;
+        return pool.find((b) => b.id === expandedBlockId) ?? null;
+    }, [tab, expandedBlockId, containerKind, textBlocks, imageBlocks]);
 
-    const PrivacyTab = getCachedProfileSettingsPrivacyTab();
     const AppearanceTab = getCachedProfileSettingsAppearanceTab();
     const ContainersTab = getCachedProfileSettingsContainersTab();
-    const studioTabsResolved =
-        tabsReady && Boolean(PrivacyTab && AppearanceTab && ContainersTab);
+    const studioTabsResolved = tabsReady && Boolean(AppearanceTab && ContainersTab);
 
     const activePanel = useMemo(() => {
         if (!studioTabsResolved) return null;
 
-        if (tab === 'privacy' && PrivacyTab) {
-            return (
-                <PrivacyTab
-                    draft={draft}
-                    actions={actions}
-                    onDraftChange={onDraftChange}
-                    onToggleContactVisibility={onToggleContactVisibility}
-                />
-            );
-        }
         if (tab === 'appearance' && AppearanceTab) {
             return (
                 <AppearanceTab
                     draft={draft}
-                    randomDisabled={randomDisabled}
-                    randomCooldownSec={randomCooldownSec}
                     onDraftChange={onDraftChange}
-                    onRandomAppearance={onRandomAppearance}
+                    disabled={saving}
                 />
             );
         }
@@ -138,6 +124,9 @@ export function ProfileSettingsSheetPanels({
                     onRemoveBlock={onRemoveBlock}
                     onPickBlockImage={onPickBlockImage}
                     onUploadCanvasBg={onUploadCanvasBg}
+                    onClearBlockImage={onClearBlockImage}
+                    onClearCanvasBg={onClearCanvasBg}
+                    saving={saving}
                 />
             );
         }
@@ -145,16 +134,10 @@ export function ProfileSettingsSheetPanels({
     }, [
         studioTabsResolved,
         tab,
-        PrivacyTab,
         AppearanceTab,
         ContainersTab,
         draft,
-        actions,
         onDraftChange,
-        onToggleContactVisibility,
-        randomDisabled,
-        randomCooldownSec,
-        onRandomAppearance,
         containerKind,
         setContainerKind,
         textBlocks,
@@ -168,6 +151,9 @@ export function ProfileSettingsSheetPanels({
         onRemoveBlock,
         onPickBlockImage,
         onUploadCanvasBg,
+        onClearBlockImage,
+        onClearCanvasBg,
+        saving,
     ]);
 
     return (
@@ -187,7 +173,27 @@ export function ProfileSettingsSheetPanels({
                     aria-labelledby={`profile-settings-tab-${tab}`}
                     data-testid={`profile-settings-panel-${tab}`}
                 >
-                    {studioTabsResolved ? activePanel : <ProfileSettingsTabSkeleton />}
+                    {studioTabsResolved ? (
+                        activePanel
+                    ) : tabsError ? (
+                        <div
+                            className="flex flex-col items-center justify-center gap-3 py-10 text-center"
+                            data-testid="profile-settings-tabs-error"
+                            role="alert"
+                        >
+                            <p className="text-sm text-white/65">تعذّر تحميل أقسام الاستوديو</p>
+                            <button
+                                type="button"
+                                data-testid="profile-settings-tabs-retry"
+                                className="min-h-[44px] px-4 rounded-xl border border-[#E6C673]/35 text-sm font-bold text-[#E6C673] touch-manipulation"
+                                onClick={() => setLoadAttempt((n) => n + 1)}
+                            >
+                                إعادة المحاولة
+                            </button>
+                        </div>
+                    ) : (
+                        <ProfileSettingsTabSkeleton />
+                    )}
                 </div>
             </div>
         </div>

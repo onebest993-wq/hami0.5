@@ -8,6 +8,7 @@ type ImageBlockFocusPanelProps = {
     uploading: boolean;
     onChange: (patch: Partial<ProfileCustomBlock>) => void;
     onPickImage: () => void;
+    onClearImage?: () => void;
 };
 
 export function ImageBlockFocusPanel({
@@ -15,19 +16,34 @@ export function ImageBlockFocusPanel({
     uploading,
     onChange,
     onPickImage,
+    onClearImage,
 }: ImageBlockFocusPanelProps) {
     return (
         <div className="space-y-3" data-testid="image-block-focus-panel">
-            <button
-                type="button"
-                disabled={uploading}
-                onClick={onPickImage}
-                data-testid="image-upload-button"
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl hami-profile-accent-btn border text-[11px] font-bold min-h-[44px]"
-            >
-                <ImagePlus size={14} />
-                {uploading ? 'جاري الرفع...' : block.imageUrl ? 'تغيير الصورة' : 'رفع صورة'}
-            </button>
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    disabled={uploading}
+                    onClick={onPickImage}
+                    data-testid="image-upload-button"
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl hami-profile-accent-btn border text-[11px] font-bold min-h-[44px]"
+                >
+                    <ImagePlus size={14} />
+                    {uploading ? 'جاري الرفع...' : block.imageUrl ? 'تغيير الصورة' : 'رفع صورة'}
+                </button>
+                {block.imageUrl && onClearImage ? (
+                    <button
+                        type="button"
+                        disabled={uploading}
+                        onClick={onClearImage}
+                        data-testid="image-clear-button"
+                        className="px-3 rounded-xl border border-red-400/30 text-red-300 text-[11px] font-bold min-h-[44px] min-w-[44px] touch-manipulation"
+                        aria-label="مسح الصورة"
+                    >
+                        مسح
+                    </button>
+                ) : null}
+            </div>
 
             {block.imageUrl ? (
                 <ImageFocusPicker block={block} src={block.imageUrl} onChange={onChange} />
@@ -39,7 +55,8 @@ export function ImageBlockFocusPanel({
 
             <textarea
                 value={block.body ?? ''}
-                onChange={(e) => onChange({ body: e.target.value })}
+                maxLength={2000}
+                onChange={(e) => onChange({ body: e.target.value.slice(0, 2000) })}
                 rows={2}
                 className="w-full bg-black/35 border border-white/10 rounded-xl px-3 py-2 text-xs outline-none resize-none focus:border-white/20"
                 placeholder="تعليق تحت الصورة (اختياري)"

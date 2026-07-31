@@ -1,9 +1,10 @@
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ElementType } from 'react';
 import { type ExecutionFile } from '@/app/types/execution';
 import {
     fileHasSpecificDeliveryClaim,
+    resolveDossierHeaderFields,
     type DossierHeaderResolved,
 } from '@/app/utils/executionDossierHeaderFields';
 import {
@@ -22,13 +23,19 @@ const DetailCell = memo(function DetailCell({
     value,
     className = '',
     valueClassName = '',
+    /** عند false تُعرض الخلية حتى لو فارغة (رقم/تاريخ الحكم) */
+    hideIfEmpty = true,
 }: {
     label: string;
     value: string;
     className?: string;
     valueClassName?: string;
+    hideIfEmpty?: boolean;
 }) {
-    if (!value || value === '—') return null;
+    const trimmed = String(value || '').trim();
+    if (hideIfEmpty && (!trimmed || trimmed === '—')) return null;
+    const display = trimmed || '—';
+    const empty = !trimmed || trimmed === '—';
     return (
         <div
             className={`rounded-md border border-amber-500/22 bg-[#0B1120]/50 px-2 py-1 text-right leading-snug ${className}`}
@@ -36,9 +43,11 @@ const DetailCell = memo(function DetailCell({
         >
             <p className="text-[10px] leading-none text-amber-200/55">{label}</p>
             <p
-                className={`mt-0.5 text-[12px] font-semibold text-white whitespace-normal [unicode-bidi:plaintext] [word-break:keep-all] [overflow-wrap:normal] ${valueClassName}`}
+                className={`mt-0.5 text-[12px] font-semibold whitespace-normal [unicode-bidi:plaintext] [word-break:keep-all] [overflow-wrap:normal] ${
+                    empty ? 'text-slate-500' : 'text-white'
+                } ${valueClassName}`}
             >
-                {value}
+                {display}
             </p>
         </div>
     );
@@ -141,9 +150,29 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
     onSaveSubFileNumber,
     expandedDossierFromParent,
 }: DashboardHeaderSectionProps) {
+    const resolvedFromExecution = useMemo(
+        () => resolveDossierHeaderFields(executionData),
+        [executionData],
+    );
+    const effectiveHeaderFields = useMemo((): DossierHeaderResolved => {
+        const hasIncoming =
+            Boolean(headerFields.directorate?.trim()) ||
+            Boolean(headerFields.fileNumber?.trim()) ||
+            Boolean(headerFields.fileYear?.trim()) ||
+            Boolean(headerFields.fileRefDisplay?.trim() && headerFields.fileRefDisplay !== '—');
+        if (hasIncoming) return headerFields;
+        return resolvedFromExecution;
+    }, [headerFields, resolvedFromExecution]);
+
+    const [localHeaderExpanded, setLocalHeaderExpanded] = useState(isHeaderExpanded);
+    useEffect(() => {
+        setLocalHeaderExpanded(isHeaderExpanded);
+    }, [isHeaderExpanded]);
+    const headerExpanded = localHeaderExpanded;
+
     const showSpecificDeliveryMeta = fileHasSpecificDeliveryClaim(executionData);
     const expanded = expandedDossierFromParent ?? {
-        headerFields,
+        headerFields: effectiveHeaderFields,
         classificationDisplay,
         claimTypeArabicDisplay,
         showJudgmentMeta,
@@ -170,13 +199,14 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
         }
         setSubFileNumberDraft(headerFields.fileNumber || '');
         setSubFileYearDraft(headerFields.fileYear || '');
-    }, [isSubFile, headerFields.fileNumber, headerFields.fileYear]);
+    }, [isSubFile, effectiveHeaderFields.fileNumber, effectiveHeaderFields.fileYear]);
 
     const subFileRefFilled = Boolean(
-        String(headerFields.fileNumber || '').trim() || String(headerFields.fileYear || '').trim()
+        String(effectiveHeaderFields.fileNumber || '').trim() ||
+            String(effectiveHeaderFields.fileYear || '').trim()
     );
     const subFileRefDisplay = subFileRefFilled
-        ? `${headerFields.fileNumber || '—'} / ${headerFields.fileYear || '—'}`
+        ? `${effectiveHeaderFields.fileNumber || '—'} / ${effectiveHeaderFields.fileYear || '—'}`
         : '';
 
     const handleSaveSubFileNumber = (e?: React.MouseEvent) => {
@@ -284,20 +314,20 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
             <div className="mx-3 mt-1.5 mb-1.5">
                 <div
                     className={`relative w-full overflow-hidden backdrop-blur-xl bg-[#0B1120]/65 border border-amber-500/35 px-3 py-2.5 shadow-lg shadow-amber-950/25 ring-1 ring-[#D4AF37]/10 touch-manipulation ${
-                        isHeaderExpanded ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'
+                        headerExpanded ? 'rounded-t-2xl rounded-b-none' : 'rounded-2xl'
                     }`}
                     role="button"
                     tabIndex={0}
-                    onClick={() => toggleHeaderExpanded()}
+                    onClick={() => setLocalHeaderExpanded((open) => !open)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                             e.preventDefault();
-                            toggleHeaderExpanded();
+                            setLocalHeaderExpanded((open) => !open);
                         }
                     }}
-                    aria-expanded={isHeaderExpanded}
-                    aria-label={isHeaderExpanded ? 'طيّ تفاصيل الإضبارة' : 'توسيع تفاصيل الإضبارة'}
-                    title={isHeaderExpanded ? 'طيّ التفاصيل' : 'توسيع التفاصيل'}
+                    aria-expanded={headerExpanded}
+                    aria-label={headerExpanded ? 'طيّ تفاصيل الإضبارة' : 'توسيع تفاصيل الإضبارة'}
+                    title={headerExpanded ? 'طيّ التفاصيل' : 'توسيع التفاصيل'}
                 >
                     <div className="pointer-events-none absolute inset-0">
                         <div className="absolute inset-0 opacity-60 [background-image:repeating-linear-gradient(45deg,rgba(230,198,115,0.08)_0,rgba(230,198,115,0.08)_1px,transparent_1px,transparent_14px),repeating-linear-gradient(-45deg,rgba(230,198,115,0.06)_0,rgba(230,198,115,0.06)_1px,transparent_1px,transparent_14px)]" />
@@ -311,7 +341,7 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                     >
                         <div className="flex min-w-0 flex-1 flex-wrap items-center justify-center gap-x-2 gap-y-0 overflow-hidden text-center leading-none">
                             <span className="shrink-0 text-[1.0625rem] font-extrabold leading-tight text-amber-50 sm:text-lg">
-                                {headerFields.directorate || '—'}
+                                {effectiveHeaderFields.directorate || '—'}
                             </span>
                             <span className="shrink-0 text-amber-700/65" aria-hidden>
                                 ·
@@ -387,7 +417,7 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                                             </button>
                                         ) : null}
                                         <span className="shrink-0 tabular-nums text-[1.0625rem] font-bold leading-none text-amber-200/95 sm:text-lg">
-                                            {headerFields.fileRefDisplay}
+                                            {effectiveHeaderFields.fileRefDisplay}
                                         </span>
                                     </>
                                 )}
@@ -451,7 +481,7 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
 
                 {/* EXPANDED STATE: Document Details Grid */}
                 <AnimatePresence initial={false}>
-                    {isHeaderExpanded && (
+                    {headerExpanded && (
                         <motion.div
                             key="dossier-header-expanded"
                             initial={{ height: 0, opacity: 0 }}
@@ -475,7 +505,11 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                                     <>
                                         <button
                                             type="button"
-                                            onClick={expanded.openEditDossierMeta}
+                                            data-exec-interactive="true"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                expanded.openEditDossierMeta();
+                                            }}
                                             className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-200/90 transition hover:text-amber-100"
                                         >
                                             <Pencil size={12} />
@@ -525,12 +559,14 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                                                     label="رقم الحكم"
                                                     value={expanded.headerFields.docNumber || '—'}
                                                     valueClassName="font-mono"
+                                                    hideIfEmpty={false}
                                                 />
                                             ) : null}
                                             {expanded.showJudgmentMeta ? (
                                                 <DetailCell
                                                     label="تاريخ الحكم"
                                                     value={expanded.judgmentDateDisplay || '—'}
+                                                    hideIfEmpty={false}
                                                 />
                                             ) : null}
                                             {expanded.isEvictionExecutionModule ? (

@@ -2,7 +2,7 @@
 /** حفظ خطوات الحجز العقاري/المنقول + التأييد + النشر — chunk execution-hooks */
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { ExecutionFile, SeizedMovable, SeizedProperty, TimelineEvent } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import {
     creditMovableProceedsForExecution,
     creditMovableSaleProceedsToTrustLedger,

@@ -1,5 +1,6 @@
 // @ts-nocheck
 /** Light handler cluster for notes/appointment/payment flows only. */
+import { useMemo } from 'react';
 import { useExecutionDashboardPushTimelineEvent } from './useExecutionDashboardPushTimelineEvent';
 import { useExecutionDashboardSupabaseTimelineHydrate } from './useExecutionDashboardRuntimeSyncEffects';
 import { useExecutionDashboardNotesTasksHandlers } from './useExecutionDashboardNotesTasksHandlers';
@@ -77,6 +78,7 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         executionDataRef,
         persistExecutionMerge,
         setTimelineEvents,
+        timelineEventsRef,
     });
 
     const { pushTimelineEvent } = pushTimelineEventBinding;
@@ -171,10 +173,13 @@ export function useExecutionDashboardCoreHandlerClusterLight(c: ExecutionDashboa
         setShowPaymentModal,
     });
 
-    return {
-        pushTimelineEventBinding,
-        notesTasksHandlers,
-        appointmentHandler,
-        paymentHandlers,
-    };
+    return useMemo(
+        () => ({
+            pushTimelineEventBinding,
+            notesTasksHandlers,
+            appointmentHandler,
+            paymentHandlers,
+        }),
+        [pushTimelineEventBinding, notesTasksHandlers, appointmentHandler, paymentHandlers],
+    );
 }

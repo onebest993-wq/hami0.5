@@ -195,10 +195,10 @@ for (const e of crossEdges.filter((x) => x.fromChunk === 'execution-helpers' && 
 }
 
 // BFS for short cycle through unassigned
-const coreFiles = files.filter((f) => chunkOf(f) === 'execution-dashboard-core');
-const helperFiles = new Set(files.filter((f) => chunkOf(f) === 'execution-helpers'));
+const _coreFiles = files.filter((f) => chunkOf(f) === 'execution-dashboard-core');
+const _helperFiles = new Set(files.filter((f) => chunkOf(f) === 'execution-helpers'));
 
-function depsInChunk(file, targetChunk) {
+function _depsInChunk(file, targetChunk) {
   return (graph.get(file) || []).filter((d) => chunkOf(d) === targetChunk);
 }
 

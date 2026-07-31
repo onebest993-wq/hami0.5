@@ -55,3 +55,24 @@ export function getPublicationNoticeForDebtorKey(
         ...(periodEndedAt ? { periodEndedAt } : {}),
     };
 }
+
+/**
+ * تبليغ بالنشر «سارٍ» فقط إن وُجدت بيانات ولم يُنهَ بالمدة/يدوياً.
+ * (بعد الإنهاء كانت السجلات القديمة تبقى وتمنع إعادة التسجيل بتحذير مضلل.)
+ */
+export function isPublicationNoticeActive(
+    state: PublicationNoticeDebtorState | null | undefined,
+): boolean {
+    if (!state) return false;
+    const ended = String(state.periodEndedAt ?? '').trim();
+    return !ended;
+}
+
+/** قراءة التبليغ بالنشر الساري فقط — المنتهي يُعامل كـ null */
+export function getActivePublicationNoticeForDebtorKey(
+    file: ExecutionFile | null | undefined,
+    debtorKey: string,
+): PublicationNoticeDebtorState | null {
+    const st = getPublicationNoticeForDebtorKey(file, debtorKey);
+    return isPublicationNoticeActive(st) ? st : null;
+}

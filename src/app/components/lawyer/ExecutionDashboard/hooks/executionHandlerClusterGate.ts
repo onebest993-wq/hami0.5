@@ -1,16 +1,20 @@
-// @ts-nocheck
 /** Gate lazy load of execution-core-handlers chunk */
+import { readHandlerClusterContextValue } from './executionDashboardCore/handlerClusterContextShared';
+
 export type ExecutionHandlerClusterGateInput = {
     showUnifiedExecutionModal: boolean;
+    showUnifiedSummonsModal: boolean;
     unifiedModalTab?: string | null;
     showUnifiedSeizureLogModal: boolean;
     showCoerciveModal: boolean;
     showAppointmentModal: boolean;
     showSeizedAssetsModal: boolean;
     showPaymentModal: boolean;
+    showNotificationModal: boolean;
     showNotesModal: boolean;
     showCoerciveActionForm: boolean;
     showEditDossierMetaModal: boolean;
+    partyDeathModalParty: 'creditor' | 'debtor' | null;
     dossierLifecyclePanelOpen: boolean;
     isHeaderExpanded: boolean;
 };
@@ -25,6 +29,14 @@ export type ExecutionHandlerClusterSeizureMode = 'none' | 'requests' | 'log';
 
 export function shouldLoadExecutionHandlerClusterLight(input: ExecutionHandlerClusterGateInput): boolean {
     return Boolean(input.showAppointmentModal || input.showPaymentModal || input.showNotesModal);
+}
+
+/**
+ * عند فتح الإضبارة: يُفضَّل تحميل light فوراً حتى لو لم تُفتح نوافذ بعد.
+ * تُستخدم من RuntimeAssembly مع وجود executionData.
+ */
+export function shouldPreferLightHandlerClusterOnDossierMount(hasExecutionData: boolean): boolean {
+    return Boolean(hasExecutionData);
 }
 
 export function shouldLoadExecutionHandlerClusterHeavy(input: ExecutionHandlerClusterGateInput): boolean {
@@ -79,7 +91,8 @@ export function shouldLoadExecutionHandlerClusterCoerciveHeavy(input: ExecutionH
 }
 
 export function shouldLoadExecutionHandlerClusterDossierSupport(input: ExecutionHandlerClusterGateInput): boolean {
-    return Boolean(input.showEditDossierMetaModal || input.dossierLifecyclePanelOpen || input.isHeaderExpanded);
+    // توسيع الهيدر = نية تعديل بيانات الإضبارة — حمّل الدعم قبل أن يضغط المستخدم الزر على stub
+    return Boolean(input.showEditDossierMetaModal || input.isHeaderExpanded);
 }
 
 export function resolveExecutionHandlerClusterFollowupMode(
@@ -108,11 +121,18 @@ export function resolveExecutionHandlerClusterFollowupMode(
 export function resolveExecutionHandlerClusterHeavyMode(
     input: ExecutionHandlerClusterGateInput,
 ): ExecutionHandlerClusterHeavyMode {
-    if (input.showCoerciveModal || input.showCoerciveActionForm) {
+    if (
+        input.showCoerciveModal ||
+        input.showCoerciveActionForm ||
+        input.showNotificationModal ||
+        input.showUnifiedSummonsModal ||
+        Boolean(input.partyDeathModalParty)
+    ) {
         return 'coercive';
     }
 
-    if (resolveExecutionHandlerClusterSeizureMode(input) !== 'none') {
+    // سجل الحجز وحده (بدون محضر مفتوح)
+    if (input.showUnifiedSeizureLogModal && !input.showUnifiedExecutionModal) {
         return 'seizure';
     }
 
@@ -126,18 +146,16 @@ export function resolveExecutionHandlerClusterHeavyMode(
         return 'seizure';
     }
 
-    if (activeFollowupTab === 'coercive') {
+    if (activeFollowupTab === 'coercive' || activeFollowupTab === 'personal') {
         return 'coercive';
     }
 
     if (
         activeFollowupTab === 'dossier_controls' ||
-        activeFollowupTab === 'other_party'
+        activeFollowupTab === 'other_party' ||
+        activeFollowupTab === 'admin' ||
+        activeFollowupTab === 'special'
     ) {
-        return 'followup';
-    }
-
-    if (activeFollowupTab === 'admin') {
         return 'followup';
     }
 
@@ -155,12 +173,9 @@ export function resolveExecutionHandlerClusterSeizureMode(
         return 'log';
     }
 
-    if (!input.showUnifiedExecutionModal) {
-        return 'none';
-    }
-
-    const activeFollowupTab = String(input.unifiedModalTab || '').trim();
-    if (!activeFollowupTab || activeFollowupTab === 'seizure_requests') {
+    // أبقِ جسور طلبات الحجز حيّة طوال فتح المحضر — إلغاؤها عند تبديل التبويب
+    // يعيد Suspense باردة عند العودة لـ «طلبات الحجز».
+    if (input.showUnifiedExecutionModal) {
         return 'requests';
     }
 
@@ -169,6 +184,31 @@ export function resolveExecutionHandlerClusterSeizureMode(
 
 export function shouldLoadExecutionHandlerCluster(input: ExecutionHandlerClusterGateInput): boolean {
     return shouldLoadExecutionHandlerClusterLight(input) || shouldLoadExecutionHandlerClusterHeavy(input);
+}
+
+/**
+ * جسر تكليف الموظف بالحضور — input الجسور هو bag-of-bags (core/orchestrators)،
+ * لذا الأعلام تُقرأ من الحقائب الداخلية عبر readHandlerClusterContextValue.
+ * (كان الوصول المباشر input.employeeAssignmentTabEnabled يعيد undefined دائماً
+ * فلا يُحمَّل الجسر أبداً وتبقى معالجات التكليف stubs.)
+ */
+export function shouldLoadExecutionEmployeeAssignmentBridge(
+    loadCoerciveHeavyHandlerCluster: boolean,
+    coerciveHeavyHandlerClusterInput: Record<string, unknown>,
+): boolean {
+    if (!loadCoerciveHeavyHandlerCluster) return false;
+    return Boolean(
+        readHandlerClusterContextValue(coerciveHeavyHandlerClusterInput, 'activeDebtorIsEmployee') ||
+            readHandlerClusterContextValue(coerciveHeavyHandlerClusterInput, 'employeeAssignmentTabEnabled') ||
+            readHandlerClusterContextValue(
+                coerciveHeavyHandlerClusterInput,
+                'resolvedEmployeeSummonsAssignment',
+            ) ||
+            readHandlerClusterContextValue(
+                coerciveHeavyHandlerClusterInput,
+                'employeeForcedBringAwaitingPersonalOutcome',
+            ),
+    );
 }
 
 export function buildExecutionHandlerClusterMountKey(p: {

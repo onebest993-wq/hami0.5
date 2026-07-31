@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { SPECIAL_REQUEST_MANUAL_MODE } from '../../components/requestsTabConstants';
@@ -38,14 +38,41 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
     setSpecialRequestManualTitle,
     setSpecialRequestDate,
 }: UseExecutionDashboardDossierAdminFollowupHandlersParams) {
+    const draftRef = useRef({
+        specialRequestDate,
+        specialRequestManualTitle,
+        specialRequestContent,
+        executionData,
+        decisionsStorageExecutionId,
+    });
+    draftRef.current = {
+        specialRequestDate,
+        specialRequestManualTitle,
+        specialRequestContent,
+        executionData,
+        decisionsStorageExecutionId,
+    };
+
     const { runSubmit: runSpecialFollowupSubmit } = useStandardSubmit({
         validate: () => {
-            const d = specialRequestDate.trim();
+            const {
+                specialRequestDate: date,
+                specialRequestManualTitle: title,
+                specialRequestContent: content,
+            } = draftRef.current;
+            const d = date.trim();
             if (!d) return false;
-            return Boolean(specialRequestManualTitle.trim()) && Boolean(specialRequestContent.trim());
+            return Boolean(title.trim()) && Boolean(content.trim());
         },
         validationMessage: 'أكمل موضوع الطلب والتاريخ والتفاصيل',
         submit: async () => {
+            const {
+                specialRequestDate: date,
+                specialRequestManualTitle: manualTitle,
+                specialRequestContent: content,
+                executionData: execData,
+                decisionsStorageExecutionId: storageId,
+            } = draftRef.current;
             const [
                 { appendSpecialFollowupRequest },
                 { dispatchDomainIsolationBlocked, isFollowupRequestKindAllowed },
@@ -55,8 +82,8 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
             ]);
 
             const followupGate = isFollowupRequestKindAllowed(
-                executionData as Record<string, unknown> | null | undefined,
-                decisionsStorageExecutionId,
+                execData as Record<string, unknown> | null | undefined,
+                storageId,
                 'special_followup',
             );
             if (!followupGate.allowed) {
@@ -64,13 +91,13 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
                 return false;
             }
 
-            const d = specialRequestDate.trim();
-            const content = specialRequestContent.trim();
-            const title = specialRequestManualTitle.trim() || 'طلب يدوي';
+            const d = date.trim();
+            const trimmedContent = content.trim();
+            const title = manualTitle.trim() || 'طلب يدوي';
             const decisionId = appendSpecialFollowupRequest({
-                executionId: decisionsStorageExecutionId,
+                executionId: storageId,
                 requestDate: d,
-                content: content || title,
+                content: trimmedContent || title,
                 decisionTitle: title,
                 payloadJson: JSON.stringify({
                     kind: 'manual_followup',
@@ -82,7 +109,7 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
                 return false;
             }
             const now = new Date().toISOString();
-            const fullBody = `بتاريخ ${d}:\n\n${content || title}`;
+            const fullBody = `بتاريخ ${d}:\n\n${trimmedContent || title}`;
             pushTimelineEvent({
                 id: nextTimelineId(),
                 date: d,

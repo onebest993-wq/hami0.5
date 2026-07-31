@@ -6,7 +6,7 @@ import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTr
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { isRecord, readEntityId } from './shared';
+import { isRecord } from './shared';
 
 /** لا يُرفع للتقويم: سلة المحذوفات، الأرشيف، أو مرحلة مؤرشفة */
 export function shouldExcludeLawsuitFromCalendar(file: Record<string, unknown>): boolean {

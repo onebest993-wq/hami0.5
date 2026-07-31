@@ -5,7 +5,8 @@ import type {
     LegalTask,
     TaskExpenseEntry,
 } from '@/app/types/TaskEngine';
-import { addDays, parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
+import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
+import { parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
 import { prepareAgendaTasks, isTaskAgendaReadOnly } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     applySilentPracticalEnrichment,
@@ -17,8 +18,14 @@ import {
     removeTaskVoiceAttachment,
     titleFromVoicePayload,
 } from '@/app/services/tasks/taskVoiceAttachment';
+import type { RequestTaskHelpParams } from '@/app/services/taskHelp/quantumTaskHelpActions';
 
 export type AddTaskOptions = TaskEnrichmentOptions;
+export type { RequestTaskHelpParams };
+
+function loadQuantumTaskHelpActions() {
+    return import('@/app/services/taskHelp/quantumTaskHelpActions');
+}
 
 export type UseQuantumTasksOptions = {
     /** يُستدعى داخل updater بعد حساب القائمة الجديدة — قبل إعادة الرسم */
@@ -46,6 +53,8 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
     onTasksCommittedRef.current = options?.onTasksCommitted;
 
     const [tasks, setTasksState] = useState<LegalTask[]>(() => prepareAgendaTasks(initial));
+    const tasksRef = useRef(tasks);
+    tasksRef.current = tasks;
 
     const setTasks = useCallback((updater: SetStateAction<LegalTask[]>) => {
         setTasksState((prev) => {
@@ -64,10 +73,10 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
         const parsed = parseTaskInput(trimmed);
         const enriched = applySilentPracticalEnrichment(trimmed, parsed, options);
         const nextId = newId();
-        const linkedCaseId = enriched.linkedCaseId ?? null;
         const next: LegalTask = {
             id: nextId,
             ...enriched,
+            linkedCaseId: enriched.linkedCaseId ?? null,
             status: 'pending',
             completedAt: null,
             pinnedToFieldCurtain: false,
@@ -81,7 +90,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
 
         setTasks((prev) => [...prev, next]);
         return next;
-    }, []);
+    }, [setTasks]);
 
     const addTaskFromVoice = useCallback(
         async (payload: VoiceNoteSavePayload, fallbackText?: string): Promise<LegalTask | null> => {
@@ -94,7 +103,6 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             const voiceFields = await persistTaskVoiceAttachment(nextId, payload);
             if (!voiceFields) return null;
 
-            const linkedCaseId = enriched.linkedCaseId ?? null;
             const next: LegalTask = {
                 id: nextId,
                 rawText: titleSeed,
@@ -103,7 +111,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 parsedDate: enriched.parsedDate,
                 reminderAt: null,
                 isFatalDeadline: enriched.isFatalDeadline,
-                linkedCaseId,
+                linkedCaseId: enriched.linkedCaseId ?? null,
                 status: 'pending',
                 completedAt: null,
                 pinnedToFieldCurtain: false,
@@ -117,7 +125,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             setTasks((prev) => [...prev, next]);
             return next;
         },
-        [],
+        [setTasks],
     );
 
     const addWeeklyLocationBundle = useCallback((
@@ -168,7 +176,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             ...EMPTY_TASK_VOICE,
         };
         setTasks((prev) => [...prev, next]);
-    }, []);
+    }, [setTasks]);
 
     const addSnoozedBacklogTask = useCallback(
         (title: string, reminderAt: Date, location: string | null = null) => {
@@ -198,7 +206,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             };
             setTasks((prev) => [...prev, next]);
         },
-        [],
+        [setTasks],
     );
 
     const updateTask = useCallback((id: string, patch: Partial<LegalTask>) => {
@@ -217,7 +225,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 return next;
             }),
         );
-    }, []);
+    }, [setTasks]);
 
     const deleteTask = useCallback((id: string) => {
         setTasks((prev) => {
@@ -227,7 +235,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             }
             return prev.filter((t) => t.id !== id);
         });
-    }, []);
+    }, [setTasks]);
 
     const completeTask = useCallback((id: string) => {
         setTasks((prev) => {
@@ -244,7 +252,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 ),
             );
         });
-    }, []);
+    }, [setTasks]);
 
     const reopenTask = useCallback((id: string) => {
         setTasks((prev) => {
@@ -254,7 +262,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 prev.map((t) => (t.id === id ? { ...t, completedAt: null } : t)),
             );
         });
-    }, []);
+    }, [setTasks]);
 
     const toggleTaskFatalDeadline = useCallback((id: string) => {
         setTasks((prev) =>
@@ -262,14 +270,15 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 t.id === id ? { ...t, isFatalDeadline: !t.isFatalDeadline } : t,
             ),
         );
-    }, []);
+    }, [setTasks]);
 
     const toggleTaskPinnedToFieldCurtain = useCallback((id: string) => {
         setTasks((prev) => {
             const target = prev.find((t) => t.id === id);
             if (!target) return prev;
+            /** الحتمية لها قسمها في الأجندة — لا تُثبَّت على ستارة الميدان */
+            if (target.isFatalDeadline) return prev;
             const willPin = !target.pinnedToFieldCurtain;
-            if (willPin && target.isFatalDeadline) return prev;
             const pinDay = startOfLocalDay(new Date());
             return prev.map((t) => {
                 if (t.id === id) {
@@ -285,13 +294,13 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 return t;
             });
         });
-    }, []);
+    }, [setTasks]);
 
     const setTaskLocation = useCallback((id: string, location: string | null) => {
         setTasks((prev) =>
             prev.map((t) => (t.id === id ? { ...t, location } : t)),
         );
-    }, []);
+    }, [setTasks]);
 
     const addSubTask = useCallback((parentId: string, title: string, location: string | null) => {
         const t = title.trim();
@@ -308,7 +317,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 task.id === parentId ? { ...task, subTasks: [...task.subTasks, sub] } : task,
             ),
         );
-    }, []);
+    }, [setTasks]);
 
     const toggleSubTaskComplete = useCallback((parentId: string, subTaskId: string) => {
         setTasks((prev) =>
@@ -322,7 +331,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 };
             }),
         );
-    }, []);
+    }, [setTasks]);
 
     const setSubTaskLocation = useCallback(
         (parentId: string, subTaskId: string, location: string | null) => {
@@ -338,7 +347,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 }),
             );
         },
-        [],
+        [setTasks],
     );
 
     const addDocumentRequirement = useCallback((parentId: string, text: string) => {
@@ -356,7 +365,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                     : task,
             ),
         );
-    }, []);
+    }, [setTasks]);
 
     const toggleDocumentRequirement = useCallback((parentId: string, itemId: string) => {
         setTasks((prev) =>
@@ -370,7 +379,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 };
             }),
         );
-    }, []);
+    }, [setTasks]);
 
     const addExpense = useCallback((parentId: string, amount: number, label: string) => {
         if (!Number.isFinite(amount) || amount <= 0) return;
@@ -384,9 +393,119 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
                 task.id === parentId ? { ...task, expenses: [...task.expenses, entry] } : task,
             ),
         );
-    }, []);
+    }, [setTasks]);
 
-    const pendingTasks = useMemo(() => tasks.filter((t) => t.status === 'pending'), [tasks]);
+    const syncHelpFieldsToTask = useCallback(
+        async (sourceTaskId: string, help: TaskHelpRequest, extra?: Partial<LegalTask>) => {
+            const { helpFieldsPatchFromRequest } = await loadQuantumTaskHelpActions();
+            updateTask(sourceTaskId, {
+                ...helpFieldsPatchFromRequest(help),
+                ...extra,
+            });
+        },
+        [updateTask],
+    );
+
+    const requestTaskHelp = useCallback(
+        async (params: RequestTaskHelpParams): Promise<TaskHelpRequest | null> => {
+            const task = tasksRef.current.find((t) => t.id === params.taskId);
+            if (!task) return null;
+            const { executeRequestTaskHelp } = await loadQuantumTaskHelpActions();
+            const created = await executeRequestTaskHelp(task, params);
+            if (created) await syncHelpFieldsToTask(task.id, created);
+            return created;
+        },
+        [syncHelpFieldsToTask],
+    );
+
+    const acceptTaskHelp = useCallback(
+        async (
+            helpRequestId: string,
+            colleagueId: string,
+            colleagueName?: string,
+            sourceTaskId?: string,
+        ): Promise<TaskHelpRequest> => {
+            const { executeAcceptTaskHelp } = await loadQuantumTaskHelpActions();
+            const accepted = await executeAcceptTaskHelp(
+                helpRequestId,
+                colleagueId,
+                colleagueName,
+            );
+            const taskId = sourceTaskId ?? accepted.sourceTaskId;
+            if (tasksRef.current.some((t) => t.id === taskId)) {
+                await syncHelpFieldsToTask(taskId, accepted);
+            }
+            return accepted;
+        },
+        [syncHelpFieldsToTask],
+    );
+
+    const addSharedTaskNote = useCallback(
+        async (
+            helpRequestId: string,
+            authorId: string,
+            noteText: string,
+            authorName?: string,
+            sourceTaskId?: string,
+        ): Promise<TaskHelpRequest> => {
+            const { executeAddSharedTaskNote } = await loadQuantumTaskHelpActions();
+            const updated = await executeAddSharedTaskNote(
+                helpRequestId,
+                authorId,
+                noteText,
+                authorName,
+            );
+            const taskId = sourceTaskId ?? updated.sourceTaskId;
+            if (tasksRef.current.some((t) => t.id === taskId)) {
+                await syncHelpFieldsToTask(taskId, updated);
+            }
+            return updated;
+        },
+        [syncHelpFieldsToTask],
+    );
+
+    const markHelpCompleted = useCallback(
+        async (helpRequestId: string, actorId: string, sourceTaskId?: string) => {
+            const { executeMarkHelpCompleted } = await loadQuantumTaskHelpActions();
+            const updated = await executeMarkHelpCompleted(helpRequestId, actorId);
+            const taskId = sourceTaskId ?? updated.sourceTaskId;
+            if (tasksRef.current.some((t) => t.id === taskId)) {
+                await syncHelpFieldsToTask(taskId, updated);
+            }
+            return updated;
+        },
+        [syncHelpFieldsToTask],
+    );
+
+    const confirmHelpReview = useCallback(
+        async (helpRequestId: string, actorId: string, sourceTaskId?: string) => {
+            const { executeConfirmHelpReview } = await loadQuantumTaskHelpActions();
+            const updated = await executeConfirmHelpReview(helpRequestId, actorId);
+            const taskId = sourceTaskId ?? updated.sourceTaskId;
+            if (tasksRef.current.some((t) => t.id === taskId)) {
+                await syncHelpFieldsToTask(taskId, updated);
+            }
+            return updated;
+        },
+        [syncHelpFieldsToTask],
+    );
+
+    const pendingTasks = useMemo(
+        () => tasks.filter((t) => t.status === 'pending' || t.status === 'delegated'),
+        [tasks],
+    );
+
+    const delegatedTasks = useMemo(
+        () =>
+            tasks.filter(
+                (t) =>
+                    t.collaborationStatus === 'PENDING' ||
+                    t.collaborationStatus === 'ACCEPTED' ||
+                    t.collaborationStatus === 'AWAITING_OWNER_REVIEW' ||
+                    t.status === 'delegated',
+            ),
+        [tasks],
+    );
 
     const actions = useMemo(
         () => ({
@@ -407,6 +526,11 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             addDocumentRequirement,
             toggleDocumentRequirement,
             addExpense,
+            requestTaskHelp,
+            acceptTaskHelp,
+            addSharedTaskNote,
+            markHelpCompleted,
+            confirmHelpReview,
             setTasks,
         }),
         [
@@ -427,11 +551,19 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             addDocumentRequirement,
             toggleDocumentRequirement,
             addExpense,
+            requestTaskHelp,
+            acceptTaskHelp,
+            addSharedTaskNote,
+            markHelpCompleted,
+            confirmHelpReview,
             setTasks,
         ],
     );
 
-    const data = useMemo(() => ({ tasks, pendingTasks }), [tasks, pendingTasks]);
+    const data = useMemo(
+        () => ({ tasks, pendingTasks, delegatedTasks }),
+        [tasks, pendingTasks, delegatedTasks],
+    );
 
     return useMemo(() => ({ ...data, ...actions }), [data, actions]);
 }

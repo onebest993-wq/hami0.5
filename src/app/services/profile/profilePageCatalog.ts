@@ -13,6 +13,9 @@ import type {
     ProfileImageInteraction,
     ProfileMediaTemplate,
     ProfilePrivacySettings,
+    ProfilePortraitFrame,
+    ProfilePortraitFrameId,
+    ProfilePortraitFrameOption,
     ProfileTextEffect,
     ProfileTextFont,
 } from './profilePageTypes';
@@ -84,6 +87,10 @@ export const PROFILE_TEXT_FONTS: { id: ProfileTextFont; label: string; className
     { id: 'tajawal', label: 'تجوال', className: 'hami-profile-font-tajawal' },
     { id: 'cairo', label: 'قاهرة', className: 'hami-profile-font-cairo' },
     { id: 'literary', label: 'أدبي', className: 'hami-profile-font-literary' },
+    { id: 'almarai', label: 'المراعي', className: 'hami-profile-font-almarai' },
+    { id: 'changa', label: 'تشانجا', className: 'hami-profile-font-changa' },
+    { id: 'noto', label: 'نوتو', className: 'hami-profile-font-noto' },
+    { id: 'reem', label: 'ريم كوفي', className: 'hami-profile-font-reem' },
 ];
 
 export const PROFILE_CANVAS_MATERIALS: { id: ProfileCanvasMaterial; label: string }[] = [
@@ -129,15 +136,13 @@ export const PROFILE_TEXT_EFFECTS: { id: ProfileTextEffect; label: string }[] = 
 
 export const PROFILE_FONT_SIZES: { id: ProfileFontSize; label: string; className: string }[] = [
     { id: 'xs', label: 'صغير', className: 'text-xs' },
-    { id: 'sm', label: 'متوسط', className: 'text-sm' },
-    { id: 'base', label: 'عادي', className: 'text-base' },
+    { id: 'base', label: 'وسط', className: 'text-base' },
     { id: 'lg', label: 'كبير', className: 'text-lg' },
-    { id: 'xl', label: 'أكبر', className: 'text-xl' },
-    { id: '2xl', label: 'قصيدة', className: 'text-2xl' },
-    { id: '3xl', label: 'عنوان', className: 'text-3xl' },
+    { id: '2xl', label: 'كبير جدا', className: 'text-2xl' },
 ];
 
 export const DEFAULT_PROFILE_PRIVACY: ProfilePrivacySettings = {
+    pageAccess: 'public',
     showPhoneMeta: true,
     showCityMeta: true,
     showSyndicate: true,
@@ -150,7 +155,16 @@ export const DEFAULT_PROFILE_PRIVACY: ProfilePrivacySettings = {
 export const DEFAULT_PROFILE_APPEARANCE: ProfileAppearanceSettings = {
     accentColor: 'gold',
     material: 'glass',
+    portraitFrame: 'classic',
 };
+
+export const PROFILE_PORTRAIT_FRAMES: readonly ProfilePortraitFrameOption[] = [
+    { id: 'classic', label: 'كلاسيكي', hint: 'إطار ذهبي هادئ' },
+    { id: 'ornate', label: 'أزهار', hint: 'بتلات ناعمة حول البورتريه' },
+    { id: 'minimal', label: 'بسيط', hint: 'خط رفيع بلا زخرفة' },
+    { id: 'circle', label: 'نجوم راقصة', hint: 'نقاط نجمية تدور ببطء' },
+    { id: 'arch', label: 'ثقب أسود', hint: 'دوامة كونية خفيفة' },
+] as const;
 
 /** مدة الانتظار بين كل توليد عشوائي للمظهر (ms) */
 export const PROFILE_RANDOM_APPEARANCE_COOLDOWN_MS = 45_000;

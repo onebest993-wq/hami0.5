@@ -3,6 +3,7 @@ import type { TimelineEvent } from '@/app/types/execution';
 import {
     buildTimelineEventRowSignature,
     planTimelineDedupePersist,
+    reconcileTimelineEventsState,
     shouldEndGracePeriodFromExecutionStatus,
     shouldShowEvictionGraceReminderToast,
 } from '../executionDashboardTimelineAndGraceSync';
@@ -35,5 +36,26 @@ describe('executionDashboardTimelineAndGraceSync', () => {
     it('gates eviction grace reminder toast', () => {
         expect(shouldShowEvictionGraceReminderToast({ remainingDays: 2 })).toBe(true);
         expect(shouldShowEvictionGraceReminderToast({ remainingDays: 5 })).toBe(false);
+    });
+
+    it('reconcile keeps local events when incoming is empty', () => {
+        const local = [{ id: '1', type: 'other', title: 'a', date: '2026-01-01' }] as TimelineEvent[];
+        expect(reconcileTimelineEventsState(local, [], { forceReplace: false })).toEqual(local);
+    });
+
+    it('reconcile force-replaces on dossier context switch', () => {
+        const local = [{ id: '1', type: 'other', title: 'a', date: '2026-01-01' }] as TimelineEvent[];
+        const incoming = [{ id: '2', type: 'other', title: 'b', date: '2026-01-02' }] as TimelineEvent[];
+        expect(reconcileTimelineEventsState(local, incoming, { forceReplace: true })).toEqual(incoming);
+    });
+
+    it('reconcile merges new incoming events without dropping local-only rows', () => {
+        const local = [{ id: '1', type: 'other', title: 'a', date: '2026-01-01' }] as TimelineEvent[];
+        const incoming = [
+            { id: '1', type: 'other', title: 'a', date: '2026-01-01' },
+            { id: '2', type: 'other', title: 'b', date: '2026-01-02' },
+        ] as TimelineEvent[];
+        const merged = reconcileTimelineEventsState(local, incoming);
+        expect(merged.map((e) => e.id)).toEqual(['1', '2']);
     });
 });

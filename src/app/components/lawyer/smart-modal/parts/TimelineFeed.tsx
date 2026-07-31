@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import {
     Search as SearchIcon,
     Clock,
-    Edit3,
     Trash2,
 } from 'lucide-react';
 import type { TimelineEvent } from '../../LawyerShared';
@@ -40,12 +39,10 @@ function getEvidentiaryBadge(weight: string) {
 export const TimelineFeed = ({
     events,
     onDelete,
-    onEdit,
     visualVariant = 'civil',
 }: {
     events: TimelineEvent[];
     onDelete?: (id: string) => void;
-    onEdit?: (id: string) => void;
     visualVariant?: 'civil' | 'personal' | 'personal-pearl';
 }) => {
     const isPearl = visualVariant === 'personal-pearl';
@@ -136,7 +133,6 @@ export const TimelineFeed = ({
                 <div className={`text-center py-12 ${shellClass}`}>
                     <Clock size={32} className={`${accentIcon} mx-auto mb-3`} strokeWidth={1.5} />
                     <p className="text-white/30 text-sm">لا توجد إجراءات مسجلة حتى الآن</p>
-                    <p className="text-white/15 text-xs mt-1">استخدم الأزرار أعلاه لإضافة مواعيد، ملاحظات، أو مستندات</p>
                 </div>
                 )}
             </>
@@ -171,7 +167,8 @@ export const TimelineFeed = ({
                     const eventCategory = classifyTimelineEvent(event);
                     const categoryMeta = getTimelineCategoryMeta(eventCategory);
                     const displayTitle = formatTimelineCardTitle(event);
-                    const displayDetails = formatTimelineCardBody(event);
+                    const simplifyCivilContent = !isPearl && !isPersonal;
+                    const displayDetails = simplifyCivilContent ? '' : formatTimelineCardBody(event);
 
                     const isPauseEvent = ext.isPause || event.title?.includes('استئخار');
                     const isInterruptionEvent = ext.isInterruption || event.title?.includes('انقطاع السير');
@@ -188,87 +185,100 @@ export const TimelineFeed = ({
                             <div className={visual.dot} />
 
                             <div className={visual.card}>
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                                        <div className={visual.iconWrap}>
-                                            <Icon size={18} strokeWidth={1.65} className={visual.iconColor} />
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center flex-wrap gap-1.5 mb-1">
-                                                <span
-                                                    className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${
-                                                        isPearl
-                                                            ? 'border-white/[0.16] bg-white/[0.08] text-[#ECE8E2]'
-                                                            : categoryMeta.chipActive
-                                                    }`}
-                                                >
-                                                    {categoryMeta.label}
-                                                </span>
-                                                <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]' : 'text-white/35'}`}>
-                                                    {event.date?.slice(0, 10) || '—'}
-                                                </span>
-                                                {event.time ? (
-                                                    <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]/80' : 'text-white/30'}`}>
-                                                        {event.time}
-                                                    </span>
-                                                ) : null}
-                                                {evidentiaryBadge ? (
-                                                    <span
-                                                        className={`px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${evidentiaryBadge.style}`}
+                                {simplifyCivilContent ? (
+                                    <div className="flex items-start justify-between gap-2">
+                                        <h4
+                                            className={`min-w-0 flex-1 font-bold text-[13px] leading-snug ${visual.title}`}
+                                        >
+                                            {displayTitle}
+                                        </h4>
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-[10px] tabular-nums text-white/35">
+                                                {event.date?.slice(0, 10) || '—'}
+                                            </span>
+                                            {onDelete ? (
+                                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onDelete(event.id)}
+                                                        className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
+                                                        title="حذف"
                                                     >
-                                                        {evidentiaryBadge.label}
-                                                    </span>
-                                                ) : null}
-                                                {isPauseEvent ? (
-                                                    <span className="px-1.5 py-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 text-[8px] font-bold text-amber-200/90">
-                                                        استئخار
-                                                    </span>
-                                                ) : null}
-                                                {isInterruptionEvent ? (
-                                                    <span className="px-1.5 py-0.5 rounded-md border border-rose-500/25 bg-rose-500/10 text-[8px] font-bold text-rose-200/90">
-                                                        انقطاع
-                                                    </span>
-                                                ) : null}
-                                            </div>
-                                            <h4 className={`font-bold text-[13px] leading-snug truncate ${visual.title}`}>
-                                                {displayTitle}
-                                            </h4>
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </div>
+                                            ) : null}
                                         </div>
                                     </div>
-                                    {(onEdit || onDelete) && (
-                                        <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden shrink-0">
-                                            {onEdit ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onEdit(event.id)}
-                                                    className={`p-1.5 rounded-lg border transition-colors ${
-                                                        isPearl
-                                                            ? 'bg-white/[0.04] border-white/[0.10] hover:border-white/[0.20] text-[#9894A0] hover:text-[#ECE8E2]'
-                                                            : 'bg-white/[0.04] border-white/[0.08] hover:border-[#E6C673]/25 text-white/40 hover:text-[#E6C673]'
-                                                    }`}
-                                                    title="تعديل"
-                                                >
-                                                    <Edit3 size={13} />
-                                                </button>
-                                            ) : null}
+                                ) : (
+                                    <>
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                                                <div className={visual.iconWrap}>
+                                                    <Icon size={18} strokeWidth={1.65} className={visual.iconColor} />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center flex-wrap gap-1.5 mb-1">
+                                                        <span
+                                                            className={`shrink-0 px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${
+                                                                isPearl
+                                                                    ? 'border-white/[0.16] bg-white/[0.08] text-[#ECE8E2]'
+                                                                    : categoryMeta.chipActive
+                                                            }`}
+                                                        >
+                                                            {categoryMeta.label}
+                                                        </span>
+                                                        <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]' : 'text-white/35'}`}>
+                                                            {event.date?.slice(0, 10) || '—'}
+                                                        </span>
+                                                        {event.time ? (
+                                                            <span className={`text-[10px] tabular-nums ${isPearl ? 'text-[#9894A0]/80' : 'text-white/30'}`}>
+                                                                {event.time}
+                                                            </span>
+                                                        ) : null}
+                                                        {evidentiaryBadge ? (
+                                                            <span
+                                                                className={`px-1.5 py-0.5 rounded-md border text-[8px] font-bold ${evidentiaryBadge.style}`}
+                                                            >
+                                                                {evidentiaryBadge.label}
+                                                            </span>
+                                                        ) : null}
+                                                        {isPauseEvent ? (
+                                                            <span className="px-1.5 py-0.5 rounded-md border border-amber-500/25 bg-amber-500/10 text-[8px] font-bold text-amber-200/90">
+                                                                استئخار
+                                                            </span>
+                                                        ) : null}
+                                                        {isInterruptionEvent ? (
+                                                            <span className="px-1.5 py-0.5 rounded-md border border-rose-500/25 bg-rose-500/10 text-[8px] font-bold text-rose-200/90">
+                                                                انقطاع
+                                                            </span>
+                                                        ) : null}
+                                                    </div>
+                                                    <h4 className={`font-bold text-[13px] leading-snug truncate ${visual.title}`}>
+                                                        {displayTitle}
+                                                    </h4>
+                                                </div>
+                                            </div>
                                             {onDelete ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => onDelete(event.id)}
-                                                    className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
-                                                    title="حذف"
-                                                >
-                                                    <Trash2 size={13} />
-                                                </button>
+                                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden shrink-0">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onDelete(event.id)}
+                                                        className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
+                                                        title="حذف"
+                                                    >
+                                                        <Trash2 size={13} />
+                                                    </button>
+                                                </div>
                                             ) : null}
                                         </div>
-                                    )}
-                                </div>
-                                {displayDetails ? (
-                                    <p className={`text-[11px] leading-relaxed mt-2 pl-0.5 line-clamp-5 whitespace-pre-line ${visual.detailsText}`}>
-                                        {displayDetails}
-                                    </p>
-                                ) : null}
+                                        {displayDetails ? (
+                                            <p className={`text-[11px] leading-relaxed mt-2 pl-0.5 line-clamp-5 whitespace-pre-line ${visual.detailsText}`}>
+                                                {displayDetails}
+                                            </p>
+                                        ) : null}
+                                    </>
+                                )}
                             </div>
                         </div>
                     );

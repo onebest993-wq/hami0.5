@@ -59,14 +59,14 @@ function resolvePrincipalFromAllocatedRows(
 
 export function useFinancialComputed(
     executionData: unknown,
-    totalAmount: number,
-    debtAmount: number,
-    lawyerFeesAmount: number,
-    executionFee: number,
-    clientFeesAmount: number,
-    courtFees: number,
-    directorateFees: number,
-    dynamicExpenses: number,
+    totalAmount: number | unknown,
+    debtAmount: number | unknown,
+    lawyerFeesAmount: number | unknown,
+    executionFee: number | unknown,
+    clientFeesAmount: number | unknown,
+    courtFees: number | unknown,
+    directorateFees: number | unknown,
+    dynamicExpenses: number | unknown,
 ) {
     const parsedDebtAmount = useMemo(() => {
         const allocatedSum = (() => {
@@ -121,7 +121,8 @@ export function useFinancialComputed(
     const parsedCourtFees = parseMoneyLike(courtFees);
     const parsedDirectorateFees = parseMoneyLike(directorateFees);
 
-    const total_execution_expenses = parsedCourtFees + parsedDirectorateFees + dynamicExpenses;
+    const total_execution_expenses =
+        parsedCourtFees + parsedDirectorateFees + parseMoneyLike(dynamicExpenses);
 
     return {
         parsedDebtAmount,

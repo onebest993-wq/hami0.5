@@ -2,10 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { SmartDialog, subscribeSmartDialog, type DialogPayload } from '@/app/components/ui/smartDialogBus';
+import {
+    URGENT_DOSSIER_BTN_PRIMARY,
+    URGENT_DOSSIER_DIALOG_OVERLAY,
+    URGENT_DOSSIER_DIALOG_PANEL,
+} from '@/app/components/lawyer/Dashboard_Active_Order_File/layout/urgentDossierUi';
 
 export function SmartDialogContainer() {
     const [active, setActive] = useState<{ id: string; payload: DialogPayload } | null>(null);
     const [promptValue, setPromptValue] = useState('');
+    const [confirmSecondsLeft, setConfirmSecondsLeft] = useState(0);
     const inputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
@@ -31,6 +37,29 @@ export function SmartDialogContainer() {
         return () => window.clearTimeout(t);
     }, [active]);
 
+    useEffect(() => {
+        if (!active || active.payload.kind !== 'confirm') {
+            setConfirmSecondsLeft(0);
+            return;
+        }
+        const delayMs = Math.max(0, active.payload.confirmDelayMs ?? 0);
+        if (delayMs <= 0) {
+            setConfirmSecondsLeft(0);
+            return;
+        }
+        const startedAt = Date.now();
+        const tick = () => {
+            const leftMs = Math.max(0, delayMs - (Date.now() - startedAt));
+            setConfirmSecondsLeft(Math.ceil(leftMs / 1000));
+            return leftMs;
+        };
+        tick();
+        const id = window.setInterval(() => {
+            if (tick() <= 0) window.clearInterval(id);
+        }, 200);
+        return () => window.clearInterval(id);
+    }, [active]);
+
     const labels = useMemo(() => {
         const title = active?.payload.title ?? 'تأكيد';
         const confirmText = active?.payload.confirmText ?? 'تأكيد';
@@ -47,6 +76,7 @@ export function SmartDialogContainer() {
 
     const onConfirm = () => {
         if (!active) return;
+        if (active.payload.kind === 'confirm' && confirmSecondsLeft > 0) return;
         if (active.payload.kind === 'prompt') {
             SmartDialog.dismiss(active.id, String(promptValue ?? ''));
             return;
@@ -59,11 +89,13 @@ export function SmartDialogContainer() {
         SmartDialog.dismiss(active.id, null);
     };
 
+    const confirmLocked = active?.payload.kind === 'confirm' && confirmSecondsLeft > 0;
+
     return createPortal(
         <AnimatePresence>
             {active ? (
                 <motion.div
-                    className="fixed inset-0 z-[100100] flex items-center justify-center bg-black/70 px-4"
+                    className={`${URGENT_DOSSIER_DIALOG_OVERLAY} z-[100100]`}
                     data-testid="smart-dialog-overlay"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
@@ -71,16 +103,24 @@ export function SmartDialogContainer() {
                     onClick={onBackdrop}
                 >
                     <motion.div
-                        className="w-full max-w-lg bg-slate-900 border border-white/10 rounded-2xl p-5"
+                        className={URGENT_DOSSIER_DIALOG_PANEL}
                         initial={{ y: 18, opacity: 0 }}
                         animate={{ y: 0, opacity: 1 }}
                         exit={{ y: 18, opacity: 0 }}
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="text-white font-extrabold text-sm">{labels.title}</div>
-                        <div className="mt-3 text-white/80 text-sm font-bold whitespace-pre-wrap">
+                        <div className="mt-2 text-white/75 text-sm leading-relaxed whitespace-pre-wrap">
                             {active.payload.message}
                         </div>
+                        {confirmLocked ? (
+                            <p
+                                className="mt-3 text-[12px] font-bold text-[#E6C673]/85 tabular-nums"
+                                data-testid="smart-dialog-confirm-countdown"
+                            >
+                                انتظر {confirmSecondsLeft} ثانية قبل التأكيد…
+                            </p>
+                        ) : null}
                         {active.payload.kind === 'prompt' ? (
                             <div className="mt-4">
                                 <input
@@ -93,20 +133,22 @@ export function SmartDialogContainer() {
                                 />
                             </div>
                         ) : null}
-                        <div className="mt-5 flex items-center justify-end gap-2">
+                        <div className="mt-4 flex items-center justify-end gap-2">
                             <button
                                 type="button"
                                 onClick={onCancel}
-                                className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold"
+                                className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm touch-manipulation"
                             >
                                 {labels.cancelText}
                             </button>
                             <button
                                 type="button"
                                 onClick={onConfirm}
-                                className="px-4 py-2 rounded-xl bg-[#E6C673] hover:opacity-90 text-[#0B1021] text-sm font-extrabold"
+                                disabled={confirmLocked}
+                                data-testid="smart-dialog-confirm"
+                                className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-40 disabled:pointer-events-none tabular-nums`}
                             >
-                                {labels.confirmText}
+                                {confirmLocked ? `${confirmSecondsLeft}ث` : labels.confirmText}
                             </button>
                         </div>
                     </motion.div>

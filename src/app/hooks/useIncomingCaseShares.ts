@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
-import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';
 import { CASE_SHARE_CHANGED_EVENT } from '@/app/services/caseShare/caseShareSession';
+import { peekCaseSharePendingCount } from '@/app/services/caseShare/caseSharePeekLite';
 import { TIMING } from '@/app/utils/constants';
-import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootOrchestrator';
+import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootEvents';
 
 const CASE_SHARE_CHANGED = CASE_SHARE_CHANGED_EVENT;
 
@@ -14,6 +14,10 @@ export type UseIncomingCaseSharesOptions = {
     deferInitialFetch?: boolean;
 };
 
+function loadCaseShareApiService() {
+    return import('@/app/services/caseShare/caseShareApiService');
+}
+
 export function useIncomingCaseShares(
     userId: string | null,
     enabled = true,
@@ -22,16 +26,28 @@ export function useIncomingCaseShares(
     const pollIntervalMs = options?.pollIntervalMs ?? TIMING.NOTIFICATION_POLL;
     const [shares, setShares] = useState<CaseShareRecord[]>([]);
     const [loading, setLoading] = useState(false);
+    const [pendingCountLite, setPendingCountLite] = useState(() =>
+        peekCaseSharePendingCount(userId),
+    );
+
+    useEffect(() => {
+        setPendingCountLite(peekCaseSharePendingCount(userId));
+    }, [userId]);
 
     const refresh = useCallback(async () => {
         if (!userId) {
             setShares([]);
+            setPendingCountLite(0);
             return;
         }
         setLoading(true);
         try {
+            const { CaseShareApiService } = await loadCaseShareApiService();
             const rows = await CaseShareApiService.listShares(userId);
             setShares(rows);
+            setPendingCountLite(
+                rows.filter((s) => s.recipientId === userId && s.status === 'pending').length,
+            );
         } finally {
             setLoading(false);
         }
@@ -40,6 +56,7 @@ export function useIncomingCaseShares(
     useEffect(() => {
         if (!enabled || !userId) {
             setShares([]);
+            setPendingCountLite(0);
             return;
         }
 
@@ -67,6 +84,7 @@ export function useIncomingCaseShares(
                 : null;
 
         const onChanged = () => {
+            setPendingCountLite(peekCaseSharePendingCount(userId));
             void refresh();
         };
         window.addEventListener(CASE_SHARE_CHANGED, onChanged);
@@ -88,7 +106,7 @@ export function useIncomingCaseShares(
 
     const incoming = shares.filter((s) => s.recipientId === userId);
     const pending = incoming.filter((s) => s.status === 'pending');
-    const pendingCount = pending.length;
+    const pendingCount = shares.length > 0 ? pending.length : pendingCountLite;
     const activeSessions = shares.filter(
         (s) => s.status === 'accepted' && (s.ownerId === userId || s.recipientId === userId),
     );

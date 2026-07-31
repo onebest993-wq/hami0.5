@@ -3,7 +3,6 @@ import { X } from 'lucide-react';
 import {
     GLASS_BTN,
     GLASS_CLOSE,
-    GLASS_FIELD,
     GLASS_MODAL_HEADER,
     GLASS_MODAL_OVERLAY,
     GLASS_MODAL_SHELL,

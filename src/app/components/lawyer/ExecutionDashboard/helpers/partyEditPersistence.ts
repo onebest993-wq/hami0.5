@@ -1,10 +1,28 @@
-// @ts-nocheck
 import type { Creditor, Debtor, ExecutionFile, Party } from '@/app/types/execution';
 import {
     buildScopedPartyDeathPersistPatch,
     getPartyDeathCaseForRole,
 } from '@/app/utils/partyDeathCaseScope';
-import type { HeirDetailRow } from '../helpers';
+import type { HeirDetailRow } from '../helpers/heirUtils';
+
+type PartyEditPersistPatch = Record<string, unknown> & {
+    creditors?: Creditor[];
+    creditor?: Party;
+    debtors?: Debtor[];
+    debtor?: Party;
+    parties?: Array<Party & { role?: string }>;
+    clientName?: string;
+    opponentName?: string;
+};
+
+type PartyWithHeirsDetails = Party & { heirs_details?: HeirDetailRow[] };
+type LegacyExecutionFileFields = ExecutionFile & {
+    clientName?: string;
+    opponentName?: string;
+    creditor?: Party;
+    debtor?: Party;
+    parties?: Array<Party & { role?: string }>;
+};
 
 export type PartyEditTargetState = {
     kind: 'creditor' | 'debtor';
@@ -121,12 +139,47 @@ function syncPartyDeathCaseHeirsInPatch(
     };
 }
 
+function rebuildPartiesFromLists(
+    creditors: Creditor[],
+    debtors: Debtor[],
+    previousParties: Array<Party & { role?: string }> | undefined,
+): Array<Party & { role?: string }> {
+    const prev = Array.isArray(previousParties) ? previousParties : [];
+    const prevById = new Map(
+        prev
+            .filter((p) => p?.id != null && String(p.id).trim() !== '')
+            .map((p) => [String(p.id), p] as const),
+    );
+    const asParty = (
+        row: Creditor | Debtor,
+        role: 'الدائن' | 'المدين',
+    ): Party & { role?: string } => {
+        const prevRow = row.id != null ? prevById.get(String(row.id)) : undefined;
+        return {
+            ...(prevRow || {}),
+            ...row,
+            name: row.name,
+            fullName: row.name,
+            phone: row.phone ?? '',
+            address: row.address ?? '',
+            role,
+            heirs: row.heirs,
+            heirs_details: (row as Creditor & { heirs_details?: HeirDetailRow[] }).heirs_details,
+        } as Party & { role?: string };
+    };
+    return [
+        ...creditors.map((c) => asParty(c, 'الدائن')),
+        ...debtors.map((d) => asParty(d, 'المدين')),
+    ];
+}
+
 /** يبني patch دمج يحدّث creditors/debtors والحقول القديمة creditor/debtor/parties حتى لا يُستبدل التعديل عند التطبيع */
 export function buildPartyEditPersistPatch(
     base: ExecutionFile,
     target: PartyEditTargetState,
     draft: PartyEditDraftState,
 ): Record<string, unknown> | null {
+    const legacyBase = base as LegacyExecutionFileFields;
     const allowHeirEdit = Boolean(draft.includeHeirsInForm);
     const list =
         target.kind === 'creditor'
@@ -143,9 +196,9 @@ export function buildPartyEditPersistPatch(
     if (target.kind === 'creditor') {
         const arr = list as Creditor[];
         arr[i] = applyDraftToPartyRow(arr[i], draft, allowHeirEdit);
-        const patch: Record<string, unknown> = { creditors: arr };
+        const patch: PartyEditPersistPatch = { creditors: arr };
         const row = arr[i];
-        const syncPartyFields = (p: Party) => ({
+        const syncPartyFields = (p: Party): PartyWithHeirsDetails => ({
             ...p,
             name: row.name,
             fullName: row.name,
@@ -155,29 +208,31 @@ export function buildPartyEditPersistPatch(
             heirs_details: (row as Creditor & { heirs_details?: HeirDetailRow[] }).heirs_details,
         });
         if (i === 0) {
-            const legacy = base.creditor;
+            const legacy = legacyBase.creditor;
             if (legacy && typeof legacy === 'object') {
-                patch.creditor = { ...legacy, ...syncPartyFields(legacy as Party) };
+                patch.creditor = { ...legacy, ...syncPartyFields(legacy) };
+            } else {
+                patch.creditor = syncPartyFields({
+                    id: row.id,
+                    name: row.name,
+                    phone: row.phone ?? '',
+                    address: row.address ?? '',
+                } as Party);
             }
-            if (typeof (base as { clientName?: unknown }).clientName === 'string') {
+            if (typeof legacyBase.clientName === 'string') {
                 patch.clientName = row.name;
             }
         }
-        if (Array.isArray(base.parties) && base.parties.length > 0) {
-            patch.parties = base.parties.map((p) =>
-                p.role === 'الدائن' && (i === 0 || String(p.id ?? '') === target.partyId)
-                    ? syncPartyFields(p)
-                    : p
-            );
-        }
+        const debtorsList = getPartyListFromFile(base, 'debtor') as Debtor[];
+        patch.parties = rebuildPartiesFromLists(arr, debtorsList, legacyBase.parties);
         return allowHeirEdit ? syncPartyDeathCaseHeirsInPatch(base, 'creditor', row, patch) : patch;
     }
 
     const arr = list as Debtor[];
     arr[i] = applyDraftToPartyRow(arr[i], draft, allowHeirEdit);
-    const patch: Record<string, unknown> = { debtors: arr };
+    const patch: PartyEditPersistPatch = { debtors: arr };
     const row = arr[i];
-    const syncPartyFields = (p: Party) => ({
+    const syncPartyFields = (p: Party): PartyWithHeirsDetails => ({
         ...p,
         name: row.name,
         fullName: row.name,
@@ -187,20 +242,22 @@ export function buildPartyEditPersistPatch(
         heirs_details: (row as Debtor & { heirs_details?: HeirDetailRow[] }).heirs_details,
     });
     if (i === 0) {
-        const legacy = base.debtor;
+        const legacy = legacyBase.debtor;
         if (legacy && typeof legacy === 'object') {
-            patch.debtor = { ...legacy, ...syncPartyFields(legacy as Party) };
+            patch.debtor = { ...legacy, ...syncPartyFields(legacy) };
+        } else {
+            patch.debtor = syncPartyFields({
+                id: row.id,
+                name: row.name,
+                phone: row.phone ?? '',
+                address: row.address ?? '',
+            } as Party);
         }
-        if (typeof (base as { opponentName?: unknown }).opponentName === 'string') {
+        if (typeof legacyBase.opponentName === 'string') {
             patch.opponentName = row.name;
         }
     }
-    if (Array.isArray(base.parties) && base.parties.length > 0) {
-        patch.parties = base.parties.map((p) =>
-            p.role === 'المدين' && (i === 0 || String(p.id ?? '') === target.partyId)
-                ? syncPartyFields(p)
-                : p
-        );
-    }
+    const creditorsList = getPartyListFromFile(base, 'creditor') as Creditor[];
+    patch.parties = rebuildPartiesFromLists(creditorsList, arr, legacyBase.parties);
     return allowHeirEdit ? syncPartyDeathCaseHeirsInPatch(base, 'debtor', row, patch) : patch;
 }

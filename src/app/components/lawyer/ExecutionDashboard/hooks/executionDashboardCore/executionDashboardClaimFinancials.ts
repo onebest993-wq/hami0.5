@@ -60,7 +60,7 @@ export function computePrincipalDebtAmount(input: {
     isNonFinancialClaim: boolean;
     isMaritalFurnitureClaim: boolean;
 }): number {
-    if (input.isNonFinancialClaim) return 0;
+    // أثاث زوجية: غير مالي حتى جرد التسليم، ثم قيم «تعذّر» فقط — يجب فحصه قبل isNonFinancialClaim
     if (input.isMaritalFurnitureClaim) {
         const types = getEffectiveClaimTypes(input.executionData);
         if (types.length <= 1) {
@@ -68,6 +68,7 @@ export function computePrincipalDebtAmount(input: {
         }
         return buildExecutionClaimBreakdown(input.executionData).reduce((sum, row) => sum + row.amount, 0);
     }
+    if (input.isNonFinancialClaim) return 0;
     return resolveUnifiedVesselPrincipalAmount(input.executionData, input.parsedDebtAmount);
 }
 

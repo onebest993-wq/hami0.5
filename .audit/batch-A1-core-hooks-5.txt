@@ -1,0 +1,68 @@
+# A1-core-hooks batch 5 — 67 files / 9627 lines
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterPartyLifecycle.ts  (615 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardRuntimeSyncEffects.ts  (594 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorSummonsCoerciveHandlers.ts  (556 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizedPropertyModals.ts  (500 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPartyDeathHandlers.ts  (494 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardHeirsNotificationHandlers.ts  (448 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorWorkspaceContext.ts  (409 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreGraceMasterEvictionPipeline.ts  (354 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardNotifyDebtorHandler.ts  (297 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardVoluntaryPeriodHandlers.ts  (295 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardWorkspaceSessionCluster.ts  (256 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPartyDeathHandlers.test.ts  (209 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardEvictionFinancialHandlers.ts  (204 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardAppointmentHandlers.test.ts  (199 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardWorkspaceControlCenterCluster.test.ts  (197 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardClaimFinancials.test.ts  (183 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardOtherPartyCreditorHandlers.ts  (176 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveSupportBridge.tsx  (163 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardStayHandlers.ts  (159 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardFollowupSeizureInits.ts  (145 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDossierAdminFollowupHandlers.ts  (142 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDossierBootSync.ts  (137 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionBridge.ts  (129 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPendingExecutorDecisionOpeners.test.ts  (128 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoerciveActionHandlers.ts  (117 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/buildExecutionDashboardCoreModalScopeInput.dossierMeta.test.ts  (116 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPersistEffectsCluster.test.ts  (112 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardEvictionFinancialHandlers.test.ts  (107 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardOtherPartyMirror.ts  (105 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardSeizureRequestSubmit.ts  (100 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardFollowupCluster.test.ts  (99 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDecisionStorageLiteWrite.ts  (95 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDebtorEmploymentHandlers.ts  (95 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardDecisionAndEventSync.test.ts  (92 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardHeirsAndDeceasedSync.ts  (90 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/handlerClusterContextShared.ts  (86 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardFinancialScopeBag.ts  (83 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardFollowupSeizureHandlers.test.ts  (82 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardPersonalCoerciveDecisionSync.test.ts  (76 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeSourcesLazy.ts  (74 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierAction.test.ts  (71 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardPropertyInlineSaveContext.ts  (65 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardDecisionStorageLiteCore.ts  (63 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardFollowupSeizureTabs.test.ts  (63 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/collectScopeRestBundleInput.ts  (57 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoerciveStayBridge.tsx  (56 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveFinalizeMovable.ts  (54 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterFoundationSeizure.ts  (51 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardCoerciveUi.test.ts  (49 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/useExecutionDashboardCoreWorkspacePipeline.test.ts  (47 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterSeizureFollowupRequests.ts  (45 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveFinalizeProperty.ts  (44 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers.ts  (42 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardDossierIdentity.test.ts  (41 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge.tsx  (38 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardHeirsInvestigationSync.ts  (38 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardSalarySeizureTabRows.ts  (37 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardGracePeriodEndHandler.test.ts  (36 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreWorkspacePipelineInput.ts  (33 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardHeirsNotificationHandlers.test.ts  (33 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardPartyDeathSave.test.ts  (31 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreScopeFromParts.ts  (28 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardEmployeeAssignmentSync.test.ts  (28 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/__tests__/executionDashboardPaymentHandlers.test.ts  (21 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/scopeBagPick.ts  (17 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardDecisionsHeirsModalExclusivity.ts  (13 lines)
+src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/buildExecutionDashboardCoreRuntimeVars.ts  (8 lines)  [@ts-nocheck]

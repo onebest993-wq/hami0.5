@@ -1,5 +1,3 @@
-import type { AppealUiPerspective } from '../appealUiLabels';
-import type { Decision } from '../types';
 import {
     appealWindowsForDecision,
     cassationButtonTitles,

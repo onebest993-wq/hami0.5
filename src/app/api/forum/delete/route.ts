@@ -1,5 +1,7 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
+import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 import { requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -13,6 +15,10 @@ export async function POST(request: Request): Promise<Response> {
             return auth.response;
         }
 
+        if (!(await checkForumActionRateLimit(auth.userId, 'delete'))) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد الحذف، انتظر قليلاً' });
+        }
+
         let payload: unknown = null;
         try {
             payload = sanitizePayload(await request.json());
@@ -24,12 +30,23 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'postId مطلوب' });
         }
 
-        await ForumRepository.deletePostAuthorized(payload.postId, auth.userId, auth.isAdmin);
+        const postId = payload.postId.trim();
+        const existing = await ForumRepository.getPostById(postId);
+        if (!existing) {
+            return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
+        }
+        await assertForumPostGroupAccess(existing, auth.userId, auth.isAdmin);
 
-        return jsonResponse(200, { ok: true, action: 'forum_delete', postId: payload.postId });
+        await ForumRepository.deletePostAuthorized(postId, auth.userId, auth.isAdmin);
+
+        return jsonResponse(200, { ok: true, action: 'forum_delete', postId });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error';
-        const status = message.includes('صلاحية') ? 403 : 500;
+        const status = (() => {
+            if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة')) return 403;
+            if (message.includes('غير موجود')) return 404;
+            return 500;
+        })();
         return jsonResponse(status, { ok: false, error: message });
     }
 }

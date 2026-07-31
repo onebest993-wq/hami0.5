@@ -201,6 +201,8 @@ export const EXECUTION_PHONE_BODY_PROP_KEYS = [
     'dossierActionModalSaving',
     'dossierActionModalType',
     'dossierDateDraft',
+    'dossierLifecycleActions',
+    'dossierLifecyclePanel',
     'dossierLifecyclePanelOpen',
     'dossierLifecyclePanelPhase',
     'dossierLifecyclePanelPortalRef',

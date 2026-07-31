@@ -10,14 +10,12 @@ export function JudgeDecisionEditableWorkspace(props: JudgeDecisionLifecyclePane
     const { hearingsError, judgeError } = props;
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-3">
             {!!judgeError && <ValidationBanner text={judgeError} />}
             {!!hearingsError && <ValidationBanner text={hearingsError} />}
             <JudgeFastForwardBanner {...props} />
-            <div className="flex flex-col gap-6">
-                <JudgePreDecisionHearingsPanel {...props} />
-                <JudgeDecisionFormPanel {...props} />
-            </div>
+            <JudgePreDecisionHearingsPanel {...props} />
+            <JudgeDecisionFormPanel {...props} />
             <JudgeStateOrderIntervention {...props} />
         </div>
     );

@@ -5,12 +5,12 @@ import {
     emptyStore,
     parseUnifiedLedgerFromStorage,
     storageKey,
-} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+} from '@/app/slices/financial/ledgerPublic';
 import {
     clearSalarySeizureFromStore,
     clearSettlementFromStore,
     releaseSalarySeizedAssets,
-} from '@/app/components/lawyer/FinancialOperationsCenter/settlementSalaryExclusion';
+} from '@/app/slices/financial/specialtyPublic';
 import {
     executionGarnishmentDetailsStorageKey,
     executionGarnishmentFlagStorageKey,

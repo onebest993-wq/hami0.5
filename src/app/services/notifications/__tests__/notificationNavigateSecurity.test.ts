@@ -8,6 +8,8 @@ describe('notificationNavigateSecurity', () => {
     it('يقبل المسارات المسموحة فقط', () => {
         expect(isNotificationNavTarget('community')).toBe(true);
         expect(isNotificationNavTarget('vault')).toBe(true);
+        expect(isNotificationNavTarget('case_details')).toBe(true);
+        expect(isNotificationNavTarget('schedule')).toBe(true);
         expect(isNotificationNavTarget('javascript:alert(1)')).toBe(false);
         expect(isNotificationNavTarget('profile')).toBe(false);
     });

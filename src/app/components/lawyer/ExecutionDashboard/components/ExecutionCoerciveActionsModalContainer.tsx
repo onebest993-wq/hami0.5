@@ -10,7 +10,8 @@ import {
 
 export interface ExecutionCoerciveActionsModalContainerProps {
     showCoerciveModal: boolean;
-    setShowCoerciveModal: (show: boolean) => void;
+    setShowCoerciveModal?: (show: boolean) => void;
+    onCloseCoerciveModal?: () => void;
     followupEmployeeFinancialSalaryOnlyCoercive: boolean;
     followupMonetaryCoerciveLimitedOnly: boolean;
     activeDebtorIsEmployee: boolean;
@@ -27,6 +28,7 @@ export interface ExecutionCoerciveActionsModalContainerProps {
 export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveActionsModalContainerProps> = ({
     showCoerciveModal,
     setShowCoerciveModal,
+    onCloseCoerciveModal,
     followupEmployeeFinancialSalaryOnlyCoercive,
     followupMonetaryCoerciveLimitedOnly,
     activeDebtorIsEmployee,
@@ -41,12 +43,20 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
 }) => {
     useBodyScrollLock(showCoerciveModal);
 
+    const closeCoerciveModal = () => {
+        if (typeof onCloseCoerciveModal === 'function') {
+            onCloseCoerciveModal();
+        } else {
+            setShowCoerciveModal?.(false);
+        }
+    };
+
     if (!showCoerciveModal) return null;
 
     return (
         <div
             className={`fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
-            onClick={() => setShowCoerciveModal(false)}
+            onClick={() => closeCoerciveModal()}
         >
             <div
                 className={`w-full max-w-md overflow-y-auto rounded-3xl border-2 border-rose-500/40 bg-[#0B1120] ${EXEC_MODAL_COERCIVE_SHELL_MAX}`}
@@ -57,7 +67,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                 >
                     <button
                         type="button"
-                        onClick={() => setShowCoerciveModal(false)}
+                        onClick={() => closeCoerciveModal()}
                         className={EXEC_MODAL_CLOSE_BTN_CLASS}
                     >
                         <X size={20} className="text-white" />
@@ -88,7 +98,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('salary');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -111,7 +121,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('property');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -133,7 +143,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('vehicle');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -179,7 +189,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('salary');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -202,7 +212,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('property');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -224,7 +234,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)) return;
                                     handleCoerciveAction('vehicle');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 disabled={executionCoerciveButtonDisabled || (daysSinceNoticeCalculated <= 7 && remaining > 0)}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
@@ -303,7 +313,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                         return;
                                     }
                                     handleCoerciveAction('salary');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
                                     (daysSinceNoticeCalculated <= 7 && remaining > 0)
@@ -337,7 +347,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (daysSinceNoticeCalculated <= 7 && remaining > 0) return;
                                     handleCoerciveAction('vehicle');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
                                     (daysSinceNoticeCalculated <= 7 && remaining > 0)
@@ -360,7 +370,7 @@ export const ExecutionCoerciveActionsModalContainer: React.FC<ExecutionCoerciveA
                                 onClick={() => {
                                     if (daysSinceNoticeCalculated <= 7 && remaining > 0) return;
                                     handleCoerciveAction('property');
-                                    setShowCoerciveModal(false);
+                                    closeCoerciveModal();
                                 }}
                                 className={`w-full backdrop-blur-xl border rounded-2xl p-4 transition-all text-right ${
                                     (daysSinceNoticeCalculated <= 7 && remaining > 0)

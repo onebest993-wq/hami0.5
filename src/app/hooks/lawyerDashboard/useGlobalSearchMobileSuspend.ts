@@ -1,15 +1,32 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-/** عند إرسال التطبيق للخلفية: إخفاء لوحة المفاتيح — لا يُغلق البحث (الحالة في الـ store). */
+const OPEN_INPUT =
+    '[data-search-open="true"] [data-testid="global-search-input"], [data-search-instant-shell="true"] [data-testid="global-search-input"]';
+
+/** خلفية: blur لوحة المفاتيح؛ عودة للمقدمة: استعادة التركيز إن كان البحث مفتوحاً. */
 export function useGlobalSearchMobileSuspend(isOpen: boolean): void {
+    const wasSuspendedRef = useRef(false);
+
     useEffect(() => {
-        if (!isOpen || typeof document === 'undefined') return;
+        if (!isOpen || typeof document === 'undefined') {
+            wasSuspendedRef.current = false;
+            return;
+        }
 
         const onVisibility = () => {
-            if (!document.hidden) return;
-            const active = document.activeElement;
-            if (active instanceof HTMLElement) {
-                active.blur();
+            if (document.hidden) {
+                const active = document.activeElement;
+                if (active instanceof HTMLElement) {
+                    active.blur();
+                    wasSuspendedRef.current = true;
+                }
+                return;
+            }
+            if (!wasSuspendedRef.current) return;
+            wasSuspendedRef.current = false;
+            const input = document.querySelector(OPEN_INPUT);
+            if (input instanceof HTMLInputElement) {
+                input.focus({ preventScroll: true });
             }
         };
 

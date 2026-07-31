@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CaseStage, ProceduralTransitionActionId } from '@/app/types/criminal';
 import type { CriminalCase, LawyerRequest, StageConclusion } from './criminalCaseModel';
 import { CUSTOM_JUDICIAL_DECISION_TYPE } from './proceduralRequestTypes';

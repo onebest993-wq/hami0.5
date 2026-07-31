@@ -37,32 +37,51 @@ vi.mock('@/app/runtime/hamiSettingsLoader', () => ({
 
 vi.mock('@/app/runtime/globalSearchLoader', () => ({
     loadGlobalSearchOverlayModule: vi.fn(() => Promise.resolve({})),
+    prefetchGlobalSearchOverlayChunk: vi.fn(() => Promise.resolve()),
+}));
+
+vi.mock('@/app/runtime/settingsOverlayEntryLoader', () => ({
+    loadSettingsOverlayEntry: vi.fn(() => Promise.resolve({})),
+    prefetchSettingsOverlayEntry: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/vaultIntentWarm', () => ({
     warmVaultOnHover: vi.fn(),
 }));
 
-import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
-
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
 vi.mock('@/app/components/lawyer/HamiSettings/settingsSectionRegistry', () => ({
     preloadAllSettingsSectionComponents: vi.fn(() => Promise.resolve()),
 }));
 
+vi.mock('@/app/runtime/settingsBootHydrator', () => ({
+    dispatchSettingsPrimeHost: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/profileBootHydrator', () => ({
+    dispatchProfilePrimeHost: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/profileHubLoader', () => ({
+    prefetchProfileHubModule: vi.fn(),
+}));
+
+import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
 import { warmSettingsOnHover, primeSettingsShellForOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
 import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
-import { loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
+import { prefetchGlobalSearchOverlayChunk, loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
 import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLoader';
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
+import { dispatchSettingsPrimeHost } from '@/app/runtime/settingsBootHydrator';
+import { dispatchProfilePrimeHost } from '@/app/runtime/profileBootHydrator';
 
 describe('createLawyerDashboardHeaderPrefetch', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('يسخّن الملف والتبويب عند hover الهيدر', () => {
+    it('يسخّن الملف والتبويب عند hover الهيدر', async () => {
         const primeProfileTabMount = vi.fn();
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1', {
             primeProfileTabMount,
@@ -70,11 +89,13 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
 
         prefetch.onProfilePointerEnter();
 
-        expect(warmProfileOnHover).toHaveBeenCalledWith('lawyer-1');
+        await vi.waitFor(() => {
+            expect(warmProfileOnHover).toHaveBeenCalledWith('lawyer-1');
+        });
         expect(primeProfileTabMount).toHaveBeenCalledTimes(1);
     });
 
-    it('يسخّن الملف عند pointer down بالكامل', () => {
+    it('عند pointer down: prime خفيف فقط — بلا warmOnOpen/loadRoyal (لا ينافس فتح التبويب)', async () => {
         const primeProfileTabMount = vi.fn();
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-2', {
             primeProfileTabMount,
@@ -82,60 +103,80 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
 
         prefetch.onProfilePointerDown();
 
-        expect(warmProfileOnOpen).toHaveBeenCalledWith('lawyer-2');
-        expect(loadRoyalLawyerProfileModule).toHaveBeenCalledWith('lawyer-2');
         expect(primeProfileTabMount).toHaveBeenCalledTimes(1);
+        expect(warmProfileOnOpen).not.toHaveBeenCalled();
+        expect(loadRoyalLawyerProfileModule).not.toHaveBeenCalled();
+        await vi.waitFor(() => {
+            expect(dispatchProfilePrimeHost).toHaveBeenCalled();
+        });
     });
 
-    it('يسخّن الملف خفيفاً عند hover', () => {
+    it('يسخّن الملف خفيفاً عند hover', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-2');
 
         prefetch.onProfilePointerEnter();
 
-        expect(warmProfileOnHover).toHaveBeenCalledWith('lawyer-2');
+        await vi.waitFor(() => {
+            expect(warmProfileOnHover).toHaveBeenCalledWith('lawyer-2');
+        });
         expect(warmProfileOnOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإعدادات بالكامل عند pointer down', () => {
+    it('يسخّن الإعدادات بالكامل عند pointer down', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onSettingsPointerDown();
 
-        expect(primeSettingsShellForOpen).toHaveBeenCalledTimes(1);
-        expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(primeSettingsShellForOpen).toHaveBeenCalledTimes(1);
+        });
+        await vi.waitFor(() => {
+            expect(dispatchSettingsPrimeHost).toHaveBeenCalledTimes(1);
+        });
+        expect(loadHamiSettingsModule).not.toHaveBeenCalled();
         expect(warmSettingsOnHover).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإعدادات chunk عند hover', () => {
+    it('يسخّن الإعدادات chunk عند hover', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onSettingsPointerEnter();
 
-        expect(warmSettingsOnHover).toHaveBeenCalledTimes(1);
-        expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(warmSettingsOnHover).toHaveBeenCalledTimes(1);
+        });
+        await vi.waitFor(() => {
+            expect(loadHamiSettingsModule).toHaveBeenCalledTimes(1);
+        });
         expect(primeSettingsShellForOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإشعارات chunk عند pointer down — بلا warmOnOpen', () => {
+    it('يسخّن الإشعارات chunk عند pointer down — بلا warmOnOpen', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onNotificationsPointerDown();
 
-        expect(warmNotificationsOnHover).toHaveBeenCalledTimes(1);
-        expect(loadNotificationPanelModule).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(warmNotificationsOnHover).toHaveBeenCalledTimes(1);
+        });
+        await vi.waitFor(() => {
+            expect(loadNotificationPanelModule).toHaveBeenCalledTimes(1);
+        });
         expect(warmNotificationsOnOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن الإشعارات خفيفاً عند hover', () => {
+    it('يسخّن الإشعارات خفيفاً عند hover', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onNotificationsPointerEnter();
 
-        expect(warmNotificationsOnHover).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(warmNotificationsOnHover).toHaveBeenCalledTimes(1);
+        });
         expect(warmNotificationsOnOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن البحث بالكامل عند pointer down', () => {
+    it('يسخّن البحث عند pointer down — chunk + loadModule بلا warmOnOpen', async () => {
         const primeGlobalSearchShellMount = vi.fn();
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1', {
             primeGlobalSearchShellMount,
@@ -143,17 +184,22 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
 
         prefetch.onSearchPointerDown();
 
-        expect(warmGlobalSearchOnOpen).toHaveBeenCalledTimes(1);
-        expect(loadGlobalSearchOverlayModule).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(prefetchGlobalSearchOverlayChunk).toHaveBeenCalledTimes(1);
+            expect(loadGlobalSearchOverlayModule).toHaveBeenCalledTimes(1);
+        });
         expect(primeGlobalSearchShellMount).toHaveBeenCalledTimes(1);
+        expect(warmGlobalSearchOnOpen).not.toHaveBeenCalled();
     });
 
-    it('يسخّن البحث خفيفاً عند hover', () => {
+    it('يسخّن البحث خفيفاً عند hover', async () => {
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-1');
 
         prefetch.onSearchPointerEnter();
 
-        expect(warmGlobalSearchOnHover).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(warmGlobalSearchOnHover).toHaveBeenCalledTimes(1);
+        });
         expect(warmGlobalSearchOnOpen).not.toHaveBeenCalled();
     });
 });

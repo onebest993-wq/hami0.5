@@ -7,6 +7,7 @@ import {
     isWeeklyPastDayCompact,
     finalizePastWeekTasks,
     promoteDueSnoozedTasks,
+    partitionAgendaPendingTasks,
 } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from '@/app/components/lawyer/dashboard/tasksManager/constants';
 import type { LegalTask } from '@/app/types/TaskEngine';
@@ -160,5 +161,53 @@ describe('tasksEscapeCoordinator', () => {
         blockTasksOverlayEscape('b');
         resetTasksOverlayEscapeForTests();
         expect(isTasksOverlayEscapeBlocked()).toBe(false);
+    });
+});
+
+describe('partitionAgendaPendingTasks', () => {
+    function baseTask(partial: Partial<LegalTask> & Pick<LegalTask, 'id' | 'title'>): LegalTask {
+        return {
+            id: partial.id,
+            rawText: partial.title,
+            title: partial.title,
+            location: null,
+            parsedDate: null,
+            reminderAt: null,
+            isFatalDeadline: false,
+            linkedCaseId: null,
+            status: 'pending',
+            completedAt: null,
+            pinnedToFieldCurtain: false,
+            fieldCurtainPinnedAt: null,
+            subTasks: [],
+            documentRequirements: [],
+            expenses: [],
+            voiceRef: null,
+            voiceTranscript: null,
+            voiceDurationSec: null,
+            ...partial,
+        };
+    }
+
+    it('يمرّ مرة واحدة: أسبوع + بعيدة + حتمية', () => {
+        const now = localDate(2026, 7, 1); // أربعاء
+        const weekSat = getSaturdayOfWeekContaining(now);
+        const mon = addDays(weekSat, 2);
+        const nextWeek = addDays(weekSat, 8);
+        const tasks = [
+            baseTask({ id: 'w1', title: 'أسبوعي', parsedDate: mon }),
+            baseTask({ id: 'd1', title: 'بعيد', parsedDate: nextWeek }),
+            baseTask({
+                id: 'f1',
+                title: 'حتمي',
+                parsedDate: addDays(now, 1),
+                isFatalDeadline: true,
+            }),
+        ];
+        const part = partitionAgendaPendingTasks(tasks, now);
+        expect(part.weeklyDayBlocks).toHaveLength(7);
+        expect(part.weeklyDayBlocks[2]?.tasks.map((t) => t.id)).toEqual(['w1']);
+        expect(part.distantTasks.map((t) => t.id)).toContain('d1');
+        expect(part.fatalTasks.map((t) => t.id)).toEqual(['f1']);
     });
 });

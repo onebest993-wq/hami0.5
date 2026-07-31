@@ -1,12 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../../security/wifeValidator.ts';
+import { readSupabasePrivilegedKey } from '../../security/supabasePrivilegedEnv.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import {
   isStoragePathOwnedByUser,
   resolveUploadBucket,
@@ -24,7 +18,7 @@ function json(status: number, payload: Record<string, unknown>): Response {
 
 function getSupabaseAdminClient() {
   const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  const serviceRoleKey = readSupabasePrivilegedKey();
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
@@ -40,15 +34,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     const payload = (await request.json().catch(() => null)) as unknown;
     if (!isRecord(payload) || typeof payload.path !== 'string' || !payload.path.trim()) {

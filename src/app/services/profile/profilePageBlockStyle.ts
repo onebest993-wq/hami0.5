@@ -88,7 +88,15 @@ export function blockTextEffectClass(effect: ProfileTextEffect | undefined): str
 }
 
 export function blockFontSizeClass(size: ProfileFontSize | undefined): string {
-    return PROFILE_FONT_SIZES.find((f) => f.id === size)?.className ?? 'text-sm';
+    const coerced =
+        size === 'xs'
+            ? 'xs'
+            : size === 'lg' || size === 'xl'
+              ? 'lg'
+              : size === '2xl' || size === '3xl'
+                ? '2xl'
+                : 'base';
+    return PROFILE_FONT_SIZES.find((f) => f.id === coerced)?.className ?? 'text-base';
 }
 
 export function blockFontFamilyClass(family: ProfileTextFont | undefined): string {

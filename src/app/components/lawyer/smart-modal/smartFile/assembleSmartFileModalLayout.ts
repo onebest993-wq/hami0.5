@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { FileData } from '../../LawyerShared';
 import { resolveActiveStageName } from './caseConsolidationLinking';
 import { buildSmartFileLayoutProps } from './viewProps';

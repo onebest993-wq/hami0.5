@@ -11,13 +11,13 @@ import {
     type HiddenGuarantorContext,
     type HiddenGuarantorRequestKey,
 } from './hiddenFollowupRequestsUtils';
-import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
+import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
 import {
     findGuarantorSeizureRowFromDecisions,
     findOpenGuarantorRequestDecisionRow,
     hasActiveFinancialGuarantorFollowup,
 } from './guarantorExternalUtils';
-import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
+import { isSalarySeizureAsset } from '@/app/utils/execution/isSalarySeizureAsset';
 import { resolveSalarySeizureSubject } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureDisplayUtils';
 import {
     ExecutionInlineAccordion,

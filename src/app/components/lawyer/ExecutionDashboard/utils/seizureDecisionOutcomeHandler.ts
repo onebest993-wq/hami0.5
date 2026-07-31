@@ -1,7 +1,7 @@
 // @ts-nocheck
 import type React from 'react';
 import type { ExecutionFile, SeizedMovable, SeizedProperty, TimelineEvent } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { buildSeizureRegistryDraftPatch } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge';
 import {
     getExecutorDecisionRowById,

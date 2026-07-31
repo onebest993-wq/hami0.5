@@ -6,12 +6,17 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     isExecutionParentDossierBlobKey,
     persistExecutionDossierBlob,
-    readExecutionDossierBlob,
+    readExecutionDossierBlobScanningScopes,
     syncExecutionFileInIndex,
 } from '@/app/utils/executionDossierBlobPersistence';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
-import { executionStorageKey, normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
+import { executionDossierIdFromStorageKey, executionStorageKey, normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
+import {
+    readScopedDeviceStorageItem,
+    scopeExecutionDeviceStorageKey,
+    stripExecutionDeviceStorageUserScope,
+} from '@/app/utils/executionDeviceStorageScope';
 
 export type ExecutionDossierReconcileResult = {
     indexRowsHealed: number;
@@ -21,12 +26,17 @@ export type ExecutionDossierReconcileResult = {
 
 function listParentDossierIdsInStore(): string[] {
     const ids = new Set<string>();
+    const considerKey = (rawKey: string) => {
+        const k = String(rawKey || '').trim();
+        if (!k) return;
+        const logical = stripExecutionDeviceStorageUserScope(k);
+        if (!isExecutionParentDossierBlobKey(logical)) return;
+        const id = executionDossierIdFromStorageKey(k);
+        if (id && id !== 'default') ids.add(id);
+    };
     try {
         for (const key of SecureStoreService.listKeysSync()) {
-            const k = String(key || '').trim();
-            if (!isExecutionParentDossierBlobKey(k)) continue;
-            const id = normalizeExecutionStorageId(k.slice('execution_'.length));
-            if (id && id !== 'default') ids.add(id);
+            considerKey(key);
         }
     } catch {
         /* ignore */
@@ -35,10 +45,7 @@ function listParentDossierIdsInStore(): string[] {
         if (typeof globalThis.localStorage !== 'undefined') {
             const ls = globalThis.localStorage;
             for (let i = 0; i < ls.length; i += 1) {
-                const k = String(ls.key(i) || '').trim();
-                if (!k || !isExecutionParentDossierBlobKey(k)) continue;
-                const id = normalizeExecutionStorageId(k.slice('execution_'.length));
-                if (id && id !== 'default') ids.add(id);
+                considerKey(String(ls.key(i) || ''));
             }
         }
     } catch {
@@ -93,32 +100,42 @@ function shouldPreferBlobOverIndex(
     return false;
 }
 
+function parseReconcileBlobRaw(raw: string | null | undefined): Record<string, unknown> | null {
+    if (!raw?.trim()) return null;
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+        return parsed as Record<string, unknown>;
+    } catch {
+        return null;
+    }
+}
+
 async function readExecutionDossierBlobForReconcile(
     dossierId: string,
 ): Promise<Record<string, unknown> | null> {
-    const fromSync = readExecutionDossierBlob(dossierId);
-    if (fromSync) return fromSync;
+    const fromScan = readExecutionDossierBlobScanningScopes(dossierId);
+    if (fromScan) return fromScan;
     const id = normalizeExecutionStorageId(dossierId);
     if (!id || id === 'default') return null;
     const key = executionStorageKey(id);
     try {
-        const raw = await SecureStoreService.getItem(key);
-        if (raw?.trim()) {
-            const parsed: unknown = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                return parsed as Record<string, unknown>;
-            }
+        const scoped = scopeExecutionDeviceStorageKey(key);
+        for (const candidate of scoped !== key ? [scoped, key] : [key]) {
+            const raw = await SecureStoreService.getItem(candidate);
+            const parsed = parseReconcileBlobRaw(raw);
+            if (parsed) return parsed;
         }
     } catch {
         /* ignore */
     }
     try {
         if (typeof globalThis.localStorage !== 'undefined') {
-            const raw = globalThis.localStorage.getItem(key);
-            if (!raw?.trim()) return null;
-            const parsed: unknown = JSON.parse(raw);
-            if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
-            return parsed as Record<string, unknown>;
+            const raw = readScopedDeviceStorageItem(
+                (k) => globalThis.localStorage.getItem(k),
+                key,
+            );
+            return parseReconcileBlobRaw(raw);
         }
     } catch {
         return null;
@@ -155,7 +172,7 @@ function seedMissingBlobs(
     let blobsHealed = 0;
     for (const [id, row] of indexById) {
         if (blobIds.has(id)) continue;
-        if (readExecutionDossierBlob(id)) continue;
+        if (readExecutionDossierBlobScanningScopes(id)) continue;
         if (!indexRowHasSeedablePayload(row)) continue;
         if (persistExecutionDossierBlob(id, { ...row, id }, { syncIndex: false })) {
             blobsHealed += 1;
@@ -169,7 +186,7 @@ export function reconcileExecutionDossierStorage(): ExecutionDossierReconcileRes
     const indexById = buildIndexById();
     const blobIds = new Set(listParentDossierIdsInStore());
     const indexRowsHealed = applyBlobReconcile(indexById, blobIds, (id) =>
-        readExecutionDossierBlob(id),
+        readExecutionDossierBlobScanningScopes(id),
     );
     const blobsHealed = seedMissingBlobs(indexById, blobIds);
     return {
@@ -213,6 +230,8 @@ export function exposeExecutionReconcileForDev(): void {
     if (typeof window === 'undefined' || !import.meta.env.DEV) return;
     const w = window as unknown as {
         __hamiReconcileExecutionStorage?: () => Promise<ExecutionDossierReconcileResult>;
+        __hamiLoadExecutionFilesIndex?: () => unknown[];
     };
     w.__hamiReconcileExecutionStorage = reconcileExecutionDossierStorageAsync;
+    w.__hamiLoadExecutionFilesIndex = () => loadExecutionFilesRaw();
 }

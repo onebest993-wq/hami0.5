@@ -1,5 +1,4 @@
 import React, { useCallback, useRef } from 'react';
-import { Palette } from 'lucide-react';
 import { useLawyerSettingsHomeLayout } from '@/app/context/LawyerSettingsContext';
 import { useSettingsPatches } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches';
 import { useHomeLayoutEdit } from './HomeLayoutEditContext';

@@ -8,7 +8,6 @@ import {
     type VerdictCard,
     type VerdictCardDisplayRow,
     type VerdictCorrectionAppealTrack,
-    type VerdictInterventionAppealTrack,
     type VerdictOrdinaryAppealTrack,
 } from '../verdictCardsEngine';
 import type { CriminalDefendant } from '../criminalStore';
@@ -282,7 +281,7 @@ export const VerdictCardsPanel = ({
                                                 onClick={sendToCassation.onClick}
                                                 className={
                                                     sendToCassation.urgent
-                                                        ? 'sm:w-[11.5rem] rounded-xl bg-red-500 text-white font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words animate-pulse'
+                                                        ? 'sm:w-[11.5rem] rounded-xl bg-red-500 text-white font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words motion-safe:animate-pulse'
                                                         : 'sm:w-[11.5rem] rounded-xl bg-[#E6C673] text-[#0B1021] font-black px-4 py-3 text-sm hover:brightness-110 active:brightness-95 transition whitespace-normal break-words shadow-[0_0_16px_rgba(230,198,115,0.15)]'
                                                 }
                                             >

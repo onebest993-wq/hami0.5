@@ -14,8 +14,23 @@ export const CRIMINAL_DASHBOARD_TAB_LABELS: Record<CriminalDashboardTab, string>
     legal_codes: 'متون القوانين',
 };
 
+/** تبويب الطلبات يصبح «المحاكمة» في مرحلة محكمة الجنح/الجنايات. */
+export function resolveCriminalDashboardTabLabel(
+    tab: CriminalDashboardTab,
+    caseStage?: string,
+): string {
+    if (
+        tab === 'requests' &&
+        (caseStage === 'misdemeanor' || caseStage === 'felony')
+    ) {
+        return 'المحاكمة';
+    }
+    return CRIMINAL_DASHBOARD_TAB_LABELS[tab];
+}
+
 export function criminalDashboardTabClass(tab: CriminalDashboardTab, active: boolean): string {
-    const base = 'px-4 py-2 rounded-xl border font-black text-sm transition whitespace-nowrap';
+    const base =
+        'min-h-[44px] px-4 py-2 rounded-xl border font-black text-sm transition whitespace-nowrap touch-manipulation';
     const palette: Record<CriminalDashboardTab, { active: string; idle: string }> = {
         requests: {
             active: `${base} border-[#E6C673]/55 bg-[#E6C673]/12 text-[#E6C673] underline underline-offset-8 decoration-2 decoration-[#E6C673]`,

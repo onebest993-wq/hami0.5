@@ -1,15 +1,17 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isLawsuitArchived, isLawsuitInTrash } from '@/app/utils/lawsuitTrash';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
+import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import type { ArchivePortalProps } from '@/app/types/common';
 import type { ExecutionArchiveFilter } from '../components/ExecutionArchiveToolbar';
 import {
+    EXECUTION_DOSSIER_STATUS_LABELS,
     EXECUTION_JURISDICTION_LABELS,
     EXECUTION_PERSPECTIVE_LABELS,
     buildExecutionJurisdictionCounts,
     filterExecutionArchiveFiles,
     getExecutionArchiveBasePool,
+    type ExecutionDossierStatusFilter,
     type ExecutionPerspectiveFilter,
     type ExecutionViewMode,
 } from '../executionArchiveFilterUtils';
@@ -44,7 +46,7 @@ export type UseArchivePortalControllerParams = Pick<
 
 export function useArchivePortalController({
     type,
-    files,
+    files: filesProp,
     criminalCases,
     initialLawsuitJurisdictionTab,
     onPermanentlyDeleteExecutions,
@@ -57,6 +59,7 @@ export function useArchivePortalController({
     onArchiveExecution,
     onRestoreArchivedExecution,
 }: UseArchivePortalControllerParams) {
+    const files = Array.isArray(filesProp) ? filesProp : [];
     const [dossierSearchOpen, setDossierSearchOpen] = useState(false);
     const [dossierSearchQuery, setDossierSearchQuery] = useState('');
     const [lawsuitJurisdictionTab, setLawsuitJurisdictionTab] = useState<LawsuitJurisdictionTab>(
@@ -90,6 +93,8 @@ export function useArchivePortalController({
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<ExecutionArchiveFilter>('all');
     const [perspectiveFilter, setPerspectiveFilter] = useState<ExecutionPerspectiveFilter>('all');
+    const [dossierStatusFilter, setDossierStatusFilter] =
+        useState<ExecutionDossierStatusFilter>('all');
     const [executionPreviewFile, setExecutionPreviewFile] = useState<LooseArchiveFile | null>(null);
     const [executionViewMode, setExecutionViewMode] = useState<ExecutionViewMode>('active');
     const [lawsuitViewMode, setLawsuitViewMode] = useState<LawsuitViewMode>('active');
@@ -219,9 +224,10 @@ export function useArchivePortalController({
             mode: executionViewMode,
             jurisdiction: filterType,
             perspective: perspectiveFilter,
+            dossierStatus: dossierStatusFilter,
             searchQuery,
         });
-    }, [files, type, filterType, perspectiveFilter, searchQuery, executionViewMode]);
+    }, [files, type, filterType, perspectiveFilter, dossierStatusFilter, searchQuery, executionViewMode]);
 
     const filteredLawsuitFiles = useMemo(() => {
         if (type !== 'lawsuits') return files;
@@ -380,10 +386,13 @@ export function useArchivePortalController({
 
     const executionFilterSummary = useMemo(() => {
         const parts: string[] = [];
+        if (dossierStatusFilter !== 'all') {
+            parts.push(EXECUTION_DOSSIER_STATUS_LABELS[dossierStatusFilter]);
+        }
         if (filterType !== 'all') parts.push(EXECUTION_JURISDICTION_LABELS[filterType]);
         if (perspectiveFilter !== 'all') parts.push(EXECUTION_PERSPECTIVE_LABELS[perspectiveFilter]);
         return parts.join(' · ');
-    }, [filterType, perspectiveFilter]);
+    }, [dossierStatusFilter, filterType, perspectiveFilter]);
 
     return {
         dossierSearchOpen,
@@ -403,6 +412,8 @@ export function useArchivePortalController({
         setFilterType,
         perspectiveFilter,
         setPerspectiveFilter,
+        dossierStatusFilter,
+        setDossierStatusFilter,
         executionPreviewFile,
         setExecutionPreviewFile,
         executionViewMode,

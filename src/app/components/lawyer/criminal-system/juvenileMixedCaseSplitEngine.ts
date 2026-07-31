@@ -3,7 +3,6 @@ import { formatCriminalStageLabel } from './criminalStageUtils';
 import { getIdentifiedDefendants } from './criminalUnknownDefendant';
 import {
     JUVENILE_INVESTIGATION_COURT_NAME,
-    resolveInvestigationDefendantsPartyMix,
     type InvestigationDefendantsPartyMix,
 } from './juvenileInvestigationRules';
 

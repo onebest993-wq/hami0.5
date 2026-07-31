@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, waitFor } from '@testing-library/react';
+import { renderHook, waitFor, act } from '@testing-library/react';
 import { useHomeHubLifecycle } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubLifecycle';
 import {
     clearHomeHubPerfMarks,
@@ -106,5 +106,31 @@ describe('useHomeHubLifecycle', () => {
         );
 
         expect(getHomeHubOpenToInteractiveMs()).toBe(300);
+    });
+
+    it('H1: interactive احتياطي بعد 1.2s إن تأخرت الجاهزية', () => {
+        vi.useFakeTimers();
+        markHomeHubPerfPhase('open-request');
+        const markSpy = vi.spyOn(performance, 'mark');
+
+        renderHook(() =>
+            useHomeHubLifecycle({
+                lawyerId: 'u1',
+                alertsLoading: true,
+                hubFullyEmpty: true,
+                alertsTabCount: 0,
+                pinsCount: 0,
+                radarLoading: true,
+            }),
+        );
+
+        expect(markSpy).not.toHaveBeenCalledWith('hami:home-hub:interactive');
+
+        act(() => {
+            vi.advanceTimersByTime(1_200);
+        });
+
+        expect(markSpy).toHaveBeenCalledWith('hami:home-hub:interactive');
+        vi.useRealTimers();
     });
 });

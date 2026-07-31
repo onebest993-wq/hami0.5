@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from './smartFileOverlayZ';
+import { SMART_FILE_NESTED_MODAL_Z } from './smartFileOverlayZ';
 import {
     GLASS_MODAL_HEADER,
     MoroccanCloseButton,
@@ -114,9 +114,10 @@ export function useJudgmentModalStyles(): JudgmentModalStyles {
     if (!isPearl) {
         return {
             isPearl: false,
-            overlay: SMART_FILE_NESTED_MODAL_OVERLAY_CLASS,
+            overlay:
+                `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-start justify-center overflow-y-auto overscroll-contain bg-[#03050B]/94 p-3 sm:items-center sm:p-4 font-['Tajawal'] pointer-events-auto`,
             shell:
-                'w-full max-w-2xl rounded-2xl border border-white/[0.1] bg-[#0A0F1C]/80 backdrop-blur-2xl shadow-[0_24px_80px_rgba(0,0,0,0.65)] overflow-hidden max-h-[92vh] flex flex-col',
+                'w-full max-w-2xl rounded-2xl border border-white/[0.1] bg-[#0A0F1C] shadow-[0_24px_80px_rgba(0,0,0,0.65)] overflow-hidden max-h-[92vh] flex flex-col',
             header:
                 'relative px-5 py-4 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent flex justify-between items-center shrink-0',
             headerIconWrap:
@@ -163,9 +164,9 @@ export function useJudgmentModalStyles(): JudgmentModalStyles {
 
     return {
         isPearl: true,
-        overlay: `${SMART_FILE_NESTED_MODAL_OVERLAY_CLASS} bg-[#101018]/88`,
+        overlay: `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-start justify-center overflow-y-auto overscroll-contain bg-[#101018]/94 p-3 sm:items-center sm:p-4 font-['Tajawal'] pointer-events-auto`,
         shell:
-            'relative overflow-hidden w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl border border-white/[0.14] bg-gradient-to-br from-white/[0.11] via-[#F8F6F0]/[0.06] to-[#ECE8E2]/[0.04] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.14)]',
+            'relative overflow-hidden w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl border border-white/[0.14] bg-[#16161F] shadow-[0_24px_64px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.14)]',
         header:
             'relative px-5 py-4 border-b border-white/[0.10] bg-gradient-to-l from-white/[0.05] to-transparent flex justify-between items-center shrink-0',
         headerIconWrap:

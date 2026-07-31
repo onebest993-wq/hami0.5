@@ -104,6 +104,7 @@ export const ThirdPartiesSection = ({
 
                 <button
                     type="button"
+                    data-testid="lawyer-new-case-add-third-party"
                     onClick={onAdd}
                     className="w-full py-2.5 rounded-xl border border-dashed border-white/[0.12] bg-white/[0.02] flex items-center justify-center gap-2 text-white/40 text-xs hover:border-[#E6C673]/35 hover:text-[#E6C673]/90 hover:bg-white/[0.04] transition-colors"
                 >

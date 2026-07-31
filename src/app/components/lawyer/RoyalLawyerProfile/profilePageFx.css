@@ -3,3 +3,6 @@
 @import './profilePageHeroFx.css';
 @import './profilePageSectionFx.css';
 @import './profilePageBlockFx.css';
+@import './profilePortraitFrameFx.css';
+/* Android banding — مع الملف لا على deferred-app البارد */
+@import './lawyerProfileFx-android.css';

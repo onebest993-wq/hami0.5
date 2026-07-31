@@ -3,26 +3,13 @@ import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
 import { resolveForumAuthorDisplayName } from '../../../services/forum/forumAuthorResolver.ts';
-import type { CommunityComment } from '../../../services/lawyer-cloud.ts';
+import { sanitizeCommunityCommentForCreate } from '../../../services/forum/forumPostCreateGuard.ts';
+import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 import { UserRole } from '../../../types/admin-types.ts';
 import { requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object';
-}
-
-function normalizeComment(raw: unknown, postId: string, authorName: string): CommunityComment | null {
-    if (!isRecord(raw)) return null;
-    const id = typeof raw.id === 'string' ? raw.id : null;
-    const authorId = typeof raw.authorId === 'string' ? raw.authorId : null;
-    const content = typeof raw.content === 'string' ? raw.content.trim() : null;
-    const createdAt = typeof raw.createdAt === 'string' ? raw.createdAt : null;
-    if (!id || !authorId || !content || !createdAt) return null;
-    if (content.length < 2) return null;
-    // حماية ضد DoS: حد أعلى لطول التعليق (5K حرف)
-    if (content.length > 5_000) return null;
-    const parentId = typeof raw.parentId === 'string' ? raw.parentId : undefined;
-    return { id, postId, authorId, authorName, content, createdAt, parentId };
 }
 
 export async function POST(request: Request): Promise<Response> {
@@ -43,22 +30,47 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'action و postId مطلوبان' });
         }
 
+        const postId = payload.postId.trim();
+        if (!postId) {
+            return jsonResponse(400, { ok: false, error: 'action و postId مطلوبان' });
+        }
+
+        const existingPost = await ForumRepository.getPostById(postId);
+        if (!existingPost) {
+            return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
+        }
+        await assertForumPostGroupAccess(existingPost, auth.userId, auth.isAdmin);
+
         if (payload.action === 'add') {
             if (!(await checkForumActionRateLimit(auth.userId, 'comment'))) {
                 return jsonResponse(429, { ok: false, error: 'تجاوزت حد التعليقات، انتظر قليلاً' });
             }
-            const comment = normalizeComment(
-                payload.comment,
-                payload.postId,
-                await resolveForumAuthorDisplayName(auth.userId),
-            );
-            if (!comment) {
+            if (!isRecord(payload.comment)) {
                 return jsonResponse(400, { ok: false, error: 'بيانات التعليق غير صالحة' });
             }
-            if (comment.authorId !== auth.userId) {
+            const rawAuthorId = typeof payload.comment.authorId === 'string' ? payload.comment.authorId : '';
+            if (rawAuthorId !== auth.userId) {
                 return jsonResponse(403, { ok: false, error: 'معرّف الكاتب لا يطابق الجلسة' });
             }
-            const updated = await ForumRepository.addComment(payload.postId, comment);
+            const rawContent = typeof payload.comment.content === 'string' ? payload.comment.content.trim() : '';
+            if (rawContent.length < 2) {
+                return jsonResponse(400, { ok: false, error: 'بيانات التعليق غير صالحة' });
+            }
+            if (rawContent.length > 5_000) {
+                return jsonResponse(400, { ok: false, error: 'بيانات التعليق غير صالحة' });
+            }
+            const parentId =
+                typeof payload.comment.parentId === 'string' && payload.comment.parentId.trim()
+                    ? payload.comment.parentId.trim()
+                    : undefined;
+            const comment = sanitizeCommunityCommentForCreate({
+                postId,
+                authorId: auth.userId,
+                authorName: await resolveForumAuthorDisplayName(auth.userId),
+                content: rawContent,
+                parentId,
+            });
+            const updated = await ForumRepository.addComment(postId, comment);
             return jsonResponse(200, {
                 ok: true,
                 action: 'comment_add',
@@ -67,11 +79,14 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'delete') {
+            if (!(await checkForumActionRateLimit(auth.userId, 'comment_mutate'))) {
+                return jsonResponse(429, { ok: false, error: 'تجاوزت حد تعديل التعليقات' });
+            }
             if (typeof payload.commentId !== 'string' || !payload.commentId.trim()) {
                 return jsonResponse(400, { ok: false, error: 'commentId مطلوب' });
             }
             const updated = await ForumRepository.deleteComment(
-                payload.postId,
+                postId,
                 payload.commentId,
                 auth.userId,
                 auth.isAdmin ? UserRole.SUPER_ADMIN : undefined,
@@ -84,11 +99,14 @@ export async function POST(request: Request): Promise<Response> {
         }
 
         if (payload.action === 'edit') {
+            if (!(await checkForumActionRateLimit(auth.userId, 'comment_mutate'))) {
+                return jsonResponse(429, { ok: false, error: 'تجاوزت حد تعديل التعليقات' });
+            }
             if (typeof payload.commentId !== 'string' || typeof payload.content !== 'string') {
                 return jsonResponse(400, { ok: false, error: 'commentId و content مطلوبان' });
             }
             const updated = await ForumRepository.editComment(
-                payload.postId,
+                postId,
                 payload.commentId,
                 payload.content,
                 auth.userId,
@@ -103,11 +121,10 @@ export async function POST(request: Request): Promise<Response> {
         return jsonResponse(400, { ok: false, error: 'إجراء غير معروف' });
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error';
-        // مطابقة لرسائل المنطق المعروفة الصادرة من ForumRepository
         const status = (() => {
-            if (message.includes('صلاحية')) return 403;
+            if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة')) return 403;
             if (message.includes('أفضل إجابة')) return 409;
-            if (message.includes('مقفل')) return 423; // Locked
+            if (message.includes('مقفل')) return 423;
             if (message.includes('قصير') || message.includes('طويل')) return 400;
             if (message.includes('غير موجود')) return 404;
             return 500;

@@ -1,9 +1,9 @@
-import React, { Suspense, useCallback, useEffect, useMemo } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Wallet } from 'lucide-react';
 import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
 import { buildGhuramaaCreditorRows } from '@/app/utils/creditorPaymentProRata';
-import { buildDebtorAgentSeizedItems } from '@/app/components/lawyer/FinancialOperationsCenter/debtorAgentSeizedItems';
+import { buildDebtorAgentSeizedItems } from '@/app/slices/financial/specialtyPublic';
 import {
     appendMonthlySettlementDefaultTask,
     buildGhuramaaDistributionMergePatch,
@@ -12,10 +12,13 @@ import {
     trashMonthlySettlementDefaultTasks,
     MONTHLY_SETTLEMENT_DEFAULT_TASK_TITLE,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/financialHubPortalUtils';
+import { resolveExecutionFinancialHubPrincipalAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/resolveExecutionFinancialHubPrincipal';
 
 export interface ExecutionFinancialHubPortalProps {
     showExecutionFinancialHub: boolean;
-    setShowExecutionFinancialHub: (v: boolean) => void;
+    /** إغلاق المركز المالي — يُفضَّل onCloseFinancialHub من مسار الهاتف */
+    setShowExecutionFinancialHub?: (v: boolean) => void;
+    onCloseFinancialHub?: () => void;
     onOpenUnifiedSeizureLog?: () => void;
     financialHubAutoOpenMode: 'disburse' | null;
     setFinancialHubAutoOpenMode: React.Dispatch<React.SetStateAction<'disburse' | null>>;
@@ -25,7 +28,10 @@ export interface ExecutionFinancialHubPortalProps {
     setFinancialHubSeizedPropertyId: React.Dispatch<React.SetStateAction<string | null>>;
     EXEC_MODAL_BACKDROP_STRONG: string;
     EXEC_MODAL_Z: { unifiedFollowUp: number };
-    LazyFinancialOperationsCenter: React.LazyExoticComponent<React.ComponentType<any>>;
+    LazyFinancialOperationsCenter: React.ComponentType<any> & {
+        preload?: () => Promise<void>;
+        isPreloaded?: () => boolean;
+    };
     EXEC_FOC_LAZY_FALLBACK: React.ReactNode;
     realEstateSeizureRegistryAssets: any[];
     movableSeizureRegistryAssets: any[];
@@ -35,7 +41,8 @@ export interface ExecutionFinancialHubPortalProps {
     executionData: Record<string, any> | null | undefined;
     executionId: string | undefined;
     isFinancialCenterExpanded: boolean;
-    setIsFinancialCenterExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsFinancialCenterExpanded?: React.Dispatch<React.SetStateAction<boolean>>;
+    onToggleFinancialCenterExpanded?: () => void;
     activeFinancialTab: number;
     setActiveFinancialTab: React.Dispatch<React.SetStateAction<number>>;
     principalDebtAmount: number;
@@ -64,28 +71,33 @@ export interface ExecutionFinancialHubPortalProps {
     daysSinceNoticeCalculated: number;
     gracePeriodEnded: boolean;
     initiator: string;
-    setShowPaymentCalculator: (v: boolean) => void;
-    setShowSettlementCalculator: (v: boolean) => void;
+    setShowPaymentCalculator?: (v: boolean) => void;
+    onOpenPaymentCalculator?: () => void;
+    setShowSettlementCalculator?: (v: boolean) => void;
+    onOpenSettlementCalculator?: () => void;
     handleCoerciveAction: (action: string) => void;
     executionStatus: string;
     statusMetadata: any;
     isPaused: boolean;
-    setShowLedgerModal: (v: boolean) => void;
+    setShowLedgerModal?: (v: boolean) => void;
+    onOpenLedgerModal?: () => void;
     financialLedger: any[];
     evictionCaseExpensesTotalForFinancial: number;
     evictionCaseExpenses: any[];
-    setShowEvictionExpenseModal: (v: boolean) => void;
+    setShowEvictionExpenseModal?: (v: boolean) => void;
+    onOpenEvictionExpenseModal?: () => void;
     handleEvictionLawyerFeeRequest: () => void;
     lawyerFeePayoutApproved: boolean;
     handleFundsLedgerPayment: (data: any) => void;
     setTimelineEvents: React.Dispatch<React.SetStateAction<any[]>>;
     nextTimelineId: () => string;
     guarantorFollowupAwaitingDetailsSave: (data: any) => boolean;
-    setShowUnifiedExecutionModal: (v: boolean) => void;
-    setExecutionDebtorTabIndex: (v: number) => void;
-    primaryDebtorWorkspaceKey: string | undefined;
-    expandDebtor: (debtorKey: string) => void;
-    openGuarantorDetailsModal: () => void;
+    setShowUnifiedExecutionModal?: (v: boolean) => void;
+    setExecutionDebtorTabIndex?: (v: number) => void;
+    primaryDebtorWorkspaceKey?: string | undefined;
+    expandDebtor?: (debtorKey: string) => void;
+    openGuarantorDetailsModal?: () => void;
+    onOpenGuarantorFollowupDetails?: () => void;
     appendGuarantorFollowupRequest: (data: { executionId: string | undefined }) => { ok: boolean; decisionId?: string };
     decisionsStorageExecutionId: string | undefined;
     showToast: (message: string, type: 'success' | 'error' | 'warning' | 'info', options?: any) => void;
@@ -101,9 +113,11 @@ export interface ExecutionFinancialHubPortalProps {
     activeDebtorIsDeceased?: boolean;
 }
 
-export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalProps> = ({
+export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalProps> = (props) => {
+    const {
     showExecutionFinancialHub,
     setShowExecutionFinancialHub,
+    onCloseFinancialHub,
     onOpenUnifiedSeizureLog,
     financialHubAutoOpenMode,
     setFinancialHubAutoOpenMode,
@@ -124,6 +138,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     executionId,
     isFinancialCenterExpanded,
     setIsFinancialCenterExpanded,
+    onToggleFinancialCenterExpanded,
     activeFinancialTab,
     setActiveFinancialTab,
     principalDebtAmount,
@@ -153,16 +168,20 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     gracePeriodEnded,
     initiator,
     setShowPaymentCalculator,
+    onOpenPaymentCalculator,
     setShowSettlementCalculator,
+    onOpenSettlementCalculator,
     handleCoerciveAction,
     executionStatus,
     statusMetadata,
     isPaused,
     setShowLedgerModal,
+    onOpenLedgerModal,
     financialLedger,
     evictionCaseExpensesTotalForFinancial,
     evictionCaseExpenses,
     setShowEvictionExpenseModal,
+    onOpenEvictionExpenseModal,
     handleEvictionLawyerFeeRequest,
     lawyerFeePayoutApproved,
     handleFundsLedgerPayment,
@@ -174,6 +193,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     primaryDebtorWorkspaceKey,
     expandDebtor,
     openGuarantorDetailsModal,
+    onOpenGuarantorFollowupDetails,
     appendGuarantorFollowupRequest,
     decisionsStorageExecutionId,
     showToast,
@@ -187,17 +207,22 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
     onClearSalarySeizurePath,
     isRepresentingDebtor = false,
     activeDebtorIsDeceased = false,
-}) => {
+} = props;
     const closeFinancialHub = useCallback(() => {
         setFinancialHubAutoOpenMode(null);
         setFinancialHubSeizedMovableId(null);
         setFinancialHubSeizedPropertyId(null);
-        setShowExecutionFinancialHub(false);
+        if (onCloseFinancialHub) {
+            onCloseFinancialHub();
+            return;
+        }
+        setShowExecutionFinancialHub?.(false);
     }, [
         setFinancialHubAutoOpenMode,
         setFinancialHubSeizedMovableId,
         setFinancialHubSeizedPropertyId,
         setShowExecutionFinancialHub,
+        onCloseFinancialHub,
     ]);
 
     useEffect(() => {
@@ -247,11 +272,42 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
         ]
     );
 
+    const hubExecutionId = resolveFinancialHubExecutionId(executionData, executionId);
+
+    const [hubStorageRevision, setHubStorageRevision] = useState(0);
+    useEffect(() => {
+        if (!showExecutionFinancialHub) return;
+        setHubStorageRevision((n) => n + 1);
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
+        }
+    }, [showExecutionFinancialHub]);
+
+    const hubPrincipalAmount = useMemo(
+        () =>
+            resolveExecutionFinancialHubPrincipalAmount({
+                principalDebtAmount,
+                executionData,
+                executionId: hubExecutionId ?? executionId,
+                decisionsStorageExecutionId,
+                claimType,
+            }),
+        [
+            principalDebtAmount,
+            executionData,
+            hubExecutionId,
+            executionId,
+            decisionsStorageExecutionId,
+            claimType,
+            hubStorageRevision,
+        ],
+    );
+
     const ghuramaaCreditors = useMemo(() => {
         const claimFallback = Math.max(
             0,
             Number(executionData?.totalAmount ?? executionData?.debtAmount ?? 0) || 0,
-            Number(principalDebtAmount ?? 0) || 0,
+            Number(hubPrincipalAmount ?? 0) || 0,
             Number(totalOwed ?? 0) || 0
         );
         return buildGhuramaaCreditorRows(
@@ -265,9 +321,7 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
             },
             claimFallback
         );
-    }, [executionData, creditors, additionalCreditorsPm, principalDebtAmount, totalOwed]);
-
-    const hubExecutionId = resolveFinancialHubExecutionId(executionData, executionId);
+    }, [executionData, creditors, additionalCreditorsPm, hubPrincipalAmount, totalOwed]);
 
     if (!showExecutionFinancialHub || typeof document === 'undefined') return null;
 
@@ -309,12 +363,19 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                 <div className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4 pt-1">
                     <Suspense fallback={EXEC_FOC_LAZY_FALLBACK}>
                         <LazyFinancialOperationsCenter
+                            key={`${hubExecutionId ?? 'hub'}-${hubPrincipalAmount}`}
                             embeddedInFinancialHub
                             isExpanded={isFinancialCenterExpanded}
-                            onToggle={() => setIsFinancialCenterExpanded((prev) => !prev)}
+                            onToggle={() => {
+                                if (onToggleFinancialCenterExpanded) {
+                                    onToggleFinancialCenterExpanded();
+                                    return;
+                                }
+                                setIsFinancialCenterExpanded?.((prev) => !prev);
+                            }}
                             activeTab={activeFinancialTab}
                             onTabChange={setActiveFinancialTab}
-                            principal_amount={principalDebtAmount}
+                            principal_amount={hubPrincipalAmount}
                             court_ordered_fees={evictionLawyerFeesInTotals}
                             evictionLawyerFeeWaivedAtIntake={
                                 isEvictionExecutionModule
@@ -416,13 +477,23 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                             debtorEmploymentType={debtorEmploymentType}
                             debtorKinship={debtorKinship}
                             initiator={initiator}
-                            onPayment={() => setShowPaymentCalculator(true)}
-                            onSettlement={() => setShowSettlementCalculator(true)}
+                            onPayment={() =>
+                                onOpenPaymentCalculator
+                                    ? onOpenPaymentCalculator()
+                                    : setShowPaymentCalculator?.(true)
+                            }
+                            onSettlement={() =>
+                                onOpenSettlementCalculator
+                                    ? onOpenSettlementCalculator()
+                                    : setShowSettlementCalculator?.(true)
+                            }
                             onCoerciveAction={(action: string) => handleCoerciveAction(action)}
                             executionStatus={executionStatus}
                             statusMetadata={statusMetadata}
                             isPaused={isPaused}
-                            onShowLedger={() => setShowLedgerModal(true)}
+                            onShowLedger={() =>
+                                onOpenLedgerModal ? onOpenLedgerModal() : setShowLedgerModal?.(true)
+                            }
                             onShowSeizureLog={() => onOpenUnifiedSeizureLog?.()}
                             financialLedger={financialLedger}
                             autoOpenLedgerMode={financialHubAutoOpenMode}
@@ -461,7 +532,10 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                     ? {
                                           expensesSum: evictionCaseExpensesTotalForFinancial,
                                           expenseRows: evictionCaseExpenses.length,
-                                          onRecordExpense: () => setShowEvictionExpenseModal(true),
+                                          onRecordExpense: () =>
+                                              onOpenEvictionExpenseModal
+                                                  ? onOpenEvictionExpenseModal()
+                                                  : setShowEvictionExpenseModal?.(true),
                                           onRequestLawyerFees: handleEvictionLawyerFeeRequest,
                                           lawyerFeeRequestDisabled: lawyerFeePayoutApproved,
                                           lawyerFeeRequestTitle: lawyerFeePayoutApproved
@@ -480,13 +554,17 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
                                 );
                             }}
                             onGuarantorRequest={() => {
+                                if (onOpenGuarantorFollowupDetails) {
+                                    onOpenGuarantorFollowupDetails();
+                                    return;
+                                }
                                 if (guarantorFollowupAwaitingDetailsSave(executionData?.guarantor_followup)) {
-                                    setShowUnifiedExecutionModal(false);
-                                    setExecutionDebtorTabIndex(0);
+                                    setShowUnifiedExecutionModal?.(false);
+                                    setExecutionDebtorTabIndex?.(0);
                                     if (primaryDebtorWorkspaceKey) {
-                                        expandDebtor(primaryDebtorWorkspaceKey);
+                                        expandDebtor?.(primaryDebtorWorkspaceKey);
                                     }
-                                    openGuarantorDetailsModal();
+                                    openGuarantorDetailsModal?.();
                                     return;
                                 }
                                 const gReq = appendGuarantorFollowupRequest({

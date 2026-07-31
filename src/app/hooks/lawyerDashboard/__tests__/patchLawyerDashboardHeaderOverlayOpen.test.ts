@@ -29,9 +29,13 @@ function baseReadyView(
         scheduleTabProps: { visible: false, active: false } as never,
         profileTab: { visible: false, sessionKey: 0, onBack: () => undefined },
         tabStackHidden: false,
-        overlaysHostProps: {
+        scheduleHostMounted: false,
+        profileHostMounted: false,
+        overlaysBundle: {
             overlays: { showSettings: false, showGlobalSearch: false },
         } as never,
+        postInteractiveRuntimeProps: {} as never,
+        deferredFeatureSurfacesProps: {} as never,
         ...overrides,
     };
 }
@@ -106,7 +110,7 @@ describe('dashboardHeaderOverlayFingerprint', () => {
 });
 
 describe('patchLawyerDashboardHeaderOverlayOpen', () => {
-    it('يخفي الهيدر ويُظهر الإعدادات بلا إعادة بناء كاملة', () => {
+    it('يبقي الهيدر ظاهراً مع الإعدادات بلا إعادة بناء كاملة', () => {
         const view = baseReadyView();
         const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
             showSettings: true,
@@ -141,14 +145,14 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
             },
         });
 
-        expect(patched.headerProps.shouldShow).toBe(false);
-        expect(patched.overlaysHostProps.overlays.showSettings).toBe(true);
+        expect(patched.headerProps.shouldShow).toBe(true);
+        expect(patched.overlaysBundle.overlays.showSettings).toBe(true);
         expect(patched.tabStackHidden).toBe(false);
         expect(patched.homeTabProps.active).toBe(true);
         expect(patched).not.toBe(view);
     });
 
-    it('يحافظ على overlaysHostProps عندما تتغير الإشعارات فقط', () => {
+    it('يحافظ على overlaysBundle عندما تتغير الإشعارات فقط', () => {
         const view = baseReadyView();
         const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
             showSettings: false,
@@ -185,6 +189,6 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
 
         expect(patched.notificationPanel.isOpen).toBe(true);
         expect(patched.headerProps.unreadCount).toBe(3);
-        expect(patched.overlaysHostProps).toBe(view.overlaysHostProps);
+        expect(patched.overlaysBundle).toBe(view.overlaysBundle);
     });
 });

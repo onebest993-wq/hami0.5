@@ -101,7 +101,7 @@ export async function POST(request: Request): Promise<Response> {
       return wifeJsonResponse(503, {
         ok: false,
         error: 'قاعدة البيانات غير مهيأة على الخادم.',
-        details: 'أضف SUPABASE_SERVICE_ROLE_KEY في ملف .env ثم أعد تشغيل npm run dev.',
+        details: 'أضف مفتاح إدارة Supabase في ملف .env ثم أعد تشغيل npm run dev.',
       });
     }
 

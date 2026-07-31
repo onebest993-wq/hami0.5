@@ -1,0 +1,12 @@
+{
+  "at": "2026-07-30T21:06:45.947Z",
+  "url": "http://localhost:8080/",
+  "noisy": [],
+  "pageErrors": [],
+  "failedRequests": [],
+  "counts": {
+    "noisy": 0,
+    "pageErrors": 0,
+    "failedRequests": 0
+  }
+}

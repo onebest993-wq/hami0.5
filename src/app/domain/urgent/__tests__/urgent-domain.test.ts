@@ -82,7 +82,7 @@ describe('urgent domain', () => {
         expect(c.id).toBeTruthy();
     });
 
-    it('createCaseFromForm builds urgent_judiciary without grievance phase', () => {
+    it('createCaseFromForm builds petition_orders for الحجز الاحتياطي', () => {
         const fixed = new Date('2026-05-01T12:00:00.000Z');
         const c = createCaseFromForm(
             {
@@ -93,9 +93,9 @@ describe('urgent domain', () => {
             },
             { now: fixed },
         );
-        expect(c.procedureCategory).toBe('urgent_judiciary');
-        expect(c.type).toBe('urgent_action');
-        expect(c.phase).toBe('notification_pending');
+        expect(c.procedureCategory).toBe('petition_orders');
+        expect(c.type).toBe('state_order');
+        expect(c.phase).toBe('grievance_window');
     });
 
     it('serializeCaseForStorage ISO-dates deadline fields', () => {

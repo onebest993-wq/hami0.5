@@ -68,13 +68,17 @@ export function isProtectedStorageKey(key: string): boolean {
     if (PROTECTED_ARRAY_STORAGE_KEYS.has(key)) return true;
     if (PROTECTED_OBJECT_STORAGE_KEYS.has(key)) return true;
     if (key.includes('lawyer_files')) return true;
+    // فهرس التنفيذ حسب المالك: executionFiles:<userId>
+    if (key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) return true;
     if (key.startsWith('hami:criminal:shard:')) return true;
     return false;
 }
 
 export function backupDomainForStorageKey(key: string): BackupDomain | null {
     if (LAWSUIT_KEY_SET.has(key) || key.includes('lawyer_files')) return 'lawsuit';
-    if (EXECUTION_KEY_SET.has(key)) return 'execution';
+    if (EXECUTION_KEY_SET.has(key) || key.startsWith(`${EXECUTION_FILES_STORAGE_KEY}:`)) {
+        return 'execution';
+    }
     if (key === LAWYER_NOTES_STORAGE_KEY || key === 'globalNotes' || key === 'global_notes') return 'notes';
     if (key === 'hami:community:posts:v1') return 'community';
     if (key === 'hami:smartvault:docs:v1') return 'vault';

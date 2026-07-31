@@ -19,7 +19,7 @@ export type LawyerDashboardHeaderVisibilityInput = {
 
 export function shouldHideLawyerDashboardHeader(input: LawyerDashboardHeaderVisibilityInput): boolean {
     return (
-        input.showSettings ||
+        /* الإعدادات z-200 فوق الهيدر — لا تُخفِه وإلا وميض عند الإغلاق (conceal قبل React) */
         input.isNewCaseModalOpen ||
         input.isNotepadOpen ||
         input.showCommunity ||

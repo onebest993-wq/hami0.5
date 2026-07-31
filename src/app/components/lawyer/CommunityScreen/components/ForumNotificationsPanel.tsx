@@ -32,7 +32,7 @@ export function ForumNotificationsPanel({
                 data-testid="forum-notifications-panel"
                 className={`absolute left-0 top-full mt-2 w-80 z-50 ${FORUM_PANEL} shadow-2xl overflow-hidden`}
             >
-                <div className="flex items-center justify-between px-4 py-3 border-b border-[#4A3D52]/40">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A3344]/40">
                     <div className="flex items-center gap-2 min-w-0">
                         <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>التنبيهات</h3>
                         {refreshing ? (

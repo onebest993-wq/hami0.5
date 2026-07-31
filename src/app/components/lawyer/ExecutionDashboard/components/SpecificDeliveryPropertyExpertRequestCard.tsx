@@ -21,7 +21,7 @@ import {
     SPECIFIC_DELIVERY_PROPERTY_EXPERT_TITLE,
     type SpecificDeliveryCaseExpenseRow,
 } from '@/app/utils/specificDeliveryPropertyExpertRequest';
-import { formatNumberInput, parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput, parseAmount } from '@/app/utils/execution/amountInput';
 import { FollowupProcedureCard } from './FollowupProcedureCard';
 
 export interface SpecificDeliveryPropertyExpertRequestCardProps {

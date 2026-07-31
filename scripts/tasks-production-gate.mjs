@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Gate مهام الميدان — مسارات حرجة + typecheck + unit + E2E.
+ * Gate مهام الميدان — مسارات حرجة + unit (+ E2E اختياري عبر release:check:tasks).
  *
  * Usage:
  *   npm run gate:tasks
@@ -10,7 +10,13 @@ import { existsSync } from 'node:fs';
 
 const criticalPaths = [
     'src/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks.ts',
+    'src/app/hooks/lawyerDashboard/fieldTasks/fieldTasksShellOpenFlow.ts',
+    'src/app/hooks/lawyerDashboard/fieldTasks/useFieldTasksHostLifecycle.ts',
+    'src/app/hooks/lawyerDashboard/fieldTasks/useFieldTasksInstantPaint.ts',
+    'src/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports.ts',
     'src/app/hooks/lawyerDashboard/fieldTasksIntentWarm.ts',
+    'src/app/hooks/lawyerDashboard/useLawyerDashboardTasksOverlayEscape.ts',
+    'src/app/services/fieldTasks/fieldTasksPerfMetrics.ts',
     'src/app/runtime/fieldTasksHubLoader.ts',
     'src/app/runtime/fieldTasksBootHydrator.ts',
     'src/app/context/QuantumTasksProvider.tsx',
@@ -41,9 +47,13 @@ function ok(msg) {
     console.log(`✓ ${msg}`);
 }
 
-function run(cmd, args, label) {
+function run(cmd, args, label, envExtra = {}) {
     console.log(`\nRunning ${label}...`);
-    const result = spawnSync(cmd, args, { stdio: 'inherit', shell: true });
+    const result = spawnSync(cmd, args, {
+        stdio: 'inherit',
+        shell: true,
+        env: { ...process.env, ...envExtra },
+    });
     if (result.status !== 0) {
         fail(`${label} failed`);
         return false;
@@ -64,7 +74,7 @@ if (failed) {
     process.exit(1);
 }
 
-if (!run('npm', ['run', 'typecheck'], 'typecheck')) process.exit(1);
+/* typecheck/E2E — release:check:tasks (repo-wide typecheck خارج نطاق مهام الميدان وحده) */
 
 if (
     !run(
@@ -73,6 +83,7 @@ if (
             'vitest',
             'run',
             'src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardFieldTasks.test.ts',
+            'src/app/hooks/lawyerDashboard/fieldTasks/__tests__/fieldTasksShellOpenFlow.test.ts',
             'src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardTasksOverlayEscape.test.ts',
             'src/app/hooks/__tests__/useQuantumTasks.test.ts',
             'src/app/hooks/__tests__/useFatalTaskComplete.test.ts',
@@ -82,6 +93,9 @@ if (
             'src/app/utils/__tests__/quantumTasksStorage.voice.test.ts',
             'src/app/services/tasks/__tests__',
             'src/app/services/__tests__/fieldTaskAlerts.test.ts',
+            'src/app/services/fieldTasks/__tests__/fieldTasksPerfMetrics.test.ts',
+            'src/app/runtime/__tests__/fieldTasksDockSectionSurgicalCloseHonesty.test.ts',
+            'src/app/runtime/__tests__/worldclassFieldTasksCloseHonesty.test.ts',
             'src/app/components/lawyer/dashboard/__tests__/useCommandCenterDockActions.test.ts',
             'src/app/components/lawyer/dashboard/tasksManager/__tests__',
             'src/app/components/lawyer/dashboard/fieldTasks/__tests__',
@@ -89,10 +103,6 @@ if (
         'tasks unit tests',
     )
 ) {
-    process.exit(1);
-}
-
-if (!run('npm', ['run', 'test:e2e:tasks'], 'tasks E2E')) {
     process.exit(1);
 }
 

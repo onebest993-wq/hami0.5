@@ -26,6 +26,9 @@ export function prefetchExecutionCoreHandlers(
         | 'seizure-requests'
         | 'seizure-log'
         | 'coercive'
+        | 'coercive-employee'
+        | 'coercive-eviction'
+        | 'coercive-lifecycle'
         | 'dossier-support' = 'coercive',
 ): void {
     if (isLitePerformanceActive()) return;

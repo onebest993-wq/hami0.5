@@ -1,3 +1,6 @@
 @import './tailwind.css';
 @import './theme.css';
 @import '../app/components/lawyer/dashboard/lawyerHomeFx.css';
+@import '../app/components/lawyer/ArchivePortal/royalGlassBtn.css';
+/* بعد قواعد الويب/الخلفيات — يغلب banding على Android فقط */
+@import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';

@@ -11,7 +11,7 @@ vi.mock('@/app/services/SecureAPIClient', () => ({
     },
 }));
 
-vi.mock('@/app/services/forum/forumNotificationBridge', () => ({
+vi.mock('@/app/services/forum/forumNotificationEvents', () => ({
     emitForumUnreadCount: vi.fn(),
 }));
 

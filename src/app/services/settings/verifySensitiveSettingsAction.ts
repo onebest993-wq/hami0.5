@@ -18,6 +18,38 @@ export type VerifySensitiveSettingsOptions = {
     title?: string;
 };
 
+const CHALLENGE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+function randomChallengeToken(length = 4): string {
+    const bytes = new Uint8Array(length);
+    if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+        crypto.getRandomValues(bytes);
+    } else {
+        for (let i = 0; i < length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+    }
+    let out = '';
+    for (let i = 0; i < length; i += 1) {
+        out += CHALLENGE_ALPHABET[bytes[i]! % CHALLENGE_ALPHABET.length]!;
+    }
+    return out;
+}
+
+/**
+ * يولّد عبارة تأكيد لمرة واحدة (أساس + رمز عشوائي) حتى لا تُخمَّن العبارة الثابتة
+ * عند غياب البيومتري.
+ */
+export function mintSensitiveConfirmChallenge(basePhrase: string): {
+    confirmPhrase: string;
+    promptMessage: string;
+} {
+    const token = randomChallengeToken(4);
+    const confirmPhrase = `${basePhrase.trim()}-${token}`;
+    return {
+        confirmPhrase,
+        promptMessage: `اكتب «${confirmPhrase}» حرفياً للمتابعة:`,
+    };
+}
+
 async function verifyWithBiometric(security: ReturnType<typeof getLawyerSettingsSnapshot>['security']): Promise<boolean | null> {
     if (!security.biometricLock) return null;
 

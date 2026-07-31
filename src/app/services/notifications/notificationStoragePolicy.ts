@@ -1,15 +1,20 @@
-import { isForumSupabaseConfigured } from '@/app/services/forum/supabaseAdmin';
+import { readSupabasePrivilegedKey } from '@/app/api/security/supabasePrivilegedEnv';
 
 function readServerEnv(key: string): string {
     if (typeof process === 'undefined' || !process.env) return '';
     return String(process.env[key] ?? '').trim();
 }
 
-/** Supabase inbox — مفعّل افتراضياً عند service role؛ عطّله بـ SHELL_NOTIFICATIONS_SUPABASE=false */
+function isServerSupabaseServiceConfigured(): boolean {
+    if (typeof window !== 'undefined') return false;
+    return Boolean(readServerEnv('SUPABASE_URL') && readSupabasePrivilegedKey());
+}
+
+/** Supabase inbox — مفعّل عند مفتاح الإدارة؛ عطّله بـ SHELL_NOTIFICATIONS_SUPABASE=false */
 export function isShellNotificationSupabaseEnabled(): boolean {
     if (typeof window !== 'undefined') return false;
     if (readServerEnv('SHELL_NOTIFICATIONS_SUPABASE') === 'false') return false;
-    return isForumSupabaseConfigured();
+    return isServerSupabaseServiceConfigured();
 }
 
 /**

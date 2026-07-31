@@ -48,7 +48,7 @@ describe('💥 DESTRUCTION WAVE A — Unsigned flood on every BFF route', () => 
 
   it.each(ALL_BFF_ENDPOINTS.map((ep) => [ep.method, ep.path, ep] as const))(
     'blocks unsigned %s %s',
-    async (_method, _path, ep) => {
+    async (_method, path:_path, ep) => {
       const url = buildEndpointUrl(BASE, ep);
       const req = unsignedRequest(url, ep.method, ep.body ?? '');
       expect(await verifyWifeSignature(req, ATTACKER_TOKEN)).toBe(false);

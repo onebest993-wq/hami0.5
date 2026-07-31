@@ -87,28 +87,26 @@ export function useSmartFileStageActions(options: {
 
     const handleUpdateCaseInfo = useCallback(
         (newData: Record<string, unknown>) => {
-            if (newData.type) {
-                setParentData((prev) => ({ ...prev, docType: String(newData.type) }));
-            }
-            if (newData.representedParty !== undefined) {
-                setParentData((prev) => ({
-                    ...prev,
-                    representedParty:
-                        typeof newData.representedParty === 'string'
-                            ? newData.representedParty
-                            : null,
-                }));
-            }
+            const nextDocType =
+                newData.type != null && String(newData.type).trim()
+                    ? String(newData.type).trim()
+                    : parentData.docType;
+            const nextCaseNo =
+                newData.caseNo != null ? String(newData.caseNo) : parentData.caseNo;
+            const nextCourt =
+                newData.court != null ? String(newData.court) : parentData.court;
+            const nextJudge =
+                newData.judge != null ? String(newData.judge) : parentData.judge;
 
-            const stageExt = currentStage as CaseStage & { stageName?: string };
+            // stageName / legal roles stay locked — omit stageName from the patch.
             const updated = patchActiveStage(stages, targetStageIndex, {
-                court: newData.court,
-                judge: newData.judge,
-                caseNo: newData.caseNo,
+                court: nextCourt,
+                judge: nextJudge,
+                caseNo: nextCaseNo,
                 parties: newData.parties,
-                stageName: (newData.stageName as string) || stageExt.stageName,
                 extraordinaryAppealType: newData.extraordinaryType,
-                type: newData.type,
+                type: nextDocType,
+                docType: nextDocType,
                 hasCrossAppeal: newData.hasCrossAppeal,
                 firstInstanceCaseNumber: newData.firstInstanceCaseNumber,
                 firstInstanceCourt: newData.firstInstanceCourt,
@@ -116,7 +114,10 @@ export function useSmartFileStageActions(options: {
 
             const nextParent: SmartFileParentData = {
                 ...parentData,
-                docType: newData.type ? String(newData.type) : parentData.docType,
+                caseNo: nextCaseNo,
+                court: nextCourt,
+                judge: nextJudge,
+                docType: nextDocType,
                 representedParty:
                     newData.representedParty !== undefined
                         ? typeof newData.representedParty === 'string'
@@ -124,9 +125,10 @@ export function useSmartFileStageActions(options: {
                             : null
                         : parentData.representedParty,
             };
+            setParentData(nextParent);
             commitStages(updated, nextParent);
         },
-        [stages, targetStageIndex, currentStage, parentData, setParentData, commitStages],
+        [stages, targetStageIndex, parentData, setParentData, commitStages],
     );
 
     const handleSaveNotification = useCallback(

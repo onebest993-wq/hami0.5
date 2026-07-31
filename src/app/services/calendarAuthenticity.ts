@@ -3,11 +3,11 @@
  * من إضبارة نشطة (غير مؤرشفة/محذوفة/موقوفة)، وليس مُولَّداً آلياً من النظام.
  */
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
-import { isBridgedCalendarEvent } from '@/app/services/calendarBridgePersistence';
+import { isBridgedCalendarEvent } from '@/app/services/calendar/bridgePersistence/lite';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { isEventStrictlyAfterToday } from '@/app/services/alertFutureGate';
-import { normalizeDateToYmd } from '@/app/services/calendarBridge';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 
 /** مهام/معرّفات مُولَّدة آلياً (مستعجل سريع، إجراءات نظام) */
 export function isEphemeralLawsuitTaskId(taskId: string): boolean {

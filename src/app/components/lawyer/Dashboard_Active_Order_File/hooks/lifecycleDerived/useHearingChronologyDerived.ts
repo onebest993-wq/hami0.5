@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { getActiveDate } from '@/app/utils/hearingDates';
 import {
     isAdjournReasonValid,

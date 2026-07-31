@@ -34,6 +34,10 @@ export function loadPerfBudget() {
             limits: { ...DEFAULT_BUDGET.limits, ...raw.limits },
             targets: { ...DEFAULT_BUDGET.targets, ...raw.targets },
             chunkRegression: { ...DEFAULT_BUDGET.chunkRegression, ...raw.chunkRegression },
+            namedChunkMaxRawKb: {
+                ...(DEFAULT_BUDGET.namedChunkMaxRawKb || {}),
+                ...(raw.namedChunkMaxRawKb || {}),
+            },
         };
     } catch {
         return DEFAULT_BUDGET;

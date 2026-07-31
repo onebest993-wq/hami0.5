@@ -7,7 +7,6 @@ import {
     stripTaskPrefix,
     isNextUrgentHearingId,
     patchLawsuitStorage,
-    patchExecutionStorage,
     applyLawsuitCalendarUpdate,
     applyLawsuitCalendarRemoval,
     applyExecutionAppointmentUpdate,
@@ -20,6 +19,7 @@ import {
     applyCriminalCalendarRemoval,
     patchThreadingTaskDeadline,
 } from './shared';
+import { patchExecutionStorage } from './executionPatch';
 import { patchCriminalCaseRecord } from '@/app/utils/criminalCasesStorage';
 
 export async function propagateBridgedCalendarUpdate(event: CalendarEvent): Promise<boolean> {

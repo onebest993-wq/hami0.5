@@ -97,6 +97,7 @@ export const CaseFieldSelect = forwardRef<HTMLButtonElement, CaseFieldSelectProp
                     type="button"
                     role="option"
                     aria-selected={value === option}
+                    data-testid={`case-field-option-${option}`}
                     onClick={() => {
                         onChange(option);
                         setOpen(false);

@@ -82,6 +82,22 @@
     font-family: 'Amiri', 'Noto Naskh Arabic', serif;
 }
 
+.hami-profile-font-almarai {
+    font-family: 'Almarai', 'Cairo', sans-serif;
+}
+
+.hami-profile-font-changa {
+    font-family: 'Changa', 'Tajawal', sans-serif;
+}
+
+.hami-profile-font-noto {
+    font-family: 'Noto Naskh Arabic', 'Amiri', serif;
+}
+
+.hami-profile-font-reem {
+    font-family: 'Reem Kufi', 'Cairo', sans-serif;
+}
+
 .profile-block-drag-handle {
     display: flex;
     align-items: center;

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     IRAQI_LAW_CANONICAL_NAMES,
     LAW_NAME_TO_CODE_TYPE,

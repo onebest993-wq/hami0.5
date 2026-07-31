@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { ArrowRightLeft, ChevronDown, Clock } from 'lucide-react';
 import { SmartHeader } from '../parts/SmartHeader';
@@ -9,7 +8,6 @@ import { IncidentalCasesManager } from '../parts/IncidentalCasesManager';
 import { QuickActions } from '../parts/QuickActions';
 import { TimelineFeed } from '../parts/TimelineFeed';
 import { storedFastTrackStatus } from '../smartFile/fastTrackStatus';
-import type { IncidentalStatus, Task, TimelineEvent } from '../../LawyerShared';
 import { buildSessionRecordPayload, isOpponentProceedingsEvent, isSessionTimelineEvent } from '../smartFile/sessionRecordEngine';
 import { pickNonemptyString, readFileDetailsField } from './mainPanel/smartFileMainPanelUtils';
 import { useSmartFileMainPanelLayout } from './mainPanel/useSmartFileMainPanelLayout';
@@ -458,7 +456,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                             events={displayTimeline}
                                             visualVariant="civil"
                                             onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
-                                            onEdit={!isViewingArchived ? handleEditEvent : undefined}
                                         />
                                     </div>
                                 ) : null}
@@ -480,7 +477,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                             appealStageFooterPanel={appealStageFooterPanel}
                             showPleadingCloseFooter={showPleadingCloseFooter}
                             setShowJudgmentModal={setShowJudgmentModal}
-                        />
+                            />
         </div>
 
     );

@@ -78,8 +78,14 @@ function scanFile(filePath) {
     }
 
     const usesPrintPopupWrite = /w\.document\.write/.test(text) && !/(?<!w\.)document\.write/.test(text.replace(/w\.document\.write/g, ''));
+    const usesDomPurifySanitize =
+        /from\s+['"]dompurify['"]/.test(text) && /DOMPurify|sanitizeRichNoteHtml|sanitize\(/.test(text);
 
-    if (!usesPrintPopupWrite && /new\s+Function\s*\(|\.innerHTML\s*=|document\.write\s*\(/.test(text)) {
+    if (
+        !usesPrintPopupWrite &&
+        !usesDomPurifySanitize &&
+        /new\s+Function\s*\(|\.innerHTML\s*=|document\.write\s*\(/.test(text)
+    ) {
         findings.push({
             severity: 'high',
             file: r,

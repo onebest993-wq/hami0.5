@@ -1,15 +1,55 @@
 import React from 'react';
-import { ChevronRight, Plus } from 'lucide-react';
 
-/** Deep Petrol · Smoky Grey · Burnt Ochre — flat minimal, sharp geometry */
+type TxSvgIconProps = {
+    className?: string;
+};
+
+function TxSvgIcon({ className, children }: TxSvgIconProps & { children: React.ReactNode }) {
+    return (
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={className}
+            aria-hidden
+        >
+            {children}
+        </svg>
+    );
+}
+
+function ChevronRightIcon({ className }: TxSvgIconProps) {
+    return (
+        <TxSvgIcon className={className}>
+            <path d="m9 18 6-6-6-6" />
+        </TxSvgIcon>
+    );
+}
+
+function PlusIcon({ className }: TxSvgIconProps) {
+    return (
+        <TxSvgIcon className={className}>
+            <path d="M5 12h14" />
+            <path d="M12 5v14" />
+        </TxSvgIcon>
+    );
+}
+
+/** Deep Petrol · Smoky Grey · Soft Light Ochre — أخف من الأوخرا الأصلي بلا سيج */
 export const TX_PETROL_DEEP = '#061014';
 export const TX_PETROL_BASE = '#0A171D';
 export const TX_PETROL_MID = '#0E1F26';
 export const TX_PETROL_SURFACE = '#152A32';
 export const TX_PETROL_SURFACE_ALT = '#1A3340';
 export const TX_PETROL_BORDER = '#2A4550';
-export const TX_OCHRE = '#C4782F';
-export const TX_OCHRE_BRIGHT = '#D49248';
+/** أوخرا خفيف (أصل #C4782F بدرجة ألطف) */
+export const TX_OCHRE = '#D4A56A';
+export const TX_OCHRE_BRIGHT = '#E0B87A';
+export const TX_OCHRE_BORDER = '#A67C45';
 export const TX_SMOKE = '#D8D4CE';
 
 export const TX_RADIUS = 'rounded-sm';
@@ -24,29 +64,30 @@ export const TX_TOUCH_CHIP =
     'inline-flex items-center justify-center shrink-0 min-h-[44px] touch-manipulation';
 
 export const GLASS_FIELD =
-    'w-full h-11 px-3 rounded-sm border border-[#2A4550]/80 bg-[#152A32] text-[#D8D4CE] ' +
-    'placeholder:text-[#8A8680]/70 outline-none focus:border-[#C4782F]/55 focus:ring-1 focus:ring-[#C4782F]/18 transition-colors';
+    'w-full h-11 px-3 rounded-sm border-2 border-[#3A5A68] bg-[#152A32] text-[#D8D4CE] ' +
+    'placeholder:text-[#8A8680] outline-none focus:border-[#D4A56A] focus:ring-1 focus:ring-[#D4A56A]/25 transition-colors';
 
 export const GLASS_CHIP =
-    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#2A4550]/70 ` +
-    'bg-[#152A32] text-[#B4B0AA] hover:bg-[#1A3340] hover:border-[#8A8680]/40 transition-colors';
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border-2 border-[#3A5A68] ` +
+    'bg-[#1A3340] text-[#D8D4CE] hover:bg-[#243F4C] hover:border-[#8A8680] transition-colors';
 
 export const GLASS_CHIP_ACTIVE =
-    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#C4782F]/55 ` +
-    'bg-[#C4782F]/14 text-[#D8D4CE] shadow-[inset_0_0_0_1px_rgba(196,120,47,0.12)]';
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border-2 border-[#A67C45] ` +
+    'bg-[#D4A56A]/22 text-[#E8D4B0]';
 
-/** فلاتر قائمة المعاملات — بدون transition لتبديل فوري */
+/** فلاتر قائمة المعاملات — إطار واضح وألوان صلبة */
 export const TX_LIST_FILTER_CHIP =
-    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#2A4550]/70 ` +
-    'bg-[#152A32] text-[#B4B0AA] hover:bg-[#1A3340] hover:border-[#8A8680]/40';
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border-2 border-[#3A5A68] ` +
+    'bg-[#1A3340] text-[#D8D4CE] hover:bg-[#243F4C] hover:border-[#8A8680]';
 
 export const TX_LIST_FILTER_CHIP_ACTIVE =
-    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border border-[#C4782F]/55 ` +
-    'bg-[#C4782F]/14 text-[#D8D4CE] shadow-[inset_0_0_0_1px_rgba(196,120,47,0.12)]';
+    `${TX_TOUCH_CHIP} px-3.5 rounded-[3px] text-[11px] font-bold border-2 border-[#A67C45] ` +
+    'bg-[#D4A56A]/22 text-[#E8D4B0]';
 
 export const GLASS_BTN =
-    'w-full h-12 rounded-sm font-bold text-sm border border-[#9A6024]/60 ' +
-    'bg-[#C4782F] text-[#061014] hover:bg-[#D49248] disabled:opacity-45 transition-all';
+    'w-full h-12 rounded-sm font-bold text-sm border-2 border-[#A67C45] ' +
+    'bg-[#D4A56A] text-[#1A1208] hover:bg-[#E0B87A] ' +
+    'disabled:bg-[#6B4A28] disabled:text-[#C4B8A8] disabled:border-[#5A3E24] disabled:opacity-100 transition-all';
 
 function TxPetrolDivider() {
     return (
@@ -84,7 +125,7 @@ export function TxGlassPage({ children }: { children: React.ReactNode }) {
                 className="fixed inset-0 pointer-events-none"
                 style={{
                     background:
-                        'linear-gradient(132deg, rgba(196,120,47,0.03) 0%, transparent 38%, transparent 62%, rgba(42,69,80,0.12) 100%)',
+                        'linear-gradient(132deg, rgba(212,165,106,0.03) 0%, transparent 38%, transparent 62%, rgba(42,69,80,0.12) 100%)',
                 }}
             />
             <div className="relative z-[1] min-h-[100dvh]">{children}</div>
@@ -95,7 +136,7 @@ export function TxGlassPage({ children }: { children: React.ReactNode }) {
 export function TxGlassHeader({ children }: { children: React.ReactNode }) {
     return (
         <header className="sticky top-0 z-40 border-b border-[#2A4550]/80 bg-[#0A171D]/95 shadow-[0_2px_0_rgba(42,69,80,0.35)]">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#C4782F]/45 to-transparent pointer-events-none" />
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#D4A56A]/45 to-transparent pointer-events-none" />
             <div className="relative px-5 pt-4 pb-4 max-w-[520px] mx-auto">{children}</div>
         </header>
     );
@@ -121,10 +162,10 @@ export function TxHeaderRow({
                     type="button"
                     onClick={onBack}
                     data-testid={backTestId}
-                    className={`${TX_TOUCH_ICON} rounded-sm border border-[#2A4550] bg-[#152A32] text-[#D8D4CE] hover:bg-[#1A3340] hover:border-[#C4782F]/35 transition-all`}
+                    className={`${TX_TOUCH_ICON} rounded-sm border border-[#2A4550] bg-[#152A32] text-[#D8D4CE] hover:bg-[#1A3340] hover:border-[#D4A56A]/35 transition-all`}
                     aria-label="رجوع"
                 >
-                    <ChevronRight className="w-5 h-5" />
+                    <ChevronRightIcon className="w-5 h-5" />
                 </button>
             ) : (
                 <div className="w-11 shrink-0" />
@@ -151,14 +192,14 @@ export function TxGlassPanel({
 }) {
     return (
         <div
-            className={`relative overflow-hidden rounded-sm border border-[#2A4550]/90 bg-[#152A32] ${
+            className={`relative overflow-hidden rounded-sm border border-[#2A4550] bg-[#152A32] ${
                 hover
-                    ? 'transition-all duration-200 hover:border-[#C4782F]/35 hover:bg-[#1A3340]'
+                    ? 'transition-all duration-200 hover:border-[#D4A56A] hover:bg-[#1A3340]'
                     : ''
             } ${className}`}
         >
             <div
-                className="absolute top-0 left-0 bottom-0 w-[2px] bg-[#C4782F]/40 pointer-events-none"
+                className="absolute top-0 left-0 bottom-0 w-[3px] bg-[#D4A56A] pointer-events-none"
                 aria-hidden
             />
             {children}
@@ -187,11 +228,11 @@ export function TxGlassFab({
             onClick={onClick}
             onPointerDown={onPointerDown}
             style={{ touchAction: 'manipulation' }}
-            className={`fixed z-[80] pointer-events-auto flex items-center justify-center gap-2 font-extrabold text-sm text-[#061014] border border-[#9A6024]/70 bg-[#C4782F] hover:bg-[#D49248] transition-all active:scale-[0.97] bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-[max(1.25rem,env(safe-area-inset-left))] ${
+            className={`fixed z-[80] pointer-events-auto flex items-center justify-center gap-2 font-extrabold text-sm text-[#1A1208] border-2 border-[#A67C45] bg-[#D4A56A] hover:bg-[#E0B87A] shadow-[0_4px_14px_rgba(212,165,106,0.22)] transition-all active:scale-[0.97] bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-[max(1.25rem,env(safe-area-inset-left))] ${
                 extended ? 'h-14 px-5 rounded-[3px]' : 'w-14 h-14 rounded-[3px]'
             }`}
         >
-            <Plus className="w-5 h-5" />
+            <PlusIcon className="w-5 h-5" />
             {extended ? <span>{label}</span> : null}
         </button>
     );
@@ -199,13 +240,13 @@ export function TxGlassFab({
 
 export function TxGlassEmpty({ message, testId }: { message: string; testId?: string }) {
     return (
-        <div data-testid={testId}>
+        <div data-testid={testId} role="status" aria-live="polite">
             <TxGlassPanel className="mt-8 px-6 py-10 text-center">
             <div className="mx-auto w-12 h-12 rounded-sm border border-[#2A4550] bg-[#1A3340] flex items-center justify-center mb-3">
-                <span className="text-[#C4782F]/70 text-lg">◈</span>
+                <span className="text-[#D4A56A]/70 text-lg">◈</span>
             </div>
-            <p className="text-[#8A8680] text-sm font-medium">{message}</p>
-        </TxGlassPanel>
+            <p className="text-[#CAC6BF] text-sm font-medium">{message}</p>
+            </TxGlassPanel>
         </div>
     );
 }
@@ -227,7 +268,7 @@ export function TxGlassDrawerFrame({
     return (
         <div dir="rtl" className="relative text-right pt-1 pb-2 max-w-[520px] mx-auto w-full">
             <div
-                className="absolute top-0 inset-x-8 h-[2px] bg-gradient-to-r from-transparent via-[#C4782F]/50 to-transparent pointer-events-none"
+                className="absolute top-0 inset-x-8 h-[2px] bg-gradient-to-r from-transparent via-[#D4A56A]/50 to-transparent pointer-events-none"
                 aria-hidden
             />
             <div className="py-3">
@@ -242,44 +283,72 @@ export function TxGlassDrawerFrame({
     );
 }
 
-export function TxFieldLabel({ children }: { children: React.ReactNode }) {
-    return <label className="block text-[11px] font-bold text-[#B4B0AA] mb-1.5">{children}</label>;
+export function TxFieldLabel({
+    children,
+    htmlFor,
+}: {
+    children: React.ReactNode;
+    htmlFor?: string;
+}) {
+    return (
+        <label htmlFor={htmlFor} className="block text-[11px] font-bold text-[#B4B0AA] mb-1.5">
+            {children}
+        </label>
+    );
 }
 
+/** شريط أقسام المعاملة — مفتاح زجاجي مقطّع (بدون خط مقطوع) */
 export function TxGlassTabsList({ children }: { children: React.ReactNode }) {
     return (
-        <div className="w-full rounded-sm border border-[#2A4550]/80 bg-[#0A171D] p-1 flex gap-1">
+        <div
+            className={
+                'w-full rounded-sm border border-[#2A4550]/90 bg-[#071418]/95 p-1 ' +
+                'shadow-[inset_0_1px_0_rgba(212,165,106,0.12),0_10px_28px_rgba(0,0,0,0.28)]'
+            }
+            data-testid="transactions-stage-rail"
+        >
             {children}
         </div>
     );
 }
 
+/** زر قسم داخل الشريط المقطّع */
 export const TX_TAB_TRIGGER =
-    'flex-1 inline-flex items-center justify-center rounded-[3px] min-h-[44px] px-2 text-[11px] font-bold border border-transparent touch-manipulation ' +
-    'data-[state=active]:text-[#D8D4CE] data-[state=active]:bg-[#1A3340] ' +
-    'data-[state=active]:border-[#C4782F]/45 ' +
-    'data-[state=inactive]:text-[#8A8680]';
+    'group relative flex-1 inline-flex flex-row items-center justify-center gap-2.5 ' +
+    'h-auto min-h-[52px] px-3 py-2 rounded-[3px] border border-transparent ' +
+    'bg-transparent shadow-none text-[12px] font-extrabold whitespace-nowrap touch-manipulation ' +
+    'text-[#8A8680] transition-all duration-200 ' +
+    'data-[state=active]:bg-[#1A3340] data-[state=active]:text-[#E8D4B0] data-[state=active]:border-[#A67C45]/60 ' +
+    'data-[state=active]:shadow-[0_0_22px_rgba(212,165,106,0.14),inset_0_1px_0_rgba(232,212,176,0.1)] ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D4A56A]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A171D]';
+
+/** رقم القسم داخل الزر */
+export const TX_STAGE_DOT =
+    'relative z-[1] flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ' +
+    'border-[#3A5A68] bg-[#0A171D] text-[10px] font-extrabold tabular-nums text-[#8A8680] ' +
+    'group-data-[state=active]:border-[#A67C45] group-data-[state=active]:bg-[#D4A56A]/30 ' +
+    'group-data-[state=active]:text-[#E8D4B0] group-data-[state=active]:shadow-[0_0_12px_rgba(212,165,106,0.4)]';
 
 export const TX_GOLD_BTN =
-    'inline-flex items-center justify-center min-h-[44px] px-4 rounded-sm font-bold text-[11px] border border-[#2A4550] touch-manipulation ' +
-    'bg-[#152A32] text-[#D8D4CE] hover:bg-[#1A3340] hover:border-[#C4782F]/40 transition-all';
+    'inline-flex items-center justify-center min-h-[44px] px-4 rounded-sm font-bold text-[11px] border-2 border-[#3A5A68] touch-manipulation ' +
+    'bg-[#152A32] text-[#D8D4CE] hover:bg-[#1A3340] hover:border-[#D4A56A]/70 transition-all';
 
 export const TX_OCHRE_BTN =
-    'inline-flex items-center justify-center min-h-[44px] px-4 rounded-sm font-bold text-[11px] border border-[#9A6024]/60 touch-manipulation ' +
-    'bg-[#C4782F] text-[#061014] hover:bg-[#D49248] transition-all';
+    'inline-flex items-center justify-center min-h-[44px] px-4 rounded-sm font-bold text-[11px] border-2 border-[#A67C45] touch-manipulation ' +
+    'bg-[#D4A56A] text-[#1A1208] hover:bg-[#E0B87A] transition-all';
 
 export const TX_ICON_BTN =
-    `${TX_TOUCH_ICON} rounded-sm border border-[#2A4550] bg-[#152A32] text-[#B4B0AA] ` +
-    'hover:bg-[#1A3340] hover:text-[#D8D4CE] hover:border-[#C4782F]/35 transition-all';
+    `${TX_TOUCH_ICON} rounded-sm border-2 border-[#3A5A68] bg-[#152A32] text-[#B4B0AA] ` +
+    'hover:bg-[#1A3340] hover:text-[#D8D4CE] hover:border-[#D4A56A]/70 transition-all';
 
 export const TX_DIALOG_SHELL =
     'bg-[#0E1F26] border border-[#2A4550] rounded-sm p-5 max-w-[calc(100vw-2rem)] text-[#D8D4CE]';
 
 export const TX_DIALOG_BTN_CANCEL =
-    'inline-flex items-center justify-center min-h-[44px] px-5 rounded-sm border border-[#2A4550] bg-[#152A32] text-[#B4B0AA] font-bold text-sm hover:bg-[#1A3340] transition-colors touch-manipulation';
+    'inline-flex items-center justify-center min-h-[44px] px-5 rounded-sm border-2 border-[#3A5A68] bg-[#152A32] text-[#B4B0AA] font-bold text-sm hover:bg-[#1A3340] transition-colors touch-manipulation';
 
 export const TX_DIALOG_BTN_DANGER =
-    'inline-flex items-center justify-center min-h-[44px] px-5 rounded-sm border border-[#C4782F]/35 bg-[#C4782F]/12 text-[#D49248] font-bold text-sm hover:bg-[#C4782F]/20 transition-colors touch-manipulation';
+    'inline-flex items-center justify-center min-h-[44px] px-5 rounded-sm border-2 border-[#D4A56A]/50 bg-[#D4A56A]/12 text-[#E0B87A] font-bold text-sm hover:bg-[#D4A56A]/20 transition-colors touch-manipulation';
 
 export const TX_DROPDOWN_CONTENT =
     'z-[225] bg-[#0E1F26] border border-[#2A4550] text-[#D8D4CE] rounded-sm p-1 shadow-[0_8px_24px_rgba(6,16,20,0.45)]';
@@ -294,14 +363,14 @@ export const TX_CARD_SURFACE =
     'rounded-sm bg-[#152A32] border border-[#2A4550]/90 px-4 py-3';
 
 export const TX_ACCENT_SURFACE =
-    'rounded-sm bg-[#C4782F]/10 border border-[#C4782F]/35';
+    'rounded-sm bg-[#D4A56A]/10 border border-[#D4A56A]/35';
 
 export const TX_TEXT_PRIMARY = 'text-[#D8D4CE]';
 export const TX_TEXT_SECONDARY = 'text-[#B4B0AA]';
-export const TX_TEXT_MUTED = 'text-[#8A8680]';
-export const TX_TEXT_OCHRE = 'text-[#D49248]';
+export const TX_TEXT_MUTED = 'text-[#CAC6BF]';
+export const TX_TEXT_OCHRE = 'text-[#E0B87A]';
 
-export const TX_STATUS_ACTIVE = 'bg-[#C4782F]/14 text-[#D49248] border-[#C4782F]/45';
+export const TX_STATUS_ACTIVE = 'bg-[#D4A56A]/14 text-[#E0B87A] border-[#D4A56A]/45';
 export const TX_STATUS_PAUSED = 'bg-[#1A3340] text-[#B4B0AA] border-[#2A4550]';
 export const TX_STATUS_COMPLETED = 'bg-[#152A32] text-[#8A8680] border-[#2A4550]/80';
 

@@ -1,7 +1,3 @@
-import {
-    prefetchLawyerHomeShellWidgets,
-} from '@/app/utils/lazyComponents';
-
 let scheduled = false;
 
 /** يُستدعى عند warmHomeOnHover — يمنع موجة shell المكررة بعد 8s */
@@ -15,9 +11,14 @@ export function scheduleLawyerShellPrefetch(options?: { delayMs?: number }): voi
     scheduled = true;
 
     void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
+    void import('@/app/utils/lazyComponents')
+        .then((m) => m.prefetchLawyerHomeHubCard())
+        .catch(() => undefined);
 
     const runDeferred = () => {
-        prefetchLawyerHomeShellWidgets();
+        void import('@/app/utils/lazyComponents')
+            .then((m) => m.prefetchLawyerHomeShellWidgets())
+            .catch(() => undefined);
     };
 
     const delayMs = options?.delayMs ?? (import.meta.env.DEV ? 800 : 4_000);

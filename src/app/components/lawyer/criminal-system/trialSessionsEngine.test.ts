@@ -19,6 +19,9 @@ import {
     validateTrialSessionIsoDate,
     isTrialSessionNumberTaken,
     validateTrialSessionNumberUnique,
+    isPhantomScheduledTrialSession,
+    prunePhantomScheduledTrialSessions,
+    filterTrialSessionsForDisplay,
 } from './trialSessionsEngine';
 import type { TrialSession } from './trialSessionsEngine';
 
@@ -322,5 +325,37 @@ describe('trialSessionsEngine', () => {
         ]);
         expect(isTrialSessionPostCassationRemand(sessions[1]!, '2026-06-10', sessions)).toBe(true);
         expect(isTrialSessionPostCassationRemand(sessions[0]!, '2026-06-10', sessions)).toBe(false);
+    });
+
+    it('prunes phantom scheduled session that duplicates nextHearingDate', () => {
+        const phantom = normalizeTrialSessions([
+            {
+                id: 's1',
+                sessionNumber: '1',
+                date: '2026-07-31',
+                presenceStatus: 'present',
+                sessionNotes: '',
+                status: 'pending',
+            },
+        ])[0]!;
+        expect(isPhantomScheduledTrialSession(phantom, '2026-07-31', [phantom])).toBe(true);
+        expect(prunePhantomScheduledTrialSessions([phantom], '2026-07-31')).toEqual([]);
+        expect(filterTrialSessionsForDisplay([phantom], '2026-07-31')).toEqual([]);
+    });
+
+    it('does not treat user-origin session as phantom even on hearing date', () => {
+        const userSession = normalizeTrialSessions([
+            {
+                id: 's1',
+                sessionNumber: '1',
+                date: '2026-07-31',
+                presenceStatus: 'present',
+                sessionNotes: '',
+                status: 'pending',
+                origin: 'user',
+            },
+        ])[0]!;
+        expect(isPhantomScheduledTrialSession(userSession, '2026-07-31', [userSession])).toBe(false);
+        expect(filterTrialSessionsForDisplay([userSession], '2026-07-31')).toHaveLength(1);
     });
 });

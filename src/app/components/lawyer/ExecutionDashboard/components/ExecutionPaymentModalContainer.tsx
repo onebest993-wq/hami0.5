@@ -3,11 +3,18 @@ import { motion } from 'motion/react';
 import type { Dispatch, SetStateAction } from 'react';
 import { X } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 export interface ExecutionPaymentModalContainerProps {
     showPaymentModal: boolean;
-    setShowPaymentModal: (show: boolean) => void;
+    setShowPaymentModal?: (show: boolean) => void;
+    onClosePaymentModal?: () => void;
     paymentAmount: string;
     setPaymentAmount: Dispatch<SetStateAction<string>>;
     paymentDate: string;
@@ -18,6 +25,7 @@ export interface ExecutionPaymentModalContainerProps {
 export const ExecutionPaymentModalContainer: React.FC<ExecutionPaymentModalContainerProps> = ({
     showPaymentModal,
     setShowPaymentModal,
+    onClosePaymentModal,
     paymentAmount,
     setPaymentAmount,
     paymentDate,
@@ -25,6 +33,14 @@ export const ExecutionPaymentModalContainer: React.FC<ExecutionPaymentModalConta
     handlePayment,
 }) => {
     const [localDate, setLocalDate] = useState(paymentDate || getLocalTodayYmd());
+
+    const closePaymentModal = () => {
+        if (typeof onClosePaymentModal === 'function') {
+            onClosePaymentModal();
+        } else {
+            setShowPaymentModal?.(false);
+        }
+    };
 
     useEffect(() => {
         if (showPaymentModal) {
@@ -37,19 +53,19 @@ export const ExecutionPaymentModalContainer: React.FC<ExecutionPaymentModalConta
     if (!showPaymentModal) return null;
 
     return (
-        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4">
+        <div className={`fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}>
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 className="bg-[#0F172A] border border-gray-700 rounded-2xl p-6 max-w-lg w-full"
                 dir="rtl"
             >
-                <div className="flex justify-between items-center mb-4">
+                <div className={`flex justify-between items-center mb-4 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                     <h3 className="text-xl font-bold text-white">إضافة تسديد جديد</h3>
                     <button
                         type="button"
-                        onClick={() => setShowPaymentModal(false)}
-                        className="text-gray-400 hover:text-white"
+                        onClick={closePaymentModal}
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                     >
                         <X size={24} />
                     </button>
@@ -85,7 +101,7 @@ export const ExecutionPaymentModalContainer: React.FC<ExecutionPaymentModalConta
                 <button
                     type="button"
                     onClick={handlePayment}
-                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition-colors mt-4"
+                    className={`${EXEC_MODAL_TOUCH_TARGET} w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-lg transition-colors mt-4`}
                 >
                     حفظ
                 </button>

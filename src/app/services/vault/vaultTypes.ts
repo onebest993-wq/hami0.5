@@ -34,4 +34,5 @@ export type SmartVaultDoc = {
     customCategory?: string | null;
     isProcessing?: boolean;
     boundDossierId?: string | null;
+    roomId?: string | null;
 };

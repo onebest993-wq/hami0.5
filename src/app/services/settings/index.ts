@@ -13,4 +13,6 @@ export { LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 export * from './surfaceAppearance';
 export * from './builtInBehavior';
 export * from './settingsRuntime';
+export * from './settingsSnapshot';
+export * from './intentWarmGate';
 export * from './localOnlyGuard';

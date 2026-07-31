@@ -177,7 +177,6 @@ export const MONETARY_CLAIM_AMOUNT_FIELD_VALUES = new Set([
     'حجة مخالعة',
     'حجة إقرار بدين',
     'نفقة عدة',
-    'نفقة ماضية',
     'تعويض عن طلاق تعسفي',
     'استيفاء دين من بيع عقار',
 ]);
@@ -317,14 +316,57 @@ export function parseMoneyInput(raw: string): number {
     return Math.max(0, Math.round(parseFloat(cleaned) || 0));
 }
 
+/** مبلغ مطالبة «نفقة ماضية» — من الحاسبة أو claimAmountsByType */
+export function resolvePastAlimonyClaimAmount(
+    claimAmountsByType: Record<string, string>,
+    pastAccumulation?: number | null,
+): number {
+    return Math.max(
+        0,
+        Math.round(Number(pastAccumulation) || 0),
+        parseMoneyInput(String(claimAmountsByType['نفقة ماضية'] ?? '')),
+    );
+}
+
+/** رسالة توجيهية عند غياب مبلغ النفقة الماضية المحسوب */
+export function findMissingPastAlimonyClaimFieldMessage(input: {
+    alimonyPastStartDate: string;
+    alimonyLawsuitDate: string;
+    pastWifeMonthly: string;
+    fallbackWifeMonthly?: string;
+}): string {
+    if (!String(input.alimonyPastStartDate || '').trim()) {
+        return 'أدخل تاريخ استحقاق النفقة الماضية';
+    }
+    if (!String(input.alimonyLawsuitDate || '').trim()) {
+        return 'أدخل تاريخ إقامة الدعوى لاحتساب النفقة الماضية';
+    }
+    const monthly =
+        parseMoneyInput(input.pastWifeMonthly) ||
+        parseMoneyInput(input.fallbackWifeMonthly ?? '');
+    if (monthly <= 0) {
+        return 'أدخل مقدار النفقة الشهرية للنفقة الماضية';
+    }
+    return 'أكمل بيانات احتساب النفقة الماضية — المبلغ المحسوب صفر';
+}
+
 export function findMissingRequiredMonetaryClaimAmount(
     effectiveClaimTypes: string[],
     claimType: string,
     claimAmountsByType: Record<string, string>,
     totalAmount: string,
+    options?: {
+        pastAlimonyAccumulation?: number | null;
+    },
 ): string | null {
     const types = resolveEffectiveClaimTypesList(effectiveClaimTypes, claimType);
     for (const ct of types) {
+        if (ct === 'نفقة ماضية') {
+            if (resolvePastAlimonyClaimAmount(claimAmountsByType, options?.pastAlimonyAccumulation) <= 0) {
+                return ct;
+            }
+            continue;
+        }
         if (!claimUsesMonetaryAmountField(ct)) continue;
         const raw =
             claimAmountsByType[ct] ?? (types.length === 1 ? totalAmount : '');

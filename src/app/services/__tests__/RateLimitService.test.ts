@@ -4,7 +4,7 @@
  * @version 1.0.0
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { rateLimitService } from '../RateLimitService';
 
 describe('RateLimitService', () => {

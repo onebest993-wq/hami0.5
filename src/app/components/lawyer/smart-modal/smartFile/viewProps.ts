@@ -4,7 +4,7 @@ import type { SmartFileChromeProps } from '../layout/SmartFileChrome';
 import type { SmartFileMainPanelProps } from '../layout/SmartFileMainPanel';
 import type { SmartFileModalsPortalProps } from '../layout/SmartFileModalsPortal';
 import type { SmartFileParentData } from './parentDataInit';
-import { resolveAppealRouteContext, type AppealRouteContext } from './appealRouteEligibility';
+import { resolveAppealRouteContext } from './appealRouteEligibility';
 import type { ConsolidationCandidate } from './caseConsolidationLinking';
 import type { JudgmentPayload } from './judgmentTypes';
 import { isFirstInstanceStageName } from './judgmentTypes';
@@ -406,6 +406,7 @@ export function buildModalsPortalProps(input: SmartFileLayoutBuildInput): SmartF
         currentStage: input.currentStage,
         stages: input.stages,
         activeStageIndex: input.activeStageIndex,
+        viewingStageIndex: input.viewingStageIndex,
         parentData: input.parentData,
         consolidationCurrentFileId: input.consolidationCurrentFileId,
         consolidationCurrentCaseNo: input.consolidationCurrentCaseNo,

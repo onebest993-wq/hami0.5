@@ -49,6 +49,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
  */
 import { extractJwtSessionFields } from '@/app/security/jwtFields.ts';
 import { getSupabaseAdminClient } from './supabaseAdminClient.ts';
+import { supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.js';
 var IAT_GRACE_PERIOD_MS = 45000;
 var SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 var DEFAULT_SESSION_TABLE = 'wife_token_sessions';
@@ -202,7 +203,7 @@ var redisStore = {
     },
 };
 function hasSupabaseConfig() {
-    return Boolean(getEnv('SUPABASE_URL') && getEnv('SUPABASE_SERVICE_ROLE_KEY'));
+    return Boolean(getEnv('SUPABASE_URL') && getEnv(supabasePrivilegedKeyEnvName()));
 }
 function getSupabaseAdminClientForSessions() {
     return getSupabaseAdminClient();

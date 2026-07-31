@@ -1,0 +1,39 @@
+# A3-dashboard-components batch 2 — 38 files / 9325 lines
+src/app/components/lawyer/ExecutionDashboard/components/MaritalFurnitureModule.tsx  (993 lines)
+src/app/components/lawyer/ExecutionDashboard/components/OtherPartyEffectiveRequestsPanel.tsx  (670 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/UnifiedSummonsModalContainer.tsx  (666 lines)
+src/app/components/lawyer/ExecutionDashboard/components/useSeizureRequestsTabModel.ts  (606 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyScrollContent.tsx  (533 lines)
+src/app/components/lawyer/ExecutionDashboard/components/HiddenGuarantorRequestOptions.tsx  (469 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionModalsContainer.tsx  (412 lines)
+src/app/components/lawyer/ExecutionDashboard/components/FinancialLedgerSection.tsx  (403 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/PartiesSection.tsx  (351 lines)
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionFollowupModalMidPanels.tsx  (333 lines)
+src/app/components/lawyer/ExecutionDashboard/components/CommunicationAwaitingResultCard.tsx  (317 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionDashboardPhoneBody.staleHandlers.test.tsx  (295 lines)
+src/app/components/lawyer/ExecutionDashboard/components/UnifiedSeizureLogEntryFooter.tsx  (274 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/DebtorsSectionPortals.tsx  (257 lines)
+src/app/components/lawyer/ExecutionDashboard/components/HiddenBreakInventoryRequestOptions.tsx  (243 lines)
+src/app/components/lawyer/ExecutionDashboard/components/RequestsTabLatestDecisionPanel.tsx  (232 lines)
+src/app/components/lawyer/ExecutionDashboard/components/DossierControlsTab.tsx  (223 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/debtorsSection.test.tsx  (214 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionDashboardPhoneBodySecondarySections.test.tsx  (195 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionModalContainerCloseContracts.test.tsx  (179 lines)
+src/app/components/lawyer/ExecutionDashboard/components/SeizureRequestsTabGuarantorBlock.tsx  (157 lines)
+src/app/components/lawyer/ExecutionDashboard/components/InlineActionGate.tsx  (136 lines)
+src/app/components/lawyer/ExecutionDashboard/components/DossierActionsModal.tsx  (133 lines)
+src/app/components/lawyer/ExecutionDashboard/components/guarantorExternalUtils.ts  (120 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/unifiedSeizureLogHost.test.tsx  (114 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/executionDashboardNotesOverlays.test.tsx  (110 lines)
+src/app/components/lawyer/ExecutionDashboard/components/evictionProcedurePanel.tsx  (102 lines)
+src/app/components/lawyer/ExecutionDashboard/components/executionDashboardPhoneBodyScopeFallback.ts  (94 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/salarySeizureLogDetailCard.test.tsx  (88 lines)
+src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedPropertyWorkflowPanel.test.tsx  (79 lines)
+src/app/components/lawyer/ExecutionDashboard/components/ExecutorWorkflowPortalModals.types.ts  (74 lines)
+src/app/components/lawyer/ExecutionDashboard/components/VisitationCalendarModal.tsx  (51 lines)
+src/app/components/lawyer/ExecutionDashboard/components/CommunicationContextPanel.tsx  (47 lines)
+src/app/components/lawyer/ExecutionDashboard/components/UnifiedSeizureLogHost.tsx  (46 lines)
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardSolidaryEvictionOverlays.tsx  (36 lines)  [@ts-nocheck]
+src/app/components/lawyer/ExecutionDashboard/components/notesTasksModalUi.ts  (34 lines)
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardRootFrame.tsx  (23 lines)
+src/app/components/lawyer/ExecutionDashboard/components/ExecutionFinancialLedgerPortalContainer.tsx  (16 lines)

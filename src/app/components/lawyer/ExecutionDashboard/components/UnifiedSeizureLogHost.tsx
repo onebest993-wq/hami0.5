@@ -24,13 +24,19 @@ export type UnifiedSeizureLogHostProps = {
 
 export function UnifiedSeizureLogHost(props: UnifiedSeizureLogHostProps) {
     const open = props.showModal && props.hasContent && !props.isRepresentingDebtor;
+    const sanitizedCounts = {
+        property: Number.isFinite(props.counts.property) ? props.counts.property : 0,
+        salary: Number.isFinite(props.counts.salary) ? props.counts.salary : 0,
+        movable: Number.isFinite(props.counts.movable) ? props.counts.movable : 0,
+        third_party: Number.isFinite(props.counts.third_party) ? props.counts.third_party : 0,
+    };
 
     return (
         <UnifiedSeizureLogModal
             open={open}
             activeTab={props.activeTab}
             onTabChange={props.onTabChange}
-            counts={props.counts}
+            counts={sanitizedCounts}
             entries={props.entries}
             onClose={props.onClose}
             renderEntryFooter={(entry) => <UnifiedSeizureLogEntryFooter entry={entry} {...props.footer} />}

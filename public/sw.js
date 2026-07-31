@@ -10,19 +10,35 @@
  * @date 2026-03-06
  */
 
-const CACHE_VERSION = 'v1.0.3';
+const CACHE_VERSION = 'v1.1.0';
 const CACHE_NAME = `legal-system-${CACHE_VERSION}`;
+const swLog = (...args) => globalThis.console.log(...args);
+const swError = (...args) => globalThis.console.error(...args);
 
 /** مسارات آمنة للتخزين المؤقت — لا API ولا استجابات ديناميكية */
-const CACHEABLE_PATHS = new Set(['/', '/index.html', '/manifest.json', '/favicon.svg', '/icon-192.png', '/badge-72.png']);
+const CACHEABLE_PATHS = new Set([
+  '/',
+  '/index.html',
+  '/manifest.json',
+  '/favicon.svg',
+  '/hami-boot-shell.css',
+  '/hami-boot.js',
+  '/hami-logo.png',
+  '/hami-logo-transparent.png',
+  '/hami-splash-bg.png',
+]);
 
 function shouldCacheRequest(request) {
   try {
     const u = new URL(request.url);
+    if (request.method !== 'GET') return false;
     if (u.origin !== self.location.origin) return false;
     if (u.pathname.startsWith('/api/')) return false;
     if (CACHEABLE_PATHS.has(u.pathname)) return true;
-    if (u.pathname.startsWith('/assets/') && /\.(woff2?|png|svg|ico|webp)(\?|$)/i.test(u.pathname)) {
+    if (u.pathname.startsWith('/assets/') && /\.(js|css|woff2?|png|svg|ico|webp|json)(\?|$)/i.test(u.pathname)) {
+      return true;
+    }
+    if (u.pathname.startsWith('/static-law-data/v1/') && u.pathname.endsWith('.json')) {
       return true;
     }
   } catch (_) {
@@ -31,25 +47,75 @@ function shouldCacheRequest(request) {
   return false;
 }
 
+function isDocumentRequest(request) {
+  return request.mode === 'navigate' || request.destination === 'document';
+}
+
+async function putInCache(request, response) {
+  if (!response || response.status !== 200 || !shouldCacheRequest(request)) return response;
+  const cache = await caches.open(CACHE_NAME);
+  await cache.put(request, response.clone());
+  return response;
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    return putInCache(request, response);
+  } catch (_) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    if (isDocumentRequest(request)) {
+      const fallback = await caches.match('/');
+      if (fallback) return fallback;
+      return new Response('Service is unavailable.', {
+        status: 503,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      });
+    }
+    return new Response('', { status: 504 });
+  }
+}
+
+async function staleWhileRevalidate(request) {
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  const network = fetch(request)
+    .then((response) => putInCache(request, response))
+    .catch(() => null);
+
+  if (cached) {
+    return cached;
+  }
+
+  const response = await network;
+  return (
+    response ??
+    new Response('', {
+      status: 504,
+    })
+  );
+}
+
 // =====================================================
 // Install Event
 // =====================================================
 
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...');
+  swLog('[Service Worker] Installing...');
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[Service Worker] Caching static assets');
-        return cache.addAll(['/', '/index.html', '/manifest.json']);
+        swLog('[Service Worker] Caching static assets');
+        return cache.addAll(Array.from(CACHEABLE_PATHS));
       })
       .then(() => {
-        console.log('[Service Worker] ✅ Installed successfully');
+        swLog('[Service Worker] Installed successfully');
         return self.skipWaiting();
       })
       .catch((error) => {
-        console.error('[Service Worker] ❌ Install failed:', error);
+        swError('[Service Worker] Install failed:', error);
       })
   );
 });
@@ -59,7 +125,7 @@ self.addEventListener('install', (event) => {
 // =====================================================
 
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
+  swLog('[Service Worker] Activating...');
   
   event.waitUntil(
     caches.keys()
@@ -67,14 +133,14 @@ self.addEventListener('activate', (event) => {
         return Promise.all(
           cacheNames.map((cacheName) => {
             if (cacheName !== CACHE_NAME) {
-              console.log('[Service Worker] Deleting old cache:', cacheName);
+              swLog('[Service Worker] Deleting old cache:', cacheName);
               return caches.delete(cacheName);
             }
           })
         );
       })
       .then(() => {
-        console.log('[Service Worker] ✅ Activated successfully');
+        swLog('[Service Worker] Activated successfully');
         return self.clients.claim();
       })
   );
@@ -89,6 +155,7 @@ function isViteDevBypass(request) {
     const u = new URL(request.url);
     if (u.origin !== self.location.origin) return true;
     const p = u.pathname;
+    if (p.startsWith('/assets/')) return false;
     if (
       p.startsWith('/@') ||
       p.startsWith('/src/') ||
@@ -105,6 +172,10 @@ function isViteDevBypass(request) {
 }
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') {
+    return;
+  }
+
   // تجاهل الطلبات الخارجية
   if (!event.request.url.startsWith(self.location.origin)) {
     return;
@@ -114,48 +185,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // ملفات Vite hashed — شبكة فقط لتجنب chunks قديمة بعد النشر
-  const url = event.request.url;
-  if (url.includes('/assets/') && /\.(js|css)(\?|$)/i.test(url)) {
-    event.respondWith(fetch(event.request));
+  const url = new URL(event.request.url);
+  if (isDocumentRequest(event.request)) {
+    event.respondWith(networkFirst(event.request));
     return;
   }
 
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        if (response && response.status === 200 && shouldCacheRequest(event.request)) {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      })
-      .catch(() => {
-        // في حالة فشل الشبكة، استخدم الـ Cache
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            console.log('[Service Worker] Serving from cache:', event.request.url);
-            return cachedResponse;
-          }
-          
-          if (event.request.destination === 'document') {
-            return caches.match('/').then((fallback) => {
-              return (
-                fallback ??
-                new Response('Service is unavailable.', {
-                  status: 503,
-                  headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-                })
-              );
-            });
-          }
+  if (url.pathname.startsWith('/assets/') || CACHEABLE_PATHS.has(url.pathname)) {
+    event.respondWith(staleWhileRevalidate(event.request));
+    return;
+  }
 
-          return new Response('', { status: 504 });
-        });
-      })
-  );
+  if (url.pathname.startsWith('/static-law-data/v1/')) {
+    event.respondWith(staleWhileRevalidate(event.request));
+    return;
+  }
+
+  if (url.pathname === '/static-law-data/manifest.json') {
+    event.respondWith(networkFirst(event.request));
+    return;
+  }
+
+  event.respondWith(networkFirst(event.request));
 });
 
 // =====================================================
@@ -163,13 +214,13 @@ self.addEventListener('fetch', (event) => {
 // =====================================================
 
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push notification received');
+  swLog('[Service Worker] Push notification received');
   
   let data = {
     title: 'نظام الملف القانوني',
     body: 'لديك تحديث جديد',
-    icon: '/icon-192.png',
-    badge: '/badge-72.png',
+    icon: '/hami-logo.png',
+    badge: '/hami-logo-transparent.png',
     tag: 'default',
     data: {}
   };
@@ -179,7 +230,7 @@ self.addEventListener('push', (event) => {
     try {
       const payload = event.data.json();
       data = { ...data, ...payload };
-    } catch (e) {
+    } catch (_e) {
       data.body = event.data.text();
     }
   }
@@ -214,7 +265,7 @@ self.addEventListener('push', (event) => {
 // =====================================================
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification clicked:', event.action);
+  swLog('[Service Worker] Notification clicked:', event.action);
   
   event.notification.close();
 
@@ -243,7 +294,7 @@ self.addEventListener('notificationclick', (event) => {
 // =====================================================
 
 self.addEventListener('sync', (event) => {
-  console.log('[Service Worker] Background sync:', event.tag);
+  swLog('[Service Worker] Background sync:', event.tag);
   
   if (event.tag === 'sync-legal-data') {
     event.waitUntil(
@@ -253,13 +304,13 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncLegalData() {
-  console.log('[Service Worker] Syncing legal data...');
+  swLog('[Service Worker] Syncing legal data...');
   
   try {
     // يمكن إضافة منطق المزامنة هنا
-    console.log('[Service Worker] ✅ Data synced successfully');
+    swLog('[Service Worker] Data synced successfully');
   } catch (error) {
-    console.error('[Service Worker] ❌ Sync failed:', error);
+    swError('[Service Worker] Sync failed:', error);
     throw error; // سيعيد المحاولة تلقائياً
   }
 }
@@ -269,7 +320,7 @@ async function syncLegalData() {
 // =====================================================
 
 self.addEventListener('message', (event) => {
-  console.log('[Service Worker] Message received:', event.data);
+  swLog('[Service Worker] Message received:', event.data);
   
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
@@ -290,4 +341,4 @@ self.addEventListener('message', (event) => {
   }
 });
 
-console.log('[Service Worker] Script loaded successfully');
+swLog('[Service Worker] Script loaded successfully');

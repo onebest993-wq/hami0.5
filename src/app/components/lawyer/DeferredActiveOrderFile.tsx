@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { Suspense, useState } from 'react';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';

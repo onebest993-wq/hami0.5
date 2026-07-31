@@ -5,7 +5,6 @@ import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRunti
 import {
     hydrateFieldTasksSheetForInstantOpen,
     isFieldTasksSheetModuleResolved,
-    prefetchTasksManagerModule,
 } from '@/app/runtime/fieldTasksHubLoader';
 
 export const FIELD_TASKS_SHELL_HYDRATED_EVENT = 'hami:field-tasks-shell-hydrated';
@@ -38,25 +37,20 @@ function dispatchHydratedOnce(): void {
 
 /**
  * تهيئة ستارة الميدان للفتح الفوري — الستارة فقط (chunk خفيف).
- * الأجندة الأثقل تُهيّأ لاحقاً في الخلفية بأولوية أدنى.
+ * مدير الأجندة يُحمَّل عبر idle بعد الفتح / عند «إدارة الكل» — لا هنا.
  * @param force يتجاوز تعطيل prefetch عند فتح المستخدم.
  */
 export function hydrateFieldTasksShellForInstantOpen(force = false): Promise<boolean> {
     if (!force && !fieldTasksPrefetchAllowed()) return Promise.resolve(false);
     if (isFieldTasksSheetModuleResolved()) {
         dispatchHydratedOnce();
-        prefetchTasksManagerModule();
         return Promise.resolve(true);
     }
     if (hydrateInflight) return hydrateInflight;
 
     hydrateInflight = hydrateFieldTasksSheetForInstantOpen()
         .then((ok) => {
-            if (ok) {
-                dispatchHydratedOnce();
-                // الأجندة في الخلفية — لا تحجب ظهور الستارة
-                prefetchTasksManagerModule();
-            }
+            if (ok) dispatchHydratedOnce();
             return ok;
         })
         .finally(() => {

@@ -26,6 +26,22 @@ export function openHubArchiveFromHomeTile(
     const archiveId = resolveHubArchiveRouteId(rawId);
     if (!archiveId) return false;
 
+    /** المعاملات: افتح أولاً ثم سخّن — prefetch قبل onOpen كان يؤخر الإطار الأول */
+    if (archiveId === 'transaction') {
+        const opened = openHubArchiveFromShell({
+            signedIn: isRealSignedIn(userId),
+            archiveId,
+            onSignedOut: () =>
+                SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${hubShellFeature(archiveId)}`),
+            onOpen,
+        });
+        /* التسخين الثقيل داخل openTransactionsHub — هنا prefetch خفيف بعد الفتح فقط */
+        if (opened) {
+            queueMicrotask(() => prefetchHubArchiveIntentImmediate(archiveId, userId));
+        }
+        return opened;
+    }
+
     prefetchHubArchiveIntentImmediate(archiveId, userId);
 
     return openHubArchiveFromShell({

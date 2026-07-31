@@ -13,6 +13,8 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
     };
     toastEpoch: number;
     unifiedLedgerRevision: number;
+    executionStorageTick: number;
+    financialPrincipalAmount: number;
     followupOrchestrator: { executionDebtorTabIndex: number };
     showUnifiedSeizureLogModal: boolean;
     timelineAccordionExpanded: boolean;
@@ -40,6 +42,8 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
         dossierLifecyclePopStyle: dossierLifecyclePanel.dossierLifecyclePopStyle,
         toastEpoch: p.toastEpoch,
         dataRevision: p.unifiedLedgerRevision,
+        executionStorageTick: p.executionStorageTick,
+        financialPrincipalAmount: p.financialPrincipalAmount,
         executionDebtorTabIndex: followupOrchestrator.executionDebtorTabIndex,
         showUnifiedSeizureLogModal: p.showUnifiedSeizureLogModal,
         timelineAccordionExpanded: p.timelineAccordionExpanded,

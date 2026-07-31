@@ -28,6 +28,10 @@ vi.mock('@/app/services/settings/businessBackup', () => ({
 
 vi.mock('@/app/services/settings/verifySensitiveSettingsAction', () => ({
     verifySensitiveSettingsAction: vi.fn(() => Promise.resolve(true)),
+    mintSensitiveConfirmChallenge: (base: string) => ({
+        confirmPhrase: `${base}-TEST`,
+        promptMessage: `اكتب «${base}-TEST» حرفياً للمتابعة:`,
+    }),
 }));
 
 import { useBusinessBackup } from '@/app/components/lawyer/HamiSettings/hooks/useBusinessBackup';
@@ -84,7 +88,7 @@ describe('useBusinessBackup — export', () => {
 
     it('يصدّر نسخة محمية عند إدخال كلمة مرور صالحة', async () => {
         confirm.mockResolvedValueOnce(true);
-        prompt.mockResolvedValueOnce('secret12');
+        prompt.mockResolvedValueOnce('secret12chars');
 
         const { result } = renderHook(() => useBusinessBackup());
         stubDownloadAnchor();

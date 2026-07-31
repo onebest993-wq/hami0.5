@@ -1,4 +1,4 @@
-import React, { lazy, Suspense } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useGlobalSearch } from '@/app/components/lawyer/GlobalSearchOverlay/useGlobalSearch';
 import type { GlobalSearchOverlayProps } from '@/app/components/lawyer/GlobalSearchOverlay/types';
@@ -9,17 +9,16 @@ import { GlobalSearchRuntimeProvider } from '@/app/components/lawyer/GlobalSearc
 import { isSearchHeaderBusy } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchHeaderBusy';
 import { useGlobalSearchLifecycle } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchLifecycle';
 import { GlobalSearchOverlayStaticShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayStaticShell';
-
-const LazyGlobalSearchMotionShell = lazy(() =>
-    import('@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayMotionShell').then((m) => ({
-        default: m.GlobalSearchOverlayMotionShell,
-    })),
-);
+import {
+    filterGroupedResultsByScope,
+    type GlobalSearchScopeId,
+} from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
 
 export type { GlobalSearchOverlayProps, GlobalSearchNavigate } from '@/app/components/lawyer/GlobalSearchOverlay/types';
 
 function GlobalSearchOverlayInner({
     open = true,
+    keepWarm = false,
     onExitComplete,
     onClose,
     onNavigate,
@@ -35,6 +34,12 @@ function GlobalSearchOverlayInner({
 }: GlobalSearchOverlayProps) {
     useBodyScrollLock(open);
     useGlobalSearchLifecycle(open);
+
+    const [searchScope, setSearchScope] = useState<GlobalSearchScopeId>('all');
+
+    useEffect(() => {
+        if (!open) setSearchScope('all');
+    }, [open]);
 
     const {
         query,
@@ -59,6 +64,11 @@ function GlobalSearchOverlayInner({
         searchSessionKey,
     });
 
+    const scopedResults = useMemo(
+        () => filterGroupedResultsByScope(results, searchScope),
+        [results, searchScope],
+    );
+
     const {
         overlayRef,
         inputRef,
@@ -68,10 +78,8 @@ function GlobalSearchOverlayInner({
         pick,
         onKeyDownCapture,
         keyboardInset,
-        sheetMotion,
-        backdropMotion,
         resultsMaxHeight,
-    } = useGlobalSearchOverlayChrome(open, results, onClose, handleResultClick);
+    } = useGlobalSearchOverlayChrome(open, scopedResults, onClose, handleResultClick);
 
     const scanIndexForPreview = useSearchScanIndex(files, executionFiles, criminalCases, pinLookup);
 
@@ -80,14 +88,13 @@ function GlobalSearchOverlayInner({
 
     const shellProps = {
         open,
+        keepWarm,
         onExitComplete,
         onClose,
         overlayRef,
         inputRef,
         onKeyDownCapture,
         keyboardInset,
-        sheetMotion,
-        backdropMotion,
         resultsMaxHeight,
         query,
         setQuery,
@@ -98,20 +105,26 @@ function GlobalSearchOverlayInner({
         clearRecent,
         isSearching,
         isLoadingIndex,
-        results,
+        results: scopedResults,
         flatResults,
         pick,
         pinLookup,
         scanIndexForPreview,
         activeIndex,
         setActiveIndex,
+        searchScope,
+        onSearchScopeChange: setSearchScope,
     };
 
-    return (
-        <Suspense fallback={<GlobalSearchOverlayStaticShell {...shellProps} />}>
-            <LazyGlobalSearchMotionShell {...shellProps} />
-        </Suspense>
-    );
+    /*
+     * StaticShell دائماً — فتح = visibility/تركيب بلا Motion spring
+     * (يمنع وميض الخلفية/اللوحة عند أول فتح بارد).
+     */
+    if (!open && !keepWarm) {
+        return null;
+    }
+
+    return <GlobalSearchOverlayStaticShell {...shellProps} />;
 }
 
 export function GlobalSearchOverlay(props: GlobalSearchOverlayProps) {
@@ -130,6 +143,7 @@ export function GlobalSearchOverlay(props: GlobalSearchOverlayProps) {
     return (
         <GlobalSearchRuntimeProvider
             overlayOpen={open}
+            /* فهرس فقط عند الفتح — لا CPU/RAM على keepAlive المغلق */
             warmIndex={open}
             files={files}
             executionFiles={executionFiles}

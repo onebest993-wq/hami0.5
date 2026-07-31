@@ -1,38 +1,58 @@
-import { useEffect, useMemo } from 'react';
-import { buildClusterScanIndex } from './buildClusterScanIndex';
-import { useWorkspaceStore } from '@/app/stores/workspaceStore';
-import { useWorkspacePinPrune } from './useWorkspacePinPrune';
-import type { ClusterScanSources } from './useClusterScanSources';
+import { useEffect } from 'react';
+import type { ClusterScanSources } from './clusterScanSources.types';
 
-/** فهرس مسح التثبيتات وتنظيف المثبّتات اليتيمة — يستخدم مصدر المسح المشترك من اللوحة */
+/**
+ * فهرس مسح التثبيتات وتنظيف المثبّتات اليتيمة.
+ * buildClusterScanIndex + workspaceStore يُحمَّلان dynamic داخل effects —
+ * لا يسحبان pin builders إلى مسار LD البارد.
+ */
 export function useWorkspacePinMaintenance(params: {
     enabled: boolean;
     clusterScanSources: ClusterScanSources;
 }): void {
     const { enabled, clusterScanSources: sources } = params;
-    const pruneIneligiblePins = useWorkspaceStore((s) => s.pruneIneligiblePins);
 
     useEffect(() => {
         if (!enabled) return;
-        pruneIneligiblePins();
-    }, [enabled, pruneIneligiblePins]);
+        let cancelled = false;
+        void import('@/app/stores/workspaceStore')
+            .then(({ useWorkspaceStore }) => {
+                if (cancelled) return;
+                useWorkspaceStore.getState().pruneIneligiblePins();
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [enabled]);
 
-    const scanIndex = useMemo(
-        () =>
-            !enabled
-                ? []
-                :
-            buildClusterScanIndex({
-                lawsuitFiles: sources.lawsuitFiles,
-                executionFiles: sources.executionFiles,
-                criminalCases: sources.criminalCases,
-                urgentCases: sources.urgentCases,
-                threadingTransactions: sources.threadingTransactions,
-                notes: sources.notes,
-                fieldTasks: sources.fieldTasks,
-            }),
-        [enabled, sources],
-    );
-
-    useWorkspacePinPrune(scanIndex, enabled && sources.ready);
+    useEffect(() => {
+        if (!enabled || !sources.ready) return;
+        let cancelled = false;
+        const snapshot = sources;
+        void Promise.all([
+            import('./buildClusterScanIndex'),
+            import('@/app/stores/workspaceStore'),
+        ])
+            .then(([{ buildClusterScanIndex }, { useWorkspaceStore }]) => {
+                if (cancelled) return;
+                const scanIndex = buildClusterScanIndex({
+                    lawsuitFiles: snapshot.lawsuitFiles,
+                    executionFiles: snapshot.executionFiles,
+                    criminalCases: snapshot.criminalCases,
+                    urgentCases: snapshot.urgentCases,
+                    threadingTransactions: snapshot.threadingTransactions,
+                    notes: snapshot.notes,
+                    fieldTasks: snapshot.fieldTasks,
+                });
+                // لا تُفرّغ التثبيتات عند فهرس فارغ (قبل التحميل أو حساب جديد بلا بيانات)
+                if (scanIndex.length === 0) return;
+                const validKeys = new Set(scanIndex.map((r) => `${r.type}:${r.id}`));
+                useWorkspaceStore.getState().pruneMissingPins(validKeys);
+            })
+            .catch(() => undefined);
+        return () => {
+            cancelled = true;
+        };
+    }, [enabled, sources]);
 }

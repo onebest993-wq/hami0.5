@@ -1,5 +1,4 @@
 import {
-    hasCompositeNonOngoingClaimTypes,
     hasOngoingAlimonyInExecution,
 } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 import { shouldCloseDossierAfterAllAlimonyBeneficiariesDeceased } from '@/app/utils/alimonyBeneficiaryDeathUtils';

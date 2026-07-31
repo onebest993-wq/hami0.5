@@ -391,5 +391,15 @@ export const CORE_RUNTIME_VAR_KEYS = [
     "dossierLifecycleActions",
     "dossierMetaWorkflow",
     "debtorSummonsProfileBundle",
-    "subsequentNoticeFlow"
+    "subsequentNoticeFlow",
+    "goFollowupSectionTabByDelta",
+    "openFollowupModalPersisted",
+    "persistFollowupModalViewport",
+    "effectiveFollowupModalTabs",
+    "unifiedModalTab",
+    "closeFollowupModalPersisted",
+    "runSpecialFollowupSubmit",
+    "handleMemoFollowupClick",
+    "handleDossierLifecyclePick",
+    "handleDossierLifecycleConfirmDetails"
 ] as const;

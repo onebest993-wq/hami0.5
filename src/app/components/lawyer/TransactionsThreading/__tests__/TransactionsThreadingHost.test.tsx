@@ -42,12 +42,34 @@ describe('TransactionsThreadingHost', () => {
         expect(screen.getByTestId('transactions-instant-shell')).toBeInTheDocument();
     });
 
-    it('لا يعرض شيئاً عند الإغلاق قبل resolve الـ chunk', () => {
+    it('لا يعرض InstantShell عند keepAlive مغلق قبل resolve', () => {
         render(
-            <TransactionsThreadingHost open={false} onBack={vi.fn()} userId="lawyer-1" />,
+            <TransactionsThreadingHost
+                open={false}
+                keepAlive
+                onBack={vi.fn()}
+                userId="lawyer-1"
+            />,
         );
 
         expect(screen.queryByTestId('transactions-instant-shell')).not.toBeInTheDocument();
+        expect(loadTransactionsHubModule).toHaveBeenCalled();
+    });
+
+    it('يبقي System مخفياً عند keepAlive بعد resolve', async () => {
+        loadTransactionsHubModule.mockResolvedValue({ default: LoadedHub });
+
+        render(
+            <TransactionsThreadingHost
+                open={false}
+                keepAlive
+                onBack={vi.fn()}
+                userId="lawyer-1"
+            />,
+        );
+
+        await waitFor(() => expect(screen.getByTestId('transactions-loaded-hub')).toBeInTheDocument());
+        expect(screen.getByTestId('transactions-loaded-hub')).toHaveAttribute('data-open', '0');
     });
 
     it('ينتقل للمكوّن المحمّل بعد resolve', async () => {

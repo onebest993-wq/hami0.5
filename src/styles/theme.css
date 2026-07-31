@@ -47,7 +47,69 @@ html.reduce-motion *::after {
 }
 
 html.hami-high-contrast {
-  filter: contrast(1.08);
+  /* وضوح نصّي حقيقي — الحدود تزداد لطفاً دون «إطارات سميكة» */
+  --hami-hc-text: #fffaf0;
+  --hami-hc-muted: rgba(255, 250, 240, 0.88);
+  --hami-hc-border: color-mix(in srgb, var(--hami-primary, #e6c673) 42%, rgba(255, 255, 255, 0.35));
+  --hami-hc-surface: color-mix(in srgb, #000 18%, transparent);
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard],
+html.hami-high-contrast [data-hami-settings-shell] {
+  color: var(--hami-hc-text);
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-white\/45,
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-white\/50,
+html.hami-high-contrast [data-hami-settings-shell] .text-white\/45,
+html.hami-high-contrast [data-hami-settings-shell] .text-white\/50 {
+  color: var(--hami-hc-muted) !important;
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-white\/30,
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-white\/40,
+html.hami-high-contrast [data-hami-settings-shell] .text-white\/30,
+html.hami-high-contrast [data-hami-settings-shell] .text-white\/40 {
+  color: rgba(255, 250, 240, 0.72) !important;
+}
+
+/* لوحة القيادة: وضوح سطح + حد أنيق — بلا inset ring سميك */
+html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-sovereign-glass,
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
+  border: 1px solid var(--hami-hc-border) !important;
+  box-shadow:
+    0 10px 36px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  background-image: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent) 0%,
+    var(--hami-hc-surface) 45%,
+    color-mix(in srgb, #6366f1 6%, transparent) 100%
+  ) !important;
+}
+
+html.hami-high-contrast [data-hami-settings-shell] .hami-setting-glass {
+  border: 1px solid var(--hami-hc-border) !important;
+  box-shadow:
+    0 6px 22px rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--hami-primary, #e6c673) 12%, #141a2e) 0%,
+    #0b1021 100%
+  ) !important;
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-home-themed-border,
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
+  border-color: var(--hami-hc-border) !important;
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-sovereign-rim,
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 0 0 1px color-mix(in srgb, var(--hami-hc-border) 55%, transparent) !important;
 }
 
 html.hami-compact .p-6 {
@@ -94,10 +156,12 @@ html[data-hami-color-mode='light'] [data-hami-settings-shell] .text-white\/70 {
   color: rgb(63 70 84 / 0.62);
 }
 
-html[data-hami-color-mode='light'] [data-hami-settings-shell] .rounded-2xl.border.border-white\/\[0\.08\] {
-  background-color: rgb(0 0 0 / 0.035);
-  border-color: rgb(0 0 0 / 0.07);
-  box-shadow: 0 4px 24px rgb(0 0 0 / 0.06);
+html[data-hami-color-mode='light'] [data-hami-settings-shell] .hami-setting-glass {
+  background: linear-gradient(165deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.28)) !important;
+  border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(0, 0, 0, 0.08)) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    0 8px 28px rgba(0, 0, 0, 0.08) !important;
 }
 
 html[data-hami-color-mode='light'] .hami-glass-surface {
@@ -128,7 +192,7 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* GPU acceleration for animations */
+/* GPU helpers — استخدم فقط خارج حلقات القوائم؛ على lite تُعطَّل تلقائياً */
 .will-change-transform {
   will-change: transform;
 }
@@ -137,11 +201,10 @@ body {
   will-change: opacity;
 }
 
-/* Optimize repaints */
+/* تسريع لحظي بدون حجز buffers دائم */
 .gpu-accelerate {
-  transform: translateZ(0);
+  transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
-  perspective: 1000px;
 }
 
 /* Hide scrollbar but keep functionality */

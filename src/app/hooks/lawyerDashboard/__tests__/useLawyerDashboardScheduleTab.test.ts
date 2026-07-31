@@ -12,6 +12,8 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 
 vi.mock('@/app/runtime/scheduleBootHydrator', () => ({
     hydrateScheduleShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
+    prefetchScheduleAfterBootReveal: vi.fn(),
+    bindScheduleBootHydrator: vi.fn(() => () => undefined),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', async (importOriginal) => {
@@ -19,6 +21,9 @@ vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', async (importOriginal)
     return {
         ...actual,
         warmCalendarEventsCache: vi.fn(() => Promise.resolve([])),
+        warmScheduleOnHover: vi.fn(),
+        warmScheduleOnOpen: vi.fn(),
+        registerScheduleWarmUserId: vi.fn(() => () => undefined),
     };
 });
 
@@ -26,9 +31,36 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     scheduleIdleWork: vi.fn(() => () => undefined),
 }));
 
+vi.mock('@/app/bootstrap/bootReveal', () => ({
+    BOOT_REVEAL_DONE_EVENT: 'hami:boot-reveal-done',
+    isBootRevealDone: () => false,
+}));
+
 describe('useLawyerDashboardScheduleTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+    });
+
+    it('لا يركّب Host التقويم عند الإقلاع على تبويب الرئيسية بلا هوية', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardScheduleTab({
+                userId: null,
+                activeTab: 'home',
+                setActiveTab: vi.fn(),
+            }),
+        );
+        expect(result.current.scheduleHostMounted).toBe(false);
+    });
+
+    it('يركّب Host التقويم مخفياً فور وجود هوية حقيقية', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardScheduleTab({
+                userId: 'lawyer-1',
+                activeTab: 'home',
+                setActiveTab: vi.fn(),
+            }),
+        );
+        expect(result.current.scheduleHostMounted).toBe(true);
     });
 
     it('يزيد sessionKey عند دخول تبويب الجدول', () => {
@@ -118,5 +150,22 @@ describe('useLawyerDashboardScheduleTab', () => {
 
         expect(result.current.calendarSearchFocus).toBeNull();
         expect(setActiveTab).toHaveBeenCalledWith('home');
+    });
+
+    it('يمسح host ويعود للرئيسية عند غياب الهوية', () => {
+        const setActiveTab = vi.fn();
+        const { result, rerender } = renderHook(
+            ({ userId }: { userId: string | null }) =>
+                useLawyerDashboardScheduleTab({ userId, activeTab: 'schedule', setActiveTab }),
+            { initialProps: { userId: 'lawyer-1' as string | null } },
+        );
+
+        expect(result.current.scheduleHostMounted).toBe(true);
+
+        rerender({ userId: null });
+
+        expect(result.current.scheduleHostMounted).toBe(false);
+        expect(setActiveTab).toHaveBeenCalledWith('home');
+        expect(result.current.calendarSearchFocus).toBeNull();
     });
 });

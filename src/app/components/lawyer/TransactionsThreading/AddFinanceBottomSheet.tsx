@@ -104,7 +104,7 @@ export function AddFinanceBottomSheet({
                             حفظ الحركة
                         </button>
                     }
-                >
+            >
                     <div className="flex gap-2">
                         <button
                             type="button"
@@ -164,7 +164,7 @@ export function AddFinanceBottomSheet({
                             className={`${GLASS_FIELD} disabled:opacity-50`}
                         />
                     </div>
-                </TxGlassDrawerFrame>
+            </TxGlassDrawerFrame>
         </TransactionsHubSheet>
     );
 }

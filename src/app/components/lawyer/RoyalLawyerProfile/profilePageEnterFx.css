@@ -1,0 +1,132 @@
+/* دخول خفيف واحد — ~220ms تلاشي فقط (softReveal فقط، ليس الملف) */
+
+@keyframes hami-tab-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.hami-dashboard-tab-reveal {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none !important;
+}
+
+.hami-dashboard-tab-reveal:not(.is-active) * {
+    pointer-events: none !important;
+}
+
+.hami-dashboard-tab-reveal.is-active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    animation: hami-tab-fade-in 0.22s ease-out both;
+}
+
+/*
+ * keepAlive: الطبقة تبقى في مكانها مرسومة تحت غطاء الرئيسية (z-index فقط).
+ * لا translate/opacity — كانا سبب الإحساس غير اللحظي على WebView.
+ */
+.hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: none !important;
+    z-index: 1;
+}
+
+.hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) * {
+    pointer-events: none !important;
+}
+
+.hami-dashboard-tab-preserve--active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 5;
+}
+
+/* غطاء الرئيسية فوق keepAlive — إخفاؤه يكشف الملف المرسوم مسبقاً فوراً */
+.hami-dashboard-home-stack-cover {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    background-color: #0a0f1c;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    pointer-events: auto;
+}
+
+/*
+ * صورة الخلفية يجب أن تُرسم على الغطاء نفسه:
+ * الطبقة الثابتة .hami-wallpaper-layer تقع خلف هذا السطح المعتم فلا تُرى.
+ */
+html[data-hami-wallpaper='1'] .hami-dashboard-home-stack-cover {
+    background-color: #0b1021;
+    background-image:
+        linear-gradient(rgba(11, 16, 33, 0.35), rgba(11, 16, 33, 0.35)),
+        var(--hami-wallpaper-image);
+}
+
+.hami-dashboard-home-stack-cover:not(.is-active) {
+    visibility: hidden;
+    pointer-events: none !important;
+}
+
+.hami-dashboard-home-stack-cover:not(.is-active) * {
+    pointer-events: none !important;
+}
+
+/*
+ * فتح لحظي لا يعتمد على class يمسحه React —
+ * html[data-hami-profile-open] يغلب غطاء الرئيسية والهيدر فوراً.
+ */
+html[data-hami-profile-open='1'] .hami-dashboard-home-stack-cover {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-open='1'] .hami-dashboard-home-stack-cover * {
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] {
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+    z-index: 20 !important;
+}
+
+html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'],
+html[data-hami-profile-open='1'] [data-testid='lawyer-dashboard-profile-surface'] * {
+    pointer-events: auto !important;
+}
+
+html[data-hami-profile-open='1'] header.fixed.top-0,
+html[data-hami-profile-open='1'] header[data-header-visible] {
+    opacity: 0 !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+html[data-hami-profile-open='1'] [data-lawyer-profile-root] {
+    pointer-events: auto !important;
+}
+
+html[data-hami-profile-open='1'] [data-lawyer-profile-root][data-profile-page-hidden='true'] {
+    pointer-events: auto !important;
+}
+
+html[data-hami-profile-open='1'] [data-testid='lawyer-profile-back'] {
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-dashboard-tab-reveal.is-active {
+        animation-duration: 0.12s;
+    }
+}

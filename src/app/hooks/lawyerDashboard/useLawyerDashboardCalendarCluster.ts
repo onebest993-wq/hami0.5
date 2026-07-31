@@ -1,10 +1,12 @@
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { useEffect } from 'react';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { useIncrementalCalendarSync } from '@/app/hooks/useIncrementalCalendarSync';
 import { useClusterScanSources } from '@/app/workspace/useClusterScanSources';
 import { useWorkspacePinMaintenance } from '@/app/workspace/useWorkspacePinMaintenance';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
 
 export type UseLawyerDashboardCalendarClusterParams = {
     enabled: boolean;
@@ -15,6 +17,8 @@ export type UseLawyerDashboardCalendarClusterParams = {
     globalNotes: GlobalNote[];
     quantumTasks: LegalTask[];
     criminalCasesForCluster: unknown[];
+    /** يغذي stem بعد interactive — اختياري */
+    onClusterScanSources?: (sources: ClusterScanSources) => void;
 };
 
 export function useLawyerDashboardCalendarCluster({
@@ -26,6 +30,7 @@ export function useLawyerDashboardCalendarCluster({
     globalNotes,
     quantumTasks,
     criminalCasesForCluster,
+    onClusterScanSources,
 }: UseLawyerDashboardCalendarClusterParams) {
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
 
@@ -50,6 +55,10 @@ export function useLawyerDashboardCalendarCluster({
     });
 
     useWorkspacePinMaintenance({ enabled, clusterScanSources });
+
+    useEffect(() => {
+        onClusterScanSources?.(clusterScanSources);
+    }, [clusterScanSources, onClusterScanSources]);
 
     return { calendarUserId, clusterScanSources };
 }

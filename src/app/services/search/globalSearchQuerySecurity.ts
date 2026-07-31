@@ -7,6 +7,7 @@ export const GLOBAL_SEARCH_MAX_RECENT_LABEL_LENGTH = 80;
 export const GLOBAL_SEARCH_MAX_RECENT_COUNT = 8;
 
 const RECENT_SEARCHES_KEY_PREFIX = 'lawyer_recent_searches';
+export const LEGACY_RECENT_SEARCHES_KEY = 'lawyer_recent_searches';
 
 /** مفتاح تخزين «الأخيرة» مرتبط بالمستخدم — يمنع تسرّب بين الحسابات على نفس الجهاز */
 export function globalSearchRecentStorageKey(userId: string | null | undefined): string | null {

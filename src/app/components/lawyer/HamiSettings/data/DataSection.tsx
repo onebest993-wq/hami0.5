@@ -13,7 +13,7 @@ export function DataSection() {
     const wipe = useLocalDataClear(resetToDefaults);
 
     return (
-        <div data-testid="settings-section-data">
+        <div data-testid="settings-section-data" data-settings-interactive="true">
             <SettingCard>
                 <DataSyncCard />
                 <BusinessBackupSection backup={backup} />

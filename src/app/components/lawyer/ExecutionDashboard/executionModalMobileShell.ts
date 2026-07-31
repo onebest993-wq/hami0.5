@@ -18,3 +18,19 @@ export const EXEC_MODAL_NOTES_SHELL_MAX =
 
 export const EXEC_MODAL_COERCIVE_SHELL_MAX =
     'max-h-[min(80dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
+
+/** نوافذ تعديل الطرف / بيانات الإضبارة */
+export const EXEC_MODAL_EDIT_SHELL_MAX =
+    'max-h-[min(88dvh,calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)))]';
+
+export const EXEC_MODAL_EDIT_PANEL_CLASS =
+    `w-full max-w-md overflow-y-auto overscroll-contain rounded-2xl border border-slate-600/40 bg-[#0A0F1C] p-4 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`;
+
+export const EXEC_MODAL_DOSSIER_META_PANEL_CLASS =
+    `w-full max-w-lg overflow-y-auto overscroll-contain rounded-2xl border border-amber-500/30 bg-[#0A0F1C] p-4 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`;
+
+export const EXEC_MODAL_EDIT_PRIMARY_BTN_CLASS =
+    'touch-manipulation min-h-[44px] w-full rounded-lg py-2.5 text-sm font-bold';
+
+/** يُلحق بأزرار الصف الداخلية (حفظ/إلغاء/إصدار) — هدف لمس 44px دون تغيير الألوان */
+export const EXEC_MODAL_TOUCH_TARGET = 'touch-manipulation min-h-[44px]';

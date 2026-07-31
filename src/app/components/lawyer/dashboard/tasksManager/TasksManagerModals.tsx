@@ -24,9 +24,9 @@ export type EditSubTaskDraft = {
 };
 
 export type TasksManagerModalsProps = {
-    fatalOpen: boolean;
-    onFatalOpenChange: (open: boolean) => void;
-    onConfirmFatalComplete: () => void;
+    fatalOpen?: boolean;
+    onFatalOpenChange?: (open: boolean) => void;
+    onConfirmFatalComplete?: () => void;
     deleteConfirmId: string | null;
     onDismissDelete: () => void;
     onConfirmDelete: () => void;

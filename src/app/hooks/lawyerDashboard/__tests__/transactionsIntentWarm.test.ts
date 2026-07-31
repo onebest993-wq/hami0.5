@@ -10,6 +10,15 @@ const warmTransactionsThreadingStore = vi.fn(() => Promise.resolve());
 
 vi.mock('@/app/runtime/transactionsHubLoader', () => ({
     loadTransactionsHubModule: () => loadTransactionsHubModule(),
+    prefetchTransactionsHubModule: vi.fn(),
+}));
+
+vi.mock('@/app/services/transactions/transactionsCloudLoader', () => ({
+    prefetchTransactionsCloudModule: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
+    scheduleIdleWork: (fn: () => void) => fn(),
 }));
 
 vi.mock('@/app/modules/transactionsThreading/store', () => ({

@@ -9,7 +9,7 @@ export function AppearanceSection({ onEnterHomeLayoutEdit }: { onEnterHomeLayout
     const vm = useAppearanceSection();
 
     return (
-        <div data-testid="settings-section-appearance">
+        <div data-testid="settings-section-appearance" data-settings-interactive="true">
             <AppearanceHomeLayoutCard vm={vm} onEnterHomeLayoutEdit={onEnterHomeLayoutEdit} />
             <AppearanceThemeAndSurfaceCard vm={vm} />
             <AppearanceWallpaperCard vm={vm} />

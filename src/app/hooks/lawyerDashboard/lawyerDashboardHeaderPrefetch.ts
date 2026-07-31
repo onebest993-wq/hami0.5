@@ -1,15 +1,40 @@
-import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
-import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLoader';
-import { warmSettingsOnHover, warmSettingsOnOpen, primeSettingsShellForOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
 import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
-import { preloadAllSettingsSectionComponents } from '@/app/components/lawyer/HamiSettings/settingsSectionRegistry';
-import {
-    warmNotificationsOnHover,
-} from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
+
+import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
-import { warmVaultOnHover } from '@/app/hooks/lawyerDashboard/vaultIntentWarm';
+import {
+    loadGlobalSearchOverlayModule,
+    prefetchGlobalSearchOverlayChunk,
+} from '@/app/runtime/globalSearchLoader';
+import { loadSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
+
+function loadProfileIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/profileIntentWarm');
+}
+
+function loadGlobalSearchIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+}
+
+function loadSettingsIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/settingsIntentWarm');
+}
+
+function loadNotificationIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/notificationIntentWarm');
+}
+
+function loadVaultIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/vaultIntentWarm');
+}
+
+function loadProfileBootHydrator() {
+    return import('@/app/runtime/profileBootHydrator');
+}
+
+function loadSettingsBootHydrator() {
+    return import('@/app/runtime/settingsBootHydrator');
+}
 
 /** معالجات prefetch ثابتة — تُكمَّل بمعرّف المستخدم من الهيدر عند التوصيل */
 export function createLawyerDashboardHeaderPrefetch(
@@ -22,43 +47,46 @@ export function createLawyerDashboardHeaderPrefetch(
 ) {
     const resolvedId = userId?.trim() || null;
     const prefetchNotificationsHover = () => {
-        warmNotificationsOnHover();
+        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
     };
     const prefetchNotificationsPress = () => {
-        warmNotificationsOnHover();
+        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
         void loadNotificationPanelModule().catch(() => undefined);
     };
     const prefetchSettingsHover = () => {
-        warmSettingsOnHover();
+        void loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover());
         void loadHamiSettingsModule().catch(() => undefined);
     };
     const prefetchSettingsPress = () => {
-        primeSettingsShellForOpen();
-        void Promise.all([
-            loadHamiSettingsModule(),
-            preloadAllSettingsSectionComponents(),
-        ]).catch(() => undefined);
+        void loadSettingsIntentWarm().then((m) => m.primeSettingsShellForOpen());
+        void loadSettingsOverlayEntry().catch(() => undefined);
+        void loadSettingsBootHydrator().then((m) => m.dispatchSettingsPrimeHost());
     };
     const prefetchProfileHover = () => {
-        warmProfileOnHover(resolvedId);
+        void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(resolvedId));
         opts?.primeProfileTabMount?.();
     };
     const prefetchProfilePress = () => {
-        warmProfileOnOpen(resolvedId);
-        void loadRoyalLawyerProfileModule(resolvedId).catch(() => undefined);
+        /*
+         * لا warmOnOpen / loadRoyal كامل هنا — ينافس flushSync فتح التبويب على نفس الإطار
+         * (مثل إعدادات/بحث). الفتح يستدعي warmProfileOnOpen بعد التزام التبويب.
+         */
+        prefetchProfileHubModule();
+        void loadProfileBootHydrator().then((m) => m.dispatchProfilePrimeHost());
         opts?.primeProfileTabMount?.();
     };
     const prefetchSearchHover = () => {
-        warmGlobalSearchOnHover();
+        void loadGlobalSearchIntentWarm().then((m) => m.warmGlobalSearchOnHover());
         opts?.primeGlobalSearchShellMount?.();
     };
     const prefetchSearchPress = () => {
-        warmGlobalSearchOnOpen();
+        /* استيراد ثابت — بلا hop ديناميكي قبل بدء الـ chunk */
+        prefetchGlobalSearchOverlayChunk();
         void loadGlobalSearchOverlayModule().catch(() => undefined);
         opts?.primeGlobalSearchShellMount?.();
     };
     const prefetchVault = () => {
-        warmVaultOnHover();
+        void loadVaultIntentWarm().then((m) => m.warmVaultOnHover());
         opts?.primeVaultShellMount?.();
     };
     return {

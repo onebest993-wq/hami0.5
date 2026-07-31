@@ -1,8 +1,14 @@
 import React from 'react';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { evictionInclusiveCalendarDays } from '../helpers';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 export type SolidaryTargetDebtorRow = {
     id: string;
@@ -16,8 +22,9 @@ export type LawyerFeeDisburseMode = 'salary_fifth' | 'lump_sum' | 'settlement';
 export interface ExecutionSolidaryAndEvictionFollowupModalsContainerProps {
     showSolidaryCoerciveTargetModal: boolean;
     solidaryCoerciveActionPending: string | null;
-    setShowSolidaryCoerciveTargetModal: (show: boolean) => void;
-    setSolidaryCoerciveActionPending: (v: string | null) => void;
+    setShowSolidaryCoerciveTargetModal?: (show: boolean) => void;
+    onCloseSolidaryCoerciveTargetModal?: () => void;
+    setSolidaryCoerciveActionPending?: (v: string | null) => void;
     EXEC_MODAL_BACKDROP_STRONG: string;
     nestedOverUnifiedZIndex: number;
     allDebtorsUnified: SolidaryTargetDebtorRow[];
@@ -28,7 +35,8 @@ export interface ExecutionSolidaryAndEvictionFollowupModalsContainerProps {
 
     showEvictionExpenseModal: boolean;
     isEvictionExecutionModule: boolean;
-    setShowEvictionExpenseModal: (show: boolean) => void;
+    setShowEvictionExpenseModal?: (show: boolean) => void;
+    onCloseEvictionExpenseModal?: () => void;
     evictionExpensePayMode: EvictionExpensePayMode;
     setEvictionExpensePayMode: React.Dispatch<React.SetStateAction<EvictionExpensePayMode>>;
     evictionExpenseAmount: string;
@@ -38,7 +46,8 @@ export interface ExecutionSolidaryAndEvictionFollowupModalsContainerProps {
     runEvictionExpenseSubmit: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 
     showEvictionLawyerFeeModal: boolean;
-    setShowEvictionLawyerFeeModal: (show: boolean) => void;
+    setShowEvictionLawyerFeeModal?: (show: boolean) => void;
+    onCloseEvictionLawyerFeeModal?: () => void;
     parsedLawyerFees: number;
     lawyerFeeDisburseMode: LawyerFeeDisburseMode;
     setLawyerFeeDisburseMode: React.Dispatch<React.SetStateAction<LawyerFeeDisburseMode>>;
@@ -47,7 +56,8 @@ export interface ExecutionSolidaryAndEvictionFollowupModalsContainerProps {
     runEvictionLawyerFeeSubmit: (e: React.MouseEvent<HTMLButtonElement>) => void | Promise<void>;
 
     showEvictionResidentialGraceModal: boolean;
-    setShowEvictionResidentialGraceModal: (show: boolean) => void;
+    setShowEvictionResidentialGraceModal?: (show: boolean) => void;
+    onCloseEvictionResidentialGraceModal?: () => void;
     graceModalStartYmd: string;
     setGraceModalStartYmd: (v: string) => void;
     graceModalEndYmd: string;
@@ -63,6 +73,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     showSolidaryCoerciveTargetModal,
     solidaryCoerciveActionPending,
     setShowSolidaryCoerciveTargetModal,
+    onCloseSolidaryCoerciveTargetModal,
     setSolidaryCoerciveActionPending,
     EXEC_MODAL_BACKDROP_STRONG,
     nestedOverUnifiedZIndex,
@@ -74,6 +85,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     showEvictionExpenseModal,
     isEvictionExecutionModule,
     setShowEvictionExpenseModal,
+    onCloseEvictionExpenseModal,
     evictionExpensePayMode,
     setEvictionExpensePayMode,
     evictionExpenseAmount,
@@ -83,6 +95,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     runEvictionExpenseSubmit,
     showEvictionLawyerFeeModal,
     setShowEvictionLawyerFeeModal,
+    onCloseEvictionLawyerFeeModal,
     parsedLawyerFees,
     lawyerFeeDisburseMode,
     setLawyerFeeDisburseMode,
@@ -91,6 +104,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     runEvictionLawyerFeeSubmit,
     showEvictionResidentialGraceModal,
     setShowEvictionResidentialGraceModal,
+    onCloseEvictionResidentialGraceModal,
     graceModalStartYmd,
     setGraceModalStartYmd,
     graceModalEndYmd,
@@ -99,6 +113,39 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
     residentialGraceModalShowPrimarySave,
     submitEvictionResidentialGraceFromModal,
 }) => {
+    const closeSolidaryCoerciveTargetModal = () => {
+        if (typeof onCloseSolidaryCoerciveTargetModal === 'function') {
+            onCloseSolidaryCoerciveTargetModal();
+        } else {
+            setShowSolidaryCoerciveTargetModal?.(false);
+        }
+        setSolidaryCoerciveActionPending?.(null);
+    };
+
+    const closeEvictionExpenseModal = () => {
+        if (typeof onCloseEvictionExpenseModal === 'function') {
+            onCloseEvictionExpenseModal();
+        } else {
+            setShowEvictionExpenseModal?.(false);
+        }
+    };
+
+    const closeEvictionLawyerFeeModal = () => {
+        if (typeof onCloseEvictionLawyerFeeModal === 'function') {
+            onCloseEvictionLawyerFeeModal();
+        } else {
+            setShowEvictionLawyerFeeModal?.(false);
+        }
+    };
+
+    const closeEvictionResidentialGraceModal = () => {
+        if (typeof onCloseEvictionResidentialGraceModal === 'function') {
+            onCloseEvictionResidentialGraceModal();
+        } else {
+            setShowEvictionResidentialGraceModal?.(false);
+        }
+    };
+
     return (
         <>
             {showSolidaryCoerciveTargetModal &&
@@ -106,13 +153,12 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                 typeof document !== 'undefined' &&
                 createPortal(
                     <div
-                        className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+                        className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                         style={{ zIndex: nestedOverUnifiedZIndex }}
                         role="presentation"
                         onClick={(e) => {
                             if (e.target === e.currentTarget) {
-                                setShowSolidaryCoerciveTargetModal(false);
-                                setSolidaryCoerciveActionPending(null);
+                                closeSolidaryCoerciveTargetModal();
                             }
                         }}
                     >
@@ -123,14 +169,11 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                             role="dialog"
                             aria-label="توجيه الإجراء ضد مدين"
                         >
-                            <div className="flex items-center justify-between border-b border-amber-500/30 p-4">
+                            <div className={`flex items-center justify-between border-b border-amber-500/30 p-4 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        setShowSolidaryCoerciveTargetModal(false);
-                                        setSolidaryCoerciveActionPending(null);
-                                    }}
-                                    className="rounded-lg p-2 transition-all hover:bg-amber-500/20"
+                                    onClick={closeSolidaryCoerciveTargetModal}
+                                    className={`${EXEC_MODAL_CLOSE_BTN_CLASS} hover:bg-amber-500/20`}
                                     aria-label="إغلاق"
                                 >
                                     <X size={20} className="text-white" />
@@ -152,8 +195,7 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                                                     const act = solidaryCoerciveActionPending;
                                                     if (!act) return;
                                                     coerciveSubjectRef.current = { id: r.id, name: r.name };
-                                                    setShowSolidaryCoerciveTargetModal(false);
-                                                    setSolidaryCoerciveActionPending(null);
+                                                    closeSolidaryCoerciveTargetModal();
                                                     if (['salary', 'property', 'vehicle'].includes(act)) {
                                                         saveCoerciveActionRef.current(
                                                             act,
@@ -176,19 +218,19 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
 
             {showEvictionExpenseModal && isEvictionExecutionModule && (
                 <div
-                    className="fixed inset-0 bg-black/90 flex items-center justify-center p-4"
+                    className={`fixed inset-0 bg-black/90 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                     style={{ zIndex: nestedOverUnifiedZIndex }}
-                    onClick={() => setShowEvictionExpenseModal(false)}
+                    onClick={() => closeEvictionExpenseModal()}
                 >
                     <div
                         className="bg-[#0B1120] border-2 border-amber-500/40 rounded-3xl w-full max-w-md"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="sticky top-0 bg-[#0B1120] border-b border-amber-500/30 p-4 flex justify-between items-center">
+                        <div className={`sticky top-0 bg-[#0B1120] border-b border-amber-500/30 p-4 flex justify-between items-center ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                             <button
                                 type="button"
-                                onClick={() => setShowEvictionExpenseModal(false)}
-                                className="p-2 hover:bg-amber-500/20 rounded-lg transition-all"
+                                onClick={() => closeEvictionExpenseModal()}
+                                className={`${EXEC_MODAL_CLOSE_BTN_CLASS} hover:bg-amber-500/20`}
                             >
                                 <X size={20} className="text-white" />
                             </button>
@@ -238,14 +280,14 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                                         e.stopPropagation();
                                         void runEvictionExpenseSubmit(e);
                                     }}
-                                    className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 rounded-xl transition-all"
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 rounded-xl transition-all`}
                                 >
                                     حفظ
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setShowEvictionExpenseModal(false)}
-                                    className="flex-1 bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl"
+                                    onClick={() => closeEvictionExpenseModal()}
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl`}
                                 >
                                     إلغاء
                                 </button>
@@ -257,19 +299,19 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
 
             {showEvictionLawyerFeeModal && isEvictionExecutionModule && (
                 <div
-                    className="fixed inset-0 bg-black/90 flex items-center justify-center p-4"
+                    className={`fixed inset-0 bg-black/90 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                     style={{ zIndex: nestedOverUnifiedZIndex }}
-                    onClick={() => setShowEvictionLawyerFeeModal(false)}
+                    onClick={() => closeEvictionLawyerFeeModal()}
                 >
                     <div
                         className="bg-[#0B1120] border-2 border-emerald-500/40 rounded-3xl w-full max-w-md"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <div className="sticky top-0 bg-[#0B1120] border-b border-emerald-500/30 p-4 flex justify-between items-center">
+                        <div className={`sticky top-0 bg-[#0B1120] border-b border-emerald-500/30 p-4 flex justify-between items-center ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                             <button
                                 type="button"
-                                onClick={() => setShowEvictionLawyerFeeModal(false)}
-                                className="p-2 hover:bg-emerald-500/20 rounded-lg transition-all"
+                                onClick={() => closeEvictionLawyerFeeModal()}
+                                className={`${EXEC_MODAL_CLOSE_BTN_CLASS} hover:bg-emerald-500/20`}
                             >
                                 <X size={20} className="text-white" />
                             </button>
@@ -315,14 +357,14 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                                         e.stopPropagation();
                                         void runEvictionLawyerFeeSubmit(e);
                                     }}
-                                    className="flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 rounded-xl transition-all"
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-3 rounded-xl transition-all`}
                                 >
                                     إرسال الطلب للقرارات
                                 </button>
                                 <button
                                     type="button"
-                                    onClick={() => setShowEvictionLawyerFeeModal(false)}
-                                    className="flex-1 bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl"
+                                    onClick={() => closeEvictionLawyerFeeModal()}
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl`}
                                 >
                                     إلغاء
                                 </button>
@@ -337,20 +379,20 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                 typeof document !== 'undefined' &&
                 createPortal(
                     <div
-                        className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+                        className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
                         style={{ zIndex: nestedOverUnifiedZIndex }}
-                        onClick={() => setShowEvictionResidentialGraceModal(false)}
+                        onClick={() => closeEvictionResidentialGraceModal()}
                         role="presentation"
                     >
                         <div
                             className="bg-[#0B1120] border-2 border-sky-500/40 rounded-3xl w-full max-w-md"
                             onClick={(e) => e.stopPropagation()}
                         >
-                            <div className="sticky top-0 bg-[#0B1120] border-b border-sky-500/30 p-4 flex justify-between items-center">
+                            <div className={`sticky top-0 bg-[#0B1120] border-b border-sky-500/30 p-4 flex justify-between items-center ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                                 <button
                                     type="button"
-                                    onClick={() => setShowEvictionResidentialGraceModal(false)}
-                                    className="p-2 hover:bg-sky-500/20 rounded-lg transition-all"
+                                    onClick={() => closeEvictionResidentialGraceModal()}
+                                    className={`${EXEC_MODAL_CLOSE_BTN_CLASS} hover:bg-sky-500/20`}
                                 >
                                     <X size={20} className="text-white" />
                                 </button>
@@ -408,15 +450,15 @@ export const ExecutionSolidaryAndEvictionFollowupModalsContainer: React.FC<
                                                     e.stopPropagation();
                                                     submitEvictionResidentialGraceFromModal();
                                                 }}
-                                                className="flex-1 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-bold py-3 rounded-xl transition-all"
+                                                className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white font-bold py-3 rounded-xl transition-all`}
                                             >
                                                 حفظ
                                             </button>
                                         ) : null}
                                         <button
                                             type="button"
-                                            onClick={() => setShowEvictionResidentialGraceModal(false)}
-                                            className={`${residentialGraceModalShowPrimarySave ? 'flex-1' : 'w-full'} bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl`}
+                                            onClick={() => closeEvictionResidentialGraceModal()}
+                                            className={`${EXEC_MODAL_TOUCH_TARGET} ${residentialGraceModalShowPrimarySave ? 'flex-1' : 'w-full'} bg-slate-700/60 border border-slate-600/50 text-slate-200 font-semibold py-3 rounded-xl`}
                                         >
                                             إلغاء
                                         </button>

@@ -1,31 +1,31 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-    Clock, X, Scale, Lock, PauseCircle, Play, Users, Shield, ShieldCheck, Check, ChevronLeft, MapPin, Phone, Briefcase, Gavel, ArrowRightLeft,
+    Clock as _Clock, X, Scale as _Scale, Lock as _Lock, PauseCircle as _PauseCircle, Play as _Play, Users as _Users, Shield as _Shield, ShieldCheck, Check as _Check, ChevronLeft as _ChevronLeft, MapPin, Phone, Briefcase, Gavel as _Gavel, ArrowRightLeft as _ArrowRightLeft,
 } from 'lucide-react';
-import { getLegalRole } from '../../LawyerShared';
-import { shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
-import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
-import { filterHeaderIncidentalCases, groupPartiesForHeader } from '../smartFile/incidentalCaseLinking';
-import { resolveDisplayParties } from '../smartFile/resolveDisplayParties';
-import { resolveCrossAppealEligibility, type CrossAppealEligibility } from '../smartFile/crossAppealEngine';
+import { getLegalRole as _getLegalRole } from '../../LawyerShared';
+import { shouldShowAbsentJudgmentFooter as _shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
+import type { CaseStage as _CaseStage, IncidentalCase as _IncidentalCase, Party as _Party } from '../../LawyerShared';
+import { filterHeaderIncidentalCases as _filterHeaderIncidentalCases, groupPartiesForHeader as _groupPartiesForHeader } from '../smartFile/incidentalCaseLinking';
+import { resolveDisplayParties as _resolveDisplayParties } from '../smartFile/resolveDisplayParties';
+import { resolveCrossAppealEligibility as _resolveCrossAppealEligibility, type CrossAppealEligibility as _CrossAppealEligibility } from '../smartFile/crossAppealEngine';
 import {
-    isAffiliativeThirdPartyRole,
-    isAppealIntegratedInterpleaderRole,
-    isInterpleaderThirdPartyRole,
+    isAffiliativeThirdPartyRole as _isAffiliativeThirdPartyRole,
+    isAppealIntegratedInterpleaderRole as _isAppealIntegratedInterpleaderRole,
+    isInterpleaderThirdPartyRole as _isInterpleaderThirdPartyRole,
 } from '../smartFile/partyRoleClassification';
 import {
-    isPlaintiffFavorableFinalDecision,
-    isAwaitingOpponentAppeal,
-    shouldShowOpponentAppealRegisterButton,
-    isAppealStageName,
+    isPlaintiffFavorableFinalDecision as _isPlaintiffFavorableFinalDecision,
+    isAwaitingOpponentAppeal as _isAwaitingOpponentAppeal,
+    shouldShowOpponentAppealRegisterButton as _shouldShowOpponentAppealRegisterButton,
+    isAppealStageName as _isAppealStageName,
 } from '../smartFile/judgmentTypes';
-import { isLockedPriorStage, shouldShowFirstInstancePleadingLockUi } from '../smartFile/stageInit';
-import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import { isLockedPriorStage as _isLockedPriorStage, shouldShowFirstInstancePleadingLockUi as _shouldShowFirstInstancePleadingLockUi } from '../smartFile/stageInit';
+import { formatNumberInput as _formatNumberInput } from '@/app/utils/execution/amountInputCore';
 
 import type { PartyItemProps } from './partyItemTypes';
 
-export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge, provisionalOrders = [] }: PartyItemProps) => {
+export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge: _notificationBadge, provisionalOrders = [] }: PartyItemProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [showLawyerInfo, setShowLawyerInfo] = useState(false);
     
@@ -52,7 +52,7 @@ export const PartyItem = ({ party, isEditing, align = 'right', notificationBadge
                         defaultValue={party.name} 
                         onChange={(e) => { party.name = e.target.value; }}
                         className="bg-transparent text-sm font-bold text-white w-full border-b border-white/10 pb-1 outline-none min-w-0 text-right"
-                    />
+                     />
                 ) : (
                     <div className="flex flex-col w-full"> 
                         {/* ✅ FIX 1: Full Width Layout with Explicit Text Alignment (Spine Aligned) */}

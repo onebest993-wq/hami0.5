@@ -211,6 +211,40 @@ export function dedupeTimelineEventsSameSecond(events: TimelineEvent[]): Timelin
 }
 
 /**
+ * إدراج حدث في السجل مع استبدال خيط timelineThreadKey إن وُجد.
+ * يُستخدم من pushTimelineEvent ومن مسارات المحضونين لضمان نفس المنطق.
+ */
+export function insertTimelineEventWithThreadReplace(
+    prev: TimelineEvent[],
+    incoming: TimelineEvent,
+): TimelineEvent[] {
+    const threadKey =
+        incoming.metadata &&
+        typeof (incoming.metadata as Record<string, unknown>).timelineThreadKey === 'string'
+            ? String((incoming.metadata as Record<string, unknown>).timelineThreadKey)
+            : null;
+    if (threadKey) {
+        const idx = prev.findIndex(
+            (e) =>
+                e.metadata &&
+                String((e.metadata as Record<string, unknown>).timelineThreadKey ?? '') === threadKey,
+        );
+        if (idx >= 0) {
+            const prevRow = prev[idx];
+            const next = [...prev];
+            next[idx] = {
+                ...prevRow,
+                ...incoming,
+                id: prevRow.id,
+                metadata: { ...prevRow.metadata, ...incoming.metadata },
+            };
+            return next;
+        }
+    }
+    return mergeSimilarRecentTimelineEvent(prev, incoming);
+}
+
+/**
  * عند إضافة حدث جديد في مقدمة السجل: إن كان مطابقًا تقريبًا لآخر حدث فعّال
  * ضمن نافذة زمنية قصيرة، يُدمَج في نفس البطاقة (وصف أدق بصريًا دون تكرار).
  */

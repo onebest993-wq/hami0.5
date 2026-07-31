@@ -19,6 +19,8 @@ const criticalPaths = [
     'src/app/components/lawyer/HamiSettings/HamiSettingsHost.tsx',
     'src/app/components/lawyer/HamiSettings/index.tsx',
     'src/app/components/lawyer/HamiSettings/SettingsShell.tsx',
+    'src/app/context/LawyerSettingsContext.tsx',
+    'src/app/context/lawyerSettings/LawyerSettingsProvider.tsx',
 ];
 
 let failed = false;
@@ -54,8 +56,13 @@ const test = spawnSync(
         'src/app/hooks/lawyerDashboard/__tests__/dashboardViewFingerprint.test.ts',
         'src/app/services/settings/__tests__',
         'src/app/components/lawyer/HamiSettings',
+        'src/app/context/lawyerSettings',
+        'src/app/context/__tests__/privacyBlurMobile.test.tsx',
+        'src/app/components/lawyer/RoyalLawyerProfile/components/__tests__/ProfileSettingsSheet.smoke.test.tsx',
         'src/app/runtime/__tests__/settingsBootHydrator.test.ts',
         'src/app/runtime/__tests__/dashboardPostInteractiveWarm.test.ts',
+        'src/app/runtime/__tests__/settingsSectionSurgicalCloseHonesty.test.ts',
+        'src/app/runtime/__tests__/worldclassSettingsCloseHonesty.test.ts',
     ],
     { stdio: 'inherit', shell: true },
 );

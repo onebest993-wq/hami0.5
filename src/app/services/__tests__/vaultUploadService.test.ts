@@ -41,7 +41,7 @@ vi.mock('@/app/services/vaultBlobStore', () => ({
     deleteVaultBlobByPath: vi.fn(),
 }));
 
-import { SmartVaultDB } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import { getVaultBlob, getVaultBlobObjectUrl, peekVaultBlob, putVaultBlob } from '@/app/services/vaultBlobStore';
 
 const baseDoc = (overrides: Partial<SmartVaultDoc> = {}): SmartVaultDoc => ({

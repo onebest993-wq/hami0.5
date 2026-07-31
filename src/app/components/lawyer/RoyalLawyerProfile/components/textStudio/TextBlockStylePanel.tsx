@@ -61,7 +61,7 @@ export function TextBlockStylePanel({
     };
 
     return (
-        <div className="profile-settings-luxury-card p-3 space-y-3" data-testid="text-block-style-panel">
+        <div className="profile-studio-panel space-y-3" data-testid="text-block-style-panel">
             <div>
                 <p className="profile-studio-field-label">نطاق التنسيق</p>
                 <div className="profile-studio-scope-tabs">
@@ -158,13 +158,22 @@ export function TextBlockStylePanel({
 
             <div>
                 <p className="profile-studio-field-label">اللون</p>
-                <input
-                    type="color"
-                    value={activeStyle.color ?? '#ffffff'}
-                    onChange={(e) => applyStylePatch({ color: e.target.value })}
-                    className="profile-studio-color-input bg-black/35"
-                    data-testid="text-style-color"
-                />
+                <label className="profile-studio-color-picker" data-testid="text-style-color-wrap">
+                    <span className="profile-studio-color-picker__orb" aria-hidden>
+                        <input
+                            type="color"
+                            value={activeStyle.color ?? '#ffffff'}
+                            onChange={(e) => applyStylePatch({ color: e.target.value })}
+                            className="profile-studio-color-swatch"
+                            data-testid="text-style-color"
+                            aria-label="لون النص"
+                        />
+                    </span>
+                    <span className="profile-studio-color-picker__meta">
+                        <span className="profile-studio-color-picker__title">اختر لوناً</span>
+                        <span className="profile-studio-color-picker__hint">اضغط لتغيير اللون</span>
+                    </span>
+                </label>
             </div>
 
             <div>
@@ -174,7 +183,7 @@ export function TextBlockStylePanel({
                         <button
                             key={f.id}
                             type="button"
-                            data-selected={(activeStyle.fontSize ?? 'lg') === f.id ? 'true' : 'false'}
+                            data-selected={(activeStyle.fontSize ?? 'base') === f.id ? 'true' : 'false'}
                             data-testid={`text-style-size-${f.id}`}
                             className={`profile-studio-option-chip ${f.className}`}
                             onClick={() =>

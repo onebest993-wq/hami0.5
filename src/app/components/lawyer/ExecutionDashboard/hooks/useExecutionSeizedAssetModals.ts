@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import type { SeizedProperty } from '@/app/types/execution';
-import { formatNumberInput, formatStoredAmountForInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput, formatStoredAmountForInput } from '@/app/utils/execution/amountInput';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 
 export function useExecutionSeizedAssetModalState() {

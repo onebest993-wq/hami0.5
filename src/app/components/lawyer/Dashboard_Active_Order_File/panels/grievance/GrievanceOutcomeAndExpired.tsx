@@ -24,7 +24,7 @@ export function GrievanceOutcomeAndExpired(props: GrievanceLifecyclePanelProps) 
 <>
                                                     {showGrievanceOutcomeForm ? (
                                                     <div className="border border-white/10 bg-white/5 rounded-xl p-4 space-y-3">
-                                                        <div className="text-white font-extrabold text-sm">2️⃣ حالة التظلم</div>
+                                                        <div className="text-white font-extrabold text-sm">حالة التظلم</div>
                                                         <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
                                                             <input
                                                                 type="radio"
@@ -95,8 +95,8 @@ export function GrievanceOutcomeAndExpired(props: GrievanceLifecyclePanelProps) 
                                                                         } text-xs font-bold`}
                                                                     >
                                                                         {grievanceExpiredCanClose
-                                                                            ? '✅ انقضت المدة القانونية. يمكن إغلاق مرحلة التظلم.'
-                                                                            : '⏳ لا يمكن تثبيت الانقضاء قبل انقضاء المدة القانونية.'}
+                                                                            ? 'انقضت المدة القانونية. يمكن إغلاق مرحلة التظلم.'
+                                                                            : 'لا يمكن تثبيت الانقضاء قبل انقضاء المدة القانونية.'}
                                                                     </div>
                                                                     <div className="flex items-center gap-3">
                                                                         {!grievanceExpiredConfirmed ? (
@@ -114,11 +114,11 @@ export function GrievanceOutcomeAndExpired(props: GrievanceLifecyclePanelProps) 
                                                                                 }
                                                                                 className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                                                             >
-                                                                                ✔️ تأكيد انقضاء المدة
+                                                                                تأكيد انقضاء المدة
                                                                             </button>
                                                                         ) : (
                                                                             <div className="text-white/60 text-xs font-bold">
-                                                                                ⬇️ يمكنك إغلاق الإضبارة من زر 🔒 حفظ وإنهاء الإضبارة أسفل المرحلة
+                                                                                يمكنك إغلاق الإضبارة من زر حفظ وإنهاء الإضبارة أسفل المرحلة
                                                                             </div>
                                                                         )}
                                                                         {!grievanceExpiredCanClose ? (

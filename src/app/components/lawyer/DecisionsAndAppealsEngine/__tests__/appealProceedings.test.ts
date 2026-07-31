@@ -4,7 +4,6 @@ import {
     buildManualExecutorAppealProceedings,
     buildExecutorSideAppealCommitPatch,
     isExecutorSideAwaitingAppealEntry,
-    isExecutorDecisionAppealFinal,
     resolveEffectiveAwaitingCassationParty,
     resolveCassationAppellantLabel,
     hubHasActiveAppealLedgerEntry,

@@ -21,7 +21,8 @@ import {
     useExecutionDashboardUrlDelegationSync,
 } from './useExecutionDashboardDossierBootLifecycle';
 import { useExecutionDashboardModalControls } from '../useExecutionDashboardModalControls';
-import { useExecutionDossierTabOrchestrator, useExecutionPartiesOrchestrator } from '../../orchestrators';
+import { useExecutionDossierTabOrchestrator } from '../../orchestrators/useExecutionDossierTabOrchestrator';
+import { useExecutionPartiesOrchestrator } from '../../orchestrators/useExecutionPartiesOrchestrator';
 
 export function useExecutionDashboardCoreBootPipeline({
     file,

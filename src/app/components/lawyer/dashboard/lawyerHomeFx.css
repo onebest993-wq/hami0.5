@@ -462,28 +462,48 @@ html[data-hami-wallpaper='1'] [data-hami-lawyer-dashboard] .hami-sovereign-glass
     -webkit-overflow-scrolling: touch;
 }
 
+/* بطاقات الإعدادات — إطار خفيف راقٍ يتأثر بلون الثيم */
 [data-hami-settings-shell] .hami-setting-glass {
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1) !important;
-    content-visibility: auto;
-    contain-intrinsic-size: auto 120px;
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--hami-primary, #e6c673) 7%, #12182c) 0%,
+        #0b1021 72%,
+        #090d18 100%
+    ) !important;
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 24%, rgba(255, 255, 255, 0.09)) !important;
+    box-shadow:
+        0 4px 18px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+    /* لا content-visibility — كان يكسر نقر أزرار البطاقة أثناء التمرير */
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+}
+
+[data-hami-settings-shell] .hami-setting-glass-inner {
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 14%, rgba(255, 255, 255, 0.06));
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) 4%, rgba(11, 16, 33, 0.72));
 }
 
 [data-hami-settings-shell] .hami-settings-section-frame {
     contain: layout style;
 }
 
-/* input[type=file] — لا display:none (يمنع منتقي الملفات في بعض المتصفحات) */
+/* input[type=file] — خارج القصّ؛ حجم لمس فعلي يفتح المنتقي مع label/click */
 .hami-settings-file-input {
-    position: absolute;
-    width: 1px;
-    height: 1px;
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 44px;
+    height: 44px;
+    margin: 0;
     padding: 0;
-    margin: -1px;
+    opacity: 0.001;
     overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
     border: 0;
-    opacity: 0;
+    z-index: -1;
+    pointer-events: none;
 }
 
 html[data-hami-wallpaper='1'] [data-hami-settings-shell][data-hami-wallpaper='1'] .hami-settings-header {
@@ -494,15 +514,19 @@ html[data-hami-wallpaper='1'] [data-hami-settings-shell][data-hami-wallpaper='1'
 html[data-hami-wallpaper='1'] [data-hami-settings-shell][data-hami-wallpaper='1'] .hami-setting-glass {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-    background: linear-gradient(165deg, #12182c 0%, #0b1021 100%) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
+    background: linear-gradient(
+        165deg,
+        color-mix(in srgb, var(--hami-primary, #e6c673) 8%, #12182c) 0%,
+        #0b1021 100%
+    ) !important;
+    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 28%, rgba(255, 255, 255, 0.12)) !important;
 }
 
 html[data-hami-wallpaper='1'] [data-hami-settings-shell][data-hami-wallpaper='1'] .hami-setting-glass-inner {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     background: rgba(11, 16, 33, 0.92) !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 16%, rgba(255, 255, 255, 0.08)) !important;
 }
 
 .hami-wallpaper-layer {
@@ -532,6 +556,17 @@ html[data-hami-feature-open='1'] .hami-wallpaper-scrim {
 html[data-hami-feature-open='1'] .hami-vault-overlay,
 html[data-hami-feature-open='1'] .hami-radar-page {
     background-color: #1f1712;
+}
+
+html[data-hami-feature-open='1'] .hami-radar-scroll,
+html[data-hami-feature-open='1'] .hami-radar-add-dock {
+    background-color: #1f1712;
+}
+
+html[data-hami-feature-open='1'] .hami-radar-page > header {
+    background-color: #241c16;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
 }
 
 html[data-hami-feature-open='1'] .hami-vault-panel,

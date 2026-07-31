@@ -3,6 +3,10 @@
 
 import type { ExecutionDashboardProps } from '../types';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useExecutionDashboardPartyDeathOpeners } from './executionDashboardCore/useExecutionDashboardPartyDeathOpeners';
+import type { PartyDeathLiveHandlers } from './executionDashboardCore/useExecutionDashboardPartyDeathOpeners';
+import { prefetchExecutionHandlerClusterPartyDeathBridge } from '../executionDashboardHandlerClusterBridgeLazy';
+import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { useExecutionDashboardCoreBootPipeline } from './executionDashboardCore/useExecutionDashboardCoreBootPipeline';
 import { useExecutionDashboardCorePipelinesChain } from './executionDashboardCore/useExecutionDashboardCorePipelinesChain';
 import { EXECUTION_HANDLER_CLUSTER_STUBS } from './executionHandlerClusterStubs';
@@ -30,6 +34,9 @@ import { pickHandlerClusterAssemblyHandlers } from './executionDashboardCore/pic
 import { pickKeysFromRuntimeBag } from './executionDashboardCore/pickKeysFromRuntimeBag';
 import { pickFollowupAdminSpecialHandlerClusterInput } from './executionDashboardCore/followupAdminSpecialHandlerClusterInput';
 import { pickFollowupOtherPartyHandlerClusterInput } from './executionDashboardCore/followupOtherPartyHandlerClusterInput';
+import { useExecutionDashboardUnifiedDossierMetaWorkflow } from './executionDashboardCore/useExecutionDashboardUnifiedDossierMetaWorkflow';
+import { useExecutionDossierLifecycleActionsOrchestrator } from '../orchestrators/useExecutionDossierLifecycleActionsOrchestrator';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
 const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({});
 
@@ -99,6 +106,102 @@ export function useExecutionDashboardCore({
     const { followupSeizureTabs } = claimFinancialLedger;
     const { subsequentNoticeFlow, executorApprovalActions } = persistHandlerPipeline;
 
+    // مقيم على Core — لا يعتمد على dossier-support الكسول (كان يترك زر التعديل على stub)
+    const dossierMetaWorkflow = useExecutionDashboardUnifiedDossierMetaWorkflow({
+        executionData: boot.executionData,
+        directorate: fileMetadataBinding.directorate,
+        fileNumber: fileMetadataBinding.fileNumber,
+        fileYear: fileMetadataBinding.fileYear,
+        docNumber: fileMetadataBinding.docNumber,
+        judgmentDate: fileMetadataBinding.judgmentDate,
+        classification: fileMetadataBinding.classification,
+        evictionPropertyNumber: fileMetadataBinding.evictionPropertyNumber,
+        evictionPropertyDistrict: fileMetadataBinding.evictionPropertyDistrict,
+        evictionPropertyTypeField: fileMetadataBinding.evictionPropertyTypeField,
+        evictionFullAddressField: fileMetadataBinding.evictionFullAddressField,
+        evictionPremisesUseRaw: fileMetadataBinding.evictionPremisesUseRaw,
+        isEvictionExecutionModule,
+        persistExecutionMerge: persistHandlerPipeline.persistExecutionMerge,
+        parentDossierId: boot.parentDossierId,
+        parentExecutionFile: boot.parentExecutionFile,
+        onUpdate,
+        setExecutionStorageTick: boot.setExecutionStorageTick,
+        showToast: workspacePipeline.showToast,
+    });
+
+    const coreDossierLifecycleActionsRaw = useExecutionDossierLifecycleActionsOrchestrator({
+        executionData: boot.executionData,
+        executionId,
+        executionDataRef: boot.executionDataRef,
+        dossierFileKey: boot.dossierFileKey,
+        financialLedgerRef: workspacePipeline.financialLedgerRef,
+        seizedAssetsSnapshotRef: workspacePipeline.seizedAssetsSnapshotRef,
+        setTimelineEvents: workspacePipeline.setTimelineEvents,
+        nextTimelineId: workspacePipeline.nextTimelineId,
+        persistExecutionMerge: persistHandlerPipeline.persistExecutionMerge,
+        reconcileDossierLifecycle: boot.reconcileDossierLifecycle,
+        showToast: workspacePipeline.showToast,
+        dossierPendingStatus: dossierLifecyclePanel.dossierPendingStatus,
+        dossierReasonDraft: dossierLifecyclePanel.dossierReasonDraft,
+        dossierDateDraft: dossierLifecyclePanel.dossierDateDraft,
+        setDossierReasonDraft: dossierLifecyclePanel.setDossierReasonDraft,
+        setDossierDateDraft: dossierLifecyclePanel.setDossierDateDraft,
+        setDossierPendingStatus: dossierLifecyclePanel.setDossierPendingStatus,
+        setDossierLifecyclePanelOpen: dossierLifecyclePanel.setDossierLifecyclePanelOpen,
+        setDossierLifecyclePanelPhase: dossierLifecyclePanel.setDossierLifecyclePanelPhase,
+        closeDossierLifecyclePanel: dossierLifecyclePanel.closeDossierLifecyclePanel,
+    });
+    const coreDossierLifecycleActions = useMemo(
+        () => ({ ...coreDossierLifecycleActionsRaw }),
+        [
+            coreDossierLifecycleActionsRaw.applyDossierLifecycleToFileAndTimeline,
+            coreDossierLifecycleActionsRaw.handleDossierLifecyclePick,
+            coreDossierLifecycleActionsRaw.handleDossierLifecycleConfirmDetails,
+        ],
+    );
+
+    const {
+        partyDeathHandlers,
+        loadPartyDeathHandlerCluster,
+        commitLiveHandlers: commitPartyDeathLiveHandlers,
+    } = useExecutionDashboardPartyDeathOpeners({
+        decisionsStorageExecutionId: boot.decisionsStorageExecutionId,
+        decisionsReloadEpoch: workspacePipeline.decisionsReloadEpoch,
+        executionId,
+        executionDataId: boot.executionData?.id,
+        executionDataRef: boot.executionDataRef,
+        partyDeathModalParty: followupOrchestrator.partyDeathModalParty,
+        setPartyDeathModalParty: followupOrchestrator.setPartyDeathModalParty,
+        setPartyDeathModalDecisionId: followupOrchestrator.setPartyDeathModalDecisionId,
+        showToast: workspacePipeline.showToast,
+    });
+
+    useEffect(() => {
+        if (!loadPartyDeathHandlerCluster) return;
+        return scheduleIdleWork(() => {
+            prefetchExecutionHandlerClusterPartyDeathBridge();
+        }, 80);
+    }, [loadPartyDeathHandlerCluster]);
+
+    const onPartyDeathHandlerClusterReady = useCallback((cluster: Record<string, unknown>) => {
+        commitPartyDeathLiveHandlers(cluster as PartyDeathLiveHandlers);
+    }, [commitPartyDeathLiveHandlers]);
+
+    const handleMemoFollowupClick = useCallback(() => {
+        if (typeof followupDebtor.closeUnifiedSeizureLog === 'function') {
+            followupDebtor.closeUnifiedSeizureLog();
+        }
+        try {
+            const { openModal } = useExecutionDashboardStore.getState();
+            openModal('showUnifiedExecutionModal');
+        } catch {
+            /* ignore */
+        }
+        if (typeof followupDebtor.openFollowupModalPersisted === 'function') {
+            followupDebtor.openFollowupModalPersisted();
+        }
+    }, [followupDebtor]);
+
     const handlerClusterGateInput = useMemo(
         () => ({
             showUnifiedExecutionModal,
@@ -110,7 +213,7 @@ export function useExecutionDashboardCore({
             showPaymentModal: boot.modals.showPaymentModal,
             showNotesModal: boot.modals.showNotesModal,
             showCoerciveActionForm: workspacePipeline.showCoerciveActionForm,
-            showEditDossierMetaModal: boot.modals.showEditDossierMetaModal,
+            showEditDossierMetaModal: dossierMetaWorkflow.showEditDossierMetaModal,
             dossierLifecyclePanelOpen: dossierLifecyclePanel.dossierLifecyclePanelOpen,
             isHeaderExpanded,
         }),
@@ -124,7 +227,7 @@ export function useExecutionDashboardCore({
             boot.modals.showPaymentModal,
             boot.modals.showNotesModal,
             workspacePipeline.showCoerciveActionForm,
-            boot.modals.showEditDossierMetaModal,
+            dossierMetaWorkflow.showEditDossierMetaModal,
             dossierLifecyclePanel.dossierLifecyclePanelOpen,
             isHeaderExpanded,
         ],
@@ -183,6 +286,12 @@ export function useExecutionDashboardCore({
                 ...graceMasterPipeline,
                 ...persistHandlerPipeline,
                 ...fileMetadataBinding,
+                ...dossierMetaWorkflow,
+                dossierMetaWorkflow,
+                partyDeathHandlers,
+                handleMemoFollowupClick,
+                ...coreDossierLifecycleActions,
+                dossierLifecycleActions: coreDossierLifecycleActions,
                 ...coreRuntimeTailInput,
             }),
         [
@@ -192,6 +301,10 @@ export function useExecutionDashboardCore({
             graceMasterPipeline,
             persistHandlerPipeline,
             fileMetadataBinding,
+            dossierMetaWorkflow,
+            partyDeathHandlers,
+            handleMemoFollowupClick,
+            coreDossierLifecycleActions,
             coreRuntimeTailInput,
         ],
     );
@@ -380,13 +493,28 @@ export function useExecutionDashboardCore({
         ],
     );
 
-    const assemblyHandlers = useMemo(
-        () => ({
-            ...pickHandlerClusterAssemblyHandlers(handlerCluster),
-            ...pickCoreAssemblyHandlers(coreRuntimeVars),
-        }),
-        [handlerCluster, coreRuntimeVars],
-    );
+    const assemblyHandlers = useMemo(() => {
+        const clusterHandlers = pickHandlerClusterAssemblyHandlers(handlerCluster);
+        const coreHandlers = pickCoreAssemblyHandlers(coreRuntimeVars);
+        const coreActions = coreHandlers.dossierLifecycleActions;
+        const clusterActions = clusterHandlers.dossierLifecycleActions;
+        const dossierLifecycleActions =
+            coreActions && typeof coreActions === 'object' && !Array.isArray(coreActions)
+                ? coreActions
+                : clusterActions &&
+                    typeof clusterActions === 'object' &&
+                    !Array.isArray(clusterActions)
+                  ? clusterActions
+                  : coreDossierLifecycleActions;
+        return {
+            ...clusterHandlers,
+            ...coreHandlers,
+            dossierLifecycleActions,
+            // دائماً من Core — لا يعتمد على تحميل light/notes cluster
+            handleMemoFollowupClick: coreRuntimeVars.handleMemoFollowupClick,
+            openFollowupModalPersisted: coreRuntimeVars.openFollowupModalPersisted,
+        };
+    }, [handlerCluster, coreRuntimeVars, coreDossierLifecycleActions]);
 
     const modalScopeInput = useMemo(
         () =>
@@ -409,7 +537,8 @@ export function useExecutionDashboardCore({
                 setShowSettlementCalculator: boot.setShowSettlementCalculator,
                 setShowPauseModal: boot.setShowPauseModal,
                 setShowLedgerModal,
-                setShowEditDossierMetaModal: dossierLifecyclePanel.setShowEditDossierMetaModal,
+                showEditDossierMetaModal: dossierMetaWorkflow.showEditDossierMetaModal,
+                setShowEditDossierMetaModal: dossierMetaWorkflow.setShowEditDossierMetaModal,
                 setShowLinkedDossierTimeline: boot.setShowLinkedDossierTimeline,
                 setShowTransferFileNumberChangeModal: boot.setShowTransferFileNumberChangeModal,
                 setEditingNoteId,
@@ -435,7 +564,8 @@ export function useExecutionDashboardCore({
             boot.setShowSettlementCalculator,
             boot.setShowPauseModal,
             setShowLedgerModal,
-            dossierLifecyclePanel.setShowEditDossierMetaModal,
+            dossierMetaWorkflow.showEditDossierMetaModal,
+            dossierMetaWorkflow.setShowEditDossierMetaModal,
             setEditingNoteId,
             followupOrchestrator,
             seizureOrchestrator,
@@ -453,6 +583,8 @@ export function useExecutionDashboardCore({
                 dossierLifecyclePanel,
                 toastEpoch,
                 unifiedLedgerRevision: claimFinancialLedger.unifiedLedgerRevision,
+                executionStorageTick: boot.executionStorageTick,
+                financialPrincipalAmount: claimFinancialLedger.financialPrincipalAmount,
                 followupOrchestrator,
                 showUnifiedSeizureLogModal: followupDebtor.showUnifiedSeizureLogModal,
                 timelineAccordionExpanded,
@@ -476,6 +608,8 @@ export function useExecutionDashboardCore({
             dossierLifecyclePanel,
             toastEpoch,
             claimFinancialLedger.unifiedLedgerRevision,
+            boot.executionStorageTick,
+            claimFinancialLedger.financialPrincipalAmount,
             followupOrchestrator,
             followupDebtor.showUnifiedSeizureLogModal,
             timelineAccordionExpanded,
@@ -493,9 +627,13 @@ export function useExecutionDashboardCore({
 
     const {
         phoneBodyFingerprint,
+        shellOverlayFingerprint,
         phoneBodyReady,
         shellOverlaysReady,
-        chunkScopeRef,
+        phoneBodyScopeRef,
+        shellOverlayScopeRef,
+        shellOverlayScopeSnapshot,
+        followupModalSnapshot,
     } = useExecutionDashboardCoreScopeAndChunk({
         specificDeliveryConvertedAmount,
         specificDeliveryFinancialized,
@@ -507,6 +645,17 @@ export function useExecutionDashboardCore({
         modalScopeInput,
         chunkSetupInput,
     });
+
+    useEffect(() => {
+        const target = phoneBodyScopeRef.current;
+        if (!target) return;
+        const actions = coreDossierLifecycleActions as Record<string, unknown>;
+        const pick = actions.handleDossierLifecyclePick;
+        const confirm = actions.handleDossierLifecycleConfirmDetails;
+        if (typeof pick === 'function') target.handleDossierLifecyclePick = pick;
+        if (typeof confirm === 'function') target.handleDossierLifecycleConfirmDetails = confirm;
+        target.dossierLifecycleActions = actions;
+    }, [coreDossierLifecycleActions, phoneBodyScopeRef]);
 
     return {
         isLoading: boot.isLoading,
@@ -520,10 +669,15 @@ export function useExecutionDashboardCore({
         toastEpoch,
         hideToast,
         phoneBodyFingerprint,
+        shellOverlayFingerprint,
         phoneBodyReady,
         shellOverlaysReady,
-        chunkScopeRef,
+        phoneBodyScopeRef,
+        shellOverlayScopeRef,
+        shellOverlayScopeSnapshot,
+        followupModalSnapshot,
         showUnifiedExecutionModal,
+        unifiedModalTab: followupDebtor.unifiedModalTab,
         loadLightHandlerCluster,
         loadFollowupHeavyHandlerCluster,
         loadFollowupAdminSpecialHandlerCluster,
@@ -533,14 +687,18 @@ export function useExecutionDashboardCore({
         loadSeizureLogHandlerCluster,
         loadSeizureHeavyHandlerCluster,
         loadCoerciveHeavyHandlerCluster,
+        loadPublicationNoticeHandlerCluster: false,
         loadDossierSupportHandlerCluster,
+        loadPartyDeathHandlerCluster,
         lightHandlerClusterInput,
         followupAdminSpecialHandlerClusterInput,
         followupDossierControlsHandlerClusterInput,
         followupOtherPartyHandlerClusterInput,
         seizureHeavyHandlerClusterInput,
         coerciveHeavyHandlerClusterInput,
+        publicationNoticeHandlerClusterInput: EMPTY_HANDLER_CLUSTER_INPUT,
         dossierSupportHandlerClusterInput,
+        partyDeathHandlerClusterInput: coerciveHeavyHandlerClusterInput,
         handlerClusterMountKey,
         onLightHandlerClusterReady,
         onFollowupAdminSpecialHandlerClusterReady,
@@ -549,5 +707,6 @@ export function useExecutionDashboardCore({
         onSeizureHeavyHandlerClusterReady,
         onCoerciveHeavyHandlerClusterReady,
         onDossierSupportHandlerClusterReady,
+        onPartyDeathHandlerClusterReady,
     };
 }

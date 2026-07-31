@@ -1,45 +1,47 @@
-import React from 'react';
-import { useAuthSafe } from '@/app/context/AuthContext';
-import { useRuntimePhase } from '@/app/runtime/runtimePhase';
-import {
-    CriminalDashboardBridgeProvider,
-} from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import React, { Suspense, lazy } from 'react';
+import { markDashboardInteractiveOnce } from '@/app/bootstrap/dashboardInteractiveMark';
 import type { LawyerDashboardShellProps } from './LawyerDashboardQuantumShell';
-import { useLawyerDashboardCore } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
-import { LawyerDashboardMainView } from './LawyerDashboardMainView';
-import { usePendingFieldTasksCountMetric, useQuantumTasksFingerprint } from '@/app/hooks/useQuantumTasksContext';
 
 export type LawyerDashboardInnerProps = LawyerDashboardShellProps;
 
-export function LawyerDashboardInner(props: LawyerDashboardInnerProps) {
-    const runtimePhase = useRuntimePhase();
-    const backgroundRuntimeEnabled = runtimePhase !== 'boot';
-    const { user: authUser } = useAuthSafe();
-    const bridgeLawyerId = resolveCalendarUserId(authUser?.id ?? null);
+/**
+ * قشرة TTFI رقيقة: mark فوري ثم runtime lazy.
+ * بعد mark: تسخين Runtime + MainView + HomeTab فوراً لتقليص first-tab / الانتظار الظاهر.
+ */
+const LazyLawyerDashboardInnerRuntime = lazy(() =>
+    import('./LawyerDashboardInnerRuntime').then((m) => ({
+        default: m.LawyerDashboardInnerRuntime,
+    })),
+);
 
-    return (
-        <CriminalDashboardBridgeProvider enabled={backgroundRuntimeEnabled} lawyerId={bridgeLawyerId}>
-            <LawyerDashboardCore {...props} backgroundRuntimeEnabled={backgroundRuntimeEnabled} />
-        </CriminalDashboardBridgeProvider>
-    );
+function warmPostInteractiveDashboardChunks(): void {
+    /* HomeTab أولاً — أولوية شبكة لمسار first-tab */
+    void import('./LawyerDashboardHomeTab');
+    void import('./LawyerDashboardInnerRuntime');
+    void import('./LawyerDashboardMainView');
 }
 
-function LawyerDashboardCore({
-    backgroundRuntimeEnabled,
-    ...shellProps
-}: LawyerDashboardInnerProps & { backgroundRuntimeEnabled: boolean }) {
-    const pendingFieldTasksCount = usePendingFieldTasksCountMetric();
-    const quantumTasksFingerprint = useQuantumTasksFingerprint();
-    const model = useLawyerDashboardCore({
-        ...shellProps,
-        pendingFieldTasksCount,
-        quantumTasksFingerprint,
-        backgroundRuntimeEnabled,
-    });
+/** يبدأ مع تقييم chunk اللوحة — قبل أول commit لـ Inner (بلا منافسة مع تحميل Gate). */
+if (typeof window !== 'undefined') {
+    warmPostInteractiveDashboardChunks();
+}
 
-    if (model.status === 'gate') return <>{model.node}</>;
-    if (model.status === 'empty') return null;
+export function LawyerDashboardInner(props: LawyerDashboardInnerProps) {
+    markDashboardInteractiveOnce();
+    warmPostInteractiveDashboardChunks();
 
-    return <LawyerDashboardMainView model={model} />;
+    return (
+        <Suspense
+            fallback={
+                <div
+                    className="min-h-screen w-full bg-[#0a0f1c]"
+                    data-testid="lawyer-inner-runtime-suspense"
+                    aria-busy
+                    aria-label="جاري فتح اللوحة"
+                />
+            }
+        >
+            <LazyLawyerDashboardInnerRuntime {...props} />
+        </Suspense>
+    );
 }

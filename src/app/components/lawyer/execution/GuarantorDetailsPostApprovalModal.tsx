@@ -2,7 +2,7 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
 import { X } from 'lucide-react';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 
 export function GuarantorDetailsPostApprovalModal(props: {
     open: boolean;

@@ -41,6 +41,19 @@ export function purgeExpiredExecutionsFromTrash<T extends { executionTrashDelete
     return files.filter((f) => !shouldAutoPurgeExecutionFromTrash(f));
 }
 
+/** معرّفات انتهت مهلتها — للحذف النهائي المحلي+السحابي */
+export function collectExpiredExecutionTrashIds<T extends { id?: string | number | null; executionTrashDeletedAt?: string | null }>(
+    files: T[],
+): string[] {
+    const ids: string[] = [];
+    for (const f of files) {
+        if (!shouldAutoPurgeExecutionFromTrash(f)) continue;
+        const id = String(f.id ?? '').trim();
+        if (id) ids.push(id);
+    }
+    return ids;
+}
+
 export function stripExecutionTrashFields<T extends Record<string, unknown>>(file: T): T {
     const next = { ...file };
     delete (next as { executionTrashDeletedAt?: string }).executionTrashDeletedAt;

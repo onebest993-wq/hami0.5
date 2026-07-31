@@ -4,9 +4,15 @@ import type { NotificationModel } from '@/app/infrastructure/NotificationReposit
 const kvGetMock = vi.fn();
 const kvSetMock = vi.fn();
 
-vi.mock('@/app/api/security/kvStoreAdmin', () => ({
-    kvGet: (...args: unknown[]) => kvGetMock(...args),
-    kvSet: (...args: unknown[]) => kvSetMock(...args),
+vi.mock('@/app/api/security/loadKvStoreAdmin', () => ({
+    loadKvStoreAdmin: vi.fn(async () => ({
+        kvGet: (...args: unknown[]) => kvGetMock(...args),
+        kvSet: (...args: unknown[]) => kvSetMock(...args),
+        kvDel: vi.fn(async () => undefined),
+        kvGetByPrefix: vi.fn(async () => []),
+        kvDelByPrefix: vi.fn(async () => 0),
+        kvKeysByPrefix: vi.fn(async () => []),
+    })),
 }));
 
 vi.mock('@/app/services/notifications/notificationSupabaseInbox', () => ({

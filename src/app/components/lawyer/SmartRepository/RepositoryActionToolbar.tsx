@@ -1,12 +1,8 @@
 import React from 'react';
 import { FileText, ImageIcon, Mic, Plus, Scan } from 'lucide-react';
-import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
 import { REPO_ACTION_BTN, REPO_ACTION_GRID } from './smartRepositoryTheme';
-import { RepositoryViewLayoutPicker } from './RepositoryViewLayoutPicker';
 
 type RepositoryActionToolbarProps = {
-    feedLayout: RepositoryFeedLayoutId;
-    onFeedLayoutChange: (layout: RepositoryFeedLayoutId) => void;
     onCreateNote: () => void;
     onOpenScanner: () => void;
     onOpenVoice: () => void;
@@ -68,8 +64,6 @@ function ActionCell({
 }
 
 export function RepositoryActionToolbar({
-    feedLayout,
-    onFeedLayoutChange,
     onCreateNote,
     onOpenScanner,
     onOpenVoice,
@@ -125,7 +119,6 @@ export function RepositoryActionToolbar({
                 testId="repository-voice-record"
                 disabled={disabled}
             />
-            <RepositoryViewLayoutPicker layoutId={feedLayout} onSelect={onFeedLayoutChange} disabled={disabled} />
         </div>
     );
 }

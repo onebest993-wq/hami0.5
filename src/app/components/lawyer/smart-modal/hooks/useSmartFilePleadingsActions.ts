@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback } from 'react';
 import type { CaseStage, TimelineEvent } from '../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -105,32 +104,6 @@ export function useSmartFilePleadingsActions(options: {
                         parentData.representedParty,
                         currentStage.parties,
                     );
-                // #region debug-point C:appeal-registration-entry
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        sessionId: 'opponent-appeal-crash',
-                        runId: 'pre-fix',
-                        hypothesisId: 'C',
-                        location: 'useSmartFilePleadingsActions.ts:handleAppealRegistration:entry',
-                        msg: '[DEBUG] handleAppealRegistration entry',
-                        data: {
-                            stageName: currentStage.stageName ?? null,
-                            representedParty: parentData.representedParty ?? null,
-                            appealMethod,
-                            appealCaseNo,
-                            appealCourt,
-                            appellant,
-                            partyCount: Array.isArray(currentStage.parties) ? currentStage.parties.length : 0,
-                            incidentalCount: Array.isArray(currentStage.incidentalCases) ? currentStage.incidentalCases.length : 0,
-                            includedAppellantPartyIds: includedAppellantPartyIds ?? [],
-                            includedOpponentPartyIds: includedOpponentPartyIds ?? [],
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
-
                 const isGhayabi = isAbsentJudgmentForm(
                     currentStage.judgmentForm,
                     currentStage.lastJudgmentType,
@@ -171,28 +144,6 @@ export function useSmartFilePleadingsActions(options: {
                     parentData.representedParty,
                     currentStage.incidentalCases,
                 );
-                // #region debug-point D:appeal-registration-layout
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        sessionId: 'opponent-appeal-crash',
-                        runId: 'pre-fix',
-                        hypothesisId: 'D',
-                        location: 'useSmartFilePleadingsActions.ts:handleAppealRegistration:layout',
-                        msg: '[DEBUG] resolved opponent registration layout',
-                        data: {
-                            mode: dossierLayout.mode,
-                            appellantLegalSide: dossierLayout.appellantLegalSide ?? null,
-                            appellantCount: Array.isArray(dossierLayout.appellantParties) ? dossierLayout.appellantParties.length : 0,
-                            opponentCount: Array.isArray(dossierLayout.opponentParties) ? dossierLayout.opponentParties.length : 0,
-                            defaultAppellantIds: dossierLayout.defaultAppellantIds ?? [],
-                            defaultOpponentIds: dossierLayout.defaultOpponentIds ?? [],
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
-
                 const { updatedStages, newActiveIndex } = applyAppealStageTransition(
                     stagesForTransition,
                     activeStageIndex,
@@ -226,30 +177,6 @@ export function useSmartFilePleadingsActions(options: {
                             ?? undefined,
                     },
                 );
-                // #region debug-point E:appeal-registration-transition
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        sessionId: 'opponent-appeal-crash',
-                        runId: 'pre-fix',
-                        hypothesisId: 'E',
-                        location: 'useSmartFilePleadingsActions.ts:handleAppealRegistration:transition',
-                        msg: '[DEBUG] applyAppealStageTransition result',
-                        data: {
-                            updatedStagesCount: Array.isArray(updatedStages) ? updatedStages.length : 0,
-                            newActiveIndex,
-                            nextStageName: updatedStages?.[newActiveIndex]?.stageName ?? null,
-                            nextPartyCount: Array.isArray(updatedStages?.[newActiveIndex]?.parties)
-                                ? updatedStages[newActiveIndex].parties.length
-                                : 0,
-                            nextTimelineCount: Array.isArray(updatedStages?.[newActiveIndex]?.timeline)
-                                ? updatedStages[newActiveIndex].timeline.length
-                                : 0,
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
 
                 setStages(updatedStages);
                 setActiveStageIndex(newActiveIndex);
@@ -261,24 +188,6 @@ export function useSmartFilePleadingsActions(options: {
                 setStatus(`مرحلة ${nextName}`);
                 SmartToast.success(`تم تسجيل طعن الخصم — انتقلت الدعوى إلى ${nextName} مع نقل الملاحظات والمستندات`);
             } catch (error) {
-                // #region debug-point E:appeal-registration-catch
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        sessionId: 'opponent-appeal-crash',
-                        runId: 'pre-fix',
-                        hypothesisId: 'E',
-                        location: 'useSmartFilePleadingsActions.ts:handleAppealRegistration:catch',
-                        msg: '[DEBUG] handleAppealRegistration threw',
-                        data: {
-                            message: error instanceof Error ? error.message : String(error),
-                            stack: error instanceof Error ? error.stack ?? null : null,
-                            stageName: currentStage.stageName ?? null,
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => {});
-                // #endregion
                 throw error;
             }
         },

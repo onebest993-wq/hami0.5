@@ -1,11 +1,5 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeUnauthorizedResponse,
-} from '../../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
 import { canManageForumAdmin, getForumRoleForUser } from '../adminAuth.ts';
 import { UserRole } from '../../../types/admin-types.ts';
@@ -16,17 +10,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const requesterId = await getVerifiedTokenSubject(userToken);
-    if (!requesterId) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: requesterId } = authGate;
 
     if (!(await canManageForumAdmin(requesterId))) {
       return new Response(
@@ -58,17 +44,9 @@ export async function GET(request: Request): Promise<Response> {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const requesterId = await getVerifiedTokenSubject(userToken);
-    if (!requesterId) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: requesterId } = authGate;
 
     if (!(await canManageForumAdmin(requesterId))) {
       return new Response(

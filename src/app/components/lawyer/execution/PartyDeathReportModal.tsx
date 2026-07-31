@@ -248,7 +248,7 @@ export const PartyDeathReportModal: React.FC<PartyDeathReportModalProps> = ({
                                                 <Trash2 size={14} />
                                             </button>
                                         ) : null}
-                                    </div>
+          </div>
                                 ))}
                                 <button
                                     type="button"

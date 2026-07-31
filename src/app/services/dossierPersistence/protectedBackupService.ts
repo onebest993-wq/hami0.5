@@ -1,7 +1,6 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { writeDossierBackup } from './dossierBackupStore';
 import { backupDomainForStorageKey } from './protectedStorageKeys';
-import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorage';
+import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorageKey';
 import type { BackupDomain, DossierDomain } from './dossierPersistenceTypes';
 
 const DOSSIER_DOMAINS = new Set<DossierDomain>(['lawsuit', 'execution']);
@@ -49,6 +48,7 @@ export async function writeProtectedBackupFromRaw(storageKey: string, raw: strin
     if (!payload) return;
 
     const revision = bumpRevision(domain);
+    const { writeDossierBackup } = await import('./dossierBackupStore');
     await writeDossierBackup(domain, payload, revision);
 }
 

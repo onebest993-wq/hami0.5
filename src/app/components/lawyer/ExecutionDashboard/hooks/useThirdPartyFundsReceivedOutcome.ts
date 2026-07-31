@@ -1,6 +1,6 @@
 import { useEffect, type MutableRefObject } from 'react';
 import type { ExecutionFile, ThirdPartySeizure, TimelineEvent } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import {
     buildThirdPartyFundsReceivedTimelineEvent,
     creditThirdPartySeizureFunds,

@@ -1,23 +1,14 @@
 // @ts-nocheck
-import type { ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../../types';
 import type { DecisionCardEnforcementVisual } from '../../decisionCardGlassShell';
 import {
-    appealCreditorRequestPauseGateMessage,
-    appealCreditorRequestRevokedGateMessage,
     isAppealResultFavorableToDebtorClient,
     type AppealUiPerspective,
 } from '../../appealUiLabels';
 import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
 import {
-    hubWithInferredAppealOrigin,
-    inferDecisionAppealRequestOrigin,
-    isCreditorInitiatedExecutorRequest,
-    isCreditorExecutorAppealSubject,
     isCreditorPartyRequest,
-    isDecisionLikeRow,
     resolveRequestFilerFromDebtorAgentView,
-    resolveRequestProponent,
 } from '../appealRequestOrigin';
 import {
     isManualExecutorLedgerDecision,
@@ -25,32 +16,21 @@ import {
 } from './manualExecutorIdentity';
 import { resolveManualExecutorLedgerEnforcementState } from './manualExecutorLedger';
 import {
-    appealPipelineRowForCard,
     effectiveExecutorOutcomeForCreditorHubPill,
-    isLawyerCassationNaqdResume,
-    isLawyerCassationRadReset,
 } from './decisionHubPipeline';
 import {
     resolveEffectiveAwaitingCassationParty,
     resolveEffectiveAppealActor,
-    isCassationAffirmResult,
 } from './appealProceedings';
 import { resolveCreditorRequestAppealGate, isCreditorRequestFlowContinues } from './creditorAppealGate';
-import {
-    resolveGrievanceFilerActor,
-    resolveCassationFilerActor,
-    isDebtorAppealEligibleApprovedHub,
-    resolveAppealBaseBranch,
-} from './appealWorkflowActors';
+
+
 import type {
-    CreditorRequestAppealGate,
     CreditorDecisionEnforcementState,
     DecisionHubStatusPillTone,
-    ExecutorRequestFollowupBlock,
 } from './appealTypes';
 import {
     resolveAppealResultActorForClient,
-    debtorAgentAppealStatusInHeaderPill,
 } from './creditorAppealDebtorAgentUi';
 
 function hasActiveAppealTrack(row: Decision): boolean {

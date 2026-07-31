@@ -37,7 +37,7 @@ export type SmartFileModalTheme = {
 const CIVIL_THEME: SmartFileModalTheme = {
     variant: 'civil',
     overlay: SMART_FILE_NESTED_MODAL_OVERLAY_CLASS,
-    shell: 'relative overflow-visible animate-in zoom-in-95 duration-200',
+    shell: 'relative overflow-visible',
     shellCard:
         'w-full overflow-hidden rounded-[28px] border border-[#E6C673]/16 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.10),transparent_34%),linear-gradient(180deg,rgba(18,24,38,0.97),rgba(10,15,28,0.98))] backdrop-blur-2xl shadow-[0_28px_72px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.05)]',
     header:

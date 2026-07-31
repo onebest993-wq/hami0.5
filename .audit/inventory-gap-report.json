@@ -1,0 +1,2431 @@
+{
+  "generatedAt": "2026-07-31T20:33:54.995Z",
+  "totals": {
+    "repoCodeFiles": 4945,
+    "inInventory": 1583,
+    "excluded": 3362,
+    "strongGaps": 332,
+    "weakCandidates": 8
+  },
+  "strongHits": [
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStore.test.ts",
+      "lines": 3189,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStageUtils.ts",
+      "lines": 1326,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/admin/AdminLawEntry.tsx",
+      "lines": 1320,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/JudicialDecisionsLedger.tsx",
+      "lines": 1006,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalDashboardResolvedOrchestration.ts",
+      "lines": 997,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/cassationEngine.ts",
+      "lines": 984,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/helpers/civilLawsuitFixtures.ts",
+      "lines": 981,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistMigrate.ts",
+      "lines": 944,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.ts",
+      "lines": 924,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/stageJourney.ts",
+      "lines": 849,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardModalsHost.tsx",
+      "lines": 837,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/RequestModalEntryLanes.tsx",
+      "lines": 831,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/appealStageTransition.ts",
+      "lines": 797,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/SmartJudgmentModal.tsx",
+      "lines": 797,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/StageCloserModal.tsx",
+      "lines": 764,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerNewCase.tsx",
+      "lines": 764,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/SecretaryOrchestrator.ts",
+      "lines": 764,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStagePartyAndStatusUtils.ts",
+      "lines": 753,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/procedural/useProceduralIncidentalActions.ts",
+      "lines": 696,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/admin/AdminLawEntry/useAdminLawEntry.ts",
+      "lines": 691,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/casePhaseFilterEngine.ts",
+      "lines": 678,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/RequestsEntryModal.tsx",
+      "lines": 658,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/utils/criminalCasesStorage.ts",
+      "lines": 636,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardHeader.tsx",
+      "lines": 634,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreState.types.ts",
+      "lines": 629,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/__tests__/criminalStore.closingTrial.test.ts",
+      "lines": 628,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/juvenileInvestigationRules.ts",
+      "lines": 625,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalCaseModel.ts",
+      "lines": 610,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerShared.tsx",
+      "lines": 601,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalRequestCommitFlow.ts",
+      "lines": 585,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/AppealTransitionModal.tsx",
+      "lines": 579,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreLawyerRequestActions.ts",
+      "lines": 576,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/investigationDefendantPurge.test.ts",
+      "lines": 574,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/parts/SessionAndRequestsHub.tsx",
+      "lines": 573,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Form_Urgent_Actions.tsx",
+      "lines": 557,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreTrialActions.ts",
+      "lines": 541,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseMergeMigration.ts",
+      "lines": 538,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/crossComplaintPartyParity.test.ts",
+      "lines": 537,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.ts",
+      "lines": 533,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/verdictCardsEngine.ts",
+      "lines": 533,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/modals/appealObjectionModals.tsx",
+      "lines": 501,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreProceduralActions.ts",
+      "lines": 499,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ActionModals/VoiceRecorderModal.tsx",
+      "lines": 498,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreConcludeStageActions.ts",
+      "lines": 498,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ArchivePortal/components/ArchivePortalFileGrid.tsx",
+      "lines": 494,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/InvestigationDecisionModal.tsx",
+      "lines": 486,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreSeveranceDraftActions.ts",
+      "lines": 483,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/lifecycleActions/createJudgeActions.ts",
+      "lines": 482,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalJudicialAppealMutations.ts",
+      "lines": 479,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalRequestPartyScope.ts",
+      "lines": 475,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalDashboardFinalDecisionEntry.ts",
+      "lines": 471,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
+      "lines": 468,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/CaseIdentityCorrectionModal.tsx",
+      "lines": 467,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePartyStatusActions.ts",
+      "lines": 465,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/appealWorkflowActors.ts",
+      "lines": 460,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/__tests__/criminalStore.mergeRecords.test.ts",
+      "lines": 455,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreIdentityCorrectionActions.ts",
+      "lines": 452,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/appealPartyEngine.ts",
+      "lines": 452,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalNewCase/DefendantSection.tsx",
+      "lines": 441,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/modals/content-entry/contentEntryLightModals.tsx",
+      "lines": 441,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/VerdictCassationModals.tsx",
+      "lines": 432,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/types/criminal.ts",
+      "lines": 427,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/CaseJourneyHeader.tsx",
+      "lines": 426,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/useLawsuitNewCaseFlow.ts",
+      "lines": 426,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalDashboardNavigationGuard.ts",
+      "lines": 409,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/caseShare/ColleagueConsultationFlow.tsx",
+      "lines": 402,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerDashboardParts/utils.ts",
+      "lines": 396,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalNewCase/CaseInfoSection.tsx",
+      "lines": 380,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/layout/mainPanel/useSmartFileMainPanelLayout.tsx",
+      "lines": 374,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/proceduralRequestTypes.test.ts",
+      "lines": 373,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalPartiesGrid/ComplainantColumn.tsx",
+      "lines": 365,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreCaseOpsActions.ts",
+      "lines": 362,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/components/DecisionsAppealsHubView.tsx",
+      "lines": 358,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreInvestigationActions.ts",
+      "lines": 357,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseTransformInvestigationReferral.ts",
+      "lines": 349,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalRequestSpecialtyFields.ts",
+      "lines": 349,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/useSmartFileDefaultJudgmentActions.ts",
+      "lines": 349,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/verdictCassationResultEngine.ts",
+      "lines": 348,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreCaseReferralActions.ts",
+      "lines": 346,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalUnknownDefendant.ts",
+      "lines": 344,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.ts",
+      "lines": 344,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalPartiesGrid/DefendantColumn.tsx",
+      "lines": 339,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalReferralMutations.ts",
+      "lines": 339,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/useLawyerDashboardNavigation.ts",
+      "lines": 338,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/panels/cassation/CassationPhaseBody.tsx",
+      "lines": 326,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/VenueIdentityCorrectionModal.tsx",
+      "lines": 323,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/alertDisplayMeta.ts",
+      "lines": 321,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/lawyerDashboard/__tests__/buildLawyerDashboardTabBundle.test.ts",
+      "lines": 319,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/stageJourney.test.ts",
+      "lines": 318,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/modals/flow-modals/AddIncidentalCaseModal.tsx",
+      "lines": 313,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/procedural/useProceduralLifecycleActions.ts",
+      "lines": 310,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseTransformJourneyLifecycle.ts",
+      "lines": 308,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/domain/lawsuit/lawsuitFileFactory.ts",
+      "lines": 308,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreTrashMarginActions.ts",
+      "lines": 303,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/procedural-modals/CaseConsolidationModal.tsx",
+      "lines": 303,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/engine/normalizeLoadedDecisionRow.ts",
+      "lines": 302,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/severanceCassationEngine.ts",
+      "lines": 301,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreTrialVerdictCardActions.ts",
+      "lines": 300,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseMergeTimeline.ts",
+      "lines": 296,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/panels/judge/JudgePreDecisionHearingsPanel.tsx",
+      "lines": 296,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/SmartRepository/hooks/useRepositoryCompose.ts",
+      "lines": 296,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/__tests__/appealStageTransition.test.ts",
+      "lines": 289,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/incidentalCaseLinking.ts",
+      "lines": 288,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ArchivePortal/components/ArchivePortalTrashDialogs.tsx",
+      "lines": 286,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/SeveranceTargetPickerModal.tsx",
+      "lines": 285,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalRequestModalOpeners.ts",
+      "lines": 275,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreMergeDraftActions.ts",
+      "lines": 274,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/__tests__/caseShareScenarios.test.ts",
+      "lines": 274,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseMergeMigration.test.ts",
+      "lines": 273,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/lawyerDashboard/lawyerDashboardNav.ts",
+      "lines": 273,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendarDateSniffer.ts",
+      "lines": 272,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/partyPersonalStage.ts",
+      "lines": 270,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveCard.tsx",
+      "lines": 267,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreSessionDraftUnknownDefendantActions.ts",
+      "lines": 264,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/stageCassationActionGates.ts",
+      "lines": 264,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/__tests__/judgmentAppealRights.test.ts",
+      "lines": 261,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/notificationMessageFormat.ts",
+      "lines": 259,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/wife-user-journey.spec.ts",
+      "lines": 258,
+      "signals": [
+        "/إضبارة/",
+        "/اضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawsuitsWorkspaceHost.tsx",
+      "lines": 256,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/globalSearchFuse.ts",
+      "lines": 252,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/lawsuitAlerts.ts",
+      "lines": 251,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalDashboardBridge.tsx",
+      "lines": 249,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/panels/judge/JudgeDecisionFormPanel.tsx",
+      "lines": 243,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawsuitsWorkspaceShell.tsx",
+      "lines": 241,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalJourneyStageAccessOrchestrator.ts",
+      "lines": 234,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreTrialEvidenceActions.ts",
+      "lines": 231,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/workspacePinBuilders.ts",
+      "lines": 227,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/criminalDashboardLoader.ts",
+      "lines": 226,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ClientRequestsHub.tsx",
+      "lines": 223,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalTimelineEventInsertEngine.ts",
+      "lines": 219,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/judgment/judgmentConfirm/scenarioWaitAppeal.ts",
+      "lines": 216,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/layout/SmartFileChrome.tsx",
+      "lines": 216,
+      "signals": [
+        "/إضبارة/",
+        "/اضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/useSmartFilePleadingsActions.ts",
+      "lines": 213,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/incrementalSync.ts",
+      "lines": 212,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreDetentionDecisionActions.ts",
+      "lines": 209,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreSessionDraftActions.ts",
+      "lines": 209,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/judgment/useCrossAppealAndCassationActions.ts",
+      "lines": 209,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/DecisionsCommandBar.tsx",
+      "lines": 203,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/__tests__/criminalStore.draft.test.ts",
+      "lines": 203,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/personalStatusValidation.ts",
+      "lines": 203,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalPartiesGrid.tsx",
+      "lines": 202,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/global-search.spec.ts",
+      "lines": 202,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalInvestigationMutationEngine.ts",
+      "lines": 200,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/caseShareTypes.ts",
+      "lines": 200,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalDashboardLazyRegistry.ts",
+      "lines": 198,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/hooks/useUrgentLifecycleModals.ts",
+      "lines": 198,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/utils/criminalCaseCardIndex.ts",
+      "lines": 198,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/SmartFileModalContent.tsx",
+      "lines": 197,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/UrgentLifecycleModals.tsx",
+      "lines": 196,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/useIncrementalCalendarSync.ts",
+      "lines": 196,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/orchestrators/criminalOrchestratorSliceTypes.ts",
+      "lines": 195,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalCaseDraftFactory.ts",
+      "lines": 193,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/procedural-modals/CaseLinkModal.tsx",
+      "lines": 193,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseTransformSeverance.ts",
+      "lines": 192,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Form_Urgent_Actions/constants.ts",
+      "lines": 188,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/criminalUrgentAlerts.test.ts",
+      "lines": 187,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/calendarCleanup.test.ts",
+      "lines": 185,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/caseShare/ColleagueShareCatalogPicker.tsx",
+      "lines": 184,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreJudicialDecisionLifecycleActions.ts",
+      "lines": 181,
+      "signals": [
+        "/seizedAsset/i",
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/criminalCalendarSyncPruning.test.ts",
+      "lines": 180,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerNewCase/__tests__/civilSectionStructure.test.ts",
+      "lines": 177,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/SmartLegalRadar/hooks/useSmartLegalRadarForm.ts",
+      "lines": 174,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistSupport.ts",
+      "lines": 173,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/auxiliarySync.ts",
+      "lines": 173,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/urgentSync.ts",
+      "lines": 173,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawsuitsAddCaseFabWithPicker.tsx",
+      "lines": 170,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/ArchivePortal/components/CriminalArchiveCard.tsx",
+      "lines": 169,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/shared.ts",
+      "lines": 169,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/SendToCassationModal.tsx",
+      "lines": 166,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "scripts/capture-console-sections.mjs",
+      "lines": 166,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseSeveranceView.ts",
+      "lines": 165,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/search/globalSearchIndexLawsuitStages.ts",
+      "lines": 165,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/journeyOrderApplyEngine.ts",
+      "lines": 163,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/personalStatusPearlTheme.ts",
+      "lines": 163,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalDashboardCassationMergeActions.ts",
+      "lines": 162,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStoreCaseCassationOpsActions.ts",
+      "lines": 161,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/types/components.ts",
+      "lines": 161,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStore.ts",
+      "lines": 159,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/hooks/__tests__/useLawyerDashboardGlobalSearchNav.openCover.test.ts",
+      "lines": 156,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/__tests__/caseShareRepository.test.ts",
+      "lines": 155,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/parts/IncidentalCasesManager.tsx",
+      "lines": 150,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawsuitsCivilArchiveInstantShell.tsx",
+      "lines": 148,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalNewCase.tsx",
+      "lines": 144,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/modals/MetaEditModal.tsx",
+      "lines": 142,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/requestPartySelection.ts",
+      "lines": 141,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/panels/grievance/GrievanceOutcomeAndExpired.tsx",
+      "lines": 141,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/PersonalStatusSmartFileChrome.tsx",
+      "lines": 140,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/judgment/useAppealTransitionAction.ts",
+      "lines": 136,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/SmartRepository/entryCards/useUniversalEntryCardEdit.ts",
+      "lines": 134,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/modals/contentEntry/AddNoteModal.tsx",
+      "lines": 131,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/judicialDecisionsLedgerEngine.ts",
+      "lines": 130,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/orchestrators/useCriminalRequestsOrchestrator.ts",
+      "lines": 127,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/services/search/globalSearchIndexCriminalEntries.ts",
+      "lines": 127,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/useSmartFileConsolidationLinking.ts",
+      "lines": 125,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/__tests__/globalSearchNavDispatch.test.ts",
+      "lines": 124,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/api/case-share/route.ts",
+      "lines": 122,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/NotificationPanel/components/CaseShareIncomingCard.tsx",
+      "lines": 122,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/MergeCaseModal.tsx",
+      "lines": 121,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalMissingCaseRecovery.ts",
+      "lines": 119,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/domain/urgent/procedureCategory.ts",
+      "lines": 119,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/judgment/judgmentConfirm/scenarioCassation.ts",
+      "lines": 117,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/OtherEvidenceEntryForm.tsx",
+      "lines": 114,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/useOrderFileMetaPartyEdit.ts",
+      "lines": 114,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalDashboardLazyRequestUi.tsx",
+      "lines": 113,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "scripts/audit-slice-exports.mjs",
+      "lines": 113,
+      "signals": [
+        "/ExecutionDashboard/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardResolvedRuntimeShell.tsx",
+      "lines": 112,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistMerge.ts",
+      "lines": 111,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalPartiesGrid/shared.ts",
+      "lines": 110,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/alertNavigation.test.ts",
+      "lines": 110,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/juvenileMixedCaseSplitEngine.ts",
+      "lines": 109,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/DeferredActiveOrderFile.tsx",
+      "lines": 108,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/caseShareAccessControl.ts",
+      "lines": 108,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/urgent-actions-db.test.ts",
+      "lines": 108,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "scripts/extract-criminal-persist-migrate.mjs",
+      "lines": 108,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalDashboardHeaderTitle.ts",
+      "lines": 107,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendarAuthenticity.ts",
+      "lines": 107,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/smartFileBootHydrator.ts",
+      "lines": 105,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/criminalSync.ts",
+      "lines": 105,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/globalSearchFuseRank.test.ts",
+      "lines": 105,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/layout/PartiesSidebar.tsx",
+      "lines": 104,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawyerDashboardScheduleTabContent.tsx",
+      "lines": 103,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/InvestigationDecisionModal.test.ts",
+      "lines": 102,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/partyContextFilter.ts",
+      "lines": 102,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/criminalBootHydrator.ts",
+      "lines": 101,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/absentJudgmentFlow.ts",
+      "lines": 100,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/utils/nlpParser.ts",
+      "lines": 98,
+      "signals": [
+        "/اضبارة/"
+      ]
+    },
+    {
+      "path": "scripts/console-audit-full.mjs",
+      "lines": 98,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/journeyStageVisuals.ts",
+      "lines": 97,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalPartiesGrid/PartyBadges.tsx",
+      "lines": 96,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalProceduralPartyUtils.ts",
+      "lines": 94,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/CriminalCaseTrashModal.tsx",
+      "lines": 93,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardPortal.tsx",
+      "lines": 89,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardLawsuitsOverlayEntry.tsx",
+      "lines": 89,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/search/globalSearchIndexVaultEntries.ts",
+      "lines": 89,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/hooks/judgment/useStageTransitionActions.ts",
+      "lines": 88,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNonExecArchiveOverlayEntry.tsx",
+      "lines": 87,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/lifecycleActions/createNavigationActions.ts",
+      "lines": 87,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/publicProsecutionGovernance.ts",
+      "lines": 86,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/case-consolidation-linking.spec.ts",
+      "lines": 86,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/PendingSeveranceResumeBar.tsx",
+      "lines": 85,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSmartFileOverlayEntry.tsx",
+      "lines": 84,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/decisions-storage-persist.spec.ts",
+      "lines": 83,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/layout/LifecyclePanel.tsx",
+      "lines": 82,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/resolveLinkedCaseMeta.ts",
+      "lines": 81,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalDashboardRuntimeShells.tsx",
+      "lines": 80,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/__tests__/caseShareTestFixtures.ts",
+      "lines": 80,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/alertDisplayMeta.test.ts",
+      "lines": 80,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/SmartFileModalPortal.tsx",
+      "lines": 77,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/NotificationPanel/hooks/useCaseShareIncoming.ts",
+      "lines": 77,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/panels/grievance/GrievanceFinalizeBar.tsx",
+      "lines": 76,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/infrastructure/persistence/HamiStorage.ts",
+      "lines": 76,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/modals/TimelineMergedEventViewModal.tsx",
+      "lines": 74,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/OtherEvidenceLogCard.tsx",
+      "lines": 74,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/SmartFileModalBootChrome.tsx",
+      "lines": 73,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/tasks/taskSanitizer.ts",
+      "lines": 73,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/caseIdentityCorrectionEngine.ts",
+      "lines": 72,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalCaseOwner.ts",
+      "lines": 72,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardResolvedRuntime.tsx",
+      "lines": 72,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalCaseReferenceUtils.ts",
+      "lines": 71,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/UrgentDashboardErrorFallbacks.tsx",
+      "lines": 70,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/constants/iraqiLawCatalog.ts",
+      "lines": 70,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/lawsuitWorkspaceWarm.ts",
+      "lines": 70,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/useActiveOrderFileOrchestration.tsx",
+      "lines": 69,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/LawyerNewCaseSelectionInstantShell.tsx",
+      "lines": 68,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/__tests__/buildPinFromSearchEntry.test.ts",
+      "lines": 67,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/__tests__/criminalPartiesGridStructure.test.ts",
+      "lines": 66,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/notificationMessageFormat.test.ts",
+      "lines": 66,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/smartFileModalLoader.ts",
+      "lines": 64,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/urgent-no-kv-storm.spec.ts",
+      "lines": 64,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/caseShare/ColleagueConsultationContext.tsx",
+      "lines": 62,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardBootChrome.tsx",
+      "lines": 62,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerNewCase/types.ts",
+      "lines": 62,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/lifecycleActions/createFinalizeCase.ts",
+      "lines": 61,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/alertFutureActions.ts",
+      "lines": 61,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/PersonalStatusStageFooterBar.tsx",
+      "lines": 60,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/caseShare/__tests__/caseShareAccessControl.test.ts",
+      "lines": 60,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalModalPortal.tsx",
+      "lines": 59,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/MergeProvenanceBadge.tsx",
+      "lines": 57,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/__tests__/calendarPruneLiveSnapshot.test.ts",
+      "lines": 57,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/investigationPhaseGuidance.ts",
+      "lines": 56,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/WorkspacePinButton.tsx",
+      "lines": 56,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/statementRecordingPlaceEngine.ts",
+      "lines": 55,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerNewCase/constants.ts",
+      "lines": 55,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/proceduralRequestTemplateCassationCore.ts",
+      "lines": 54,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/PersonalStatusCassationOutcomePanel.tsx",
+      "lines": 54,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/lawyerDashboard/homeIntentWarm.ts",
+      "lines": 51,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/hooks/useEntityCalendarEvents.ts",
+      "lines": 49,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/__tests__/clusterMatchRules.test.ts",
+      "lines": 49,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/types.ts",
+      "lines": 48,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/civil-lawsuit-procedural.spec.ts",
+      "lines": 47,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/hooks/lifecycleDerived/useWorkspaceInsightsDerived.ts",
+      "lines": 44,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendarBridge.types.ts",
+      "lines": 44,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/smartFileNestedOverlayState.ts",
+      "lines": 41,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/__tests__/wave7hScoreLiftHonesty.test.ts",
+      "lines": 41,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "e2e/civil-session-requests.spec.ts",
+      "lines": 41,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/personal-status/personalStatusLawRegistry.ts",
+      "lines": 40,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "e2e/civil-lawsuit-smoke.spec.ts",
+      "lines": 40,
+      "signals": [
+        "/إضبارة/",
+        "/اضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/investigationDraftValidation.ts",
+      "lines": 39,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerDashboardParts/types.ts",
+      "lines": 38,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/useCriminalDashboardShellPrefetch.ts",
+      "lines": 36,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/criminalOpenContract.ts",
+      "lines": 36,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/LawyerNewCase/components/CaseHeader.tsx",
+      "lines": 35,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/domain/lawsuit/lawsuitFileMutationGuard.ts",
+      "lines": 34,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalNewCase/CriminalNewCaseFooter.tsx",
+      "lines": 31,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/JourneyStageBadge.tsx",
+      "lines": 30,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/mergeCasePatch.ts",
+      "lines": 30,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalCaseMutationGuard.ts",
+      "lines": 29,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/types/supabase-timeline.ts",
+      "lines": 29,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/workspace/unpinWorkspaceEntity.ts",
+      "lines": 28,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/JudicialPartyScopeNotice.tsx",
+      "lines": 27,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/Dashboard_Active_Order_File/layout/ArchiveBanner.tsx",
+      "lines": 27,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/lawsuitOpenContract.ts",
+      "lines": 26,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/search/__tests__/searchDisplayText.test.ts",
+      "lines": 26,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/__tests__/SmartFileModalBootChrome.test.tsx",
+      "lines": 24,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/smartFileInlineOverlayRegistry.ts",
+      "lines": 20,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/discoveredDates.ts",
+      "lines": 20,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/criminalNewCaseFormLoader.ts",
+      "lines": 19,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/criminalEmptyPersistAuth.ts",
+      "lines": 19,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/hubOverlayStack.ts",
+      "lines": 18,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/civilLawsuitTaskFilter.ts",
+      "lines": 18,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/smart-modal/smartFile/smartFileOverlayZ.ts",
+      "lines": 18,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/smartFileModalPortalLazy.ts",
+      "lines": 17,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/dossierSync/index.ts",
+      "lines": 17,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/domain/urgent/fileDataFromUrgentForm.ts",
+      "lines": 16,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/View_Urgent_And_Orders_Dashboard/types.ts",
+      "lines": 13,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/components/requestModalEntryLanes.types.ts",
+      "lines": 12,
+      "signals": [
+        "/seizedAsset/i"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboardEntryLazy.tsx",
+      "lines": 12,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalNewCase/types.ts",
+      "lines": 10,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/CriminalDashboard.tsx",
+      "lines": 9,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalIdUtils.ts",
+      "lines": 9,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/slices/criminal/newCase.ts",
+      "lines": 7,
+      "signals": [
+        "/إضبارة/"
+      ]
+    },
+    {
+      "path": "src/app/slices/criminal/legalCodes.ts",
+      "lines": 5,
+      "signals": [
+        "/إضبارة/"
+      ]
+    }
+  ],
+  "weakHits": [
+    {
+      "path": "src/app/constants/legal.ts",
+      "lines": 334,
+      "signalCount": 6,
+      "signals": [
+        "/\\bexecution\\b/i",
+        "/\\bexecutor\\b/i",
+        "/\\balimony\\b/i",
+        "/تنفيذ/",
+        "/حجز/",
+        "/نفقة/"
+      ]
+    },
+    {
+      "path": "src/app/utils/__tests__/partyDeathClaimPolicy.test.ts",
+      "lines": 91,
+      "signalCount": 4,
+      "signals": [
+        "/\\bexecution\\b/i",
+        "/\\balimony\\b/i",
+        "/نفقة/",
+        "/مشاهدة/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/decisionsLedgerVisuals.test.ts",
+      "lines": 287,
+      "signalCount": 3,
+      "signals": [
+        "/\\bseizure\\b/i",
+        "/حجز/",
+        "/كفيل/"
+      ]
+    },
+    {
+      "path": "src/app/services/calendar/__tests__/calendarFullScheduleSync.test.ts",
+      "lines": 201,
+      "signalCount": 3,
+      "signals": [
+        "/\\bexecution\\b/i",
+        "/تنفيذ/",
+        "/حجز/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/lawyerRequestsEngine.ts",
+      "lines": 178,
+      "signalCount": 3,
+      "signals": [
+        "/\\bseizure\\b/i",
+        "/حجز/",
+        "/كفيل/"
+      ]
+    },
+    {
+      "path": "src/app/utils/__tests__/waiveInitialAppeal.test.ts",
+      "lines": 128,
+      "signalCount": 3,
+      "signals": [
+        "/\\bexecutor\\b/i",
+        "/حجز/",
+        "/كفيل/"
+      ]
+    },
+    {
+      "path": "src/app/runtime/__tests__/worldClassLdStemCut.test.ts",
+      "lines": 69,
+      "signalCount": 3,
+      "signals": [
+        "/\\bexecution\\b/i",
+        "/\\bdossier\\b/i",
+        "/تنفيذ/"
+      ]
+    },
+    {
+      "path": "src/app/components/lawyer/CommunityScreen/utils.ts",
+      "lines": 68,
+      "signalCount": 3,
+      "signals": [
+        "/تنفيذ/",
+        "/حجز/",
+        "/نفقة/"
+      ]
+    }
+  ]
+}

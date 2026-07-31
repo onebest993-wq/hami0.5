@@ -1,18 +1,19 @@
-import React, { Suspense, memo, useEffect, useMemo } from 'react';
+import React, { Suspense, memo, useEffect, useMemo, useRef } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import {
-    Book,
-    ListChecks,
-    FolderOpen,
-    Calendar as CalendarIcon,
     Scale,
     FileText,
     ArrowLeft,
     Bell,
     MessageCircle,
-    Warehouse,
     type LucideIcon,
 } from 'lucide-react';
+import {
+    HomeCalendarIcon,
+    HomeListChecksIcon,
+    HomeWarehouseIcon,
+} from '@/app/components/lawyer/dashboard/homeStemIcons';
+import type { HomeStemIconProps } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import type { CommandCenterNote as Note } from './commandCenterTypes';
 import {
     useLawyerSettingsAppearance,
@@ -47,9 +48,14 @@ import {
     prefetchDockWidgetIntentImmediate,
     scheduleVisibleDockWidgetsPrefetch,
 } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
-import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
-import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 
+/** Matches scheduleBootHydrator.ts — local to avoid sync stem pull. */
+const SCHEDULE_PRIME_HOST_EVENT = 'hami:schedule-prime-host';
+
+function dispatchSchedulePrimeHost(): void {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new Event(SCHEDULE_PRIME_HOST_EVENT));
+}
 interface LegalCommandCenterDockProps {
     onAddNote?: (note: Note) => void;
     userId?: string;
@@ -92,14 +98,18 @@ const LazyCommandCenterOverlays = lazyWithRetry(() =>
     })),
 );
 
+type DockShellIcon = LucideIcon | React.ComponentType<HomeStemIconProps>;
+
 type DockItemProps = {
     widgetId: HomeWidgetId;
-    icon: LucideIcon;
+    icon: DockShellIcon;
     label: string;
     ariaLabel?: string;
     onClick: () => void;
     onPrefetch?: () => void;
     onPointerPrime?: () => void;
+    /** فتح عند pointerdown — أسرع على اللمس من انتظار click */
+    activateOnPointerDown?: boolean;
     active?: boolean;
     badge?: boolean;
     reduceMotion: boolean;
@@ -118,6 +128,7 @@ const DockItem = memo(function DockItem({
     onClick,
     onPrefetch,
     onPointerPrime,
+    activateOnPointerDown = false,
     active,
     badge,
     reduceMotion,
@@ -127,9 +138,19 @@ const DockItem = memo(function DockItem({
     showLabels,
     visualStyles,
 }: DockItemProps) {
+    const armedRef = useRef(false);
+    const armClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const containerBorderOn = resolveBlockContainerBorder(blockOverride, homeContainerBorder);
     const pressMotionClass =
         reduceMotion || disabled ? '' : ' hami-dock-item-press';
+
+    const clearArm = () => {
+        armedRef.current = false;
+        if (armClearTimerRef.current) {
+            clearTimeout(armClearTimerRef.current);
+            armClearTimerRef.current = null;
+        }
+    };
 
     return (
         <button
@@ -141,8 +162,23 @@ const DockItem = memo(function DockItem({
             disabled={disabled}
             tabIndex={disabled ? -1 : 0}
             onPointerEnter={onPrefetch}
-            onPointerDown={onPointerPrime}
-            onClick={onClick}
+            onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                onPointerPrime?.();
+                if (!activateOnPointerDown || disabled) return;
+                armedRef.current = true;
+                onClick();
+                if (armClearTimerRef.current) clearTimeout(armClearTimerRef.current);
+                armClearTimerRef.current = setTimeout(clearArm, 400);
+            }}
+            onPointerCancel={clearArm}
+            onClick={() => {
+                if (activateOnPointerDown && armedRef.current) {
+                    clearArm();
+                    return;
+                }
+                onClick();
+            }}
             className={`hami-dock-item relative flex flex-col items-center justify-end gap-0 min-w-0 w-full pt-0.5 pb-1${pressMotionClass} ${DOCK_SHELL_ITEM_A11Y}`}
         >
             <div className="relative flex flex-col items-center w-full" aria-hidden>
@@ -242,21 +278,29 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
             prefetches[widgetId] = () => prefetchDockWidgetIntentDebounced(widgetId);
             if (widgetId === 'dockTasks') {
                 pointerPrimes[widgetId] = () => {
-                    prefetchDockWidgetIntentImmediate('dockTasks');
-                    void hydrateFieldTasksShellForInstantOpen(true);
+                    /* hover فوري — Entry+ستارة فقط؛ warmFieldTasksOnOpen عند النقر الفعلي */
+                    prefetchDockWidgetIntentImmediate('dockTasks', 'hover');
                 };
             }
             if (widgetId === 'dockCalendar') {
                 pointerPrimes[widgetId] = () => {
                     prefetchDockWidgetIntentImmediate('dockCalendar');
-                    void hydrateScheduleShellForInstantOpenWithData(userId, true);
+                    dispatchSchedulePrimeHost();
+                };
+            }
+            if (widgetId === 'dockRepository') {
+                pointerPrimes[widgetId] = () => {
+                    prefetchDockWidgetIntentImmediate('dockRepository');
+                    void import('@/app/runtime/repositoryBootHydrator')
+                        .then((m) => m.dispatchRepositoryPrimeHost())
+                        .catch(() => undefined);
                 };
             }
             const clickHandler = resolveDockWidgetClick(widgetId, false);
             if (clickHandler) clicks[widgetId] = clickHandler;
         }
         return { clicks, prefetches, pointerPrimes };
-    }, [visibleDockWidgets, isEditing, resolveDockWidgetClick, userId]);
+    }, [visibleDockWidgets, isEditing, resolveDockWidgetClick]);
 
     const shellOverride = overrides.dockShell;
     const dockLiftPx = shellOverride?.dockLiftPx ?? 0;
@@ -298,7 +342,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
             Record<
                 HomeWidgetId,
                 {
-                    icon: LucideIcon;
+                    icon: DockShellIcon;
                     label: string;
                     active?: boolean;
                     badge?: boolean;
@@ -315,24 +359,24 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 label: dockShellLabel('forum'),
             },
             dockRepository: {
-                icon: Warehouse,
+                icon: HomeWarehouseIcon,
                 label: dockShellLabel('dockRepository'),
             },
             dockNotepad: {
-                icon: Warehouse,
+                icon: HomeWarehouseIcon,
                 label: dockShellLabel('dockRepository'),
             },
             dockCalendar: {
-                icon: CalendarIcon,
+                icon: HomeCalendarIcon,
                 label: dockShellLabel('dockCalendar'),
                 badge: urgentAlertsCount > 0,
             },
             dockVault: {
-                icon: Warehouse,
+                icon: HomeWarehouseIcon,
                 label: dockShellLabel('dockRepository'),
             },
             dockTasks: {
-                icon: ListChecks,
+                icon: HomeListChecksIcon,
                 label: dockShellLabel('dockTasks'),
                 badge: pendingFieldTasksCount > 0,
             },
@@ -431,6 +475,9 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                         }
                         onPrefetch={dockItemInteractions.prefetches[widgetId]}
                         onPointerPrime={dockItemInteractions.pointerPrimes[widgetId]}
+                        activateOnPointerDown={
+                            widgetId === 'dockCalendar' || widgetId === 'dockTasks'
+                        }
                         onClick={clickHandler}
                     />
                 );

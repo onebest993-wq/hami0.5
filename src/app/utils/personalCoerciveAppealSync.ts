@@ -2,7 +2,6 @@
  * مصدر واحد لمزامنة محضر المتابعة الجبري مع مركز القرارات والطعون.
  * يقرأ حالة البطاقة الحاكمة: نفاذ / توقف / استمرار / إنهاء الدورة.
  */
-import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     isExecutorRequestAppealCycleSupersededFromRecord,
     type CreditorRequestAppealGate,

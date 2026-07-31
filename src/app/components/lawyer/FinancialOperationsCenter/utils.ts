@@ -67,12 +67,18 @@ export function resolvePrincipalBasisFromStore(
     store: UnifiedLedgerStore,
     params: UnifiedLedgerTotalParams
 ): number {
-    if (typeof store.principalSnapshot === 'number' && Number.isFinite(store.principalSnapshot)) {
-        return Math.max(0, store.principalSnapshot);
-    }
-    return Number.isFinite(params.principal_amount) && params.principal_amount > 0
-        ? Math.max(0, params.principal_amount)
-        : 0;
+    const fromParams =
+        Number.isFinite(params.principal_amount) && params.principal_amount > 0
+            ? Math.max(0, params.principal_amount)
+            : 0;
+    const snap =
+        typeof store.principalSnapshot === 'number' && Number.isFinite(store.principalSnapshot)
+            ? Math.max(0, store.principalSnapshot)
+            : null;
+    // قيمة حيّة من الإضبارة تتفوّق على لقطة صفرية قديمة (مثلاً أثاث زوجية بعد تعذّر التسليم)
+    if (fromParams > 0 && (snap === null || snap === 0)) return fromParams;
+    if (snap !== null) return snap;
+    return fromParams;
 }
 
 export function computeNonPrincipalLedgerComponent(
@@ -541,18 +547,7 @@ export function resolveUnifiedLedgerFinancialTotals(
 }
 
 /** متبقي الوعاء — المصدر الوحيد لمصفوفة الحجز */
-export function resolveRemainingBalanceFromFinancialCenter(args: {
-    executionId?: string;
-    ledgerParams: UnifiedLedgerTotalParams;
-    readRaw?: (key: string) => unknown;
-}): number {
-    const { remainingUnified } = resolveUnifiedLedgerFinancialTotals(
-        args.executionId,
-        args.ledgerParams,
-        args.readRaw
-    );
-    return Math.max(0, Math.round(remainingUnified));
-}
+export { resolveRemainingBalanceFromFinancialCenter } from './unifiedLedgerLite';
 
 export function notifyUnifiedLedgerUpdated(executionId?: string): void {
     if (typeof window === 'undefined') return;
@@ -603,18 +598,4 @@ export function resolvePersistedLedgerStore(
 }
 
 /** قراءة حالة إخلال التسوية من الوعاء الموحّد */
-export function resolveSettlementGuarantorGateFromLedger(args: {
-    executionId?: string;
-    readRaw?: (key: string) => unknown;
-}): {
-    settlementBreachTriggeredAt: string | null;
-    pendingSettlement: UnifiedLedgerStore['pendingSettlement'];
-} {
-    const raw =
-        args.executionId && args.readRaw ? args.readRaw(storageKey(args.executionId)) : undefined;
-    const store = parseUnifiedLedgerFromStorage(raw) ?? emptyStore();
-    return {
-        settlementBreachTriggeredAt: store.settlementBreachTriggeredAt,
-        pendingSettlement: store.pendingSettlement,
-    };
-}
+export { resolveSettlementGuarantorGateFromLedger } from './unifiedLedgerLite';

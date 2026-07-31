@@ -4,8 +4,8 @@ import {
     clampRecentSearchLabel,
     globalSearchRecentStorageKey,
     GLOBAL_SEARCH_MAX_RECENT_COUNT,
-    sanitizeRecentSearchLabels,
 } from '@/app/services/search/globalSearchQuerySecurity';
+import { readGlobalSearchRecentSearchesSync } from '@/app/services/search/readGlobalSearchRecentSearchesSync';
 import type { GlobalSearchNavigate, GroupedSearchResults } from '@/app/services/globalSearchIndex';
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
@@ -39,8 +39,6 @@ export interface UseGlobalSearchReturn {
     pinLookup: WorkspacePinLookupContext;
 }
 
-const LEGACY_RECENT_SEARCHES_KEY = 'lawyer_recent_searches';
-
 export function useGlobalSearch(
     onClose: () => void,
     onNavigate: (navigate: GlobalSearchNavigate) => void,
@@ -56,39 +54,18 @@ export function useGlobalSearch(
         options.searchSessionKey ?? 0,
     );
 
-    const [recentSearches, setRecentSearches] = useState<string[]>([]);
-
     const recentStorageKey = globalSearchRecentStorageKey(options.userId);
+    const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+        readGlobalSearchRecentSearchesSync(options.userId),
+    );
 
     useEffect(() => {
         if (!recentStorageKey) {
             setRecentSearches([]);
             return;
         }
-        const saved = SecureStoreService.getItemSync(recentStorageKey);
-        if (!saved) {
-            const legacy = SecureStoreService.getItemSync(LEGACY_RECENT_SEARCHES_KEY);
-            if (legacy) {
-                try {
-                    const migrated = sanitizeRecentSearchLabels(JSON.parse(legacy));
-                    setRecentSearches(migrated);
-                    if (migrated.length > 0) {
-                        SecureStoreService.setItemSync(recentStorageKey, JSON.stringify(migrated));
-                    }
-                    SecureStoreService.deleteItemSync(LEGACY_RECENT_SEARCHES_KEY);
-                } catch {
-                    SecureStoreService.deleteItemSync(LEGACY_RECENT_SEARCHES_KEY);
-                }
-            }
-            return;
-        }
-        try {
-            const parsed: unknown = JSON.parse(saved);
-            setRecentSearches(sanitizeRecentSearchLabels(parsed));
-        } catch {
-            SecureStoreService.deleteItemSync(recentStorageKey);
-        }
-    }, [recentStorageKey]);
+        setRecentSearches(readGlobalSearchRecentSearchesSync(options.userId));
+    }, [recentStorageKey, options.userId]);
 
     const handleResultClick = useCallback(
         (navigate: GlobalSearchNavigate, label: string) => {
@@ -103,9 +80,9 @@ export function useGlobalSearch(
                 SecureStoreService.setItemSync(recentStorageKey, JSON.stringify(newRecent));
             }
             onNavigate(navigate);
-            onClose();
+            /* الإغلاق من Nav فقط — تجنّب double close / sessionKey مزدوج */
         },
-        [recentSearches, onClose, onNavigate, recentStorageKey],
+        [recentSearches, onNavigate, recentStorageKey],
     );
 
     const clearRecent = useCallback(() => {

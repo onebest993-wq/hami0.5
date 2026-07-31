@@ -61,3 +61,10 @@ export async function fillRepositoryNoteComposer(
     await editor.click({ force: true });
     await editor.fill(body);
 }
+
+/** فتح إنشاء بطاقة — عبر قائمة «+ إضافة» */
+export async function openRepositoryNoteCreate(modal: Locator) {
+    await modal.getByTestId('repository-add-menu-trigger').click();
+    await expect(modal.getByTestId('repository-add-menu-panel')).toBeVisible({ timeout: 5_000 });
+    await modal.getByTestId('repository-note-create').click();
+}

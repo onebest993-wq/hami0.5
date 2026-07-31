@@ -1,4 +1,4 @@
-import type { FileData, CaseStage } from '@/app/components/lawyer/LawyerShared';
+import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { listLinkableDossiers, type DossierKind } from './repositoryDossierRegistry';
 

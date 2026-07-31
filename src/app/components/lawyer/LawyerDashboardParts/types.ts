@@ -23,6 +23,8 @@ export type GlobalNote = {
     createdAtIso?: string;
     /** أسطر مهام سريعة مستخرجة من المحرر */
     quickTaskLines?: string[];
+    /** غرفة المستودع — null = المستودع العام */
+    roomId?: string | null;
 };
 
 export type ExecutionFile = FileData & {

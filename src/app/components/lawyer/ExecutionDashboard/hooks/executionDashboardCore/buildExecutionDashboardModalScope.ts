@@ -158,3 +158,40 @@ export function buildExecutionDashboardModalScope(params: BuildExecutionModalSco
 
     return { executionModalFlags, executionModalSetters, modalAliases };
 }
+
+/** استخراج setters فقط — عقد اختبارات الاستقرار */
+export function pickExecutionModalSetters(
+    params: ExecutionModalSetters,
+): ExecutionModalSetters {
+    return buildExecutionDashboardModalScope({
+        ...params,
+        showUnifiedExecutionModal: false,
+        showDecisionsModal: false,
+        showDocumentsModal: false,
+        showTimelineModal: false,
+        showCoerciveModal: false,
+        showNotificationModal: false,
+        showUnifiedSummonsModal: false,
+        showPaymentModal: false,
+        showSeizedAssetsModal: false,
+        showNotesModal: false,
+        showAppointmentModal: false,
+        showPaymentCalculator: false,
+        showSettlementCalculator: false,
+        showPauseModal: false,
+        showLedgerModal: false,
+        showEditDossierMetaModal: false,
+        showEvictionExpenseModal: false,
+        showEvictionLawyerFeeModal: false,
+        showEvictionResidentialGraceModal: false,
+        showGuarantorDetailsModal: false,
+        showHeirsNotificationModal: false,
+        showLinkedDossierTimeline: false,
+        showRealEstateSeizureModal: false,
+        showSolidaryCoerciveTargetModal: false,
+        showStayOfExecutionModal: false,
+        showTransferFileNumberChangeModal: false,
+        modals: {} as ModalStates,
+        setExecutionModal: () => undefined,
+    }).executionModalSetters;
+}

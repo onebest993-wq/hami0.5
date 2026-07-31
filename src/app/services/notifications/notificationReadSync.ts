@@ -3,7 +3,7 @@ import {
     type NotificationModel,
 } from '@/app/infrastructure/NotificationRepository';
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationBridge';
+import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
 import {
     countForumUnread,
     persistForumMarkAllRead,

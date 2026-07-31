@@ -4,7 +4,6 @@ import {
     mirrorSessionNextHearingToCalendar,
     mirrorStageLegalDatesToCalendar,
 } from '../lawsuitTimelineCalendarMirror';
-import { syncLawsuitTimelineAppointment } from '../calendarDossierSync';
 
 vi.mock('../calendarDossierSync', () => ({
     syncLawsuitTimelineAppointment: vi.fn(),

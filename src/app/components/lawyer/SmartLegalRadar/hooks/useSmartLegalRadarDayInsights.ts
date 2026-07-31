@@ -1,9 +1,17 @@
 import { useMemo } from 'react';
 import { timeValue } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
+import { detectConflictsFromUnifiedEvents } from '@/app/services/calendar/scheduleConflictDetector';
 
 export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
+    const scheduleConflict = useMemo(
+        () => detectConflictsFromUnifiedEvents(selectedEvents),
+        [selectedEvents],
+    );
+
     const conflictMessage = useMemo(() => {
+        /* كاشف الإثقال/المواقع يملك الملخص الرسمي — لا تكرار */
+        if (scheduleConflict.hasConflict) return null;
         if (selectedEvents.length < 2) return null;
         const timed = selectedEvents.filter((e) => e.time);
         for (let i = 1; i < timed.length; i++) {
@@ -21,7 +29,7 @@ export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
             }
         }
         return null;
-    }, [selectedEvents]);
+    }, [scheduleConflict.hasConflict, selectedEvents]);
 
     const aiBriefing = useMemo(() => {
         if (selectedEvents.length === 0) return null;
@@ -32,9 +40,11 @@ export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
             parts.push(`الجلسات المهمة: ${critical.map((e) => `"${e.title}"`).join('، ')}`);
         }
         if (consultations.length > 0) parts.push(`لديك ${consultations.length} استشارات`);
-        if (conflictMessage) parts.push('لديك تعارض محتمل في المواعيد يتطلب تدخلك.');
+        if (scheduleConflict.hasConflict || conflictMessage) {
+            parts.push('لديك تعارض محتمل في المواعيد يتطلب تدخلك.');
+        }
         return parts.join('. ');
-    }, [selectedEvents, conflictMessage]);
+    }, [selectedEvents, conflictMessage, scheduleConflict.hasConflict]);
 
-    return { conflictMessage, aiBriefing };
+    return { conflictMessage, aiBriefing, scheduleConflict };
 }

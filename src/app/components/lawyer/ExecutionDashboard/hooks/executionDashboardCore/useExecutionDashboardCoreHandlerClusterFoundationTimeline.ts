@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useExecutionDashboardPushTimelineEvent } from './useExecutionDashboardPushTimelineEvent';
+import { useExecutionDashboardPushTimelineEvent, type UseExecutionDashboardPushTimelineEventParams } from './useExecutionDashboardPushTimelineEvent';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 
 export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
@@ -14,6 +14,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
         persistExecutionMerge,
         setTimelineEvents,
         pushTimelineEventRef,
+        timelineEventsRef,
     } = c as Record<string, unknown>;
 
     const pushTimelineEventBinding = useExecutionDashboardPushTimelineEvent({
@@ -24,6 +25,7 @@ export function useExecutionDashboardCoreHandlerClusterFoundationTimeline(
         executionDataRef,
         persistExecutionMerge,
         setTimelineEvents,
+        timelineEventsRef: timelineEventsRef as UseExecutionDashboardPushTimelineEventParams['timelineEventsRef'],
     });
 
     const { pushTimelineEvent } = pushTimelineEventBinding;

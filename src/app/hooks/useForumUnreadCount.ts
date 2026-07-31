@@ -1,17 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ForumApiService } from '@/app/services/forumApiService';
 import {
     emitForumUnreadCount,
     FORUM_UNREAD_CHANGED_EVENT,
-    syncForumNotificationsToAppStore,
-} from '@/app/services/forum/forumNotificationBridge';
-import { ForumNotificationStreamService } from '@/app/services/forum/ForumNotificationStreamService';
+} from '@/app/services/forum/forumNotificationEvents';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { resolveForumUnreadPollMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
 
 /** عدّاد تنبيهات المنتدى غير المقروءة — للشارة على بطاقة الرئيسية */
 export function useForumUnreadCount(userId: string | null, enabled = true): number {
     const [count, setCount] = useState(0);
+    const [streamRunning, setStreamRunning] = useState(false);
 
     const refresh = useCallback(async () => {
         if (!userId) {
@@ -20,6 +18,10 @@ export function useForumUnreadCount(userId: string | null, enabled = true): numb
             return;
         }
         try {
+            const [{ ForumApiService }, { syncForumNotificationsToAppStore }] = await Promise.all([
+                import('@/app/services/forumApiService'),
+                import('@/app/services/forum/forumNotificationBridge'),
+            ]);
             const { notifications, unreadCount } = await ForumApiService.listForumNotifications(userId);
             syncForumNotificationsToAppStore(userId, notifications);
             setCount(unreadCount);
@@ -34,9 +36,35 @@ export function useForumUnreadCount(userId: string | null, enabled = true): numb
         void refresh();
     }, [enabled, refresh]);
 
-    useVisibilityAwareInterval(() => {
-        void refresh();
-    }, resolveForumUnreadPollMs(ForumNotificationStreamService.isRunning()), enabled && Boolean(userId));
+    useEffect(() => {
+        if (!enabled) {
+            setStreamRunning(false);
+            return;
+        }
+        let cancelled = false;
+        let unsub: (() => void) | undefined;
+        void import('@/app/services/forum/ForumNotificationStreamService').then((m) => {
+            if (cancelled) return;
+            setStreamRunning(m.ForumNotificationStreamService.isRunning());
+            unsub = m.ForumNotificationStreamService.subscribe(() => {
+                if (!cancelled) {
+                    setStreamRunning(m.ForumNotificationStreamService.isRunning());
+                }
+            });
+        });
+        return () => {
+            cancelled = true;
+            unsub?.();
+        };
+    }, [enabled]);
+
+    useVisibilityAwareInterval(
+        () => {
+            void refresh();
+        },
+        resolveForumUnreadPollMs(streamRunning),
+        enabled && Boolean(userId),
+    );
 
     useEffect(() => {
         const onExternal = (e: Event) => {

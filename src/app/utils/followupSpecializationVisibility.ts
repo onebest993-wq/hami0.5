@@ -90,7 +90,7 @@ export function isMatwaaClaim(claimType: string): boolean {
     return c === 'مطاوعة' || c.includes('مطاوعة');
 }
 
-/** أثاث زوجية — تسليم منقولات مع إجراءات تنفيذية في محضر المتابعة */
+/** أثاث زوجية — تسليم منقولات من وحدة الأثاث؛ حجز مالي عند التعذّر دون إجراءات جبريّة في المحضر */
 export function isMaritalFurnitureClaim(claimType: string): boolean {
     const c = String(claimType || '').trim();
     return c === 'أثاث زوجية' || c.includes('أثاث زوجية');
@@ -321,11 +321,12 @@ export function resolveFollowupSpecializationVisibility(
 
     /**
      * نزع حضانة (تسليم ولد) — إجراءات جبريّة شخصية للموظف والكاسب على حدٍ سواء.
+     * تبويب «الإجراءات الجبرية» (حجز/ميداني) فارغ هنا؛ المسارات في «التنفيذ الجبري الشخصي».
      */
     if (isCustodyRemovalClaim(c)) {
         const flags: FollowupSpecializationVisibility = {
             ...defaultFollowupSpecialization(),
-            hideFollowupCoerciveTab: false,
+            hideFollowupCoerciveTab: true,
             hidePersonalCoerciveFollowupTab: false,
             hidePersonalJudgePresentation: false,
             hidePersonalForcedBringActivation: false,
@@ -341,15 +342,15 @@ export function resolveFollowupSpecializationVisibility(
         return isEmployee ? finalize(applyEmployeeDebtorAmountGuarantorBan(flags), { skipPersonalStatusCourtBan: true }) : finalize(flags, { skipPersonalStatusCourtBan: true });
     }
 
-    /** أثاث زوجية — إجراءات ميدانية (كسر وجرد) دون حجز عقار/إخلاء/حارس أو بانرات مالية */
+    /** أثاث زوجية — تسليم من وحدة الأثاث؛ لا تبويب إجراءات جبريّة؛ يبقى حجز مالي عند التعذّر */
     if (isMaritalFurnitureClaim(c)) {
         const flags = {
             ...defaultFollowupSpecialization(),
-            hideFollowupCoerciveTab: false,
-            hidePersonalCoerciveFollowupTab: false,
+            hideFollowupCoerciveTab: true,
+            hidePersonalCoerciveFollowupTab: true,
             hidePersonalJudgePresentation: true,
-            hidePersonalForcedBringActivation: false,
-            showSpecificDeliveryFieldProcedures: true,
+            hidePersonalForcedBringActivation: true,
+            showSpecificDeliveryFieldProcedures: false,
             showHiddenBreakInventoryRequest: false,
             showSpecificDeliveryBreakInventoryCard: false,
             hideCoerciveGraceNoticeBanner: true,
@@ -357,9 +358,10 @@ export function resolveFollowupSpecializationVisibility(
             hideCoerciveSeizureSalaryAndProperty: true,
             hideEncroachmentEvictionProcedureItems: true,
             hideEvictionCustodianProcedure: true,
-            suppressHiddenPersonalCoerciveRequests: false,
+            suppressHiddenPersonalCoerciveRequests: true,
+            hideFollowupSeizureRequestsTab: false,
         };
-        return isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags;
+        return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
     }
 
     const financial = isFinancialDebtCollectionClaim(c);

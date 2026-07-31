@@ -1,5 +1,5 @@
-import { kvDel, kvGet, kvGetByPrefix, kvDelByPrefix, kvSet } from '@/app/api/security/kvStoreAdmin';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
+import { loadKvStoreAdmin } from '@/app/api/security/loadKvStoreAdmin';
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
 import {
     capMergedNotificationLists,
@@ -47,6 +47,36 @@ function makeServerId(prefix: string): string {
         return `${prefix}_${crypto.randomUUID()}`;
     }
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+}
+
+async function kvGet(key: string): Promise<unknown> {
+    const kv = await loadKvStoreAdmin();
+    if (!kv) throw new Error('KV admin unavailable');
+    return kv.kvGet(key);
+}
+
+async function kvSet(key: string, value: unknown): Promise<void> {
+    const kv = await loadKvStoreAdmin();
+    if (!kv) throw new Error('KV admin unavailable');
+    await kv.kvSet(key, value);
+}
+
+async function kvDel(key: string): Promise<void> {
+    const kv = await loadKvStoreAdmin();
+    if (!kv) throw new Error('KV admin unavailable');
+    await kv.kvDel(key);
+}
+
+async function kvGetByPrefix(prefix: string): Promise<unknown[]> {
+    const kv = await loadKvStoreAdmin();
+    if (!kv) throw new Error('KV admin unavailable');
+    return kv.kvGetByPrefix(prefix);
+}
+
+async function kvDelByPrefix(prefix: string): Promise<number> {
+    const kv = await loadKvStoreAdmin();
+    if (!kv) throw new Error('KV admin unavailable');
+    return kv.kvDelByPrefix(prefix);
 }
 
 async function readKvBlob(userId: string): Promise<NotificationModel[]> {

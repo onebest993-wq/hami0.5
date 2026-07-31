@@ -7,10 +7,15 @@ import { useLawsuitNewCaseFlow } from '@/app/hooks/useLawsuitNewCaseFlow';
 import { useLawsuitActiveDossier } from '@/app/hooks/useLawsuitActiveDossier';
 import { useLawyerExecutionFiles, type LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import { useLawyerGlobalNotes } from '@/app/hooks/useLawyerGlobalNotes';
-import { unpinWorkspaceForDeletedFile } from '@/app/workspace/unpinWorkspaceEntity';
 import type { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+
+function unpinWorkspaceForDeletedFile(file: { id: string | number; type?: string }): void {
+    void import('@/app/workspace/unpinWorkspaceEntity')
+        .then((m) => m.unpinWorkspaceForDeletedFile(file))
+        .catch(() => undefined);
+}
 
 type CriminalBridge = ReturnType<typeof useCriminalDashboardBridge>;
 

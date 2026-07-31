@@ -6,6 +6,7 @@ import { safeSetItem } from '@/app/utils/storageUtils';
 import { debug } from '@/app/utils/debug';
 import { buildCloudSavePayload } from '../smartFile/cloudSavePayload';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
+import { rejectLawsuitFileMutation } from '@/app/domain/lawsuit/lawsuitFileMutationGuard';
 
 export function useSmartFilePersist(options: {
     parentData: SmartFileParentData;
@@ -20,14 +21,24 @@ export function useSmartFilePersist(options: {
             updatedStages: CaseStage[],
             updatedParent: SmartFileParentData = parentData,
             stageIndex: number = activeStageIndex,
+            statusOverride?: string,
         ) => {
+            const mutationTarget = {
+                status: updatedParent.status ?? parentData.status ?? 'active',
+            };
+            const blockMsg = rejectLawsuitFileMutation(mutationTarget);
+            if (blockMsg) {
+                SmartToast.warning(blockMsg);
+                return;
+            }
+
             let dataToSave: Record<string, unknown>;
             try {
                 dataToSave = buildCloudSavePayload(
                     updatedStages,
                     updatedParent,
                     stageIndex,
-                    status,
+                    statusOverride ?? status,
                 );
             } catch (error) {
                 logError('saveToCloud.buildPayload', error);

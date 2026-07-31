@@ -12,7 +12,11 @@ const BENIGN_ERROR_PATTERNS: RegExp[] = [
     /ResizeObserver loop completed with undelivered notifications/i,
 ];
 
-const BENIGN_INFO_PATTERNS: RegExp[] = [/Download the React DevTools for a better development experience/i];
+const BENIGN_INFO_PATTERNS: RegExp[] = [
+    /Download the React DevTools for a better development experience/i,
+    /\[CursorBrowser\]/i,
+    /Native dialog overrides installed/i,
+];
 
 const BENIGN_DEBUG_PATTERNS: RegExp[] = [/^\[vite\] connecting/i, /^\[vite\] connected/i, /^\[vite\] hot updated/i];
 

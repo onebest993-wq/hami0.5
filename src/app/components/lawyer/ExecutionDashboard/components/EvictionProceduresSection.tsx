@@ -24,7 +24,6 @@ import {
 } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
 import { FollowupProcedureCard } from './FollowupProcedureCard';
-import { MaritalFurnitureDeliveryProcedureCard } from './MaritalFurnitureDeliveryProcedureCard';
 import { PoliceAssistanceInlineForm } from '@/app/components/lawyer/execution/PoliceAssistanceInlineForm';
 import { BreakInventoryFurnitureInlineForm } from '@/app/components/lawyer/execution/BreakInventoryFurnitureInlineForm';
 import { MaritalFurnitureDeliveryInventoryForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm';
@@ -36,6 +35,7 @@ import { SpecificDeliveryConversionRequestCard } from './SpecificDeliveryConvers
 import type { SpecificDeliveryCaseExpenseRow } from '@/app/utils/specificDeliveryPropertyExpertRequest';
 import {
     MARITAL_FURNITURE_DELIVERY_BRANCH,
+    readFollowupMergedExecutorDecisions,
     resolveMaritalFurnitureDeliveryState,
 } from '@/app/utils/maritalFurnitureDeliveryWorkflow';
 import {
@@ -43,6 +43,8 @@ import {
     shouldShowSpecificDeliveryPropertyExpert,
 } from '@/app/utils/specificDeliveryExpertVisibility';
 import { getPendingSpecificDeliveryItems } from '@/app/utils/specificDeliveryItemsUtils';
+import { appendEvictionProcedureRequest } from '@/app/utils/appendEvictionProcedureRequest';
+import { dispatchOpenDecisionsModalFromFollowup } from '@/app/utils/openDecisionsModalFromFollowup';
 
 type ProcedureExpandKey =
     | 'field_visit'
@@ -73,6 +75,7 @@ export interface EvictionProceduresSectionProps {
         supersedeCompletedHub?: boolean;
     }) => boolean;
     decisionsStorageExecutionId: string;
+    executionData?: Record<string, unknown> | null;
     showToast: (
         message: string,
         type: 'success' | 'error' | 'warning' | 'info',
@@ -114,10 +117,17 @@ export interface EvictionProceduresSectionProps {
     finalizeBreakInventoryRequest?: (input: { decisionId: string }) => void;
     isMaritalFurnitureClaim?: boolean;
     maritalFurnitureItems?: MaritalFurnitureItem[];
+    onOpenDecisionsModal?: (opts?: {
+        tab?: 'current' | 'previous' | 'appeals';
+        decisionId?: string | null;
+    }) => void;
     saveMaritalFurnitureDeliveryInventory?: (input: {
         decisionId: string;
         items: MaritalFurnitureItem[];
     }) => void;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
+    pushTimelineEvent?: (event: import('@/app/types/execution').TimelineEvent) => void;
+    nextTimelineId?: () => string;
     expandProcedureKey?: ProcedureExpandKey | null;
     onExpandProcedureConsumed?: () => void;
 }
@@ -131,6 +141,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
     appendEvictionProcedure,
     appendEvictionExecutorRequest,
     decisionsStorageExecutionId,
+    executionData = null,
     showToast,
     EVICTION_TIMELINE_ACTION_IDS,
     hideEncroachmentEvictionProcedureItems = false,
@@ -155,17 +166,31 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
     finalizeBreakInventoryRequest,
     isMaritalFurnitureClaim = false,
     maritalFurnitureItems = [],
+    onOpenDecisionsModal,
     saveMaritalFurnitureDeliveryInventory,
+    persistExecutionMerge,
+    pushTimelineEvent,
+    nextTimelineId,
     expandProcedureKey = null,
     onExpandProcedureConsumed,
 }) => {
-    const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
+    const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId, executionData);
     const [expandedByKey, setExpandedByKey] = React.useState<Partial<Record<ProcedureExpandKey, boolean>>>({});
     const [fieldVisitDateDraft, setFieldVisitDateDraft] = React.useState('');
 
     const decisionRows = React.useMemo(
         () => (Array.isArray(decisions) ? (decisions as Record<string, unknown>[]) : []),
         [decisions]
+    );
+
+    const followupDecisionRows = React.useMemo(
+        () =>
+            readFollowupMergedExecutorDecisions(
+                decisionsStorageExecutionId,
+                executionData,
+                decisionRows
+            ),
+        [decisionsStorageExecutionId, executionData, decisionRows]
     );
 
     const showPropertyExpertCard = shouldShowSpecificDeliveryPropertyExpert({
@@ -189,19 +214,64 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
         (!specificDeliveryItems?.length && !specificDeliveryFinancialized);
 
     const openAppeals = React.useCallback(
-        (decisionId: string) => {
-            if (!executionId || !decisionId) return;
-            try {
-                window.dispatchEvent(
-                    new CustomEvent('hami-open-decisions-modal', {
-                        detail: { executionId, tab: 'previous', decisionId },
-                    })
-                );
-            } catch {
-                /* ignore */
+        (decisionId: string, decisionRow?: Record<string, unknown> | null) => {
+            const row =
+                decisionRow ??
+                followupDecisionRows.find(
+                    (r) => String(r.id || '').trim() === String(decisionId || '').trim()
+                ) ??
+                null;
+            const pending =
+                !row?.id ||
+                !String((row as { executorOutcome?: string }).executorOutcome ?? 'pending').trim() ||
+                String((row as { executorOutcome?: string }).executorOutcome).trim() === 'pending';
+            const tab = pending ? ('current' as const) : ('previous' as const);
+
+            if (typeof onOpenDecisionsModal === 'function') {
+                onOpenDecisionsModal({ tab, decisionId });
+                return;
             }
+
+            dispatchOpenDecisionsModalFromFollowup({
+                storageExecutionId: decisionsStorageExecutionId || executionId,
+                decisionId,
+                decisionRow: row,
+                executionData,
+                tab,
+            });
         },
-        [executionId]
+        [
+            decisionsStorageExecutionId,
+            executionId,
+            executionData,
+            followupDecisionRows,
+            onOpenDecisionsModal,
+        ],
+    );
+
+    const appendEvictionProcedureSafe = React.useCallback(
+        (input: Parameters<typeof appendEvictionProcedure>[0]): boolean =>
+            appendEvictionProcedureRequest(
+                {
+                    locked: executionCoerciveButtonDisabled,
+                    decisionsStorageExecutionId,
+                    executionData,
+                    appendEvictionExecutorRequest: (request) =>
+                        appendEvictionExecutorRequest({
+                            ...request,
+                            executionData: request.executionData ?? executionData,
+                        }),
+                    showToast,
+                },
+                input,
+            ),
+        [
+            executionCoerciveButtonDisabled,
+            decisionsStorageExecutionId,
+            executionData,
+            appendEvictionExecutorRequest,
+            showToast,
+        ],
     );
 
     const fieldVisitRow = getGoverningEvictionProcedureRowForBranch(decisionRows, 'Field Visit Date');
@@ -211,7 +281,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
         'Lock Breaking & Inventory'
     );
     const maritalDeliveryState = isMaritalFurnitureClaim
-        ? resolveMaritalFurnitureDeliveryState(decisionRows)
+        ? resolveMaritalFurnitureDeliveryState(followupDecisionRows)
         : {
               mode: 'none' as const,
               unifiedRow: null,
@@ -558,33 +628,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                     </button>
                 )}
                 <div className="relative flex-1 min-w-0">
-                    {isMaritalFurnitureClaim ? (
-                        <MaritalFurnitureDeliveryProcedureCard
-                            executionId={executionId}
-                            decisionsStorageExecutionId={decisionsStorageExecutionId}
-                            mode={maritalDeliveryState.mode}
-                            unifiedRow={maritalDeliveryState.unifiedRow}
-                            fieldVisitRow={maritalDeliveryState.fieldVisitRow ?? fieldVisitRow}
-                            breakInventoryRow={maritalDeliveryState.breakInventoryRow ?? breakInventoryRow}
-                            lifecycleUnified={lifecycleForBranch(MARITAL_FURNITURE_DELIVERY_BRANCH)}
-                            lifecycleFieldVisit={lifecycleForBranch('Field Visit Date')}
-                            lifecycleBreakInventory={lifecycleForBranch('Lock Breaking & Inventory')}
-                            maritalFurnitureItems={maritalFurnitureItems}
-                            inlineActionGateKey={inlineActionGateKey}
-                            setInlineActionGateKey={setInlineActionGateKey}
-                            expanded={Boolean(expandedByKey.marital_furniture_delivery)}
-                            onToggleExpanded={() => toggleExpanded('marital_furniture_delivery')}
-                            disabled={executionCoerciveButtonDisabled}
-                            appendEvictionProcedure={appendEvictionProcedure}
-                            maritalDeliveryActionId={
-                                EVICTION_TIMELINE_ACTION_IDS.MARITAL_FURNITURE_DELIVERY as EvictionTimelineActionId
-                            }
-                            saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
-                            finalizeBreakInventoryRequest={finalizeBreakInventoryRequest}
-                            showToast={showToast}
-                            openAppeals={openAppeals}
-                        />
-                    ) : showGenericFieldProcedureCards ? (
+                    {!isMaritalFurnitureClaim && showGenericFieldProcedureCards ? (
                         <FollowupProcedureCard
                             label="طلب تحديد موعد الخروج الميداني"
                             icon={procedureIcon(<Calendar className="w-6 h-6 text-white/70" />)}
@@ -598,7 +642,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                             disabled={executionCoerciveButtonDisabled}
                             resubmitWarningMessage={resubmitWarning}
                             onConfirmSend={({ resubmit } = {}) => {
-                                appendEvictionProcedure({
+                                appendEvictionProcedureSafe({
                                     actionId: EVICTION_TIMELINE_ACTION_IDS.FIELD_VISIT as EvictionTimelineActionId,
                                     title: '📍 طلب تحديد موعد الخروج الميداني',
                                     description: 'طلب تحديد موعد الخروج الميداني مع منفذ العدل (باشر).',
@@ -629,7 +673,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                 disabled={executionCoerciveButtonDisabled}
                 resubmitWarningMessage={resubmitWarning}
                 onConfirmSend={({ resubmit } = {}) =>
-                    appendEvictionProcedure({
+                    appendEvictionProcedureSafe({
                         actionId: EVICTION_TIMELINE_ACTION_IDS.POLICE_FORCE as EvictionTimelineActionId,
                         title: '🛡️ مفاتحة الشرطة للقوة الإجرائية',
                         description:
@@ -671,7 +715,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                     disabled={executionCoerciveButtonDisabled}
                     resubmitWarningMessage={resubmitWarning}
                     onConfirmSend={({ resubmit } = {}) => {
-                        appendEvictionProcedure({
+                        appendEvictionProcedureSafe({
                             actionId: EVICTION_TIMELINE_ACTION_IDS.BREAK_INVENTORY as EvictionTimelineActionId,
                             title: '🔨 طلب كسر الأقفال وجرد الأثاث',
                             description:
@@ -703,7 +747,7 @@ export const EvictionProceduresSection: React.FC<EvictionProceduresSectionProps>
                     disabled={executionCoerciveButtonDisabled}
                     resubmitWarningMessage={resubmitWarning}
                     onConfirmSend={({ resubmit } = {}) => {
-                        appendEvictionProcedure({
+                        appendEvictionProcedureSafe({
                             actionId: EVICTION_TIMELINE_ACTION_IDS.CUSTODIAN as EvictionTimelineActionId,
                             title: '👤 طلب تنصيب حارس قضائي',
                             description: 'طلب عرض على منفذ العدل لتنصيب حارس قضائي على العين.',

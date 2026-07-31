@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, Warehouse } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
@@ -23,6 +23,8 @@ export type SmartRepositoryModalProps = {
     focusNoteId?: string;
     vaultOpenScanner?: boolean;
     notes: GlobalNote[];
+    /** هل استقرت ملاحظات الإقلاع — يمرَّر للـ feed لتجنب وميض فارغ */
+    notesBootSettled?: boolean;
     lawsuitFiles: FileData[];
     executionFiles: ExecutionFile[];
     currentUserId?: string;
@@ -51,6 +53,7 @@ export function SmartRepositoryModal({
     focusNoteId,
     vaultOpenScanner = false,
     notes,
+    notesBootSettled = true,
     lawsuitFiles,
     executionFiles,
     currentUserId,
@@ -153,7 +156,6 @@ export function SmartRepositoryModal({
                             <ChevronLeft size={18} />
                         </button>
                         <div className="flex items-center gap-2 min-w-0">
-                            <Warehouse size={20} className="text-[#E6C673] shrink-0" />
                             <h2 className="font-bold text-lg text-[#F4F0E8] truncate">المستودع الذكي</h2>
                         </div>
                     </div>
@@ -162,6 +164,7 @@ export function SmartRepositoryModal({
                 <SmartRepositoryUnifiedFeed
                     currentUserId={currentUserId}
                     notes={notes}
+                    notesBootSettled={notesBootSettled}
                     lawsuitFiles={lawsuitFiles}
                     executionFiles={executionFiles}
                     startMode={notepadMode}

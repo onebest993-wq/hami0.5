@@ -19,8 +19,8 @@ export function useAppealGrievanceDecideRenderer(args: UseDecisionsAppealsAppeal
             if (w.isPastGrievanceDeadline) return null;
             const rowClass =
                 variant === 'appealsTab'
-                    ? 'flex flex-row-reverse flex-wrap gap-2'
-                    : 'mb-3 flex flex-row-reverse flex-wrap gap-2';
+                    ? 'flex flex-row-reverse flex-wrap gap-2.5'
+                    : 'mb-3 flex flex-row-reverse flex-wrap gap-2.5';
             return (
                 <div className={rowClass}>
                     <button

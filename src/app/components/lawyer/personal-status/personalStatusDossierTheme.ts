@@ -1,6 +1,7 @@
 /**
  * إضبارة الأحوال الشخصية — زجاج لؤلؤي مضيء
  */
+import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { personalPearlHubTheme } from './personalStatusPearlTheme';
 
 export const PS_DOSSIER_BG = '#101018';
@@ -56,7 +57,7 @@ export const PS_LAW_TRIGGER =
     'w-full py-3 px-3.5 rounded-[1.25rem] border border-white/[0.14] bg-white/[0.06] hover:border-white/[0.22] hover:bg-white/[0.09] flex items-center justify-between gap-3 transition-colors text-right mb-3 backdrop-blur-md';
 
 export const PS_LAW_OVERLAY =
-    "fixed inset-0 z-[150] bg-[#101018]/92 backdrop-blur-md font-['Tajawal']";
+    `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#101018]/92 backdrop-blur-md font-['Tajawal'] pointer-events-auto`;
 
 export const PS_LAW_SHELL =
     'w-full h-full flex flex-col bg-gradient-to-b from-[#1E1E28] via-[#16161F] to-[#101018] overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]';

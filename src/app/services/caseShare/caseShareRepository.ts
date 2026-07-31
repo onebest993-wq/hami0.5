@@ -32,7 +32,8 @@ async function saveLocal(rows: CaseShareRecord[]): Promise<void> {
 async function serverKvSet(key: string, value: unknown): Promise<void> {
     if (typeof window !== 'undefined') return;
     try {
-        const { kvSet } = await import('@/app/api/security/kvStoreAdmin.ts');
+        const spec = '@/app/api/security/kvStoreAdmin.ts';
+        const { kvSet } = await import(/* @vite-ignore */ spec);
         await kvSet(key, value);
     } catch {
         /* silent */
@@ -42,7 +43,8 @@ async function serverKvSet(key: string, value: unknown): Promise<void> {
 async function serverKvGet(key: string): Promise<unknown> {
     if (typeof window !== 'undefined') return null;
     try {
-        const { kvGet } = await import('@/app/api/security/kvStoreAdmin.ts');
+        const spec = '@/app/api/security/kvStoreAdmin.ts';
+        const { kvGet } = await import(/* @vite-ignore */ spec);
         return kvGet(key);
     } catch {
         return null;
@@ -52,7 +54,8 @@ async function serverKvGet(key: string): Promise<unknown> {
 async function serverKvGetByPrefix(prefix: string): Promise<unknown[]> {
     if (typeof window !== 'undefined') return [];
     try {
-        const { kvGetByPrefix } = await import('@/app/api/security/kvStoreAdmin.ts');
+        const spec = '@/app/api/security/kvStoreAdmin.ts';
+        const { kvGetByPrefix } = await import(/* @vite-ignore */ spec);
         const res = await kvGetByPrefix(prefix);
         return Array.isArray(res) ? res : [];
     } catch {

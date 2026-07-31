@@ -1,13 +1,13 @@
 import {
     useCallback,
     useEffect,
+    useLayoutEffect,
     useRef,
     useState,
     type Dispatch,
     type SetStateAction,
 } from 'react';
 
-import { warmHomeOnOpen } from '@/app/hooks/lawyerDashboard/homeIntentWarm';
 import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
 import {
     clearHomeHubPerfMarks,
@@ -18,6 +18,10 @@ import {
 } from '@/app/utils/bodyScrollLock';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+
+function loadHomeIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/homeIntentWarm');
+}
 
 export type UseLawyerDashboardHomeTabParams = {
     activeTab: LawyerDashboardTab;
@@ -30,7 +34,9 @@ export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyer
 
     const primeHomeTabMount = useCallback(() => {
         prefetchLawyerHomeTabModule();
-        warmHomeOnOpen();
+        void loadHomeIntentWarm()
+            .then((m) => m.warmHomeOnOpen())
+            .catch(() => undefined);
     }, []);
 
     useEffect(() => {
@@ -38,7 +44,7 @@ export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyer
         prefetchLawyerHomeTabModule();
     }, [activeTab]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const isHome = activeTab === 'home';
         if (!isHome && wasHomeTabVisibleRef.current) {
             clearHomeHubPerfMarks();
@@ -83,7 +89,6 @@ export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyer
         exitHomeLayoutEdit,
         primeHomeTabMount,
         homeTabSessionKey: 0,
-        homeHubCardSessionKey: 0,
         homeDockChromeSessionKey: 0,
     };
 }

@@ -300,12 +300,17 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 </div>
 
                 <div className={T.body}>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div className="min-w-0">
-                            <label className={T.label}>
-                                <CalendarDays size={12} className="inline ml-1 text-[#E6C673]/70" aria-hidden />
-                                تاريخ المرافعة
-                            </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:items-start">
+                        <div className="min-w-0 flex flex-col">
+                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
+                                <label className={`${T.label} mb-0`}>
+                                    <CalendarDays size={12} className="inline ml-1 text-[#E6C673]/70" aria-hidden />
+                                    تاريخ المرافعة
+                                </label>
+                                <span className="invisible text-[10px] font-bold px-2.5 py-1" aria-hidden>
+                                    —
+                                </span>
+                            </div>
                             <input
                                 type="date"
                                 data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordDate}
@@ -313,9 +318,10 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                                 onChange={(e) => setDate(e.target.value)}
                                 className={T.field}
                             />
+                            <div className="mt-2 min-h-[1.25rem]" aria-hidden />
                         </div>
-                        <div className="min-w-0">
-                            <div className="flex items-center justify-between gap-1 mb-2">
+                        <div className="min-w-0 flex flex-col">
+                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
                                 <label className={`${T.label} mb-0`}>
                                     <Hash size={12} className="inline ml-1 text-[#E6C673]/70" aria-hidden />
                                     رقم الجلسة
@@ -343,9 +349,10 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                                 className={`${T.field} ${!manualSessionNumber ? `${T.accentText} cursor-default` : ''}`}
                                 placeholder="1"
                             />
+                            <div className="mt-2 min-h-[1.25rem]" aria-hidden />
                         </div>
-                        <div className="min-w-0">
-                            <div className="flex items-center justify-between gap-1 mb-2">
+                        <div className="min-w-0 flex flex-col">
+                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
                                 <label className={`${T.label} mb-0`}>
                                     <CalendarDays size={12} className="inline ml-1 text-emerald-400/70" aria-hidden />
                                     تاريخ المرافعة القادمة
@@ -371,9 +378,13 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                                 onChange={(e) => setNextHearingDate(e.target.value)}
                                 className={`${T.field} ${!manualNextHearingDate && nextHearingDate ? 'text-emerald-300/90 cursor-default' : ''}`}
                             />
-                            {!nextHearingDate && !manualNextHearingDate ? (
-                                <p className="text-[10px] text-white/30 mt-2">لا يوجد موعد قادم — يمكن تحديده يدوياً</p>
-                            ) : null}
+                            <div className="mt-2 min-h-[1.25rem]">
+                                {!nextHearingDate && !manualNextHearingDate ? (
+                                    <p className="text-[10px] text-white/30 leading-tight">
+                                        لا يوجد موعد قادم — يمكن تحديده يدوياً
+                                    </p>
+                                ) : null}
+                            </div>
                         </div>
                     </div>
 
@@ -525,7 +536,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                             </div>
                             <div className="flex-1 text-right min-w-0">
                                 <span className={`font-black text-sm block ${T.accentText}`}>محضر الجلسة</span>
-                                <span className="text-[10px] text-white/40">مجريات المرافعة · قرارات القاضي</span>
                             </div>
                             <ChevronDown size={16} className="text-white/35 shrink-0" aria-hidden />
                         </>
@@ -536,7 +546,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                         <span className={`font-bold ${T.accentText} text-[11px]`}>محضر الدعوى</span>
                         <ChevronDown size={12} className="text-white/35" aria-hidden />
                     </div>
-                    <span className="text-white/35 text-[9px]">مجريات الجلسة · قرارات القاضي</span>
                     </>
                     )}
                 </button>

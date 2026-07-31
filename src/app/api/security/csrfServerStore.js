@@ -2,6 +2,7 @@
  * Server-side CSRF token registry (Redis → Supabase → memory).
  * Binds CSRF token to authenticated subject (sub).
  */
+import { readSupabasePrivilegedKey, supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.js';
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -63,7 +64,7 @@ function pruneMemory(nowMs) {
 }
 function getSupabaseAdminClient() {
     var supabaseUrl = getEnv('SUPABASE_URL');
-    var serviceRoleKey = getEnv('SUPABASE_SERVICE_ROLE_KEY');
+    var serviceRoleKey = getEnv(supabasePrivilegedKeyEnvName());
     if (!supabaseUrl || !serviceRoleKey)
         return null;
     var createClient = require('@supabase/supabase-js').createClient;

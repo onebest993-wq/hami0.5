@@ -85,11 +85,11 @@ export const PS_SECTION_LABEL =
 export const PS_SECTION_BODY = 'p-2 min-h-0';
 
 export const PS_DOCK_BTN =
-    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 border border-white/[0.16] bg-white/[0.07] text-[#ECE8E2] hover:bg-white/[0.12] hover:border-white/[0.24] hover:text-[#FFFEF9] active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-sm';
+    'min-h-[2.75rem] min-w-[2.75rem] w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 border border-white/[0.16] bg-white/[0.07] text-[#ECE8E2] hover:bg-white/[0.12] hover:border-white/[0.24] hover:text-[#FFFEF9] active:scale-95 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] backdrop-blur-sm touch-manipulation';
 
 /** أزرار داخل الشريط العمودي — زجاج وردي */
 export const PS_DOCK_BTN_ROSE =
-    'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 border border-[#F0A8B4]/30 bg-gradient-to-br from-[#F5C6D0]/[0.18] to-[#E8B4BC]/[0.08] text-[#FFE8EC] hover:from-[#F5C6D0]/[0.26] hover:to-[#FFD4DC]/[0.12] hover:border-[#F0A8B4]/42 hover:text-white active:scale-95 shadow-[inset_0_1px_0_rgba(255,220,228,0.34),0_4px_14px_rgba(240,168,180,0.14)] backdrop-blur-sm';
+    'min-h-[2.75rem] min-w-[2.75rem] w-11 h-11 rounded-full flex items-center justify-center transition-all duration-200 border border-[#F0A8B4]/30 bg-gradient-to-br from-[#F5C6D0]/[0.18] to-[#E8B4BC]/[0.08] text-[#FFE8EC] hover:from-[#F5C6D0]/[0.26] hover:to-[#FFD4DC]/[0.12] hover:border-[#F0A8B4]/42 hover:text-white active:scale-95 shadow-[inset_0_1px_0_rgba(255,220,228,0.34),0_4px_14px_rgba(240,168,180,0.14)] backdrop-blur-sm touch-manipulation';
 
 export const PS_TILE_INTERACTIVE =
     `${PS_PANEL} transition-all duration-200 hover:border-white/[0.22] hover:from-white/[0.14] active:scale-[0.99]`;
@@ -102,9 +102,9 @@ export const PS_EMPTY_LINE = 'text-[10px] text-[#9894A0] py-1 leading-snug';
 export function personalPearlHubTheme() {
     return {
         trigger: PS_TILE_INTERACTIVE,
-        overlay: "fixed inset-0 z-[150] bg-[#101018]/92 backdrop-blur-md font-['Tajawal']",
+        overlay: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#101018]/92 backdrop-blur-md font-['Tajawal'] pointer-events-auto`,
         shell:
-            'w-full h-full flex flex-col bg-gradient-to-b from-[#1A1A24] via-[#16161F] to-[#101018] overflow-hidden animate-in fade-in slide-in-from-bottom-3 duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
+            'w-full h-full flex flex-col bg-gradient-to-b from-[#1A1A24] via-[#16161F] to-[#101018] overflow-hidden motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-3 motion-safe:duration-300 pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]',
         header:
             'relative px-4 sm:px-6 py-2.5 border-b border-white/[0.10] bg-gradient-to-l from-white/[0.06] to-transparent flex justify-between items-center shrink-0',
         body: 'flex-1 min-h-0 overflow-y-auto scrollbar-hide px-4 sm:px-6 py-3 space-y-2.5 max-w-5xl w-full mx-auto',
@@ -121,9 +121,8 @@ export function personalPearlHubTheme() {
 
 export function personalPearlModalTheme() {
     return {
-        overlay:
-            "fixed inset-0 z-[160] flex items-center justify-center bg-[#101018]/88 backdrop-blur-md p-4 font-['Tajawal']",
-        shell: 'relative overflow-visible animate-in zoom-in-95 duration-200',
+        overlay: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} flex items-center justify-center bg-[#101018]/88 backdrop-blur-md p-4 font-['Tajawal'] pointer-events-auto`,
+        shell: 'relative overflow-visible motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200',
         shellCard:
             'relative overflow-hidden w-full rounded-2xl border border-white/[0.14] bg-gradient-to-br from-white/[0.11] via-[#F8F6F0]/[0.06] to-[#ECE8E2]/[0.04] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.14)]',
         header:
@@ -152,13 +151,12 @@ export function personalPearlModalTheme() {
             'w-7 h-7 shrink-0 rounded-md flex items-center justify-center border bg-white/[0.05] border-white/[0.10] group-hover:border-white/[0.18] transition-colors',
         actionRowIconDanger:
             'w-7 h-7 shrink-0 rounded-md flex items-center justify-center border bg-rose-500/10 border-rose-400/22 transition-colors',
-        sheet:
-            'fixed bottom-0 left-0 right-0 z-[101] max-h-[78vh] overflow-y-auto scrollbar-hide rounded-t-[1.35rem] border-t border-white/[0.12] bg-gradient-to-b from-white/[0.07] to-[#16161F]/96 backdrop-blur-2xl shadow-[0_-16px_48px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.10)] px-3 pt-2.5 pb-8',
+        sheet: `fixed bottom-0 left-0 right-0 ${HUB_DOSSIER_MODAL_Z_CLASS} max-h-[78vh] overflow-y-auto scrollbar-hide rounded-t-[1.35rem] border-t border-white/[0.12] bg-gradient-to-b from-white/[0.07] to-[#16161F]/96 backdrop-blur-2xl shadow-[0_-16px_48px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.10)] px-3 pt-2.5 pb-8 pointer-events-auto`,
         sheetHandle: 'w-8 h-0.5 rounded-full bg-white/[0.22] mx-auto mb-3',
         sheetTitle: 'text-[#FFFEF9] font-bold text-sm mb-3 text-center flex items-center justify-center gap-2',
         accentText: 'text-[#C9B89A]',
         flowPanel:
-            `fixed top-[72px] left-1/2 -translate-x-1/2 w-[92vw] max-w-[320px] z-[251] font-['Tajawal'] animate-in zoom-in-95 fade-in duration-200 rounded-xl border border-white/[0.14] bg-gradient-to-br from-white/[0.10] to-[#F8F6F0]/[0.05] backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.38)] overflow-hidden pointer-events-auto`,
-        flowBackdrop: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#101018]/55 backdrop-blur-[2px] animate-in fade-in duration-200 pointer-events-auto`,
+            `fixed top-[72px] left-1/2 -translate-x-1/2 w-[92vw] max-w-[320px] z-[251] font-['Tajawal'] motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:fade-in motion-safe:duration-200 rounded-xl border border-white/[0.14] bg-gradient-to-br from-white/[0.10] to-[#F8F6F0]/[0.05] backdrop-blur-xl shadow-[0_16px_48px_rgba(0,0,0,0.38)] overflow-hidden pointer-events-auto`,
+        flowBackdrop: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#101018]/55 backdrop-blur-[2px] motion-safe:animate-in motion-safe:fade-in motion-safe:duration-200 pointer-events-auto`,
     };
 }

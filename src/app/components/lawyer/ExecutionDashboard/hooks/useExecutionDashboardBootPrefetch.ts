@@ -6,22 +6,20 @@ import {
     prefetchExecutionModalContainers,
     prefetchExecutionOverlayModals,
 } from '../executionDashboardLazyRegistry';
-import { prefetchExecutionFollowupDefaultTab } from '../executionFollowupTabPrefetch';
+import { prefetchExecutionFollowupOverlay } from '../executionDashboardOverlayPrefetch';
 import { prefetchExecutionDashboardPhoneBody } from '../executionDashboardPhoneBodyLazy';
 
-/** تحميل مسبق متدرج بعد فتح الإضبارة — لا يدفع phone body/modals فوراً. */
+/** تحميل مسبق متدرج بعد فتح الإضبارة — محضر المتابعة فوري لتقليل انتظار أول فتح. */
 export function useExecutionDashboardBootPrefetch(): void {
     useEffect(() => {
+        // أولوية قصوى: ShellOverlays + Portal (مضمّن) + تبويب الحجز + الجسور
+        prefetchExecutionFollowupOverlay();
+
         if (isLitePerformanceActive()) {
-            const cancel = scheduleIdleWork(() => {
-                prefetchExecutionDashboardShell();
-                prefetchExecutionFollowupDefaultTab();
-            }, 8_000);
-            return cancel;
+            return;
         }
 
         prefetchExecutionDashboardShell();
-        prefetchExecutionFollowupDefaultTab();
         const cancelPhoneBody = scheduleIdleWork(() => {
             prefetchExecutionDashboardPhoneBody();
         }, 1_200);

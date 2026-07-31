@@ -1,21 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useMemo, useState, type CSSProperties } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import {
-    buildCalendarAlertIdSet,
     computeHomeHubAlertsTabCount,
-    filterRadarEventsExcludingCalendarAlerts,
     HOME_HUB_CARD_FEATURE,
-    guardedHomeHubNavigateRoute,
     isHomeHubFullyEmpty,
     openHomeHubCardInteraction,
-    resolveDefaultHomeHubPanel,
     resolveHomeHubAlertsEmptyState,
     type HomeHubAlertsEmptyState,
     type HomeHubPanel,
 } from '@/app/services/alerts/homeHubCardLogic';
-import { pickDefaultHorizonFilter, type AlertTimeHorizon } from '@/app/services/alertTimeClassification';
+import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
 import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout';
 import {
     resolveAlertsMinHeight,
@@ -23,9 +19,8 @@ import {
     resolveHomeBlockInlineStyle,
     shouldShowHomeBlockSheen,
 } from '@/app/services/settings/resolveHomeBlockStyle';
-import { syncHorizonFilterIfEmpty, useNeuralAlertsStore } from '@/app/stores/neuralAlertsStore';
+import { useNeuralAlertsStore } from '@/app/stores/neuralAlertsStore';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
-import { useCalendarRadar48h } from '@/app/workspace/useCalendarRadar48h';
 import { useClusterAggregator } from '@/app/workspace/useClusterAggregator';
 import type { ClusterScanSources } from '@/app/workspace/useClusterScanSources';
 import type { ClusterPinView } from '@/app/workspace/types';
@@ -33,8 +28,11 @@ import type { CalendarRadarEvent } from '@/app/workspace/types';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { useNeuralAlertsFromSecretary } from '../../NeuralAlertsCard/useNeuralAlertsFromSecretary';
 import type { SmartAlert } from '../../NeuralAlertsCard/types';
-import { warmHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarWarmCache';
-import { useHomeHubLifecycle } from './useHomeHubLifecycle';
+import { createHomeHubGuardedActions } from '@/app/components/lawyer/LawyerHomeHubCard/homeHub/homeHubGuardedActions';
+import { useHomeHubHorizonSync } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubHorizonSync';
+import { useHomeHubLifecycle } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubLifecycle';
+import { useHomeHubPanelState } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubPanelState';
+import { useHomeHubRadarState } from '@/app/components/lawyer/LawyerHomeHubCard/hooks/useHomeHubRadarState';
 
 export type UseLawyerHomeHubCardParams = {
     lawyerId: string | null;
@@ -57,6 +55,7 @@ export type LawyerHomeHubCardViewModel = {
     hubPanel: HomeHubPanel;
     selectHubPanel: (panel: HomeHubPanel) => void;
     hubFullyEmpty: boolean;
+    hubInitialPending: boolean;
     blockClasses: string;
     blockStyle: CSSProperties;
     showSheen: boolean;
@@ -82,6 +81,7 @@ export type LawyerHomeHubCardViewModel = {
     guardedAcceptedConvertToCase?: (alert: SecretaryAlert) => void;
     guardedResolved?: (alert: SecretaryAlert) => void;
     guardedNavigateRoute: (routePath: string) => void;
+    guardedDismissRadar: (eventId: string) => void;
     guardedUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
 };
 
@@ -110,8 +110,13 @@ export function useLawyerHomeHubCard({
 
     const activeFilter = useNeuralAlertsStore((s) => s.activeFilter);
     const setActiveFilter = useNeuralAlertsStore((s) => s.setActiveFilter);
-    const horizonInitRef = useRef(false);
-    const prevHorizonCountsRef = useRef(horizonCounts);
+
+    useHomeHubHorizonSync({
+        carouselTotal,
+        horizonCounts,
+        activeFilter,
+        setActiveFilter,
+    });
 
     const pinnedItems = useWorkspaceStore((s) => s.pinnedItems);
     const unpinItem = useWorkspaceStore((s) => s.unpinItem);
@@ -140,30 +145,6 @@ export function useLawyerHomeHubCard({
         fieldTasks: clusterScanSources.fieldTasks,
     });
 
-    useEffect(() => {
-        if (carouselTotal === 0) {
-            horizonInitRef.current = false;
-            return;
-        }
-        if (!horizonInitRef.current) {
-            setActiveFilter(pickDefaultHorizonFilter(horizonCounts));
-            horizonInitRef.current = true;
-        }
-    }, [carouselTotal, horizonCounts, setActiveFilter]);
-
-    useEffect(() => {
-        const prev = prevHorizonCountsRef.current;
-        prevHorizonCountsRef.current = horizonCounts;
-        if (!horizonInitRef.current || carouselTotal === 0) return;
-
-        const hadItems = prev[activeFilter] > 0;
-        const nowEmpty = horizonCounts[activeFilter] === 0;
-        if (hadItems && nowEmpty) {
-            const next = syncHorizonFilterIfEmpty(horizonCounts, activeFilter);
-            if (next) setActiveFilter(next);
-        }
-    }, [horizonCounts, activeFilter, carouselTotal, setActiveFilter]);
-
     const { carouselAlerts, sourceById } = useMemo(() => {
         const alerts = alertsForFilter(activeFilter);
         const sources = sourcesForFilter(activeFilter);
@@ -173,26 +154,19 @@ export function useLawyerHomeHubCard({
         return { carouselAlerts: safeAlerts, sourceById: map };
     }, [alertsForFilter, sourcesForFilter, activeFilter]);
 
-    const { events: radarEvents, loading: radarLoading } = useCalendarRadar48h(lawyerId);
-
-    useEffect(() => {
-        warmHomeHubRadarCache(lawyerId);
-    }, [lawyerId]);
-
-    const alertCalendarIds = useMemo(
-        () => buildCalendarAlertIdSet(secretaryAlerts),
-        [secretaryAlerts],
-    );
-
-    const radarFiltered = useMemo(
-        () => filterRadarEventsExcludingCalendarAlerts(radarEvents, alertCalendarIds),
-        [radarEvents, alertCalendarIds],
-    );
+    const { radarFiltered, radarLoading, hasRadar } = useHomeHubRadarState(lawyerId, secretaryAlerts);
 
     const hasCarouselAlerts = carouselTotal > 0;
     const hasAlerts = carouselAlerts.length > 0;
-    const showInitialLoad = alertsLoading && !hasCarouselAlerts && !alertsError;
-    const hasRadar = radarFiltered.length > 0;
+    const hubInitialPending =
+        Boolean(alertsLoading || radarLoading) &&
+        !hasCarouselAlerts &&
+        !hasRadar &&
+        clusterViews.length === 0 &&
+        !alertsError;
+    const showInitialLoad =
+        (alertsLoading && !hasCarouselAlerts && !alertsError) ||
+        (radarLoading && !hasRadar && !hasCarouselAlerts && !alertsError);
     const hasPins = clusterViews.length > 0;
     const alertsTabCount = computeHomeHubAlertsTabCount(
         carouselTotal,
@@ -205,12 +179,14 @@ export function useLawyerHomeHubCard({
         hasAlerts,
         hasCarouselAlerts,
         hasRadar,
+        radarLoading,
     });
     const hubFullyEmpty = isHomeHubFullyEmpty({
         alertsTabCount,
         pinsCount: clusterViews.length,
         alertsError,
         showInitialLoad,
+        hubInitialPending,
     });
 
     useHomeHubLifecycle({
@@ -222,21 +198,7 @@ export function useLawyerHomeHubCard({
         radarLoading,
     });
 
-    const [hubPanel, setHubPanelState] = useState<HomeHubPanel>('alerts');
-    const selectHubPanel = useCallback((panel: HomeHubPanel) => {
-        setHubPanelState(panel);
-        requestAnimationFrame(() => {
-            document.getElementById(`home-hub-tab-${panel}`)?.focus();
-        });
-    }, []);
-    const panelInitRef = useRef(false);
-
-    useEffect(() => {
-        if (panelInitRef.current) return;
-        if (alertsTabCount === 0 && clusterViews.length === 0) return;
-        panelInitRef.current = true;
-        setHubPanelState(resolveDefaultHomeHubPanel(alertsTabCount, clusterViews.length));
-    }, [alertsTabCount, clusterViews.length]);
+    const { hubPanel, selectHubPanel } = useHomeHubPanelState(alertsTabCount, clusterViews.length);
 
     const blockClasses = resolveHomeBlockClassNames(blockOverride);
     const blockStyle: CSSProperties = {
@@ -250,35 +212,36 @@ export function useLawyerHomeHubCard({
                 defaultGlassOpacity: settings.appearance.glassOpacity,
             },
         ),
-        padding: hubFullyEmpty
-            ? `calc(0.5rem * var(--hami-content-scale, 1)) calc(0.875rem * var(--hami-content-scale, 1))`
-            : `calc(1rem * var(--hami-content-scale, 1))`,
+        padding: `calc(1rem * var(--hami-content-scale, 1))`,
     };
     const alertsMinH = resolveAlertsMinHeight(blockOverride?.size ?? 'normal');
     const alertsLayoutKey = `${blockOverride?.size ?? 'normal'}-${blockOverride?.shape ?? 'rounded'}-${blockOverride?.span ?? 2}`;
 
-    const guardedDismissAlert = onDismissAlert
-        ? (id: string) => guardInteraction(() => onDismissAlert(id))
-        : undefined;
-    const guardedOpenEntity = (alert: SecretaryAlert) => guardInteraction(() => onOpenEntity(alert));
-    const guardedAcceptedConvertToCase = onAcceptedConvertToCase
-        ? (alert: SecretaryAlert) => guardInteraction(() => onAcceptedConvertToCase(alert))
-        : undefined;
-    const guardedResolved = onResolved
-        ? (alert: SecretaryAlert) => guardInteraction(() => onResolved(alert))
-        : undefined;
-    const guardedNavigateRoute = (routePath: string) => {
-        guardedHomeHubNavigateRoute(routePath, signedIn, onNavigateRoute, () =>
-            SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${HOME_HUB_CARD_FEATURE}`),
-        );
-    };
-    const guardedUnpin = (id: string, type: ClusterPinView['pin']['type']) =>
-        guardInteraction(() => unpinItem(id, type));
+    const {
+        guardedDismissAlert,
+        guardedOpenEntity,
+        guardedAcceptedConvertToCase,
+        guardedResolved,
+        guardedNavigateRoute,
+        guardedDismissRadar,
+        guardedUnpin,
+    } = createHomeHubGuardedActions({
+        signedIn,
+        lawyerId,
+        guardInteraction,
+        onNavigateRoute,
+        onOpenEntity,
+        onDismissAlert,
+        onAcceptedConvertToCase,
+        onResolved,
+        unpinItem,
+    });
 
     return {
         hubPanel,
         selectHubPanel,
         hubFullyEmpty,
+        hubInitialPending,
         blockClasses,
         blockStyle,
         showSheen: shouldShowHomeBlockSheen(blockOverride?.pattern),
@@ -304,6 +267,7 @@ export function useLawyerHomeHubCard({
         guardedAcceptedConvertToCase,
         guardedResolved,
         guardedNavigateRoute,
+        guardedDismissRadar,
         guardedUnpin,
     };
 }

@@ -1,5 +1,4 @@
 import React, { Suspense } from 'react';
-import { EXEC_SECTION_LAZY_FALLBACK } from '../executionDashboardLazyShellUi';
 
 export type FollowupTabPanelKey =
     | 'personal'
@@ -37,7 +36,17 @@ export function FollowupTabKeepAlivePanel({
             className={active ? className : 'hidden'}
             data-followup-tab-panel={panelId}
         >
-            <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>{children}</Suspense>
+            <Suspense
+                fallback={
+                    <div
+                        className="min-h-[8rem] animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.03]"
+                        aria-busy="true"
+                        aria-label="جاري تحميل محتوى التبويب"
+                    />
+                }
+            >
+                {children}
+            </Suspense>
         </div>
     );
 }

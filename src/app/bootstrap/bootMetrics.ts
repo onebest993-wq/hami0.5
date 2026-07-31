@@ -1,4 +1,21 @@
 import { debug } from '@/app/utils/debug';
+import {
+    DASHBOARD_INTERACTIVE_EVENT,
+    getDashboardInteractiveMs,
+    isDashboardInteractive,
+    markDashboardInteractiveOnce,
+    onDashboardInteractive,
+    resetDashboardInteractiveForTests,
+} from '@/app/bootstrap/dashboardInteractiveMark';
+
+export {
+    DASHBOARD_INTERACTIVE_EVENT,
+    getDashboardInteractiveMs,
+    isDashboardInteractive,
+    markDashboardInteractiveOnce,
+    onDashboardInteractive,
+    resetDashboardInteractiveForTests,
+};
 
 const MARK_PREFIX = 'hami:boot:';
 
@@ -59,11 +76,6 @@ export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootT
 
 export function getBootPhaseMs(phase: BootPhase): number | null {
     return getBootTimeline().find((row) => row.phase === phase)?.ms ?? null;
-}
-
-/** TTFI — وقت الجاهزية التفاعلية للوحة (ms من hami:boot:start) */
-export function getDashboardInteractiveMs(): number | null {
-    return getBootPhaseMs('dashboard-interactive');
 }
 
 /** أول لحظة يصبح فيها تبويب اللوحة الأساسي ظاهراً وقابلاً للاستخدام بصرياً. */

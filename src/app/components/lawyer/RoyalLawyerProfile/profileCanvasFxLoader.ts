@@ -1,21 +1,38 @@
 import type { ProfileCanvasInteraction } from '@/app/services/profile/profilePageCustomization';
 import { isLitePerformanceActiveFromDom } from '@/app/runtime/devicePerformanceTier';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 
 export type ProfileCanvasFxLoadOptions = {
     interaction?: ProfileCanvasInteraction | 'none';
     includeStudio?: boolean;
+    /** يتجاوز suppress/defer — يحمّل CSS التفاعل فوراً */
+    forceInteractionCss?: boolean;
 };
 
 /** هل نُخفّف/نُوقف تحميل FX الثقيلة (lite / reduce-motion / تبويب مخفي) */
 export function isProfileCanvasFxSuppressed(): boolean {
     if (typeof window === 'undefined') return false;
     if (isLitePerformanceActiveFromDom()) return true;
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return true;
+    try {
+        if (
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ) {
+            return true;
+        }
+    } catch {
+        /* jsdom بلا matchMedia */
+    }
     const root = document.querySelector('[data-lawyer-profile-root]');
     if (!root) return false;
     if (root.getAttribute('data-profile-reduce-motion') === 'true') return true;
     if (root.getAttribute('data-profile-page-hidden') === 'true') return true;
     return false;
+}
+
+/** على أندرويد الأصلي: أجّل CSS التفاعل الثقيل حتى يُطلب صراحةً أو يُفتح الاستوديو */
+export function shouldDeferProfileCanvasInteractionCss(): boolean {
+    return isAndroidNativeShell();
 }
 
 const INTERACTION_IMPORTS: Record<
@@ -42,11 +59,15 @@ export async function ensureProfileCanvasFxLoaded(options: ProfileCanvasFxLoadOp
     await loadKey('core', () => import('@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFx.core.css'));
     await loadKey('material', () => import('@/app/components/lawyer/RoyalLawyerProfile/profileCanvasMaterialFx.css'));
 
-    const suppressed = isProfileCanvasFxSuppressed() && !options.includeStudio;
+    const forceIx = Boolean(options.forceInteractionCss);
+    const suppressed = !forceIx && isProfileCanvasFxSuppressed() && !options.includeStudio;
     if (suppressed) return;
 
+    const deferIx =
+        !forceIx && !options.includeStudio && shouldDeferProfileCanvasInteractionCss();
+
     const interaction = options.interaction ?? 'none';
-    if (interaction !== 'none') {
+    if (!deferIx && interaction !== 'none') {
         await loadKey(`ix:${interaction}`, INTERACTION_IMPORTS[interaction]);
         if (interaction === 'stardust') {
             await loadKey('ix:petal', () => import('@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFx.petal.css'));

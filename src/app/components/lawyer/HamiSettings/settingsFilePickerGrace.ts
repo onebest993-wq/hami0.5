@@ -2,7 +2,8 @@
 let filePickerGraceUntil = 0;
 
 export function markSettingsFilePickerOpening(): void {
-    filePickerGraceUntil = Date.now() + 2_500;
+    /* معرض الجهاز قد يستغرق أكثر من ثانيتين قبل إعادة التركيز */
+    filePickerGraceUntil = Date.now() + 12_000;
 }
 
 export function isSettingsFilePickerGraceActive(): boolean {

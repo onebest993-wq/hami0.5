@@ -3,6 +3,7 @@ import {
     findMissingRequiredMonetaryClaimAmount,
     isDirectorateSectionComplete,
     isInstrumentSectionReadyForParties,
+    resolvePastAlimonyClaimAmount,
     showCivilDebtorSolidarySplit,
 } from '../executionFormUtils';
 
@@ -74,5 +75,45 @@ describe('findMissingRequiredMonetaryClaimAmount', () => {
                 '5000000',
             ),
         ).toBeNull();
+    });
+
+    it('accepts past alimony from calculator when claimAmountsByType is empty', () => {
+        expect(
+            findMissingRequiredMonetaryClaimAmount(
+                ['نفقة ماضية'],
+                'نفقة ماضية',
+                {},
+                '',
+                { pastAlimonyAccumulation: 1_200_000 },
+            ),
+        ).toBeNull();
+    });
+
+    it('accepts combined نفقة + نفقة ماضية when past accumulation is computed', () => {
+        expect(
+            findMissingRequiredMonetaryClaimAmount(
+                ['نفقة', 'نفقة ماضية'],
+                'نفقة',
+                {},
+                '',
+                { pastAlimonyAccumulation: 800_000 },
+            ),
+        ).toBeNull();
+    });
+
+    it('returns نفقة ماضية when calculator amount is zero', () => {
+        expect(
+            findMissingRequiredMonetaryClaimAmount(
+                ['نفقة', 'نفقة ماضية'],
+                'نفقة',
+                {},
+                '',
+                { pastAlimonyAccumulation: 0 },
+            ),
+        ).toBe('نفقة ماضية');
+    });
+
+    it('resolvePastAlimonyClaimAmount prefers calculator over empty field', () => {
+        expect(resolvePastAlimonyClaimAmount({}, 500_000)).toBe(500_000);
     });
 });

@@ -68,6 +68,45 @@ describe('useExecutionData', () => {
         expect(result.current?.timelineEvents?.length ?? 0).toBe(0);
     });
 
+    it('merges marital furniture delivery outcomes from storage when file prop is stale', () => {
+        const dossierId = 'mf-dossier-1';
+        const propFile = makeFile({
+            id: dossierId,
+            claimType: 'أثاث زوجية' as never,
+            updatedAt: '2026-07-01T10:00:00.000Z',
+            maritalFurnitureItems: [
+                {
+                    id: 'item-a',
+                    name: 'خزانة',
+                    quantity: 1,
+                    unitPriceIqd: 555_555,
+                },
+            ],
+        });
+        storageCache.set(executionStorageKey(dossierId), {
+            ...propFile,
+            updatedAt: '2026-07-31T12:00:00.000Z',
+            debtAmount: 555_555,
+            totalAmount: 555_555,
+            maritalFurnitureItems: [
+                {
+                    id: 'item-a',
+                    name: 'خزانة',
+                    quantity: 1,
+                    unitPriceIqd: 555_555,
+                    delivered: false,
+                    deliveryOutcome: 'failed',
+                    deliveryRecordedAt: '2026-07-31T12:00:00.000Z',
+                },
+            ],
+        });
+
+        const { result } = renderHook(() => useExecutionData(null, propFile, dossierId, 2));
+
+        expect(result.current?.maritalFurnitureItems?.[0]?.deliveryOutcome).toBe('failed');
+        expect(result.current?.debtAmount).toBe(555_555);
+    });
+
     it('prefers store currentFile when viewing inaba sub-dossier', () => {
         const parentId = 'parent-99';
         const inabaId = makeInabaSubFileId(parentId);

@@ -158,9 +158,7 @@ function legalAnalysisDevApiPlugin() {
         configureServer(server: ViteDevServer) {
             attachApiRouteMiddleware(server, server.middlewares, getDevSecurityHeaders(), server.config.mode)
         },
-        configurePreviewServer(server: ViteDevServer) {
-            attachApiRouteMiddleware(server, server.middlewares, getProductionSecurityHeaders(), 'production')
-        },
+        // preview لا يدعم ssrLoadModule — لا نُسجّل dev-api هنا (يتجنّب 500 أثناء E2E على preview)
     }
 }
 
@@ -289,9 +287,12 @@ export default defineConfig(({ command }) => ({
     warmup: {
       clientFiles: [
         './src/index.tsx',
-        './src/app/App.tsx',
+        './src/app/AppBootRoot.tsx',
         './src/styles/index.css',
       ],
+    },
+    watch: {
+      ignored: ['**/playwright-report/**', '**/test-results/**', '**/blob-report/**'],
     },
     headers: {
       ...getDevSecurityHeaders(),

@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
 import { Mic, Save } from 'lucide-react';
-import type { DossierNoteContext } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
+import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { dossierNoteTimestampLabel } from '@/app/services/dossier-notes/dossierNoteTimestamp';
 import {
     isVoiceBlobWithinLimit,
@@ -17,8 +17,38 @@ import {
 } from './DossierLawArticleRichEditor';
 import { REPO_BTN_GOLD, REPO_INPUT } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
 
-const VoiceRecorderModal = lazy(() => import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then(mod => ({ default: mod.VoiceRecorderModal })));
-const VoiceRecorderErrorBoundary = lazy(() => import('@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary').then(mod => ({ default: mod.VoiceRecorderErrorBoundary })));
+const VoiceRecorderModal = lazy(() =>
+    import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((mod) => ({
+        default: mod.VoiceRecorderModal,
+    })),
+);
+const VoiceRecorderErrorBoundary = lazy(() =>
+    import('@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary').then((mod) => ({
+        default: mod.VoiceRecorderErrorBoundary,
+    })),
+);
+
+function VoiceRecorderLoadingFallback({ onClose }: { onClose: () => void }) {
+    return (
+        <div
+            className="fixed inset-0 z-[280] flex items-center justify-center bg-[#080f18]/90 backdrop-blur-sm p-4"
+            role="status"
+            aria-live="polite"
+            data-testid="voice-recorder-loading"
+        >
+            <div className="w-full max-w-sm rounded-2xl border border-[#E6C673]/25 bg-[#0E1B2E] px-5 py-6 text-center shadow-2xl">
+                <p className="text-sm font-bold text-[#E6C673]">جاري فتح المسجل الصوتي…</p>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="mt-4 min-h-[44px] w-full rounded-xl border border-white/15 bg-white/[0.04] text-sm font-bold text-white/70 hover:bg-white/[0.08]"
+                >
+                    إلغاء
+                </button>
+            </div>
+        </div>
+    );
+}
 
 type DossierFastNoteComposerProps = {
     title: string;
@@ -34,7 +64,20 @@ type DossierFastNoteComposerProps = {
     expanded?: boolean;
     showTitle?: boolean;
     saving?: boolean;
+    /** وضع footer ثابت: محرّر مصغّر + مايكروفون أيقونة + حفظ يتفعّل فقط عند وجود نص */
+    compact?: boolean;
 };
+
+/** هل يحتوي HTML الملاحظة على نص فعلي (متجاهلاً ختم التوقيت والوسوم)؟ */
+function richHtmlHasText(html: string): boolean {
+    return (
+        html
+            .replace(/<p[^>]*data-dossier-note-stamp[^>]*>.*?<\/p>/gi, '')
+            .replace(/<[^>]*>/g, '')
+            .replace(/&nbsp;/gi, ' ')
+            .trim().length > 0
+    );
+}
 
 export function DossierFastNoteComposer({
     title,
@@ -50,11 +93,31 @@ export function DossierFastNoteComposer({
     expanded = true,
     showTitle = true,
     saving = false,
+    compact = false,
 }: DossierFastNoteComposerProps) {
     const editorRef = useRef<DossierLawArticleRichEditorHandle>(null);
     const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
     const [voiceRecorderKey, setVoiceRecorderKey] = useState(0);
     const [openedAt] = useState(() => dossierNoteTimestampLabel());
+
+    React.useEffect(() => {
+        // Prefetch so the voice button opens immediately instead of a dead click.
+        void import('@/app/components/lawyer/ActionModals/VoiceRecorderModal');
+        void import('@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary');
+    }, []);
+
+    const openVoiceRecorder = useCallback(() => {
+        if (!onVoiceNote) {
+            SmartToast.error('التسجيل الصوتي غير متاح هنا');
+            return;
+        }
+        if (!isRealSignedIn(voiceUserId)) {
+            SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام التسجيل الصوتي');
+            return;
+        }
+        setVoiceRecorderKey((k) => k + 1);
+        setShowVoiceRecorder(true);
+    }, [onVoiceNote, voiceUserId]);
 
     const prependStamp = useCallback(
         (html: string) => {
@@ -101,6 +164,83 @@ export function DossierFastNoteComposer({
         [onVoiceNote, prependStamp, voiceUserId],
     );
 
+    const hasContent = richHtmlHasText(bodyHtml) || title.trim().length > 0;
+
+    const voiceRecorderPortal =
+        showVoiceRecorder && onVoiceNote ? (
+            <Suspense fallback={<VoiceRecorderLoadingFallback onClose={() => setShowVoiceRecorder(false)} />}>
+                <VoiceRecorderErrorBoundary onClose={() => setShowVoiceRecorder(false)}>
+                    <VoiceRecorderModal
+                        key={voiceRecorderKey}
+                        onClose={() => setShowVoiceRecorder(false)}
+                        onSaveVoice={(payload) => void handleVoiceSave(payload)}
+                    />
+                </VoiceRecorderErrorBoundary>
+            </Suspense>
+        ) : null;
+
+    if (compact) {
+        return (
+            <div className="space-y-2" data-testid="dossier-fast-note-composer">
+                {showTitle ? (
+                    <input
+                        type="text"
+                        value={title}
+                        onChange={(e) => onTitleChange(e.target.value)}
+                        placeholder="عنوان مختصر (اختياري)"
+                        className="w-full rounded-xl border border-white/[0.10] bg-[#0A0F1C]/60 px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:border-[#E6C673]/45 focus:outline-none transition-colors"
+                        data-testid="dossier-note-title"
+                    />
+                ) : null}
+                <DossierLawArticleRichEditor
+                    ref={editorRef}
+                    value={bodyHtml}
+                    onChange={onBodyChange}
+                    context={context}
+                    compact
+                />
+                <div className="flex items-center gap-2" dir="rtl">
+                    {onVoiceNote ? (
+                        <button
+                            type="button"
+                            onClick={openVoiceRecorder}
+                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-[#E6C673] touch-manipulation"
+                            data-testid="dossier-note-voice"
+                            aria-label="تسجيل صوتي"
+                            title="تسجيل صوتي"
+                        >
+                            <Mic size={17} />
+                        </button>
+                    ) : null}
+                    <button
+                        type="button"
+                        disabled={saving || !hasContent}
+                        onClick={handleSave}
+                        className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-4 text-[12px] font-bold transition-all touch-manipulation ${
+                            hasContent && !saving
+                                ? 'bg-gradient-to-l from-[#E6C673] to-[#D4AF37] text-[#0A0F1C] shadow-[0_0_18px_-8px_rgba(230,198,115,0.55)] hover:brightness-110'
+                                : 'cursor-not-allowed border border-white/[0.08] bg-white/[0.03] text-white/30'
+                        }`}
+                        data-testid="dossier-note-save"
+                    >
+                        <Save size={15} />
+                        {saveLabel}
+                    </button>
+                    {onCancel ? (
+                        <button
+                            type="button"
+                            onClick={onCancel}
+                            className="min-h-[44px] shrink-0 rounded-xl border border-white/[0.12] bg-white/[0.04] px-4 text-[12px] font-bold text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white touch-manipulation"
+                        >
+                            إلغاء
+                        </button>
+                    ) : null}
+                </div>
+                {voiceRecorderPortal}
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-3" data-testid="dossier-fast-note-composer">
             <p className="text-[11px] text-white/45 select-none" aria-live="polite">
@@ -127,10 +267,7 @@ export function DossierFastNoteComposer({
                 {onVoiceNote ? (
                     <button
                         type="button"
-                        onClick={() => {
-                            setVoiceRecorderKey((k) => k + 1);
-                            setShowVoiceRecorder(true);
-                        }}
+                        onClick={openVoiceRecorder}
                         className={`${REPO_BTN_GOLD} min-h-[48px] w-full justify-center whitespace-nowrap`}
                         data-testid="dossier-note-voice"
                     >
@@ -158,17 +295,7 @@ export function DossierFastNoteComposer({
                     </button>
                 ) : null}
             </div>
-            {showVoiceRecorder && onVoiceNote ? (
-                <Suspense fallback={null}>
-                    <VoiceRecorderErrorBoundary onClose={() => setShowVoiceRecorder(false)}>
-                        <VoiceRecorderModal
-                            key={voiceRecorderKey}
-                            onClose={() => setShowVoiceRecorder(false)}
-                            onSaveVoice={(payload) => void handleVoiceSave(payload)}
-                        />
-                    </VoiceRecorderErrorBoundary>
-                </Suspense>
-            ) : null}
+            {voiceRecorderPortal}
         </div>
     );
 }

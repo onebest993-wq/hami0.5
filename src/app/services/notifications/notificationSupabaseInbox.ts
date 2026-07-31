@@ -1,9 +1,8 @@
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
-import { getForumSupabaseAdmin } from '@/app/services/forum/supabaseAdmin';
-import {
-    isShellNotificationSupabaseEnabled,
-} from '@/app/services/notifications/notificationStoragePolicy';
+import { loadForumSupabaseAdmin } from '@/app/services/forum/loadForumSupabaseAdmin';
+
+
 
 const INBOX_TABLE = 'lawyer_shell_notifications';
 const INBOX_VIEW = 'lawyer_shell_notification_inbox_v';
@@ -78,7 +77,7 @@ async function appendEvent(
     payload: Record<string, unknown>,
     dedupeKey?: string | null,
 ): Promise<void> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return;
     await admin.from(EVENTS_TABLE).insert({
         user_id: userId,
@@ -93,7 +92,7 @@ export async function listShellNotificationsSupabase(
     userId: string,
     limit = DEFAULT_LIST_LIMIT,
 ): Promise<NotificationModel[]> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return [];
 
     const { data, error } = await admin
@@ -116,7 +115,7 @@ export type ShellNotificationSchemaStatus = {
 
 /** تحقق من وجود جداول/view بعد migration 027. */
 export async function verifyShellNotificationSchema(): Promise<ShellNotificationSchemaStatus> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) {
         return { ok: false, inbox: false, events: false, inboxView: false };
     }
@@ -141,7 +140,7 @@ export async function verifyShellNotificationSchema(): Promise<ShellNotification
 
 /** إعادة بناء inbox من event log — صيانة/تعافي. */
 export async function rebuildInboxFromEventsSupabase(userId: string): Promise<number> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return -1;
 
     const { data, error } = await admin.rpc(REBUILD_RPC, { p_user_id: userId });
@@ -154,7 +153,7 @@ export async function upsertShellNotificationSupabase(
     model: NotificationModel,
     eventType: ShellNotificationEventType = 'updated',
 ): Promise<NotificationModel | null> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return null;
 
     const row = mapModelToRow(userId, model);
@@ -180,7 +179,7 @@ export async function upsertShellNotificationsSupabase(
     const capped = capNotificationList(models);
     if (capped.length === 0) return [];
 
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return [];
 
     const rows = capped.map((n) => mapModelToRow(userId, n));
@@ -195,7 +194,7 @@ export async function markShellNotificationReadSupabase(
     userId: string,
     notificationId: string,
 ): Promise<NotificationModel[]> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return [];
 
     const now = new Date().toISOString();
@@ -229,7 +228,7 @@ export async function markShellNotificationReadSupabase(
 }
 
 export async function markAllShellNotificationsReadSupabase(userId: string): Promise<NotificationModel[]> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return [];
 
     const now = new Date().toISOString();
@@ -247,7 +246,7 @@ export async function findShellNotificationByDedupeSupabase(
     userId: string,
     dedupeKey: string,
 ): Promise<NotificationModel | null> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin || !dedupeKey.trim()) return null;
 
     const { data, error } = await admin
@@ -263,7 +262,7 @@ export async function findShellNotificationByDedupeSupabase(
 
 /** مسح inbox + event log للمستخدم (wipe / GDPR). */
 export async function deleteAllShellNotificationsSupabase(userId: string): Promise<boolean> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return false;
 
     const { error: eventsErr } = await admin.from(EVENTS_TABLE).delete().eq('user_id', userId);

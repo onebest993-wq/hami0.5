@@ -125,7 +125,6 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({ readOnl
                     <span className="font-bold text-sky-200 text-[11px]">المرجع القانوني</span>
                     <ChevronDown size={12} className="text-sky-300/50" aria-hidden />
                 </div>
-                <span className="text-white/35 text-[9px]">المرافعات المدنية · قانون الإثبات</span>
             </button>
         </div>
     );

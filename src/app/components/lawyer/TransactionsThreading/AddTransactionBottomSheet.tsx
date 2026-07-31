@@ -1,7 +1,9 @@
 import { memo, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
-import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
+import { TransactionStatus, type Transaction } from '@/app/modules/transactionsThreading/types';
+import { applyProcedureGuideToTransaction } from '@/app/services/transactions/applyProcedureGuideToTransaction';
+import { consumePendingProcedureGuide } from '@/app/services/transactions/procedureGuideNavigation';
 import { prefetchTransactionsCloudModule } from '@/app/services/transactions/transactionsCloudLoader';
 import {
     clampTransactionText,
@@ -27,13 +29,18 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
     onOpenChange,
     keepMounted = false,
     hubUserId,
+    onCreated,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     keepMounted?: boolean;
     hubUserId?: string;
+    onCreated?: (tx: Transaction) => void;
 }) {
     const createTransaction = useTransactionsThreadingStore((s) => s.createTransaction);
+    const addTask = useTransactionsThreadingStore((s) => s.addTask);
+    const addDocument = useTransactionsThreadingStore((s) => s.addDocument);
+    const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
     const storeUserId = useTransactionsThreadingStore((s) => s.userId);
     const effectiveUserId = storeUserId ?? hubUserId;
 
@@ -67,17 +74,34 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
             }
             ensureTransactionsUserBound(effectiveUserId);
 
-            await createTransaction({
+            const tx = await createTransaction({
                 ...sanitized,
                 status: TransactionStatus.Active,
                 agreedFees: 0,
             });
 
+            const guide = consumePendingProcedureGuide();
+
             setTitle('');
             setClientName('');
             setTargetDepartment('');
             onOpenChange(false);
-            SmartToast.success('تمت إضافة المعاملة');
+            onCreated?.(tx);
+
+            if (guide && (guide.steps.length > 0 || guide.documents.length > 0)) {
+                try {
+                    await applyProcedureGuideToTransaction(tx.id, guide, {
+                        addTask,
+                        addDocument,
+                        refreshTransactionData,
+                    });
+                    SmartToast.success('تمت إضافة المعاملة وتطبيق الدليل الإجرائي');
+                } catch {
+                    SmartToast.warning('أُنشئت المعاملة لكن تعذر تطبيق بعض خطوات الدليل');
+                }
+            } else {
+                SmartToast.success('تمت إضافة المعاملة');
+            }
         } catch {
             SmartToast.error('تعذر إضافة المعاملة — حاول مرة أخرى');
         } finally {
@@ -90,22 +114,27 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
         void submit();
     };
 
+    const titleInputId = 'transactions-add-title';
+    const clientInputId = 'transactions-add-client';
+    const departmentInputId = 'transactions-add-department';
+
     return (
         <TransactionsHubSheet
             open={open}
             onOpenChange={onOpenChange}
             keepMounted={keepMounted}
             testId="transactions-add-sheet"
+            ariaLabel="إضافة معاملة"
         >
-            <form onSubmit={onFormSubmit}>
+            <form onSubmit={onFormSubmit} aria-busy={isSubmitting}>
                 <TxGlassDrawerFrame
                     title="إضافة معاملة"
-                    subtitle="معلومات المعاملة الأساسية"
+                    subtitle="معلومات المعاملة الأساسية — ثم تُطبَّق الإجراءات من الدليل إن وُجد"
                     footer={
                         <button
                             type="submit"
                             disabled={!canSubmit || isSubmitting}
-                            className={GLASS_BTN + ' disabled:opacity-50'}
+                            className={GLASS_BTN}
                             data-testid="transactions-add-submit"
                         >
                             {isSubmitting ? 'جاري الحفظ...' : 'إضافة معاملة'}
@@ -113,30 +142,38 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                     }
                 >
                     <div>
-                        <TxFieldLabel>عنوان المعاملة</TxFieldLabel>
+                        <TxFieldLabel htmlFor={titleInputId}>عنوان المعاملة</TxFieldLabel>
                         <input
+                            id={titleInputId}
+                            name="title"
                             value={title}
                             onChange={(e) => setTitle(clampTransactionText(e.target.value, TX_TITLE_MAX))}
                             placeholder="مثال: نقل ملكية"
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="off"
+                            enterKeyHint="next"
                         />
                     </div>
                     <div>
-                        <TxFieldLabel>اسم الموكل</TxFieldLabel>
+                        <TxFieldLabel htmlFor={clientInputId}>اسم الموكل</TxFieldLabel>
                         <input
+                            id={clientInputId}
+                            name="clientName"
                             value={clientName}
                             onChange={(e) => setClientName(clampTransactionText(e.target.value, TX_CLIENT_NAME_MAX))}
                             placeholder="اسم الموكل الكامل"
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="name"
+                            enterKeyHint="next"
                         />
                     </div>
                     <div>
-                        <TxFieldLabel>الدائرة المختصة</TxFieldLabel>
+                        <TxFieldLabel htmlFor={departmentInputId}>الدائرة المختصة</TxFieldLabel>
                         <input
+                            id={departmentInputId}
+                            name="targetDepartment"
                             value={targetDepartment}
                             onChange={(e) =>
                                 setTargetDepartment(clampTransactionText(e.target.value, TX_DEPARTMENT_MAX))
@@ -151,6 +188,7 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="off"
+                            enterKeyHint="done"
                         />
                     </div>
                 </TxGlassDrawerFrame>

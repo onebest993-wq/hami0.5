@@ -20,6 +20,14 @@ export function nextTaskStatus(current: TransactionTaskStatus) {
     return STATUS_CYCLE[(idx + 1) % STATUS_CYCLE.length];
 }
 
+/** تدوير الحالة من البطاقة دون المرور بـ Done — الإكمال عبر زر مخصّص فقط */
+export function nextActiveTaskStatus(current: TransactionTaskStatus): TransactionTaskStatus {
+    if (current === TransactionTaskStatus.Done) return TransactionTaskStatus.Pending;
+    if (current === TransactionTaskStatus.Pending) return TransactionTaskStatus.InProgress;
+    if (current === TransactionTaskStatus.InProgress) return TransactionTaskStatus.Blocked;
+    return TransactionTaskStatus.Pending;
+}
+
 export function countTaskCascade(rootId: string, tasks: TransactionTask[]) {
     const childrenByParent = new Map<string, string[]>();
     for (const t of tasks) {

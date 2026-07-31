@@ -7,7 +7,6 @@ import {
     resolveDecisionAppealActions,
     resolveDecisionAppealBadge,
     resolveDecisionAppealStatePhase,
-    resolveTotalAppealLegalDays,
 } from './decisionAppealPeriodEngine';
 
 const baseDecision = (patch: Partial<JudicialDecision> = {}): JudicialDecision => ({

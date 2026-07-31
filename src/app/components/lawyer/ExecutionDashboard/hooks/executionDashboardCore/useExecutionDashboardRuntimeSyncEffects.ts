@@ -1,6 +1,6 @@
 // @ts-nocheck
 /** موجة 14 — effects صغيرة للمزامنة/UX (من core) */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import type { Debtor } from '@/app/types/execution';
@@ -18,9 +18,10 @@ import {
     isPerDebtorSolidarySplitMode,
 } from '@/app/utils/debtorLiabilityGroups';
 import {
-    isMaritalFurnitureDeliveryStatusRecorded,
-    sumUndeliveredMaritalFurnitureTotal,
-} from '@/app/utils/maritalFurniture';
+    buildMaritalFurnitureDeliveryScheduleBackfillPatch,
+    readFollowupMergedExecutorDecisions,
+} from '@/app/utils/maritalFurnitureDeliveryWorkflow';
+import { resolveMaritalFurnitureFinancialSyncPatch } from '@/app/components/lawyer/ExecutionDashboard/utils/maritalFurnitureFinancialSync';
 import { isInabaSubFileId } from '@/app/stores/executionDashboardStore';
 
 export function useExecutionDashboardDebtorTabResetOnFileChange(
@@ -438,12 +439,26 @@ export function useExecutionDashboardDebtorBrowserTabsClamp({
     }, [debtorBrowserTabsMode, debtorWorkspaceEntryCount, setExecutionDebtorTabIndex]);
 }
 
-export function useExecutionDashboardSaveOnUnmount(saveExecutionData: () => void) {
+export function useExecutionDashboardSaveOnUnmount(
+    saveExecutionData: () => void,
+    _fileId?: string,
+) {
+    const saveRef = useRef(saveExecutionData);
+    saveRef.current = saveExecutionData;
+    const fileIdRef = useRef(_fileId);
+    fileIdRef.current = _fileId;
+
     useEffect(() => {
+        const fileIdAtStart = _fileId;
+        const saveAtStart = saveExecutionData;
         return () => {
-            saveExecutionData();
+            if (fileIdRef.current !== fileIdAtStart) {
+                saveAtStart();
+                return;
+            }
+            saveRef.current();
         };
-    }, [saveExecutionData]);
+    }, [_fileId]);
 }
 
 export function useExecutionDashboardFieldVisitScheduledListener({
@@ -504,28 +519,51 @@ export function useExecutionDashboardMaritalFurnitureFinancialSync({
     executionData,
     maritalFurnitureItemsForFollowup,
     persistExecutionMerge,
+    decisionsStorageExecutionId,
+    executionId,
 }: {
     isMaritalFurnitureClaim: boolean;
     executionData: ExecutionFile | null | undefined;
     maritalFurnitureItemsForFollowup: unknown;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
+    decisionsStorageExecutionId?: string;
+    executionId?: string;
 }) {
     useEffect(() => {
         if (!isMaritalFurnitureClaim || !executionData) return;
-        const items = maritalFurnitureItemsForFollowup;
-        const deliveryRecorded = isMaritalFurnitureDeliveryStatusRecorded(executionData);
-        const expectedFinancial = deliveryRecorded
-            ? sumUndeliveredMaritalFurnitureTotal(items as Parameters<typeof sumUndeliveredMaritalFurnitureTotal>[0])
-            : 0;
-        const storedDebt = Math.round(Number(executionData.debtAmount) || 0);
-        const storedTotal = Math.round(Number(executionData.totalAmount) || 0);
-        if (storedDebt === expectedFinancial && storedTotal === expectedFinancial) return;
-        persistExecutionMerge({ debtAmount: expectedFinancial, totalAmount: expectedFinancial });
+        const storageId = String(
+            decisionsStorageExecutionId || executionId || executionData.id || '',
+        ).trim();
+        if (storageId && storageId !== 'default' && storageId !== 'undefined') {
+            const decisions = readFollowupMergedExecutorDecisions(
+                storageId,
+                executionData as Record<string, unknown>,
+            );
+            const schedulePatch = buildMaritalFurnitureDeliveryScheduleBackfillPatch(
+                executionData as Record<string, unknown>,
+                decisions,
+            );
+            if (schedulePatch) {
+                persistExecutionMerge(schedulePatch);
+            }
+        }
+
+        const financialPatch = resolveMaritalFurnitureFinancialSyncPatch({
+            executionData,
+            executionId,
+            decisionsStorageExecutionId,
+            maritalFurnitureItemsForFollowup,
+        });
+        if (financialPatch) {
+            persistExecutionMerge(financialPatch);
+        }
     }, [
         isMaritalFurnitureClaim,
         executionData,
         maritalFurnitureItemsForFollowup,
         persistExecutionMerge,
+        decisionsStorageExecutionId,
+        executionId,
     ]);
 }
 

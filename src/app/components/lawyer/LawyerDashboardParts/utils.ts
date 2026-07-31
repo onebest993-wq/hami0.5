@@ -90,21 +90,22 @@ export function normalizeFileDataForOpen(input: unknown): FileData | null {
               ? Number(input.id)
               : input.id;
 
-    const normalized = {
-        ...(input as unknown as FileData),
+    const normalized: FileData = {
         id: id as number,
         type,
         caseNo,
         court,
         parties,
         status,
-        history: Array.isArray(input.history) ? input.history : [],
-        notes: Array.isArray(input.notes) ? input.notes : [],
-        images: Array.isArray(input.images) ? input.images : [],
+        history: Array.isArray(input.history) ? (input.history as FileData['history']) : [],
+        notes: Array.isArray(input.notes) ? (input.notes as FileData['notes']) : [],
+        images: Array.isArray(input.images) ? (input.images as FileData['images']) : [],
         date:
             typeof input.date === 'string'
                 ? input.date
                 : new Date().toLocaleDateString('ar-EG'),
+        ...(typeof input.docType === 'string' ? { docType: input.docType } : {}),
+        ...(typeof input.subject === 'string' ? { subject: input.subject } : {}),
     };
 
     return isFileData(normalized) ? normalized : null;
@@ -115,12 +116,11 @@ export function resolveOpenableFileData(
     value: unknown,
     pool?: readonly FileData[],
 ): FileData | null {
-    if (isRecord(value) && hasValidFileId(value.id) && pool?.length) {
+    if (!isRecord(value) || !hasValidFileId(value.id)) return null;
+    if (pool) {
         const hit = pool.find((f) => String(f.id) === String(value.id));
-        if (hit) {
-            const fromPool = normalizeFileDataForOpen(hit);
-            if (fromPool) return fromPool;
-        }
+        if (!hit) return null;
+        return normalizeFileDataForOpen(hit);
     }
     return normalizeFileDataForOpen(value);
 }
@@ -303,6 +303,17 @@ export function coerceExecutionFilePreserveId(input: unknown): ExecutionFile {
         date,
         fileNumber,
         fileYear,
+        ...(typeof v.directorate === 'string' ? { directorate: v.directorate } : {}),
+        ...(typeof v.classification === 'string' ? { classification: v.classification } : {}),
+        ...(typeof v.executionDate === 'string' ? { executionDate: v.executionDate } : {}),
+        ...(typeof v.submissionDate === 'string' ? { submissionDate: v.submissionDate } : {}),
+        ...(typeof v.amount === 'number' || typeof v.amount === 'string'
+            ? { amount: v.amount }
+            : {}),
+        ...(v.executionTrashDeletedAt != null
+            ? { executionTrashDeletedAt: v.executionTrashDeletedAt }
+            : {}),
+        ...(v.executionArchivedAt != null ? { executionArchivedAt: v.executionArchivedAt } : {}),
     } as ExecutionFile;
 }
 

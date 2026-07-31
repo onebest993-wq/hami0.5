@@ -4,7 +4,7 @@ import type { CaseEvent } from '../types';
 
 type UseOrderFilePersistArgs = {
     caseId: string | null;
-    userId: string;
+    userId: string | null;
     caseEvents: CaseEvent[];
     setCaseEvents: React.Dispatch<React.SetStateAction<CaseEvent[]>>;
     setCaseData: React.Dispatch<React.SetStateAction<any>>;
@@ -25,7 +25,7 @@ export function useOrderFilePersist({
 
     const flushPersistPatch = useCallback(
         async (patch: Record<string, unknown>) => {
-            if (!caseId || !Object.keys(patch).length) return;
+            if (!caseId || !userId || !Object.keys(patch).length) return;
             await UrgentActionsDB.patchCase(userId, caseId, patch);
         },
         [caseId, userId],

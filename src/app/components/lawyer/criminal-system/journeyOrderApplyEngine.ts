@@ -1,4 +1,4 @@
-import type { CaseStage, JourneyNode, ProceduralTransitionActionId } from '@/app/types/criminal';
+import type { JourneyNode, ProceduralTransitionActionId } from '@/app/types/criminal';
 import type { CriminalCase, StageConclusion } from './criminalCaseModel';
 import { isTrialCaseStage, resolveCaseStageFromRecord } from './criminalStageUtils';
 import {

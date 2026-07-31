@@ -1,10 +1,14 @@
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
+import { selectArchiveJurisdictionTab } from './archiveE2EFixtures';
 import { ensureLawyerDashboard, openLawsuitsWorkspace, seedLawyerFiles } from './civilLawsuitFixtures';
+import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
 
 export const E2E_CRIMINAL_CASE_ID = 'e2e-criminal-case-1';
 const CRIMINAL_STORE_KEY = 'hami:criminal:store';
 const CRIMINAL_STORE_PERSIST_VERSION = 49;
+const E2E_LAWYER_ID = 'dev-user-uuid-1';
+const CRIMINAL_BRIDGE_ACTIVATE_EVENT = 'hami:criminal-dashboard-bridge-activate';
 
 export const CRIMINAL_E2E_TEST_IDS = {
     dossier: 'criminal-dashboard-dossier',
@@ -17,6 +21,7 @@ export const CRIMINAL_E2E_TEST_IDS = {
 export function buildE2eCriminalCase() {
     return {
         id: E2E_CRIMINAL_CASE_ID,
+        ownerLawyerId: E2E_LAWYER_ID,
         createdAt: '2026-01-01T00:00:00.000Z',
         basics: {
             role: 'وكيل المشتكي',
@@ -73,25 +78,40 @@ export function buildE2eCriminalCase() {
     };
 }
 
-export async function seedCriminalCases(page: Page): Promise<void> {
+export function buildE2eCriminalStoreJson() {
     const criminalCase = buildE2eCriminalCase();
+    return JSON.stringify({
+        state: {
+            casesById: {
+                [criminalCase.id]: criminalCase,
+            },
+            pendingSeveranceContext: null,
+            draft: {},
+        },
+        version: CRIMINAL_STORE_PERSIST_VERSION,
+    });
+}
+
+export async function hydrateCriminalStoreForE2E(page: Page): Promise<void> {
+    await writeE2eSecureStoreKey(page, CRIMINAL_STORE_KEY, buildE2eCriminalStoreJson());
+}
+
+export async function activateCriminalDashboardBridge(page: Page): Promise<void> {
+    await page.evaluate((eventName) => {
+        window.dispatchEvent(new Event(eventName));
+    }, CRIMINAL_BRIDGE_ACTIVATE_EVENT);
+}
+
+export async function seedCriminalCases(page: Page): Promise<void> {
+    const storeJson = buildE2eCriminalStoreJson();
     await seedLawyerFiles(page);
     await page.addInitScript(
-        ({ storeKey, storeJson }) => {
-            localStorage.setItem(storeKey, storeJson);
+        ({ storeKey, storeJson: json }) => {
+            localStorage.setItem(storeKey, json);
         },
         {
             storeKey: CRIMINAL_STORE_KEY,
-            storeJson: JSON.stringify({
-                state: {
-                    casesById: {
-                        [criminalCase.id]: criminalCase,
-                    },
-                    pendingSeveranceContext: null,
-                    draft: {},
-                },
-                version: CRIMINAL_STORE_PERSIST_VERSION,
-            }),
+            storeJson,
         },
     );
 }
@@ -99,10 +119,11 @@ export async function seedCriminalCases(page: Page): Promise<void> {
 /** يفتح الإضبارة الجنائية من مساحة عمل الدعاوى */
 export async function openCriminalDossierFromWorkspace(page: Page): Promise<void> {
     await openLawsuitsWorkspace(page);
-    await page.getByTestId(CRIMINAL_E2E_TEST_IDS.archiveTabCriminal).click({ timeout: 15_000 });
+    await activateCriminalDashboardBridge(page);
+    await selectArchiveJurisdictionTab(page, 'criminal');
     const card = page.getByTestId(CRIMINAL_E2E_TEST_IDS.caseCard(E2E_CRIMINAL_CASE_ID));
-    await expect(card).toBeVisible({ timeout: 25_000 });
-    await card.getByRole('button', { name: 'فتح الإضبارة' }).click({ timeout: 15_000 });
+    await expect(card).toBeVisible({ timeout: 45_000 });
+    await card.evaluate((el) => (el as HTMLButtonElement).click());
     await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toBeVisible({ timeout: 30_000 });
     await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toHaveAttribute(
         'data-dossier-state',
@@ -117,4 +138,8 @@ export async function prepareCriminalDossierE2E(page: Page): Promise<void> {
 export async function bootCriminalDossierE2E(page: Page): Promise<void> {
     await page.goto('/');
     await ensureLawyerDashboard(page);
+    await hydrateCriminalStoreForE2E(page);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await ensureLawyerDashboard(page);
+    await activateCriminalDashboardBridge(page);
 }

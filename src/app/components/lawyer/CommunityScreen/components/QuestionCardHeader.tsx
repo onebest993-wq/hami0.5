@@ -2,7 +2,7 @@ import React from 'react';
 import { User, EyeOff, UserPlus, UserCheck } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
-import { QuestionCardToolbar } from './QuestionCardToolbar';
+import { QuestionCardMoreMenu } from './QuestionCardMoreMenu';
 import {
     FORUM_ACCENT_CHIP,
     FORUM_PANEL,
@@ -27,7 +27,6 @@ export type QuestionCardHeaderProps = {
     isPinned: boolean;
     isLocked: boolean;
     canLockUnlock: boolean;
-    isBookmarked: boolean;
     isThreadFollowing: boolean;
     currentUserId: string | null;
     showUserPopup: boolean;
@@ -39,8 +38,6 @@ export type QuestionCardHeaderProps = {
     onToggleLock?: (postId: string) => void;
     onCopyPostText?: (postId: string) => void;
     onSaveToVault?: (postId: string) => void;
-    onSaveToDevice?: (postId: string) => void;
-    onToggleBookmark?: (postId: string) => void;
     onToggleThreadFollow?: (postId: string) => void;
     onMuteUser?: (userId: string) => void;
     onTogglePin: (postId: string) => void;
@@ -64,7 +61,6 @@ export function QuestionCardHeader({
     isPinned,
     isLocked,
     canLockUnlock,
-    isBookmarked,
     isThreadFollowing,
     currentUserId,
     showUserPopup,
@@ -76,8 +72,6 @@ export function QuestionCardHeader({
     onToggleLock,
     onCopyPostText,
     onSaveToVault,
-    onSaveToDevice,
-    onToggleBookmark,
     onToggleThreadFollow,
     onMuteUser,
     onTogglePin,
@@ -88,38 +82,108 @@ export function QuestionCardHeader({
     const authorId = post.authorId || post.author_id || '';
 
     return (
-        <div className="flex items-center gap-2 mb-3">
-            <div className={`p-1.5 rounded-full ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#342C3E] text-[#9A9098]'}`}>
+        <div className="mb-3 flex items-start gap-2 min-w-0">
+            <div
+                className={`mt-0.5 p-1.5 rounded-full shrink-0 ${isAnonymous ? `${FORUM_ACCENT_CHIP}` : 'bg-[#1A2333] text-[#9AA3B2]'}`}
+            >
                 {isAnonymous ? <EyeOff size={16} /> : <User size={16} />}
             </div>
-            <div className="relative">
-                <button
-                    type="button"
-                    data-testid={isAnonymous ? undefined : 'forum-open-author-profile'}
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        if (isAnonymous) return;
-                        if (onOpenProfile) {
-                            onOpenProfile(authorId, post.authorName);
-                            return;
-                        }
-                        setShowUserPopup(!showUserPopup);
-                    }}
-                    className={`text-sm font-bold ${isAnonymous ? `${FORUM_TEXT_MUTED} cursor-default` : `${FORUM_TEXT_PRIMARY} hover:text-[#F0B896] transition-colors`}`}
-                >
-                    {displayName}
-                </button>
-                {showUserPopup && !isAnonymous && (
+
+            <div className="relative min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
+                    <button
+                        type="button"
+                        data-testid={isAnonymous ? undefined : 'forum-open-author-profile'}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (isAnonymous) return;
+                            if (onOpenProfile) {
+                                onOpenProfile(authorId, post.authorName);
+                                return;
+                            }
+                            setShowUserPopup(!showUserPopup);
+                        }}
+                        className={`text-sm font-bold truncate max-w-full text-right ${isAnonymous ? `${FORUM_TEXT_MUTED} cursor-default` : `${FORUM_TEXT_PRIMARY} hover:text-[#C9A86C] transition-colors`}`}
+                    >
+                        {displayName}
+                    </button>
+                    {canFollow ? (
+                        <button
+                            type="button"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onFollow(authorId);
+                            }}
+                            className={`shrink-0 text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
+                                isFollowing
+                                    ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
+                                    : `${FORUM_ACCENT_CHIP} text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors`
+                            }`}
+                            title={isFollowing ? 'إلغاء المتابعة' : 'متابعة'}
+                        >
+                            {isFollowing ? <UserCheck size={12} /> : <UserPlus size={12} />}
+                            <span className="hidden sm:inline">{isFollowing ? 'متابَع' : 'متابعة'}</span>
+                        </button>
+                    ) : null}
+                </div>
+
+                <div className="mt-0.5 flex items-center gap-2 min-w-0">
+                    <span className="text-gray-500 text-xs shrink-0">{formatRelativeTime(post.createdAt)}</span>
+                    {isEdited ? (
+                        <div className="relative shrink-0">
+                            <button
+                                type="button"
+                                onClick={() => setShowEditInfo((v) => !v)}
+                                className={`text-xs ${FORUM_TEXT_APRICOT} hover:text-[#F8C4A8] transition-colors underline-offset-2 hover:underline`}
+                                aria-expanded={showEditInfo}
+                            >
+                                (مُعدّل{editCount > 0 ? ` · ${editCount}` : ''})
+                            </button>
+                            {showEditInfo ? (
+                                <>
+                                    <div className="fixed inset-0 z-40" onClick={() => setShowEditInfo(false)} aria-hidden />
+                                    <div
+                                        className={`absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] ${FORUM_PANEL} shadow-2xl p-4`}
+                                    >
+                                        <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm mb-1`}>سجل التعديل</p>
+                                        <p className={`${FORUM_TEXT_MUTED} text-[11px] mb-3`}>
+                                            عدد مرات التعديل:{' '}
+                                            <span className={`${FORUM_TEXT_APRICOT} font-bold`}>{editCount || 1}</span>
+                                        </p>
+                                        <p className={`${FORUM_TEXT_MUTED} text-[10px] mb-1`}>النص الحالي (بعد التعديل):</p>
+                                        <p
+                                            className={`${FORUM_TEXT_PRIMARY} text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto`}
+                                        >
+                                            {post.content}
+                                        </p>
+                                        {(post.editHistory?.length ?? 0) > 0 ? (
+                                            <div className="mt-3 pt-3 border-t border-white/5">
+                                                <p className="text-white/40 text-[10px] mb-2">آخر نسخة قبل التعديل:</p>
+                                                <p className="text-white/60 text-[12px] leading-relaxed whitespace-pre-wrap line-clamp-4">
+                                                    {post.editHistory![post.editHistory!.length - 1]?.content}
+                                                </p>
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </>
+                            ) : null}
+                        </div>
+                    ) : null}
+                </div>
+
+                {showUserPopup && !isAnonymous ? (
                     <>
                         <div className="fixed inset-0 z-40" onClick={() => setShowUserPopup(false)} />
-                        <div className={`absolute top-full right-0 mt-2 z-50 w-64 ${FORUM_PANEL} shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200`}>
+                        <div
+                            className={`absolute top-full right-0 mt-2 z-50 w-64 ${FORUM_PANEL} shadow-2xl p-4 animate-in fade-in slide-in-from-top-2 duration-200`}
+                        >
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center text-white/60 border border-white/10">
                                     <User size={24} />
                                 </div>
                                 <div>
                                     <p className="text-white font-bold text-sm">{displayName}</p>
-                                    {isAdmin && <p className="text-gray-500 text-[10px]">معرّف داخلي (إدارة)</p>}
+                                    {isAdmin ? <p className="text-gray-500 text-[10px]">معرّف داخلي (إدارة)</p> : null}
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-3 mb-4">
@@ -132,7 +196,7 @@ export function QuestionCardHeader({
                                     <p className={`${FORUM_TEXT_MUTED} text-[10px]`}>منشورات</p>
                                 </div>
                             </div>
-                            {canFollow && (
+                            {canFollow ? (
                                 <button
                                     type="button"
                                     onClick={(event) => {
@@ -150,7 +214,7 @@ export function QuestionCardHeader({
                                     <span>{isFollowing ? 'متابَع' : 'متابعة'}</span>
                                     <span className="text-[10px] opacity-60">({followerCount})</span>
                                 </button>
-                            )}
+                            ) : null}
                             {onOpenProfile ? (
                                 <button
                                     type="button"
@@ -166,66 +230,10 @@ export function QuestionCardHeader({
                             ) : null}
                         </div>
                     </>
-                )}
+                ) : null}
             </div>
-            {canFollow && (
-                <button
-                    type="button"
-                    onClick={(event) => {
-                        event.stopPropagation();
-                        onFollow(authorId);
-                    }}
-                    className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors ${
-                        isFollowing
-                            ? 'text-emerald-400 bg-emerald-950/30 border border-emerald-500/20 hover:bg-emerald-950/50'
-                            : `${FORUM_ACCENT_CHIP} text-xs flex items-center gap-1 px-2 py-0.5 rounded-full transition-colors`
-                    }`}
-                    title={isFollowing ? 'إلغاء المتابعة' : 'متابعة'}
-                >
-                    {isFollowing ? <UserCheck size={12} /> : <UserPlus size={12} />}
-                    <span>{isFollowing ? 'متابَع' : 'متابعة'}</span>
-                </button>
-            )}
-            <span className="text-gray-500 text-xs">•</span>
-            <span className="text-gray-500 text-xs">{formatRelativeTime(post.createdAt)}</span>
-            {isEdited && (
-                <div className="relative">
-                    <button
-                        type="button"
-                        onClick={() => setShowEditInfo((v) => !v)}
-                        className={`text-xs ${FORUM_TEXT_APRICOT} hover:text-[#F8C4A8] transition-colors underline-offset-2 hover:underline`}
-                        aria-expanded={showEditInfo}
-                    >
-                        (مُعدّل{editCount > 0 ? ` · ${editCount}` : ''})
-                    </button>
-                    {showEditInfo && (
-                        <>
-                            <div className="fixed inset-0 z-40" onClick={() => setShowEditInfo(false)} aria-hidden />
-                            <div className={`absolute top-full right-0 mt-2 z-50 w-[min(320px,calc(100vw-2rem))] ${FORUM_PANEL} shadow-2xl p-4`}>
-                                <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm mb-1`}>سجل التعديل</p>
-                                <p className={`${FORUM_TEXT_MUTED} text-[11px] mb-3`}>
-                                    عدد مرات التعديل:{' '}
-                                    <span className={`${FORUM_TEXT_APRICOT} font-bold`}>{editCount || 1}</span>
-                                </p>
-                                <p className={`${FORUM_TEXT_MUTED} text-[10px] mb-1`}>النص الحالي (بعد التعديل):</p>
-                                <p className={`${FORUM_TEXT_PRIMARY} text-[13px] leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto`}>
-                                    {post.content}
-                                </p>
-                                {(post.editHistory?.length ?? 0) > 0 && (
-                                    <div className="mt-3 pt-3 border-t border-white/5">
-                                        <p className="text-white/40 text-[10px] mb-2">آخر نسخة قبل التعديل:</p>
-                                        <p className="text-white/60 text-[12px] leading-relaxed whitespace-pre-wrap line-clamp-4">
-                                            {post.editHistory![post.editHistory!.length - 1]?.content}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
-            <div className="flex-1" />
-            <QuestionCardToolbar
+
+            <QuestionCardMoreMenu
                 post={post}
                 currentUserId={currentUserId}
                 isOwner={isOwner}
@@ -233,14 +241,11 @@ export function QuestionCardHeader({
                 isAnonymous={isAnonymous}
                 isPinned={isPinned}
                 isLocked={isLocked}
-                isBookmarked={isBookmarked}
                 isThreadFollowing={isThreadFollowing}
                 canLockUnlock={canLockUnlock}
                 onToggleLock={onToggleLock}
                 onCopyPostText={onCopyPostText}
                 onSaveToVault={onSaveToVault}
-                onSaveToDevice={onSaveToDevice}
-                onToggleBookmark={onToggleBookmark}
                 onToggleThreadFollow={onToggleThreadFollow}
                 onMuteUser={onMuteUser}
                 onTogglePin={onTogglePin}

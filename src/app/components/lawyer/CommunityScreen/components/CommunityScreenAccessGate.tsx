@@ -1,6 +1,5 @@
 import { Briefcase } from 'lucide-react';
 
-import { CommunityScreenLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import {
     FORUM_PLUM_DEEP,
     FORUM_TEXT_MUTED,
@@ -20,10 +19,16 @@ export function CommunityScreenAccessGate({
     onBack,
 }: CommunityScreenAccessGateProps) {
     if (showLoadingShell) {
-        if (onBack) {
-            return <CommunityScreenLoadingFallback onBack={onBack} />;
-        }
-        return <div dir="rtl" className="w-full h-full" style={{ backgroundColor: FORUM_PLUM_DEEP }} />;
+        return (
+            <div
+                dir="rtl"
+                className="w-full h-full flex items-center justify-center"
+                style={{ backgroundColor: FORUM_PLUM_DEEP }}
+                data-testid="forum-access-loading"
+            >
+                <p className={`${FORUM_TEXT_MUTED} text-sm`}>جاري التحقق من الجلسة…</p>
+            </div>
+        );
     }
     if (!canAccessLawyerForum) {
         return (
@@ -32,9 +37,9 @@ export function CommunityScreenAccessGate({
                 className="w-full h-full flex items-center justify-center p-6 text-center"
                 style={{ backgroundColor: FORUM_PLUM_DEEP }}
             >
-                <div className="bg-[#38303E] border border-[#4A3D52]/55 rounded-xl p-6 max-w-md w-full shadow-[inset_0_0_32px_rgba(240,184,150,0.05)]">
-                    <div className="w-14 h-14 rounded-xl bg-[#F0B896]/10 border border-[#F0B896]/25 flex items-center justify-center mx-auto mb-3">
-                        <Briefcase size={22} className="text-[#F0B896]" />
+                <div className="hami-forum-panel rounded-xl p-6 max-w-md w-full">
+                    <div className="w-14 h-14 rounded-xl bg-[#C9A86C]/10 border border-[#C9A86C]/25 flex items-center justify-center mx-auto mb-3">
+                        <Briefcase size={22} className="text-[#C9A86C]" />
                     </div>
                     <h2 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-1`}>هذا المنتدى مخصص للمحامين فقط</h2>
                     <p className={`${FORUM_TEXT_MUTED} text-sm`}>يرجى تسجيل الدخول بحساب محامٍ للوصول.</p>

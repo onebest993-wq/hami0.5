@@ -171,4 +171,64 @@ describe('appendEvictionExecutorRequest', () => {
         expect(ok).toBe(false);
         expect(readExecutorDecisionsArray(EXEC_ID).length).toBe(1);
     });
+
+    it('allows marital furniture delivery on أثاث زوجية dossier', () => {
+        const MF_EXEC_ID = 'exec-marital-furniture-append';
+        const maritalData = {
+            id: MF_EXEC_ID,
+            claimType: 'أثاث زوجية',
+            creditors: [{ name: 'زوجة', isClient: true }],
+            debtors: [{ name: 'زوج' }],
+        };
+        SecureStoreService.setItemSync(
+            executionStorageKey(MF_EXEC_ID),
+            JSON.stringify(maritalData),
+        );
+        clearDecisionsNamespaceForTests(MF_EXEC_ID);
+
+        const ok = appendEvictionExecutorRequest({
+            executionId: MF_EXEC_ID,
+            title: '🛋️ طلب تسليم أثاث',
+            body: 'طلب موحّد لمنفذ العدل',
+            requestKind: 'eviction_procedure',
+            evictionWorkflowKey: 'marital_furniture_delivery',
+        });
+
+        expect(ok).toBe(true);
+        const rows = readExecutorDecisionsArray(MF_EXEC_ID);
+        expect(rows.some((r) => String(r.requestKind) === 'eviction_procedure')).toBe(true);
+    });
+
+    it('does not block new request when only archived duplicate exists', () => {
+        writeExecutorDecisionsArray(
+            EXEC_ID,
+            [
+                {
+                    id: 'eviction_archived',
+                    title: '🛋️ طلب تسليم أثاث',
+                    body: 'طلب سابق',
+                    date: '2026-06-04',
+                    appealStatus: 'pending',
+                    executorOutcome: 'pending',
+                    requestKind: 'eviction_procedure',
+                    evictionWorkflowKey: 'marital_furniture_delivery',
+                    appealRequestOrigin: 'creditor_side',
+                    domainIsolationSuppressed: true,
+                    requestCycleSuperseded: true,
+                    isArchived: true,
+                },
+            ],
+            EVICTION_EXEC_DATA
+        );
+
+        const ok = appendEvictionExecutorRequest({
+            executionId: EXEC_ID,
+            title: '🛋️ طلب تسليم أثاث',
+            body: 'طلب جديد',
+            requestKind: 'eviction_procedure',
+            evictionWorkflowKey: 'marital_furniture_delivery',
+        });
+
+        expect(ok).toBe(true);
+    });
 });

@@ -1,5 +1,5 @@
 import type { SeizedProperty } from '@/app/types/execution';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import {
     expertCommitteeSizeLabelAr,
     readExpertCommitteeSize,

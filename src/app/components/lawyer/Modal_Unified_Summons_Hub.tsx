@@ -1,10 +1,15 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Bell, Calendar, CheckCircle, Gavel, Newspaper, Pencil, PauseCircle } from 'lucide-react';
+import { X, Bell, Calendar, CheckCircle, Newspaper, Pencil, PauseCircle } from 'lucide-react';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
 } from '@/app/components/lawyer/execution/executionModalStack';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+} from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 import type {
     EmployeeSummonsAssignmentState,
     EvictionSubsequentSummonsMeta,
@@ -18,13 +23,19 @@ import {
 import { EmployeeAssignmentCoerciveFollowupBlock } from '@/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock';
 import {
     publicationNoticeDeadlineYmd,
-    PUBLICATION_NOTICE_DURATION_DAYS,
 } from '@/app/utils/publicationNoticeDebtor';
 import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
 import { getExecutionSummons7DayWindow } from '@/app/utils/executionSummonsWorkflow';
-import { headingForSubsequentNotice } from './Modal_Unified_Summons_Hub/utils';
 import ConfirmAttendanceModal from './Modal_Unified_Summons_Hub/components/ConfirmAttendanceModal';
 import { SummonsInlineDateField } from '@/app/components/lawyer/execution/SummonsInlineDateField';
+import {
+    HUB_GOLD_ACTION_CLASS,
+    HUB_HEADER_CLASS,
+    HUB_SECTION_CARD_CLASS,
+    HUB_SELECT_CLASS,
+    HUB_SHELL_CLASS,
+    HUB_TITLE_CLASS,
+} from './Modal_Unified_Summons_Hub/summonsHubStyles';
 
 function todayLocalYmd(): string {
     const d = new Date();
@@ -62,7 +73,7 @@ export interface UnifiedSummonsHubProps {
     forceSummonLockReason?: string;
     isGovernmentEmployee?: boolean;
     hasSalaryCoerciveStep?: boolean;
-    onRegisterDebtorVoluntaryAttendance?: () => void;
+    onRegisterDebtorVoluntaryAttendance?: () => boolean | void;
     onOpenCoerciveModal?: () => void;
     summonsProfile?: SummonsProfile;
     summoningRound?: number;
@@ -152,6 +163,8 @@ export interface UnifiedSummonsHubProps {
 
     /** هل انتهت دورة مذكرة الإخبار لهذه الإضبارة (حضور أو انتهاء مهلة) */
     executionSummonsArchived?: boolean;
+    /** تبويب التكليف بالحضور — مدين موظف (غير تخلية) بعد أرشفة الإخبار */
+    showEmployeeTaklifHubTab?: boolean;
 }
 
 export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
@@ -194,6 +207,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
     executionId,
     executionSummonsNoticeDateYmd = null,
     executionSummonsArchived = false,
+    showEmployeeTaklifHubTab = false,
 }) => {
     const [debtorDate, setDebtorDate] = useState<string>('');
     
@@ -276,7 +290,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     const memoArchivedResolved = Boolean(executionSummonsArchived || memoArchivedOptimistic);
 
-    const showTaklifOptionInHub = Boolean(memoArchivedResolved);
+    const showTaklifOptionInHub = Boolean(memoArchivedResolved && showEmployeeTaklifHubTab);
     const showPublicationTab = Boolean(
         !suppressPublicationNotice &&
             (memoArchivedResolved || (!memoArchivedResolved && notificationCount <= 1))
@@ -430,16 +444,24 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     const markExecutionSummonsArchived = useCallback(
         (kind: 'attended' | 'expired') => {
-            setMemoArchivedOptimistic(true);
             if (kind === 'attended') {
-                if (!evictionDebtorExecutionStrip?.visible) {
-                    onRegisterDebtorVoluntaryAttendance?.();
-                } else {
-                    evictionDebtorExecutionStrip.onRegisterAttendance?.();
+                const registerAttendance =
+                    onRegisterDebtorVoluntaryAttendance ??
+                    evictionDebtorExecutionStrip?.onRegisterAttendance;
+                if (!registerAttendance) {
+                    setMemoError('تعذر تسجيل حضور المدين — أعد فتح مركز التبليغ.');
+                    return;
                 }
+                const registered = registerAttendance();
+                if (registered === false) {
+                    setMemoError('تعذر تسجيل حضور المدين. حاول مرة أخرى.');
+                    return;
+                }
+                setMemoArchivedOptimistic(true);
                 onClose();
                 return;
             }
+            setMemoArchivedOptimistic(true);
             if (summonsEvictionSimplifiedUi) {
                 onEvictionVoluntaryPeriodEnd?.();
             } else {
@@ -447,7 +469,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             }
         },
         [
-            evictionDebtorExecutionStrip,
+            evictionDebtorExecutionStrip?.onRegisterAttendance,
             onClose,
             onEvictionVoluntaryPeriodEnd,
             onNoticeVoluntaryPeriodEnd,
@@ -557,7 +579,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
 
     return (
         <div
-            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             style={{ zIndex: EXEC_MODAL_Z.unifiedSummonsAndLegacyNotification }}
             onClick={onClose}
             role="presentation"
@@ -565,15 +587,15 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
             <motion.div
                 initial={{ scale: 0.9, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                className="bg-[#0B1120] border-2 border-indigo-500/40 rounded-3xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col"
+                className={HUB_SHELL_CLASS}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* HEADER */}
-                <div className="bg-gradient-to-r from-indigo-900/40 to-purple-900/40 border-b border-indigo-500/30 p-4 flex justify-between items-center">
-                    <button type="button" onClick={onClose} className="p-2 hover:bg-indigo-500/20 rounded-lg transition-all">
+                <div className={`${HUB_HEADER_CLASS} ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
+                    <button type="button" onClick={onClose} className={EXEC_MODAL_CLOSE_BTN_CLASS}>
                         <X size={20} className="text-white" />
                     </button>
-                    <h2 className="text-indigo-400 font-bold text-lg flex items-center gap-2">
+                    <h2 className={HUB_TITLE_CLASS}>
                         <Bell size={20} />
                         {isGuarantorSummonsContext ? 'تبليغ / تكليف الكفيل بالحضور' : 'التبليغ'}
                     </h2>
@@ -598,7 +620,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                     setTaklifFormError('');
                                     setNashrFormError('');
                                 }}
-                                className="w-full rounded-xl border border-indigo-500/30 bg-slate-800/50 px-4 py-2.5 text-right text-sm text-white"
+                                className={HUB_SELECT_CLASS}
                                 dir="rtl"
                             >
                                 {hubTabOptions.map((o) => (
@@ -617,7 +639,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                             className="space-y-4"
                         >
                             {!memoArchivedResolved && notificationCount <= 1 ? (
-                                <div className="rounded-2xl border border-indigo-500/20 bg-gradient-to-br from-[#0B1120]/70 via-slate-950/50 to-indigo-950/25 p-4 shadow-lg shadow-black/30 backdrop-blur-xl" dir="rtl">
+                                <div className={HUB_SECTION_CARD_CLASS} dir="rtl">
                                     {memoArchivedResolved ? (
                                         <div className="rounded-xl border border-emerald-500/25 bg-emerald-950/15 px-3 py-3">
                                             <div className="flex flex-row-reverse items-center justify-between gap-2">
@@ -661,7 +683,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                             className={`ml-auto rounded-lg border px-2 py-0.5 text-[10px] font-bold ${
                                                                 memoWindow.isExpired
                                                                     ? 'border-amber-500/30 bg-amber-950/25 text-amber-200'
-                                                                    : 'border-indigo-400/20 bg-indigo-950/25 text-indigo-200'
+                                                                    : 'border-[#E6C673]/20 bg-[#E6C673]/10 text-[#E6C673]'
                                                             }`}
                                                         >
                                                             {memoWindow.isExpired
@@ -710,7 +732,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                 value={memoNoticeDateYmd}
                                                 max={summonsTodayYmdMax}
                                                 error={memoError}
-                                                accent="indigo"
+                                                accent="gold"
                                                 onChange={(next) => {
                                                     if (!next) return;
                                                     submitExecutionSummonsDate(next);
@@ -748,7 +770,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                 value={memoNoticeDateYmd}
                                                 max={summonsTodayYmdMax}
                                                 error={memoError}
-                                                accent="indigo"
+                                                accent="gold"
                                                 onChange={(next) => {
                                                     if (!next) return;
                                                     submitExecutionSummonsDate(next);
@@ -762,10 +784,10 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     setDateError('');
                                                     setNashrFormError('');
                                                 }}
-                                                className="w-full rounded-xl border border-violet-500/35 bg-gradient-to-r from-violet-950/55 to-fuchsia-950/40 py-3 text-[12px] font-black text-violet-50 shadow-[0_0_22px_rgba(139,92,246,0.14)] hover:from-violet-900/60 hover:to-fuchsia-900/55"
+                                                className={HUB_GOLD_ACTION_CLASS}
                                             >
                                                 <span className="flex flex-row-reverse items-center justify-center gap-2">
-                                                    <Newspaper size={18} className="text-violet-200" />
+                                                    <Newspaper size={18} className="text-[#E6C673]" />
                                                     التبليغ بالمذكرة بواسطة النشر
                                                 </span>
                                             </button>
@@ -996,7 +1018,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                     label="تاريخ النشر في الجريدة"
                                     value={nashrDate}
                                     max={summonsTodayYmdMax}
-                                    accent="violet"
+                                    accent="gold"
                                     onChange={setNashrDate}
                                 />
                             </div>
@@ -1008,7 +1030,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                             type="text"
                                             value={nashrPaper1}
                                             onChange={(e) => setNashrPaper1(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-violet-500/30 rounded-xl px-4 py-2.5 text-white text-right"
+                                            className={HUB_SELECT_CLASS}
                                             placeholder=""
                                             dir="rtl"
                                         />
@@ -1021,11 +1043,11 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                             type="text"
                                             value={nashrPaper2}
                                             onChange={(e) => setNashrPaper2(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-violet-500/30 rounded-xl px-4 py-2.5 text-white text-right"
+                                            className={HUB_SELECT_CLASS}
                                             placeholder=""
                                             dir="rtl"
                                         />
-                            </div>
+                                    </div>
                                     {(nashrFormError || (hubMainTab === 'nashr' && dateError)) && (
                                         <p className="text-red-400 text-xs text-right">
                                             {nashrFormError || dateError}
@@ -1075,7 +1097,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                             setNashrPaper2('');
                                             setDateError('');
                                         }}
-                                        className="w-full bg-gradient-to-r from-violet-700 to-violet-600 hover:from-violet-600 hover:to-violet-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2"
+                                        className={`${HUB_GOLD_ACTION_CLASS} flex items-center justify-center gap-2`}
                                     >
                                         <Newspaper size={18} />
                                         تسجيل التبليغ بالنشر
@@ -1108,10 +1130,14 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                             {empPhase === 'none' && (
                                 <>
                             <div>
-                                <label className="block text-gray-300 text-sm font-semibold mb-2 text-right">
+                                <label
+                                    htmlFor="execution-taklif-purpose"
+                                    className="block text-gray-300 text-sm font-semibold mb-2 text-right"
+                                >
                                             الغاية من التكليف
                                 </label>
                                 <textarea
+                                            id="execution-taklif-purpose"
                                             value={taklifPurpose}
                                             onChange={(e) => setTaklifPurpose(e.target.value)}
                                             className="w-full bg-slate-800/50 border border-amber-500/25 rounded-xl px-4 py-2.5 text-white text-right resize-none"
@@ -1286,7 +1312,7 @@ export const UnifiedSummonsHub: React.FC<UnifiedSummonsHubProps> = ({
                                                     onClose();
                                                 }}
                                                 className="w-full border border-slate-500/50 text-slate-300 font-semibold py-2.5 rounded-xl text-sm"
-                                            >
+                            >
                                                 إنهاء التكليف
                             </button>
                                         ) : null}

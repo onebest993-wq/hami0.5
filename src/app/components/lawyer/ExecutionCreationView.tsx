@@ -2,13 +2,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
     X, Plus, Trash2, FileText,
-    DollarSign, AlertTriangle, Code, Calendar, Zap,
-    ChevronDown, Scale, Package, Building2, Sparkles
+    AlertTriangle, Calendar, Zap,
+    ChevronDown, Scale
 } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { motion, AnimatePresence } from 'motion/react';
-import { debug } from '@/app/utils/debug';
+import { motion } from 'motion/react';
 import logger from '@/app/utils/logger';
 import { SupabaseService } from '@/app/services/SupabaseService';
 import { deriveMonetaryClaimNature } from '@/app/utils/summoningImmunityEngine';
@@ -46,12 +45,12 @@ import { SpecificDeliveryItemsSetupSection } from './ExecutionCreationView/compo
 import {
     aggregateSpecificDeliveryDebtExposure,
     applyIntakeDestroyedFinancialization,
-    aggregateSpecificDeliveryFinancializedAmount,
     normalizeSpecificDeliveryItemsForSave,
     syncSpecificDeliveryLegacyFields,
     type SpecificDeliveryItem,
 } from '@/app/utils/specificDeliveryItemsUtils';
 import { ExecutionSaveButton } from './ExecutionCreationView/components/ExecutionSaveButton';
+import { LawyerFeesToggleCard } from './ExecutionCreationView/components/LawyerFeesToggleCard';
 import {
     capManualIndependentDebtRaw,
     capManualIndependentLawyerFeesRaw,
@@ -59,6 +58,7 @@ import {
     claimHasFinancialAmountSection,
     claimUsesMonetaryAmountField,
     findMissingRequiredMonetaryClaimAmount,
+    findMissingPastAlimonyClaimFieldMessage,
     isDirectorateSectionComplete,
     isFinancialClaimForPartySplit,
     isInstrumentSectionReadyForParties,
@@ -70,7 +70,6 @@ import {
     parseMoneyInput,
     resolveDebtorAllocatedShares,
     resolveManualDebtorAllocatedShares,
-    SHARIA_LINKED_FINANCIAL_CLAIM_VALUES,
     splitAmountEqually,
 } from './ExecutionCreationView/hooks/executionFormUtils';
 import {
@@ -552,7 +551,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     }, [activeClaimTypes]);
 
     useEffect(() => {
-        if (!activeClaimTypes.includes('نفقة ماضية') || activeClaimTypes.includes('نفقة')) return;
+        if (!activeClaimTypes.includes('نفقة ماضية')) return;
         const past = calculatedAlimonyNew?.pastAccumulation;
         if (!past || past <= 0) return;
         const next = String(Math.round(past));
@@ -1130,11 +1129,19 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             claimType,
             claimAmountsByType,
             totalAmount,
+            { pastAlimonyAccumulation: calculatedAlimonyNew?.pastAccumulation },
         );
         if (missingMonetaryClaim) {
-            SmartToast.error(
-                `⚠️ يرجى إدخال المبلغ المطلوب — ${missingMonetaryClaim}`,
-            );
+            const message =
+                missingMonetaryClaim === 'نفقة ماضية'
+                    ? findMissingPastAlimonyClaimFieldMessage({
+                          alimonyPastStartDate,
+                          alimonyLawsuitDate,
+                          pastWifeMonthly: pastWifeAlimonyAmount,
+                          fallbackWifeMonthly: alimonyWifeMonthly,
+                      })
+                    : `يرجى إدخال المبلغ المطلوب — ${missingMonetaryClaim}`;
+            SmartToast.error(`⚠️ ${message}`);
             return;
         }
 
@@ -1822,6 +1829,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                             onFileNumberChange={setFileNumber}
                         />
 
+                        {isDirectorateSectionComplete(directorate, fileNumber) ? (
                         <ExecutionCreationSection title="السند المنفذ">
                             <div className="flex flex-col gap-3">
                                 {/* ✅ تصحيح 1: تغيير الاسم من "نوع السند" إلى "قرارات المحاكم" عند اختيار أحكام المحاكم */}
@@ -1850,7 +1858,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 <label className={ecg.labelGold}>رقم الحكم</label>
                                                 <input 
                                                     type="text"
-                                                    placeholder="مثال: 1234/2024"
+                                                    aria-label="رقم الحكم"
                                                     value={docNumber}
                                                     onChange={(e) => setDocNumber(e.target.value)}
                                                     className={ecg.field}
@@ -1960,7 +1968,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         )}
                                         <input 
                                             type="text"
-                                            placeholder={docType === 'الأوراق التجارية' ? 'رقم الصك / الكمبيالة' : 'رقم السند'}
+                                            aria-label={docType === 'الأوراق التجارية' ? 'رقم الصك / الكمبيالة' : 'رقم السند'}
                                             value={docType === 'الأوراق التجارية' ? chequeNumber : docNumber}
                                             onChange={(e) => {
                                                 if (docType === 'الأوراق التجارية') {
@@ -1991,7 +1999,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 <label className={ecg.labelGold}>العدد / رقم الحجة</label>
                                                 <input
                                                     type="text"
-                                                    placeholder="مثال: 1234"
+                                                    aria-label="العدد / رقم الحجة"
                                                     value={shariaDeedNumber}
                                                     onChange={(e) => setShariaDeedNumber(e.target.value)}
                                                     className={`${ecg.field} text-sm`}
@@ -2001,7 +2009,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 <label className={ecg.labelGold}>رقم السجل</label>
                                                 <input
                                                     type="text"
-                                                    placeholder="مثال: 56"
+                                                    aria-label="رقم السجل"
                                                     value={shariaRegisterNumber}
                                                     onChange={(e) => setShariaRegisterNumber(e.target.value)}
                                                     className={`${ecg.field} text-sm`}
@@ -2023,7 +2031,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 <label className={ecg.labelGold}>المحكمة الشرعية المصدرة</label>
                                                 <input
                                                     type="text"
-                                                    placeholder="مثال: محكمة الأحوال الشخصية في الكرخ"
+                                                    aria-label="المحكمة الشرعية المصدرة"
                                                     value={shariaIssuingCourt}
                                                     onChange={(e) => setShariaIssuingCourt(e.target.value)}
                                                     className={`${ecg.field} text-sm`}
@@ -2064,7 +2072,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                             <div key={ct} className={`${claimSectionCardClass} space-y-4`}>
                                                 <div className={ecg.cardHeader}>
                                                     <h4 className={ecg.cardTitle}>
-                                                        <DollarSign size={18} className="text-[#E6C673]" />
                                                         {ctLabel}
                                                     </h4>
                                                     <p className={ecg.cardSubtitle}>
@@ -2097,7 +2104,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                     {ctLabel} — المبلغ المطلوب (دينار) *
                                                 </label>
                                                 <div className={ecg.moneyWrap}>
-                                                    <DollarSign className="text-slate-500 flex-shrink-0" size={18} />
                                                     <input
                                                         type="text"
                                                         required
@@ -2118,8 +2124,9 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                             })
                                                         }
                                                         className={ecg.moneyInput}
-                                                        placeholder="0"
+                                                        aria-label={`${ctLabel} — المبلغ المطلوب (دينار)`}
                                                     />
+                                                    <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
                                                 </div>
                                             </div>
                                         );
@@ -2163,14 +2170,14 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                     <div className={ecg.card}>
                                         <label className={ecg.labelGold}>المبلغ المطلوب (دينار)</label>
                                         <div className={ecg.moneyWrap}>
-                                            <DollarSign className="text-slate-500 flex-shrink-0" size={18} />
                                             <input
                                                 type="text"
                                                 value={formatCurrency(totalAmount)}
                                                 onChange={(e) => handleAmountChange(e, setTotalAmount)}
                                                 className={ecg.moneyInput}
-                                                placeholder="0"
+                                                aria-label="المبلغ المطلوب (دينار)"
                                             />
+                                            <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
                                         </div>
                                     </div>
                                 ) : null}
@@ -2439,68 +2446,17 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 )}
                             </div>
                         </ExecutionCreationSection>
+                        ) : null}
 
                         {showLawyerFeesBetweenSections ? (
-                            <div
-                                className={[
-                                    'rounded-2xl border backdrop-blur-sm transition-all duration-300 overflow-hidden',
-                                    includeLawyerFees
-                                        ? 'border-[#E6C673]/40 bg-gradient-to-l from-[#E6C673]/12 via-[#E6C673]/5 to-transparent shadow-[0_0_24px_-12px_rgba(230,198,115,0.35)]'
-                                        : 'border-white/10 bg-white/[0.03]',
-                                ].join(' ')}
-                            >
-                                <label className="flex flex-row-reverse items-center gap-3 min-h-[48px] px-3.5 py-3 cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        checked={includeLawyerFees}
-                                        onChange={(e) => setIncludeLawyerFees(e.target.checked)}
-                                        className="sr-only"
-                                    />
-                                    <span
-                                        className={`${ecg.multiToggle} ${
-                                            includeLawyerFees ? ecg.multiToggleChecked : ecg.multiToggleIdle
-                                        }`}
-                                        aria-hidden
-                                    >
-                                        {includeLawyerFees ? (
-                                            <Scale size={12} className="text-[#0A0F1C]" strokeWidth={2.5} />
-                                        ) : null}
-                                    </span>
-                                    <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
-                                        المطالبة بأتعاب المحاماة المحكوم بها
-                                    </span>
-                                </label>
-
-                                <AnimatePresence initial={false}>
-                                    {includeLawyerFees ? (
-                                        <motion.div
-                                            key="lawyer-fees-amount"
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
-                                            className="overflow-hidden"
-                                        >
-                                            <div className="border-t border-[#E6C673]/15 px-3.5 pb-3.5 pt-3">
-                                                <div className={`${ecg.moneyWrap} focus-within:border-[#E6C673]/45`}>
-                                                    <Scale className="text-[#E6C673]/80 flex-shrink-0" size={16} />
-                                                    <input
-                                                        type="text"
-                                                        value={formatCurrency(lawyerFeesAmount)}
-                                                        onChange={(e) =>
-                                                            handleAmountChange(e, setLawyerFeesAmount)
-                                                        }
-                                                        className={ecg.moneyInput}
-                                                        placeholder="إجمالي الأتعاب المحكوم بها للمحامي"
-                                                        aria-label="أتعاب المحاماة المحكوم بها (دينار)"
-                                                    />
-                                                    <span className="text-slate-500 text-[10px] font-bold">IQD</span>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    ) : null}
-                                </AnimatePresence>
-                            </div>
+                            <LawyerFeesToggleCard
+                                includeLawyerFees={includeLawyerFees}
+                                onIncludeLawyerFeesChange={setIncludeLawyerFees}
+                                lawyerFeesAmount={lawyerFeesAmount}
+                                formatCurrency={formatCurrency}
+                                handleAmountChange={handleAmountChange}
+                                onLawyerFeesAmountChange={setLawyerFeesAmount}
+                            />
                         ) : null}
 
                         {showPartiesSection ? (
@@ -2539,7 +2495,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                         {/* ✅ DELETED: متتبع المواعيد القانونية - Statute of Limitations & Notification Tracker belong to Dashboard */}
 
-                        {claimType && ['مشاهدة', 'تسليم ولد', 'أثاث زوجية'].includes(claimType) && (
+                        {claimType && ['مشاهدة', 'تسليم ولد'].includes(claimType) && (
                             <ExecutionCreationSection title="تفاصيل إضافية للمطالبة الشرعية">
                                 {claimType === 'مشاهدة' && (
                                     <div className={`${ecg.subCard} space-y-4`}>
@@ -2691,7 +2647,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                         if (!chequeBankName && !chequeIssueDate && !chequeNumber) {
                             setShowChequeValidatorModal(false);
                         }
-                    }}>
+                    }}
+                    >
                         <div className={ecg.modalPanel} onClick={(e) => e.stopPropagation()}>
                             <h3 className={ecg.modalTitle}>
                                 <AlertTriangle size={24} />

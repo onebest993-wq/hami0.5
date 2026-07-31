@@ -6,9 +6,8 @@
 import {
     EVICTION_TIMELINE_ACTION_IDS,
     type EvictionTimelineActionId,
-} from '@/app/utils/executionModuleStrategies';
-import { executionFieldVisitAppointmentStorageKey } from '@/app/utils/executionStorageKeys';
-import SecureStoreService from '@/app/services/SecureStoreService';
+} from '@/app/utils/executionEvictionActionIds';
+import { executionFieldVisitAppointmentStorageKey } from '@/app/utils/executionStorageKeysLite';
 
 /** مفتاح يُخزَّن مع صف القرار عند إنشاء طلب تخلية من لوحة الإجراءات الميدانية */
 export type EvictionExecutorWorkflowKey =
@@ -252,7 +251,12 @@ export function handleExecutorApproval(
                         executorScheduleLabel: `مجدول: ${payload.displayAr}`,
                     });
                     try {
-                        SecureStoreService.setItemSync(fieldVisitAppointmentStorageKey(dossierId), payload.eventIso);
+                        void import('@/app/services/SecureStoreService').then((m) => {
+                            m.default.setItemSync(
+                                fieldVisitAppointmentStorageKey(dossierId),
+                                payload.eventIso,
+                            );
+                        });
                     } catch {
                         /* ignore */
                     }

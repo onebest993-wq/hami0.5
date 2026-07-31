@@ -1,10 +1,10 @@
-import { SecureAPIClient, SecureFetchError } from '@/app/services/SecureAPIClient';
 import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 
 type ApiOk<T> = { ok: true } & T;
 type ApiErr = { ok: false; error?: string };
 
 async function postForumJson<T>(endpoint: string, body: Record<string, unknown>): Promise<T> {
+    const { SecureAPIClient, SecureFetchError } = await import('@/app/services/SecureAPIClient');
     const res = await SecureAPIClient.fetchSecure<T & ApiErr>(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

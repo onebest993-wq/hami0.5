@@ -45,6 +45,7 @@ export type AppointmentEditData = {
     date?: string;
     details?: string;
     purpose?: string;
+    tags?: string[];
 };
 
 export type PauseInterruptionEditData = {

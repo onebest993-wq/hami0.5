@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import { Scale } from 'lucide-react';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';

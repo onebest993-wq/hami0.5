@@ -19,7 +19,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { SmartFileAnalyzer } from './file-analyzer';
-import { BatchProcessor } from './batch-processor';
 
 // ============================================
 // 📊 Types
@@ -48,6 +47,42 @@ interface RefactorChange {
     type: 'split' | 'extract' | 'optimize' | 'document';
     description: string;
     filesAffected: string[];
+}
+
+interface AnalyzerFunctionInfo {
+    name: string;
+    line: number;
+    params: string[];
+    isMemoed?: boolean;
+}
+
+interface AnalyzerComponentInfo {
+    name: string;
+    props: string[];
+    hooks: string[];
+    isMemoed: boolean;
+    hasDisplayName: boolean;
+}
+
+interface AnalyzerInterfaceInfo {
+    name: string;
+    properties: string[];
+}
+
+interface AnalyzerComplexity {
+    cyclomaticComplexity: number;
+}
+
+interface AnalyzerStructure {
+    functions: AnalyzerFunctionInfo[];
+    components: AnalyzerComponentInfo[];
+    interfaces: AnalyzerInterfaceInfo[];
+}
+
+interface AnalyzerResult {
+    totalLines: number;
+    structure: AnalyzerStructure;
+    complexity: AnalyzerComplexity;
 }
 
 // ============================================
@@ -164,7 +199,7 @@ export class SmartRefactor {
      */
     private async splitLargeFile(
         filePath: string, 
-        analysis: any
+        analysis: AnalyzerResult
     ): Promise<{ files: string[] }> {
         const baseDir = path.dirname(filePath);
         const baseName = path.basename(filePath, path.extname(filePath));
@@ -188,7 +223,7 @@ export class SmartRefactor {
 
         // 3. ملف الـ Modals (إذا وجدت)
         if (this.config.extractModals) {
-            const modalComponents = analysis.structure.components.filter((c: any) => 
+            const modalComponents = analysis.structure.components.filter((c) =>
                 c.name.toLowerCase().includes('modal')
             );
             
@@ -206,7 +241,7 @@ export class SmartRefactor {
     /**
      * إنشاء ملف الـ Utilities
      */
-    private async createUtilitiesFile(filePath: string, analysis: any): Promise<void> {
+    private async createUtilitiesFile(filePath: string, analysis: AnalyzerResult): Promise<void> {
         let content = `/**
  * 🛠️ Utilities
  * @file ${path.basename(filePath)}
@@ -218,7 +253,7 @@ export class SmartRefactor {
 `;
 
         // إضافة الـ Interfaces
-        analysis.structure.interfaces.forEach((iface: any) => {
+        analysis.structure.interfaces.forEach((iface) => {
             content += `export interface ${iface.name} {\n`;
             iface.properties.forEach((prop: string) => {
                 content += `    ${prop}: any;\n`;
@@ -229,7 +264,7 @@ export class SmartRefactor {
         content += `// === HELPER FUNCTIONS ===\n\n`;
 
         // إضافة الدوال
-        analysis.structure.functions.forEach((func: any) => {
+        analysis.structure.functions.forEach((func) => {
             content += `/**
  * @description وصف الدالة
  * @param ${func.params.join(' - معامل\n * @param ')}
@@ -246,7 +281,7 @@ export function ${func.name}(${func.params.join(', ')}): any {
     /**
      * إنشاء ملف المكونات المشتركة
      */
-    private async createComponentsFile(filePath: string, analysis: any): Promise<void> {
+    private async createComponentsFile(filePath: string, analysis: AnalyzerResult): Promise<void> {
         let content = `/**
  * 🧩 Shared Components
  * @file ${path.basename(filePath)}
@@ -259,7 +294,7 @@ import React from 'react';
 
 `;
 
-        analysis.structure.components.forEach((comp: any) => {
+        analysis.structure.components.forEach((comp) => {
             content += `/**
  * @component ${comp.name}
  * @description وصف المكون
@@ -280,7 +315,10 @@ ${comp.name}.displayName = '${comp.name}';
     /**
      * إنشاء ملف النوافذ المنبثقة
      */
-    private async createModalsFile(filePath: string, modalComponents: any[]): Promise<void> {
+    private async createModalsFile(
+        filePath: string,
+        modalComponents: AnalyzerComponentInfo[],
+    ): Promise<void> {
         let content = `/**
  * 🪟 Modals
  * @file ${path.basename(filePath)}
@@ -293,7 +331,7 @@ import React from 'react';
 
 `;
 
-        modalComponents.forEach((modal: any) => {
+        modalComponents.forEach((modal) => {
             content += `/**
  * @component ${modal.name}
  */
@@ -315,10 +353,10 @@ ${modal.name}.displayName = '${modal.name}';
      */
     private async applyReactMemo(
         filePath: string, 
-        analysis: any
+        analysis: AnalyzerResult
     ): Promise<{ modified: boolean; count: number }> {
         const unmemoedComponents = analysis.structure.components.filter(
-            (c: any) => !c.isMemoed
+            (c) => !c.isMemoed
         );
 
         if (unmemoedComponents.length === 0) {
@@ -330,7 +368,7 @@ ${modal.name}.displayName = '${modal.name}';
         let modified = false;
 
         // تطبيق React.memo على كل مكون
-        unmemoedComponents.forEach((comp: any) => {
+        unmemoedComponents.forEach((comp) => {
             const regex = new RegExp(
                 `(export const ${comp.name}: React\\.FC<[^>]+>\\s*=\\s*)\\(`,
                 'g'
@@ -367,17 +405,16 @@ ${modal.name}.displayName = '${modal.name}';
      */
     private async addJSDocumentation(
         filePath: string, 
-        analysis: any
+        analysis: AnalyzerResult
     ): Promise<{ modified: boolean; count: number }> {
         let content = fs.readFileSync(filePath, 'utf-8');
         let modified = false;
         let count = 0;
 
         // إضافة JSDoc للدوال
-        analysis.structure.functions.forEach((func: any) => {
+        analysis.structure.functions.forEach((func) => {
             // التحقق من عدم وجود JSDoc
             const lines = content.split('\n');
-            const funcLine = lines[func.line - 1];
             const prevLine = lines[func.line - 2];
 
             if (!prevLine || !prevLine.includes('/**')) {
@@ -405,7 +442,7 @@ ${modal.name}.displayName = '${modal.name}';
     /**
      * إصلاح الـ imports في جميع الملفات
      */
-    private async fixImports(files: string[]): Promise<void> {
+    private async fixImports(_files: string[]): Promise<void> {
         // منطق إصلاح الـ imports
         // هذا يحتاج منطق معقد لتتبع الـ exports والـ imports
         console.log('   ⏳ جارٍ إصلاح الـ imports...');
@@ -415,7 +452,7 @@ ${modal.name}.displayName = '${modal.name}';
     /**
      * إنشاء ملفات الاختبارات
      */
-    private async createTests(filePath: string, analysis: any): Promise<string[]> {
+    private async createTests(filePath: string, analysis: AnalyzerResult): Promise<string[]> {
         const testFiles: string[] = [];
         const baseDir = path.dirname(filePath);
         const baseName = path.basename(filePath, path.extname(filePath));
@@ -442,7 +479,10 @@ ${modal.name}.displayName = '${modal.name}';
     /**
      * إنشاء اختبارات الدوال
      */
-    private async createUtilityTests(filePath: string, functions: any[]): Promise<void> {
+    private async createUtilityTests(
+        filePath: string,
+        functions: AnalyzerFunctionInfo[],
+    ): Promise<void> {
         // إنشاء المجلد إذا لم يكن موجوداً
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
@@ -458,7 +498,7 @@ import { describe, it, expect } from 'vitest';
 
 `;
 
-        functions.forEach((func: any) => {
+        functions.forEach((func) => {
             content += `describe('${func.name}', () => {
     it('✅ يجب أن يعمل بشكل صحيح', () => {
         // TODO: إضافة الاختبارات
@@ -480,7 +520,10 @@ import { describe, it, expect } from 'vitest';
     /**
      * إنشاء اختبارات المكونات
      */
-    private async createComponentTests(filePath: string, components: any[]): Promise<void> {
+    private async createComponentTests(
+        filePath: string,
+        components: AnalyzerComponentInfo[],
+    ): Promise<void> {
         const dir = path.dirname(filePath);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -497,7 +540,7 @@ import React from 'react';
 
 `;
 
-        components.forEach((comp: any) => {
+        components.forEach((comp) => {
             content += `describe('${comp.name}', () => {
     it('✅ يجب أن يُعرض بشكل صحيح', () => {
         // TODO: إضافة الاختبارات
@@ -516,7 +559,7 @@ import React from 'react';
      */
     private generateReport(
         originalFile: string,
-        analysis: any,
+        analysis: AnalyzerResult,
         changes: RefactorChange[],
         newFiles: string[]
     ): string {

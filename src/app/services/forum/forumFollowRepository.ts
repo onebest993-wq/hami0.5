@@ -1,6 +1,6 @@
 import { FollowDB } from '@/app/services/cloud/lawyerCommunityCloud';
 import type { FollowRecord } from '@/app/services/cloud/lawyerCommunityTypes';
-import { getForumSupabaseAdmin } from './supabaseAdmin';
+import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 
 import type { ForumFollowPrefs, ForumFollowRecord } from './forumFollowTypes';
 
@@ -65,7 +65,7 @@ export const ForumFollowRepository = {
             throw new Error('لا يمكنك متابعة نفسك');
         }
         const merged: ForumFollowPrefs = { ...DEFAULT_PREFS, ...prefs };
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         const createdAt = new Date().toISOString();
 
         if (!admin) {
@@ -92,7 +92,7 @@ export const ForumFollowRepository = {
     },
 
     async unfollow(followerId: string, followingId: string): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await FollowDB.unfollow(followerId, followingId);
             const map = await loadLocalPrefs();
@@ -109,7 +109,7 @@ export const ForumFollowRepository = {
     },
 
     async isFollowing(followerId: string, followingId: string): Promise<boolean> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) return FollowDB.isFollowing(followerId, followingId);
         const { data } = await admin
             .from('forum_follows')
@@ -121,7 +121,7 @@ export const ForumFollowRepository = {
     },
 
     async getFollowing(followerId: string): Promise<ForumFollowRecord[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const prefsMap = await loadLocalPrefs();
             return attachLocalPrefs(await FollowDB.getFollowing(followerId), prefsMap);
@@ -136,7 +136,7 @@ export const ForumFollowRepository = {
     },
 
     async getFollowers(followingId: string): Promise<ForumFollowRecord[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const prefsMap = await loadLocalPrefs();
             return attachLocalPrefs(await FollowDB.getFollowers(followingId), prefsMap);
@@ -169,7 +169,7 @@ export const ForumFollowRepository = {
             notifyReplies: prefs.notifyReplies ?? row.notifyReplies,
         };
 
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const map = await loadLocalPrefs();
             map[prefsKey(followerId, followingId)] = merged;

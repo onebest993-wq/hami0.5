@@ -11,7 +11,6 @@ import { buildManualExecutorAppealProceedings, shouldRebuildAppealProceedingsFro
 import {
     isCassationAffirmResult,
     resolveAppealActorLabel,
-    resolveEffectiveAwaitingCassationParty,
     appellantLabelFromLogMessage,
 } from './appealProceedingsActors';
 

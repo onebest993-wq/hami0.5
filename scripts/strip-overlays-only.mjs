@@ -77,7 +77,7 @@ const gate = `    const { shellOverlaysReady } = useExecutionShellOverlaysGate({
 `;
 
 // placeholder replaced below with spread of shorthand from generated keys file
-const keys = JSON.parse(
+const _keys = JSON.parse(
     fs.readFileSync('scripts/shell-overlay-keys.json', 'utf8').catch?.() ||
         '[]',
 );

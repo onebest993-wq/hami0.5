@@ -9,8 +9,10 @@ import {
     buildRepositoryFeed,
     buildRepositoryVisibleFeedByMainFilter,
     countRepositoryFeedByFilter,
+    filterRepositoryFeedByRoom,
     type RepositoryFeedFilter,
 } from '@/app/services/repository/repositoryUnifiedFeed';
+import type { RepositoryRoomFilter } from '@/app/services/repository/repositoryRooms';
 import {
     buildRepositoryFeedCacheKey,
     peekRepositoryFeedCache,
@@ -33,6 +35,8 @@ type UseRepositoryFeedParams = {
     vaultDocs: SmartVaultDoc[];
     vaultCategoryFilter: string;
     vaultSearchQuery: string;
+    roomFilter?: RepositoryRoomFilter | null;
+    notesBootSettled?: boolean;
     initialFilter: RepositoryFeedFilter;
     focusNoteId?: string;
     feedScrollRef: RefObject<HTMLDivElement | null>;
@@ -48,6 +52,7 @@ export function useRepositoryFeed({
     vaultDocs,
     vaultCategoryFilter,
     vaultSearchQuery,
+    roomFilter = 'main',
     initialFilter,
     focusNoteId,
     feedScrollRef,
@@ -100,18 +105,26 @@ export function useRepositoryFeed({
         return built;
     }, [executionFiles, feedEpoch, lawsuitFiles, notes, vaultDocs]);
 
+    const roomScopedFeed = useMemo(
+        () => filterRepositoryFeedByRoom(feedItems, roomFilter ?? 'main'),
+        [feedItems, roomFilter],
+    );
+
     const visibleByFilter = useMemo(
         () =>
             buildRepositoryVisibleFeedByMainFilter(
-                feedItems,
+                roomScopedFeed,
                 vaultCategoryFilter,
                 vaultSearchQuery,
                 vaultDocs,
             ),
-        [feedItems, vaultCategoryFilter, vaultSearchQuery, vaultDocs],
+        [roomScopedFeed, vaultCategoryFilter, vaultSearchQuery, vaultDocs],
     );
 
-    const filterCounts = useMemo(() => countRepositoryFeedByFilter(feedItems), [feedItems]);
+    const filterCounts = useMemo(
+        () => countRepositoryFeedByFilter(roomScopedFeed),
+        [roomScopedFeed],
+    );
 
     const vaultDocsById = useMemo(() => new Map(vaultDocs.map((d) => [d.id, d])), [vaultDocs]);
 

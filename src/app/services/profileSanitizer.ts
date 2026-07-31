@@ -4,6 +4,13 @@ import {
     clampProfileDisplayName,
     sanitizeProfileActions,
 } from '@/app/services/profile/profileContactInputSecurity';
+import { buildProfileContactTarget } from '@/app/services/profile/profileContactNavigation';
+import { coerceGalleryItems } from '@/app/services/profile/profileGalleryItems';
+import type { ProfileGalleryItem } from '@/app/services/cloud/lawyerProfileTypes';
+import {
+    sanitizeProfileMediaUrl,
+    sanitizeProfileStoragePath,
+} from '@/app/services/profile/profileUrlSanitize';
 
 const PLACEHOLDER_HOST_FRAGMENTS = ['images.unsplash.com', 'picsum.photos', 'placeholder.com', 'via.placeholder'];
 
@@ -14,9 +21,8 @@ export function isPlaceholderImageUrl(url?: string | null): boolean {
     return PLACEHOLDER_HOST_FRAGMENTS.some((h) => lower.includes(h));
 }
 
-function sanitizeGallery(data: unknown): string[] {
-    if (!Array.isArray(data)) return [];
-    return data.filter((u): u is string => typeof u === 'string' && u.trim() !== '' && !isPlaceholderImageUrl(u));
+function sanitizeGallery(data: unknown): ProfileGalleryItem[] {
+    return coerceGalleryItems(data);
 }
 
 function sanitizeActions(data: unknown): ProfileAction[] {
@@ -38,11 +44,16 @@ function sanitizeActions(data: unknown): ProfileAction[] {
                 typeof (a as ProfileAction).value === 'string' &&
                 allowedTypes.has((a as ProfileAction).type),
         ),
-    ).map((a) => ({
-        ...a,
-        locationMode:
-            a.locationMode === 'gps' || a.locationMode === 'manual' ? a.locationMode : undefined,
-    }));
+    )
+        .map((a) => ({
+            ...a,
+            locationMode:
+                a.locationMode === 'gps' || a.locationMode === 'manual' ? a.locationMode : undefined,
+        }))
+        .filter((a) => {
+            if (!a.value.trim()) return false;
+            return buildProfileContactTarget(a) != null;
+        });
 }
 
 /** يزيل صور/أقسام تجريبية مخزّنة من إصدارات سابقة */
@@ -57,9 +68,23 @@ export function sanitizeLawyerProfile(profile: LawyerProfileData): LawyerProfile
         header.coverImage = '';
         delete header.coverImagePath;
     }
+
+    const profilePath = sanitizeProfileStoragePath(header.profileImagePath);
+    const coverPath = sanitizeProfileStoragePath(header.coverImagePath);
+    header.profileImage = sanitizeProfileMediaUrl(header.profileImage) ?? '';
+    header.coverImage = sanitizeProfileMediaUrl(header.coverImage) ?? '';
+    /*
+     * لا تحذف مسار التخزين لأن الرابط فارغ/منتهي —
+     * resolve/resign يعيد بناء الرابط من المسار.
+     */
+    if (profilePath) header.profileImagePath = profilePath;
+    else delete header.profileImagePath;
+    if (coverPath) header.coverImagePath = coverPath;
+    else delete header.coverImagePath;
+
     header.name = clampProfileDisplayName(header.name ?? '');
 
-    const sections: LawyerProfileSection[] = profile.sections
+    const sections: LawyerProfileSection[] = (Array.isArray(profile.sections) ? profile.sections : [])
         .filter((s) => s.type !== 'stats' && s.type !== 'bio')
         .map((s) => {
             if (s.type === 'gallery') {

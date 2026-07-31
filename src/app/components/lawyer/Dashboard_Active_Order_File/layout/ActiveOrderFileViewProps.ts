@@ -2,8 +2,7 @@ import type { ReactNode } from 'react';
 import type { AdminWorkspacePanelProps } from './AdminWorkspacePanelProps';
 import type { ActiveOrderFileHeaderProps } from './ActiveOrderFileHeader';
 import type { LifecyclePanelProps } from './LifecyclePanelProps';
-import type { MetaEditModalProps } from '../modals/MetaEditModal';
-import type { PartyEditModalProps } from '../modals/PartyEditModal';
+import type { DossierEditModalProps } from '../modals/DossierEditModal';
 
 export type ActiveOrderFileViewProps = {
     onClose: () => void;
@@ -17,10 +16,19 @@ export type ActiveOrderFileViewProps = {
         minActionDate?: string;
         onSubmit: (payload: { actionDate: string }) => void;
     };
-    metaEdit: Pick<MetaEditModalProps, 'open' | 'isIqrarContext' | 'khulasaText' | 'metaEditForm' | 'setMetaEditForm' | 'onClose' | 'onSave'>;
-    partyEdit: Pick<PartyEditModalProps, 'partyEditTarget' | 'partyEditForm' | 'setPartyEditForm' | 'onClose' | 'onSave'>;
-    header: Omit<ActiveOrderFileHeaderProps, 'onClose' | 'formatDateText'> & {
+    dossierEdit: Pick<
+        DossierEditModalProps,
+        | 'open'
+        | 'isIqrarContext'
+        | 'procedureType'
+        | 'dossierEditForm'
+        | 'setDossierEditForm'
+        | 'onClose'
+        | 'onSave'
+    >;
+    header: Omit<ActiveOrderFileHeaderProps, 'onClose' | 'formatDateText' | 'onOpenEdit'> & {
         formatDateText: ActiveOrderFileHeaderProps['formatDateText'];
+        onOpenEdit: () => void;
     };
     archive?: {
         isIqrarContext: boolean;
@@ -32,7 +40,5 @@ export type ActiveOrderFileViewProps = {
         party1Entries: Record<string, unknown>[];
         party2Entries: Record<string, unknown>[];
         procedureType: string;
-        isFinalized: boolean;
-        onEditParty: (payload: { type: 'party1' | 'party2'; index: number; party: Record<string, unknown> }) => void;
     };
 };

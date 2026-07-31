@@ -28,7 +28,7 @@ const spreadSources = {
 };
 
 const covered = new Set();
-for (const [src, keys] of Object.entries(spreadSources)) {
+for (const [_src, keys] of Object.entries(spreadSources)) {
     for (const k of keys) covered.add(k);
 }
 

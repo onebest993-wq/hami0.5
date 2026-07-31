@@ -1,4 +1,5 @@
 import { useCallback, useEffect, type KeyboardEvent, type RefObject } from 'react';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -17,7 +18,14 @@ export function useNotificationFocusTrap(
             onClose();
         };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            onClose();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [isOpen, onClose]);
 
     useEffect(() => {

@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { isTasksOverlayEscapeBlocked } from '@/app/components/lawyer/dashboard/fieldTasks/tasksEscapeCoordinator';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 type UseLawyerDashboardTasksOverlayEscapeParams = {
     fieldTasksSheetOpen: boolean;
@@ -8,7 +9,7 @@ type UseLawyerDashboardTasksOverlayEscapeParams = {
     onCloseTasksManager: () => void;
 };
 
-/** Escape يغلق ستارة الميدان ثم مدير المهام — مع تحرير قفل التمرير */
+/** Escape/Cap يغلق ستارة الميدان ثم مدير المهام — مع احترام block coordinator */
 export function useLawyerDashboardTasksOverlayEscape({
     fieldTasksSheetOpen,
     showTasksManager,
@@ -17,6 +18,19 @@ export function useLawyerDashboardTasksOverlayEscape({
 }: UseLawyerDashboardTasksOverlayEscapeParams): void {
     useEffect(() => {
         if (!fieldTasksSheetOpen && !showTasksManager) return;
+
+        const consumeBackStack = (): boolean => {
+            if (isTasksOverlayEscapeBlocked()) return true;
+            if (fieldTasksSheetOpen) {
+                onCloseFieldTasksSheet();
+                return true;
+            }
+            if (showTasksManager) {
+                onCloseTasksManager();
+                return true;
+            }
+            return false;
+        };
 
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
@@ -33,7 +47,11 @@ export function useLawyerDashboardTasksOverlayEscape({
         };
 
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => consumeBackStack());
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
     }, [
         fieldTasksSheetOpen,
         showTasksManager,

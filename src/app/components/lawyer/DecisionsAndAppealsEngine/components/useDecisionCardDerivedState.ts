@@ -61,7 +61,6 @@ export function useDecisionCardDerivedState({
         followup.seizureSubtype,
     );
 
-    const [selectedAction, setSelectedAction] = useState<'approved' | 'rejected' | null>(null);
     const [showReasoning, setShowReasoning] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
@@ -82,8 +81,6 @@ export function useDecisionCardDerivedState({
         showCreditorFollowupActions: followup.showCreditorFollowupActions,
         personalStatusCourtCoerciveBlocked: followup.personalStatusCourtCoerciveBlocked,
         ...enforcement,
-        selectedAction,
-        setSelectedAction,
         showReasoning,
         setShowReasoning,
         showDetails,

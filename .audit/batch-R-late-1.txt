@@ -1,0 +1,17 @@
+src/app/services/SecureStoreService.ts
+src/app/services/cloudSyncEngine.ts
+src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx
+src/app/types/common.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsRowMutations.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsEngineController.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsTransitionWorkflow.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsGrievanceMutations.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsWaiveAppealMutations.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsCassationMutations.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/components/AppealOriginBadge.tsx
+src/app/components/lawyer/DecisionsAndAppealsEngine/__tests__/creditorRequestAppealGate.test.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/__tests__/decisionCardSort.test.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/__tests__/appealProceedings.test.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/__tests__/appealDeadlineEnforcement.test.ts
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/__tests__/useDecisionsAppealsEngineController.integration.test.tsx
+src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/__tests__/useDecisionsAppealsEngineStorage.persistReload.test.ts

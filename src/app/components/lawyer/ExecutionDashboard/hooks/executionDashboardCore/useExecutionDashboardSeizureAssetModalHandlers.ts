@@ -7,7 +7,7 @@ import type {
     SeizedProperty,
     TimelineEvent,
 } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { saveSeizedPropertyAuctionSessionResult as runSaveSeizedPropertyAuctionSessionResult } from './executionDashboardAuctionSessionResult';
 import {
     savePublicationDetails as runSavePublicationDetails,

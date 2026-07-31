@@ -1,7 +1,13 @@
 import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { inferExecutorApprovalDecisionType } from '@/app/utils/executorApprovalWorkflow';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import { readExecutorDecisionsUnionAcrossCandidateIds } from '@/app/utils/executionDecisionsNamespace';
+import { resolveExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 import {
     getGoverningEvictionProcedureRowForBranch,
+    getGoverningEvictionProcedureRowForMatch,
+    isEvictionProcedureHubRow,
     isEvictionProcedureRowWorkflowComplete,
 } from '@/app/utils/executorSeizureDecisionQueue';
 
@@ -10,16 +16,102 @@ export const MARITAL_FURNITURE_DELIVERY_WORKFLOW_KEY = 'marital_furniture_delive
 
 export type MaritalFurnitureDeliveryMode = 'none' | 'unified' | 'legacy';
 
+function maritalFurnitureDeliveryRowSortKey(row: Record<string, unknown>): string {
+    return String(row.resolvedAt ?? row.date ?? '');
+}
+
+function isMaritalFurnitureDeliveryHubRow(row: Record<string, unknown>): boolean {
+    if (String((row as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') {
+        return false;
+    }
+    if (!isEvictionProcedureHubRow(row)) return false;
+    const wf = String((row as { evictionWorkflowKey?: string }).evictionWorkflowKey || '').trim();
+    if (wf === MARITAL_FURNITURE_DELIVERY_WORKFLOW_KEY) return true;
+    const branch = inferExecutorApprovalDecisionType({
+        title: String((row as { title?: string }).title || ''),
+        requestKind: 'eviction_procedure',
+        evictionWorkflowKey: (row as { evictionWorkflowKey?: string }).evictionWorkflowKey,
+    });
+    if (branch === MARITAL_FURNITURE_DELIVERY_BRANCH) return true;
+    return /تسليم أثاث|أثاث زوجية|جرد وتسليم قطع/i.test(
+        String((row as { title?: string }).title || '')
+    );
+}
+
+/** يعثر على صف تسليم الأثاث حتى لو فشلت فلاتر «الحاكم» — للعرض في محضر المتابعة */
+export function findMaritalFurnitureDeliveryRowLoose(
+    all: Record<string, unknown>[]
+): Record<string, unknown> | null {
+    const hits = all.filter(isMaritalFurnitureDeliveryHubRow);
+    if (hits.length === 0) return null;
+    return [...hits].sort((a, b) =>
+        maritalFurnitureDeliveryRowSortKey(b).localeCompare(
+            maritalFurnitureDeliveryRowSortKey(a),
+            undefined,
+            { numeric: true }
+        )
+    )[0];
+}
+
+export function mergeFollowupDecisionRows(
+    fromProp: Record<string, unknown>[] | undefined,
+    fromStorage: Record<string, unknown>[]
+): Record<string, unknown>[] {
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const row of fromStorage) {
+        const id = String(row.id ?? '').trim();
+        if (id) byId.set(id, row);
+    }
+    for (const row of fromProp ?? []) {
+        const id = String(row.id ?? '').trim();
+        if (!id) continue;
+        const prev = byId.get(id);
+        byId.set(id, prev ? { ...prev, ...row } : row);
+    }
+    return Array.from(byId.values());
+}
+
+/** قراءة موحّدة لقرارات محضر المتابعة — نفس منطق useExecutorDecisions */
+export function readFollowupMergedExecutorDecisions(
+    decisionsStorageExecutionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+    fromProp?: Record<string, unknown>[]
+): Record<string, unknown>[] {
+    const exId = String(
+        decisionsStorageExecutionId ||
+            (executionData as { id?: string } | null)?.id ||
+            ''
+    ).trim();
+    if (!exId || exId === 'default') {
+        return Array.isArray(fromProp) ? fromProp : [];
+    }
+    const data = resolveExecutionDataForDomainGate(exId, executionData);
+    const canonical = resolveDecisionsStorageExecutionId(exId, data);
+    const fromStorage = readExecutorDecisionsUnionAcrossCandidateIds(
+        canonical !== 'default' ? canonical : exId,
+        data
+    );
+    return mergeFollowupDecisionRows(fromProp, fromStorage);
+}
+
 export function resolveMaritalFurnitureDeliveryState(all: Record<string, unknown>[]): {
     mode: MaritalFurnitureDeliveryMode;
     unifiedRow: Record<string, unknown> | null;
     fieldVisitRow: Record<string, unknown> | null;
     breakInventoryRow: Record<string, unknown> | null;
 } {
-    const unifiedRow = getGoverningEvictionProcedureRowForBranch(
-        all,
-        MARITAL_FURNITURE_DELIVERY_BRANCH
-    );
+    const unifiedRow =
+        getGoverningEvictionProcedureRowForBranch(all, MARITAL_FURNITURE_DELIVERY_BRANCH) ??
+        getGoverningEvictionProcedureRowForMatch(all, {
+            evictionWorkflowKey: MARITAL_FURNITURE_DELIVERY_WORKFLOW_KEY,
+        }) ??
+        getGoverningEvictionProcedureRowForMatch(all, {
+            title: '🛋️ طلب تسليم أثاث',
+        }) ??
+        getGoverningEvictionProcedureRowForMatch(all, {
+            title: 'طلب تسليم أثاث',
+        }) ??
+        findMaritalFurnitureDeliveryRowLoose(all);
     if (unifiedRow?.id) {
         return { mode: 'unified', unifiedRow, fieldVisitRow: null, breakInventoryRow: null };
     }
@@ -117,6 +209,34 @@ export function mergeMaritalDeliveryLifecycleSummaries(
         rejections: (fieldVisit?.rejections ?? 0) + (breakInventory?.rejections ?? 0),
         pending: (fieldVisit?.pending ?? 0) + (breakInventory?.pending ?? 0),
         entries,
+    };
+}
+
+/** مزامنة موعد التسليم من قرار المنفذ إلى blob الإضبارة إن وُجد في القرار فقط */
+export function buildMaritalFurnitureDeliveryScheduleBackfillPatch(
+    executionData: Record<string, unknown> | null | undefined,
+    decisions: Record<string, unknown>[],
+): Record<string, string> | null {
+    const storedYmd = String(
+        (executionData as { maritalFurnitureDeliveryScheduleYmd?: string } | null)
+            ?.maritalFurnitureDeliveryScheduleYmd || '',
+    ).trim();
+    const storedLabel = String(
+        (executionData as { maritalFurnitureDeliveryScheduleLabel?: string } | null)
+            ?.maritalFurnitureDeliveryScheduleLabel || '',
+    ).trim();
+    if (storedYmd && storedLabel) return null;
+
+    const state = resolveMaritalFurnitureDeliveryState(decisions);
+    const row = state.unifiedRow ?? state.fieldVisitRow;
+    if (!row) return null;
+    const ymd = readFieldVisitScheduleYmd(row);
+    const label = String((row as { executorScheduleLabel?: string }).executorScheduleLabel || '').trim();
+    if (!ymd && !label) return null;
+    return {
+        maritalFurnitureDeliveryScheduleYmd: ymd || storedYmd,
+        maritalFurnitureDeliveryScheduleLabel: label || storedLabel || (ymd ? `موعد التسليم: ${ymd}` : ''),
+        maritalFurnitureDeliveryScheduledAt: new Date().toISOString(),
     };
 }
 

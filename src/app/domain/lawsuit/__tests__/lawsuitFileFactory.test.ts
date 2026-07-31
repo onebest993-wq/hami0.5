@@ -212,4 +212,48 @@ describe('buildFileDataFromNewCaseSave', () => {
         expect(file!.currentStage).toBe('اعتراض الغير');
         expect(file!.retrialTargetStage).toBe('بداءة بدرجة أولى');
     });
+
+    it('persists firstHearingDate and mirrors it to nextDate for calendar/alerts', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'civil',
+            parties1: [{ name: 'موكل', status: 'مدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'مدعى عليه' }],
+            details: {
+                court: 'بداءة الكرخ',
+                type: 'تعويض',
+                stage: 'بداءة بدرجة أولى',
+                firstHearingDate: '2026-08-15',
+            },
+        });
+        expect(file!.firstHearingDate).toBe('2026-08-15');
+        expect(file!.nextDate).toBe('2026-08-15');
+        expect(file!.history).toHaveLength(1);
+        expect(file!.history![0]).toMatchObject({
+            id: 'appt_first_hearing',
+            type: 'appointment',
+            date: '2026-08-15',
+            title: 'أول مرافعة',
+        });
+    });
+
+    it('seeds first hearing appointment for personal status new cases', () => {
+        const file = buildFileDataFromNewCaseSave({
+            mainCategory: 'lawsuit',
+            selectedType: 'personal',
+            applicableLaw: 'jaafari_code',
+            parties1: [{ name: 'موكل', status: 'المدعي', isClient: true }],
+            parties2: [{ name: 'خصم', status: 'المدعى عليه' }],
+            details: {
+                court: 'محكمة الأحوال الشخصية',
+                type: 'طلاق',
+                stage: 'أحوال شخصية',
+                firstHearingDate: '2026-09-01',
+                applicableLaw: 'jaafari_code',
+            },
+        });
+        expect(file!.firstHearingDate).toBe('2026-09-01');
+        expect(file!.history?.[0]?.type).toBe('appointment');
+        expect(file!.representedParty).toBe('المدعي');
+    });
 });

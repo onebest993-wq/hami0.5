@@ -1,5 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
+import {
+    markFieldTasksPerfPhase,
+    reportFieldTasksPerf,
+} from '@/app/services/fieldTasks/fieldTasksPerfMetrics';
 
 /** جاهزية التخزين — sync boot يكفي لعرض الأجندة فوراً */
 export function useTasksStorageHydratedSignal(active: boolean): boolean {
@@ -28,8 +32,29 @@ export function useTasksLifecycle(
         if (!open || !shellVisible || !storageReady || reportedRef.current) return;
         reportedRef.current = true;
         setInteractive(true);
+        markFieldTasksPerfPhase('first-paint');
+        markFieldTasksPerfPhase('interactive');
+        reportFieldTasksPerf({ surface: 'sheet' });
         onHydrated?.();
     }, [open, shellVisible, storageReady, onHydrated]);
+
+    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (T1/T9) */
+    useEffect(() => {
+        if (!open || !shellVisible || reportedRef.current) return;
+
+        const markInteractiveFallback = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            setInteractive(true);
+            markFieldTasksPerfPhase('first-paint');
+            markFieldTasksPerfPhase('interactive');
+            reportFieldTasksPerf({ surface: 'sheet' });
+            onHydrated?.();
+        };
+
+        const fallback = window.setTimeout(markInteractiveFallback, 1_200);
+        return () => window.clearTimeout(fallback);
+    }, [open, shellVisible, onHydrated]);
 
     return interactive;
 }

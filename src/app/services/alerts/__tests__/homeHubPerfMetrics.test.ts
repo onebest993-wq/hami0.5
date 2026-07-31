@@ -39,6 +39,20 @@ describe('homeHubPerfMetrics', () => {
         expect(getHomeHubOpenToInteractiveMs()).toBeNull();
     });
 
+    it('يرجع null عندما interactive قبل open-request', () => {
+        vi.spyOn(performance, 'getEntriesByName').mockImplementation((name: string) => {
+            if (name === 'hami:home-hub:open-request') {
+                return [{ startTime: 1400 }] as PerformanceEntryList;
+            }
+            if (name === 'hami:home-hub:interactive') {
+                return [{ startTime: 1000 }] as PerformanceEntryList;
+            }
+            return [] as PerformanceEntryList;
+        });
+
+        expect(getHomeHubOpenToInteractiveMs()).toBeNull();
+    });
+
     it('reportHomeHubPerf لا يرمي بدون marks', () => {
         expect(() => reportHomeHubPerf({ alertsTabCount: 1 })).not.toThrow();
     });

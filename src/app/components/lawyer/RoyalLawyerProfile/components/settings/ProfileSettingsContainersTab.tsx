@@ -22,6 +22,9 @@ type ProfileSettingsContainersTabProps = {
     onRemoveBlock: (id: string) => void;
     onPickBlockImage: (blockId: string) => void;
     onUploadCanvasBg: (blockId: string) => void;
+    onClearBlockImage?: (blockId: string) => void;
+    onClearCanvasBg?: (blockId: string) => void;
+    saving?: boolean;
 };
 
 export function ProfileSettingsContainersTab({
@@ -38,6 +41,9 @@ export function ProfileSettingsContainersTab({
     onRemoveBlock,
     onPickBlockImage,
     onUploadCanvasBg,
+    onClearBlockImage,
+    onClearCanvasBg,
+    saving = false,
 }: ProfileSettingsContainersTabProps) {
     const TextBlockStudioEditor = getCachedTextBlockStudioEditor();
     const ImageBlockStudioEditor = getCachedImageBlockStudioEditor();
@@ -84,8 +90,25 @@ export function ProfileSettingsContainersTab({
                     </button>
                     <button
                         type="button"
-                        onClick={() => onRemoveBlock(block.id)}
-                        className="p-2 text-red-400 rounded-lg hover:bg-red-500/10 shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                        data-testid={`profile-block-remove-${block.id}`}
+                        disabled={
+                            saving ||
+                            uploadingBlockId === block.id ||
+                            uploadingCanvasBlockId === block.id
+                        }
+                        onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if (
+                                saving ||
+                                uploadingBlockId === block.id ||
+                                uploadingCanvasBlockId === block.id
+                            ) {
+                                return;
+                            }
+                            onRemoveBlock(block.id);
+                        }}
+                        className="p-2 text-red-400 rounded-lg hover:bg-red-500/10 shrink-0 min-h-[44px] min-w-[44px] flex items-center justify-center touch-manipulation disabled:opacity-40 disabled:pointer-events-none"
                         aria-label="حذف الحاوية"
                     >
                         <Trash2 size={14} />
@@ -100,7 +123,11 @@ export function ProfileSettingsContainersTab({
                                     block={block}
                                     onChange={(patch) => onUpdateBlock(block.id, patch)}
                                     uploadingCanvasBg={uploadingCanvasBlockId === block.id}
+                                    saving={saving}
                                     onUploadCanvasBg={() => onUploadCanvasBg(block.id)}
+                                    onClearCanvasBg={
+                                        onClearCanvasBg ? () => onClearCanvasBg(block.id) : undefined
+                                    }
                                 />
                             ) : (
                                 <ProfileSettingsTabSkeleton />
@@ -109,8 +136,12 @@ export function ProfileSettingsContainersTab({
                             <ImageBlockStudioEditor
                                 block={block}
                                 uploading={uploadingBlockId === block.id}
+                                saving={saving}
                                 onChange={(patch) => onUpdateBlock(block.id, patch)}
                                 onPickImage={() => onPickBlockImage(block.id)}
+                                onClearImage={
+                                    onClearBlockImage ? () => onClearBlockImage(block.id) : undefined
+                                }
                             />
                         ) : (
                             <ProfileSettingsTabSkeleton />
@@ -128,7 +159,10 @@ export function ProfileSettingsContainersTab({
                     type="button"
                     data-active={containerKind === 'text' ? 'true' : 'false'}
                     className="profile-settings-container-tab min-h-[44px]"
-                    onClick={() => setContainerKind('text')}
+                    onClick={() => {
+                        setExpandedBlockId(null);
+                        setContainerKind('text');
+                    }}
                 >
                     <Type size={13} />
                     نصوص حرة
@@ -140,7 +174,10 @@ export function ProfileSettingsContainersTab({
                     type="button"
                     data-active={containerKind === 'image' ? 'true' : 'false'}
                     className="profile-settings-container-tab min-h-[44px]"
-                    onClick={() => setContainerKind('image')}
+                    onClick={() => {
+                        setExpandedBlockId(null);
+                        setContainerKind('image');
+                    }}
                 >
                     <ImageIcon size={13} />
                     صور مخصصة
@@ -155,7 +192,6 @@ export function ProfileSettingsContainersTab({
                     <>
                         <div className="profile-settings-containers-section-title">
                             <h4>نصوص حرة</h4>
-                            <span>تنسيق · لوحة · تفاعل</span>
                         </div>
                         <button
                             type="button"
@@ -179,7 +215,6 @@ export function ProfileSettingsContainersTab({
                     <>
                         <div className="profile-settings-containers-section-title">
                             <h4>صور مخصصة</h4>
-                            <span>إطار · صورة · تفاعل</span>
                         </div>
                         <button
                             type="button"

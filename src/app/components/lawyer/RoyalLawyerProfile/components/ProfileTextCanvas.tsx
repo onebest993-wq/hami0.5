@@ -12,14 +12,15 @@ export type ProfileTextCanvasProps = {
 
 export function ProfileTextCanvas({ block, children, previewInteractive = false }: ProfileTextCanvasProps) {
     const canvas = resolveBlockCanvasStyle(block);
-    const interaction = canvas.interaction ?? 'none';
+    const storedInteraction = canvas.interaction ?? 'none';
+    const interaction = previewInteractive ? storedInteraction : 'none';
     const hasInteraction = interaction !== 'none';
     const enabled = canvas.enabled || hasInteraction;
 
     useEffect(() => {
         if (!enabled) return;
-        ensureProfileCanvasFxLoadedSync({ interaction });
-    }, [enabled, interaction]);
+        ensureProfileCanvasFxLoadedSync(hasInteraction ? { interaction } : {});
+    }, [enabled, hasInteraction, interaction]);
 
     if (!enabled) {
         return <>{children}</>;

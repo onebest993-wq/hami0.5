@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SecuritySettings } from '@/app/services/settings/types';
 import {
-    hasNativeBiometricEnrollment,
-    verifyNativeBiometricUnlock,
-} from '@/app/runtime/nativeBiometricBridge';
-import { wireNativeBiometricAvailabilityListener } from '@/app/runtime/nativeBiometricLifecycle';
-import {
     hasStoredBiometricCredential,
     isWebAuthnLockSupported,
     verifyBiometricUnlock,
@@ -18,16 +13,46 @@ function lockDelayMs(minutes: SecuritySettings['autoLockMinutes']): number {
     return minutes > 0 ? minutes * 60_000 : 0;
 }
 
+function loadNativeBiometricBridge() {
+    return import('@/app/runtime/nativeBiometricBridge');
+}
+
+function loadNativeBiometricLifecycle() {
+    return import('@/app/runtime/nativeBiometricLifecycle');
+}
+
+/**
+ * قفل الجلسة — الجسر الأصلي يُحمَّل كسولاً حتى لا يدخل stem اللوحة (~biometric+Capacitor).
+ */
 export function useAppLock(security: SecuritySettings) {
     const [locked, setLocked] = useState(false);
     const [unlocking, setUnlocking] = useState(false);
+    const [nativeEnrolled, setNativeEnrolled] = useState(false);
     const lastActivityRef = useRef(Date.now());
     const hiddenAtRef = useRef<number | null>(null);
+
+    useEffect(() => {
+        if (!security.biometricLock) {
+            setNativeEnrolled(false);
+            return;
+        }
+        let cancelled = false;
+        void loadNativeBiometricBridge()
+            .then((m) => {
+                if (!cancelled) setNativeEnrolled(m.hasNativeBiometricEnrollment());
+            })
+            .catch(() => {
+                if (!cancelled) setNativeEnrolled(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [security.biometricLock]);
 
     const idleLockEnabled = security.autoLockMinutes > 0;
     const biometricAvailable =
         security.biometricLock &&
-        ((isWebAuthnLockSupported() && hasStoredBiometricCredential()) || hasNativeBiometricEnrollment());
+        ((isWebAuthnLockSupported() && hasStoredBiometricCredential()) || nativeEnrolled);
     const resumeLockEnabled = biometricAvailable;
     const requiresBiometricToUnlock = biometricAvailable;
     const sessionGuardEnabled = idleLockEnabled || resumeLockEnabled;
@@ -90,24 +115,34 @@ export function useAppLock(security: SecuritySettings) {
     }, [sessionGuardEnabled, idleLockEnabled, resumeLockEnabled, locked, security.autoLockMinutes, touchActivity]);
 
     useEffect(() => {
-        if (!security.biometricLock || !hasNativeBiometricEnrollment()) return undefined;
+        if (!security.biometricLock || !nativeEnrolled) return undefined;
 
         let dispose = () => undefined;
-        void wireNativeBiometricAvailabilityListener((available) => {
-            if (!available) setLocked(true);
-        }).then((cleanup) => {
-            dispose = cleanup;
-        });
+        let cancelled = false;
+        void loadNativeBiometricLifecycle()
+            .then((m) => m.wireNativeBiometricAvailabilityListener((available) => {
+                if (!available) setLocked(true);
+            }))
+            .then((cleanup) => {
+                if (cancelled) {
+                    cleanup();
+                    return;
+                }
+                dispose = cleanup;
+            })
+            .catch(() => undefined);
 
         return () => {
+            cancelled = true;
             dispose();
         };
-    }, [security.biometricLock]);
+    }, [security.biometricLock, nativeEnrolled]);
 
     const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
         setUnlocking(true);
         try {
-            const nativeResult = await verifyNativeBiometricUnlock();
+            const bridge = await loadNativeBiometricBridge();
+            const nativeResult = await bridge.verifyNativeBiometricUnlock();
             const ok =
                 nativeResult === true
                     ? true

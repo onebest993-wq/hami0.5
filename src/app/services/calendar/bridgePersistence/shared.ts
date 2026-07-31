@@ -1,6 +1,5 @@
 
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import { loadExecutionFilesRaw, saveExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import { loadGlobalNotesRaw, saveGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
 import {
@@ -10,39 +9,19 @@ import {
 } from '@/app/utils/quantumTasksStorage';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
-import { TransactionDB, TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
-import { patchCriminalCaseRecord } from '@/app/utils/criminalCasesStorage';
 import { debug } from '@/app/utils/debug';
-import { normalizeDateToYmd, resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
-import { CALENDAR_SOURCE_PATCHED_EVENT } from '@/app/services/calendarBridge.types';
-
-
-export { CALENDAR_SOURCE_PATCHED_EVENT };
-
-export type CalendarSourcePatchDetail = {
-    sourceModule: CalendarSourceModule;
-    sourceEntityId: string;
-    sourceEventId: string;
-};
-
-export function isBridgedCalendarEvent(event: CalendarEvent): boolean {
-    const mod = event.sourceModule;
-    return Boolean(mod && mod !== 'manual' && event.sourceEntityId && event.sourceEventId);
-}
+import { FIRST_HEARING_TIMELINE_APPT_ID } from '@/app/domain/lawsuit/lawsuitFileFactory';
+export {
+    CALENDAR_SOURCE_PATCHED_EVENT,
+    isBridgedCalendarEvent,
+    notifySourcePatched,
+    type CalendarSourcePatchDetail,
+} from './lite';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
     return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
-}
-
-export function notifySourcePatched(detail: CalendarSourcePatchDetail): void {
-    try {
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(CALENDAR_SOURCE_PATCHED_EVENT, { detail }));
-        }
-    } catch {
-        /* ignore */
-    }
 }
 
 function fileIdMatch(a: unknown, entityId: string): boolean {
@@ -189,6 +168,7 @@ export async function patchThreadingTaskDeadline(
 ): Promise<boolean> {
     try {
         const uid = resolveCalendarUserId(userId);
+        const { TransactionsThreadingDB } = await import('@/app/services/cloud/lawyerTransactionsCloud');
         const state = await TransactionsThreadingDB.getState(uid);
         if (!state) return false;
         const tasks = Array.isArray(state.tasks) ? [...state.tasks] : [];
@@ -230,21 +210,6 @@ export function patchLawsuitStorage(
     return true;
 }
 
-export function patchExecutionStorage(
-    executionId: string,
-    mutator: (file: Record<string, unknown>) => Record<string, unknown>,
-): boolean {
-    const files = loadExecutionFilesRaw();
-    const idx = files.findIndex((f) => fileIdMatch(f, executionId));
-    if (idx < 0) return false;
-    const row = files[idx];
-    if (!row || typeof row !== 'object') return false;
-    const next = [...files];
-    next[idx] = mutator({ ...(row as Record<string, unknown>) });
-    saveExecutionFilesRaw(next);
-    return true;
-}
-
 function mapStages(
     stages: unknown,
     mapStage: (stage: Record<string, unknown>) => Record<string, unknown>,
@@ -264,6 +229,7 @@ export async function patchTransactionStep(
 ): Promise<boolean> {
     try {
         const uid = resolveCalendarUserId(userId);
+        const { TransactionDB } = await import('@/app/services/cloud/lawyerTransactionsCloud');
         const list = (await TransactionDB.getTransactions(uid)) as Array<Record<string, unknown>>;
         const idx = list.findIndex((t) => String(t.id) === String(transactionId));
         if (idx < 0) return false;
@@ -287,7 +253,44 @@ export function applyLawsuitCalendarUpdate(
     sourceEventId: string,
     fields: { title: string; dateYmd: string; time?: string; isCompleted?: boolean },
 ): Record<string, unknown> {
+    if (sourceEventId === 'file_next_date') {
+        return { ...file, nextDate: fields.dateYmd };
+    }
+    if (sourceEventId === 'stay_review_date') {
+        return { ...file, stayReviewDate: fields.dateYmd };
+    }
+
+    const patchHistoryAppointment = (): Record<string, unknown> | null => {
+        const history = Array.isArray(file.history) ? [...(file.history as unknown[])] : [];
+        const eIdx = history.findIndex(
+            (e) => e && typeof e === 'object' && String((e as { id?: unknown }).id) === sourceEventId,
+        );
+        if (eIdx < 0) return null;
+        const row = { ...(history[eIdx] as Record<string, unknown>) };
+        row.title = fields.title;
+        row.date = fields.time
+            ? toIsoDateWithOptionalTime(fields.dateYmd, fields.time)
+            : fields.dateYmd;
+        if (fields.time) row.time = fields.time;
+        history[eIdx] = row;
+        let nextFile: Record<string, unknown> = { ...file, history };
+        if (sourceEventId === FIRST_HEARING_TIMELINE_APPT_ID) {
+            const priorFirst = String(file.firstHearingDate ?? '').trim();
+            const priorNext = String(file.nextDate ?? '').trim();
+            nextFile = {
+                ...nextFile,
+                firstHearingDate: fields.dateYmd,
+                ...(priorNext === priorFirst || !priorNext ? { nextDate: fields.dateYmd } : {}),
+            };
+        }
+        return nextFile;
+    };
+
+    const historyPatched = patchHistoryAppointment();
+    if (historyPatched) return historyPatched;
+
     const taskId = stripTaskPrefix(sourceEventId);
+    let patchedRootNextDate = false;
     const stages = mapStages(file.stages, (stage) => {
         let next = { ...stage };
         if (taskId) {
@@ -317,11 +320,24 @@ export function applyLawsuitCalendarUpdate(
                 if (fields.time) row.time = fields.time;
                 timeline[eIdx] = row;
                 next = { ...next, timeline };
+                if (sourceEventId === FIRST_HEARING_TIMELINE_APPT_ID) {
+                    patchedRootNextDate = true;
+                }
             }
         }
         return next;
     });
-    return { ...file, stages };
+    let nextFile: Record<string, unknown> = { ...file, stages };
+    if (patchedRootNextDate) {
+        const priorFirst = String(file.firstHearingDate ?? '').trim();
+        const priorNext = String(file.nextDate ?? '').trim();
+        nextFile = {
+            ...nextFile,
+            firstHearingDate: fields.dateYmd,
+            ...(priorNext === priorFirst || !priorNext ? { nextDate: fields.dateYmd } : {}),
+        };
+    }
+    return nextFile;
 }
 
 export function applyLawsuitCalendarRemoval(

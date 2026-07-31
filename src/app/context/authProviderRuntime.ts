@@ -5,11 +5,8 @@ import type { Session, User } from '@supabase/supabase-js';
 import { UserRole } from '@/app/types/admin-types';
 import { logAction } from '@/app/utils/auditLog';
 import {
-    clearDevMockAuth,
     hasPersistedSupabaseSession,
     purgeClientAuthResidue,
-    readDevMockAccessToken,
-    readDevMockUser,
     writeDevMockAuth,
 } from '@/app/utils/authStorage';
 import {
@@ -208,6 +205,18 @@ export async function authSignup(
 export async function authLogout(bindings: AuthProviderRuntimeBindings): Promise<void> {
     const { applyGuestSession, applySignedOutState } = bindings;
     const keepDevMock = shouldApplyGuestFallbackSession();
+    try {
+        const { invalidateProfileWarmCache } = await import('@/app/services/profile/profileWarmCache');
+        invalidateProfileWarmCache();
+    } catch {
+        /* best effort */
+    }
+    try {
+        const { purgeExecutionLocalStateOnLogout } = await import('@/app/utils/executionWipeRegistry');
+        await purgeExecutionLocalStateOnLogout();
+    } catch {
+        /* best effort */
+    }
     if (keepDevMock) {
         applyGuestSession();
     } else {

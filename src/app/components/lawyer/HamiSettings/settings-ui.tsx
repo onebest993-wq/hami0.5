@@ -1,33 +1,22 @@
-import React, { memo, useEffect, useRef, useState } from 'react';
+import React, { memo, useEffect, useId, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
-/** زجاج شفاف — يظهر الزخرفة من خلفه */
+/** زجاج ملكي — إطار خفيف يتأثر بـ --hami-primary */
 export const SETTING_GLASS =
-    'hami-setting-glass rounded-2xl border border-white/[0.08] bg-white/[0.035] backdrop-blur-xl overflow-hidden shadow-[0_4px_28px_rgba(0,0,0,0.14)] ring-1 ring-inset ring-white/[0.04]';
+    'hami-setting-glass rounded-2xl overflow-hidden';
 
 export const SETTING_GLASS_INNER =
-    'hami-setting-glass-inner bg-white/[0.03] backdrop-blur-sm border border-white/[0.06]';
+    'hami-setting-glass-inner rounded-xl';
 
-export const SectionHeader = memo(function SectionHeader({
-    title,
-    subtitle,
-    icon: Icon,
-}: {
-    title: string;
-    subtitle?: string;
-    icon: LucideIcon;
-}) {
-    return (
-        <div className="flex items-start gap-3 mb-3 mt-2 px-0.5">
-            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER}`}>
-                <Icon size={18} className="text-[#E6C673]" />
-            </div>
-            <div>
-                <h3 className="text-sm font-bold text-white">{title}</h3>
-            </div>
-        </div>
-    );
-});
+export const SETTING_ROW_BORDER = 'border-b border-white/[0.03]';
+
+const SETTING_ICON_BOX = `w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${SETTING_GLASS_INNER}`;
+
+const SETTING_FOCUS_RING =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0B1021]';
+
+const SETTING_FOCUS_RING_COMPACT =
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-1 focus-visible:ring-offset-[#0B1021]';
 
 export const SettingCard = memo(function SettingCard({
     children,
@@ -54,19 +43,38 @@ export const SettingRow = memo(function SettingRow({
     isLast?: boolean;
     disabled?: boolean;
 }) {
+    const labelId = useId();
     return (
         <div
-            className={`flex items-center justify-between gap-3 p-4 ${!isLast ? 'border-b border-white/[0.03]' : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex items-center justify-between gap-3 p-4 ${!isLast ? SETTING_ROW_BORDER : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
         >
             <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-white/70 shrink-0 ${SETTING_GLASS_INNER}`}>
+                <div className={`${SETTING_ICON_BOX} text-white/70`}>
                     <Icon size={17} />
                 </div>
                 <div className="min-w-0">
-                    <div className="text-sm font-semibold text-white truncate">{label}</div>
+                    <div id={labelId} className="text-sm font-semibold text-white truncate">
+                        {label}
+                    </div>
+                    {subLabel ? (
+                        <p className="text-[10px] text-white/45 mt-0.5 leading-relaxed">{subLabel}</p>
+                    ) : null}
                 </div>
             </div>
-            <div className="shrink-0">{action}</div>
+            <div className="shrink-0">
+                {React.isValidElement(action)
+                    ? (() => {
+                          const props = action.props as Record<string, unknown>;
+                          const hasAriaLabel = typeof props['aria-label'] === 'string' && String(props['aria-label']).trim();
+                          const hasAriaLabelledBy =
+                              typeof props['aria-labelledby'] === 'string' && String(props['aria-labelledby']).trim();
+                          if (hasAriaLabel || hasAriaLabelledBy) return action;
+                          return React.cloneElement(action, {
+                              'aria-labelledby': labelId,
+                          } as Record<string, unknown>);
+                      })()
+                    : action}
+            </div>
         </div>
     );
 });
@@ -77,12 +85,14 @@ export const Toggle = memo(function Toggle({
     disabled,
     label,
     testId,
+    'aria-labelledby': ariaLabelledBy,
 }: {
     checked: boolean;
     onChange: (v: boolean) => void;
     disabled?: boolean;
     label?: string;
     testId?: string;
+    'aria-labelledby'?: string;
 }) {
     return (
         <button
@@ -90,14 +100,19 @@ export const Toggle = memo(function Toggle({
             role="switch"
             aria-checked={checked}
             aria-label={label}
+            aria-labelledby={ariaLabelledBy}
             disabled={disabled}
             data-testid={testId}
             onClick={() => onChange(!checked)}
-            className={`w-12 h-7 rounded-full relative transition-all duration-300 ${checked ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'} ${disabled ? 'opacity-40' : ''}`}
+            className={`relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full touch-manipulation transition-transform duration-100 active:scale-[0.97] ${SETTING_FOCUS_RING} ${disabled ? 'opacity-40' : ''}`}
         >
             <div
-                className={`absolute top-1 right-1 w-5 h-5 rounded-full bg-white shadow-md transition-transform duration-300 ${checked ? '-translate-x-5' : 'translate-x-0'}`}
-            />
+                className={`relative h-7 w-12 rounded-full transition-all duration-200 ${checked ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'}`}
+            >
+                <div
+                    className={`absolute top-1 right-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${checked ? '-translate-x-5' : 'translate-x-0'}`}
+                />
+            </div>
         </button>
     );
 });
@@ -107,19 +122,27 @@ export const Segmented = <T extends string>({
     options,
     onChange,
     tone = 'dark',
+    'aria-labelledby': ariaLabelledBy,
 }: {
     value: T;
-    options: { value: T; label: string }[];
+    options: { value: T; label: string; testId?: string }[];
     onChange: (v: T) => void;
     tone?: 'dark' | 'light';
+    'aria-labelledby'?: string;
 }) => (
-    <div className={`flex p-0.5 rounded-xl ${SETTING_GLASS_INNER}`}>
+    <div
+        role="group"
+        aria-labelledby={ariaLabelledBy}
+        className={`flex p-0.5 rounded-xl ${SETTING_GLASS_INNER}`}
+    >
         {options.map((opt) => (
             <button
                 key={opt.value}
                 type="button"
+                data-testid={opt.testId}
+                aria-pressed={value === opt.value}
                 onClick={() => onChange(opt.value)}
-                className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all ${
+                className={`min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation transition-all duration-100 active:scale-[0.98] ${SETTING_FOCUS_RING_COMPACT} ${
                     value === opt.value
                         ? tone === 'light'
                             ? 'bg-black/[0.08] text-[#3f4654] ring-1 ring-inset ring-black/[0.08]'
@@ -143,7 +166,6 @@ export const SliderRow = memo(function SliderRow({
     step,
     format,
     onChange,
-    hint,
     debounceMs,
 }: {
     label: string;
@@ -153,7 +175,6 @@ export const SliderRow = memo(function SliderRow({
     step: number;
     format: (v: number) => string;
     onChange: (v: number) => void;
-    hint?: string;
     /** تأخير commit أثناء السحب — يخفّف applySettingsToDom على الأجهزة الضعيفة */
     debounceMs?: number;
 }) {
@@ -195,7 +216,7 @@ export const SliderRow = memo(function SliderRow({
     const displayed = debounceMs ? localValue : value;
 
     return (
-    <div className="p-4 border-b border-white/[0.03] last:border-0">
+    <div className={`p-4 ${SETTING_ROW_BORDER} last:border-0`}>
         <div className="flex justify-between mb-2">
             <span className="text-sm font-semibold text-white">{label}</span>
             <span className="text-xs font-mono text-[#E6C673]">{format(displayed)}</span>
@@ -229,20 +250,19 @@ export const SelectRow = ({
     value,
     options,
     onChange,
-    hint,
 }: {
     label: string;
     value: string;
     options: { value: string; label: string }[];
     onChange: (v: string) => void;
-    hint?: string;
 }) => (
-    <div className="p-4 border-b border-white/[0.03] last:border-0">
+    <div className={`p-4 ${SETTING_ROW_BORDER} last:border-0`}>
         <label className="text-sm font-semibold text-white block mb-2">{label}</label>
         <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className={`w-full rounded-xl py-2.5 px-3 text-sm text-white outline-none focus:border-[#E6C673]/40 ${SETTING_GLASS_INNER}`}
+            aria-label={label}
+            className={`w-full min-h-[44px] rounded-xl py-2.5 px-3 text-sm text-white outline-none touch-manipulation focus-visible:border-[#E6C673]/40 focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${SETTING_GLASS_INNER}`}
         >
             {options.map((o) => (
                 <option key={o.value || 'empty'} value={o.value} className="bg-[#0B1021]">
@@ -252,4 +272,3 @@ export const SelectRow = ({
         </select>
     </div>
 );
-

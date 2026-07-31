@@ -10,6 +10,7 @@ type ProfileTextCanvasMaterialStackProps = {
     mini?: boolean;
 };
 
+/** طبقة واحدة فقط — بلا grain/sheen/bevel/depth المتراكمة */
 export function ProfileTextCanvasMaterialStack({
     material,
     accentColor,
@@ -27,6 +28,7 @@ export function ProfileTextCanvasMaterialStack({
         <div
             className={`profile-text-canvas-material-stack${mini ? ' profile-text-canvas-material-stack--mini' : ''}`}
             data-material={material}
+            data-lite-stack="true"
             style={style}
             aria-hidden
         >
@@ -42,10 +44,6 @@ export function ProfileTextCanvasMaterialStack({
                         : undefined
                 }
             />
-            <div className="profile-text-canvas__material-grain" />
-            <div className="profile-text-canvas__material-sheen" />
-            <div className="profile-text-canvas__material-bevel" />
-            <div className="profile-text-canvas__material-depth" />
         </div>
     );
 }

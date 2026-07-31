@@ -13,6 +13,11 @@ vi.mock('@/app/hooks/lawyerDashboard/hubArchivePrefetchGate', () => ({
     prefetchHubArchiveIntentDebounced: (archiveId: string) => prefetchHubArchiveIntent(archiveId, 'hover'),
 }));
 
+const dispatchTransactionsPrimeHost = vi.fn();
+vi.mock('@/app/runtime/transactionsBootHydrator', () => ({
+    dispatchTransactionsPrimeHost: (...args: unknown[]) => dispatchTransactionsPrimeHost(...args),
+}));
+
 vi.mock('@/app/context/LawyerSettingsContext', () => ({
     useLawyerSettings: () => ({
         settings: {
@@ -111,11 +116,12 @@ describe('RouteTile — معاملات', () => {
         vi.clearAllMocks();
     });
 
-    it('يعرض بطاقة المعاملات وتستدعي prefetch عند hover', () => {
+    it('يعرض بطاقة المعاملات وتستدعي prefetch عند hover وتفتح على pointerdown', () => {
+        const onOpenArchive = vi.fn();
         render(
             <RouteTile
                 card={transactionCard}
-                onOpenArchive={vi.fn()}
+                onOpenArchive={onOpenArchive}
                 reduceMotion
                 themePrimary="#E6C673"
             />,
@@ -128,11 +134,12 @@ describe('RouteTile — معاملات', () => {
         fireEvent.pointerEnter(tile);
         expect(prefetchHubArchiveIntent).toHaveBeenCalledWith('transaction', 'hover');
 
-        fireEvent.pointerDown(tile);
-        expect(prefetchHubArchiveIntent).toHaveBeenCalledTimes(2);
+        fireEvent.pointerDown(tile, { button: 0 });
+        expect(onOpenArchive).toHaveBeenCalledWith('transaction');
+        expect(dispatchTransactionsPrimeHost).toHaveBeenCalled();
     });
 
-    it('يفتح مخزن المعاملات عند النقر', () => {
+    it('يفتح مخزن المعاملات عند النقر (fallback إن لم يُفتح pointerdown)', () => {
         const onOpenArchive = vi.fn();
         render(
             <RouteTile

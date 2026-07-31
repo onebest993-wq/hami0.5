@@ -2,9 +2,13 @@ import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/ty
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
-import { docMatchesCategoryFilter } from '@/app/services/vaultCustomCategories';
+import { docMatchesCategoryFilter, noteMatchesRepositoryActionCategory } from '@/app/services/vaultCustomCategories';
 import { collectDossierNotes, type DossierNoteRef } from './repositoryDossierNotes';
 import { resolveDossierNoteBody } from './repositoryDossierNoteSync';
+import {
+    itemMatchesRoomFilter,
+    type RepositoryRoomFilter,
+} from './repositoryRooms';
 
 export type RepositoryFeedFilter = 'all' | 'media' | 'drafts' | 'dossier';
 
@@ -111,6 +115,21 @@ export function filterRepositoryFeed(
     );
 }
 
+/**
+ * نطاق الغرفة: ملاحظات عامة + وثائق حسب roomId.
+ * ملاحظات الأضابير بلا roomId — تظهر في المستودع العام فقط.
+ */
+export function filterRepositoryFeedByRoom(
+    items: RepositoryFeedItem[],
+    filter: RepositoryRoomFilter,
+): RepositoryFeedItem[] {
+    return items.filter((item) => {
+        if (item.kind === 'dossier') return filter === 'main';
+        const roomId = item.kind === 'global' ? item.note.roomId : item.doc.roomId;
+        return itemMatchesRoomFilter(roomId, filter);
+    });
+}
+
 export function countRepositoryFeedByFilter(items: RepositoryFeedItem[]): Record<RepositoryFeedFilter, number> {
     let media = 0;
     let drafts = 0;
@@ -205,6 +224,7 @@ export function filterRepositoryFeedByCustomCategory(
             return docMatchesCategoryFilter(item.doc, category);
         }
         if (item.kind === 'global') {
+            if (noteMatchesRepositoryActionCategory(item.note, category)) return true;
             const tags = item.note.tags ?? [];
             if (tags.some((t) => t.trim() === category)) return true;
             const attId = item.note.attachmentDocId;

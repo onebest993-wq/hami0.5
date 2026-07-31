@@ -74,7 +74,7 @@ export function AppealWorkflowCardActionsPanel({
     } = derived;
 
     return (
-        <div className="mt-2 flex min-w-0 flex-col gap-1.5 text-right">
+        <div className="mt-1 flex min-w-0 flex-col gap-2.5 border-t border-white/10 pt-3 text-right">
             {renderAppealDeadlineLapseActions(decision)}
             {canShowInitialAppealActions ? renderAppealEntryButtons(decision, windows) : null}
             {(decision.appealStatus === 'tadhallum_filed' || decision.appealPhase === 'grievance') &&

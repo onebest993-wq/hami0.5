@@ -4,7 +4,6 @@ import { SafeView } from '@/app/components/shared/SafeView';
 import { DashboardPatternOverlay } from '@/app/components/lawyer/DashboardPatternOverlay';
 import { DashboardWallpaperLayer } from '@/app/components/lawyer/DashboardWallpaperLayer';
 import { useLitePerformanceActive } from '@/app/hooks/useLitePerformanceActive';
-import { AppLockOverlay } from '@/app/components/lawyer/AppLockOverlay';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -18,6 +17,12 @@ import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 const LazyLawyerDashboardBackgroundServices = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardBackgroundServices.tsx').then((m) => ({
         default: m.default as unknown as LazyComponent,
+    })),
+);
+
+const LazyAppLockOverlay = lazyWithRetry(() =>
+    import('@/app/components/lawyer/AppLockOverlay').then((m) => ({
+        default: m.AppLockOverlay as unknown as LazyComponent,
     })),
 );
 
@@ -125,14 +130,15 @@ export function LawyerDashboardShell({
 
     return (
         <SafeView
+            data-testid="lawyer-dashboard-ready"
             data-hami-lawyer-dashboard=""
             data-hami-wallpaper={hasWallpaper ? '1' : '0'}
             className="min-h-screen w-full text-right pb-10 relative overflow-x-hidden font-sans"
             style={dashboardSurfaceStyle}
             statusBarColor={statusBarColor}
         >
-            <DashboardWallpaperLayer src={wallpaperSrc} enabled={hasWallpaper && !litePerformance} />
-            {hasWallpaper && !litePerformance ? (
+            <DashboardWallpaperLayer src={wallpaperSrc} enabled={hasWallpaper} />
+            {hasWallpaper ? (
                 <div className="hami-wallpaper-scrim fixed inset-0 z-[0] pointer-events-none bg-[#0B1021]/35" aria-hidden />
             ) : null}
             <DashboardPatternOverlay appearance={appearance} enabled={!hasWallpaper && !litePerformance} />
@@ -158,16 +164,18 @@ export function LawyerDashboardShell({
                             syncLawsuitFilesNowRef={syncLawsuitFilesNowRef}
                             syncNotesNowRef={syncNotesNowRef}
                             refreshAppAlertsRef={refreshAppAlertsRef}
-                        />
+                    />
                 ) : null}
                 {appLocked ? (
-                    <AppLockOverlay
-                        requiresBiometric={requiresBiometricToUnlock}
-                        unlocking={appUnlocking}
-                        onUnlockBiometric={unlockWithBiometric}
-                        onUnlockContinue={unlockContinue}
-                        onLogout={onLogout}
-                    />
+                    <Suspense fallback={null}>
+                        <LazyAppLockOverlay
+                            requiresBiometric={requiresBiometricToUnlock}
+                            unlocking={appUnlocking}
+                            onUnlockBiometric={unlockWithBiometric}
+                            onUnlockContinue={unlockContinue}
+                            onLogout={onLogout}
+                        />
+                    </Suspense>
                 ) : null}
                 {children}
             </div>

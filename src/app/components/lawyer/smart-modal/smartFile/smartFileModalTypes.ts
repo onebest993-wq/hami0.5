@@ -1,5 +1,5 @@
 import type { CaseStage } from '../../LawyerShared';
-import type { FileData, IncidentalCase } from '../../LawyerShared';
+import type { FileData } from '../../LawyerShared';
 import type { IncidentalSpawnContext } from './incidentalCaseLinking';
 import type { ConsolidationMergeMeta, ConsolidationSpawnContext } from './caseConsolidationLinking';
 
@@ -33,4 +33,5 @@ export interface SmartFileModalProps {
     ) => void;
     consolidationNavActive?: boolean;
     caseLinkNavActive?: boolean;
+    onExitToProfile?: () => void;
 }

@@ -1,5 +1,3 @@
-import { motion, AnimatePresence } from 'motion/react';
-import type { Party } from '../../LawyerShared';
 import { PartyChip } from './PartyChip';
 import { INTERPLEADER_STRIP_SHELL, type InterpleaderPartiesPaneProps } from './interpleaderPresentation';
 import { Users } from 'lucide-react';

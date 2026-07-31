@@ -35,15 +35,16 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 import { createClient } from '@supabase/supabase-js';
+import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.js';
 var DEFAULT_TABLE = 'kv_store_f09713ba';
 function getTableName() {
     var _a;
     return ((_a = process.env.KV_STORE_TABLE) !== null && _a !== void 0 ? _a : DEFAULT_TABLE).trim() || DEFAULT_TABLE;
 }
 function getAdminClient() {
-    var _a, _b;
+    var _a;
     var supabaseUrl = ((_a = process.env.SUPABASE_URL) !== null && _a !== void 0 ? _a : '').trim();
-    var serviceRoleKey = ((_b = process.env.SUPABASE_SERVICE_ROLE_KEY) !== null && _b !== void 0 ? _b : '').trim();
+    var serviceRoleKey = readSupabasePrivilegedKey();
     if (!supabaseUrl || !serviceRoleKey)
         return null;
     return createClient(supabaseUrl, serviceRoleKey, {

@@ -21,6 +21,15 @@ type ArchivePortalLifecycleBarsProps = {
     setLawsuitViewMode: (v: LawsuitViewMode) => void;
     unifiedArchivedCount: number;
     lawsuitTrashedCount: number;
+    /** تبويبات النشطة/الأرشيف في رأس Shell — لا تُكرَّر هنا */
+    hideLawsuitPrimaryTabs?: boolean;
+    /**
+     * زر السلة السياقي: يظهر عند وجود عناصر محددة أو أثناء عرض السلة.
+     * إن لم يُمرَّر: السلوك السابق (ظاهر دائماً مع شارة العدد).
+     */
+    showLawsuitTrashToggle?: boolean;
+    /** عدد العناصر المحددة — لإظهار زر السلة سياقياً */
+    selectedLawsuitCount?: number;
 };
 
 function LifecycleSegment({
@@ -79,7 +88,14 @@ export function ArchivePortalLifecycleBars({
     setLawsuitViewMode,
     unifiedArchivedCount,
     lawsuitTrashedCount,
+    hideLawsuitPrimaryTabs = false,
+    showLawsuitTrashToggle,
+    selectedLawsuitCount = 0,
 }: ArchivePortalLifecycleBarsProps) {
+    const trashToggleVisible =
+        showLawsuitTrashToggle ??
+        (lawsuitViewMode === 'trash' || selectedLawsuitCount > 0 || lawsuitTrashedCount > 0);
+
     return (
         <>
             {hasExecutionLifecycle ? (
@@ -140,7 +156,7 @@ export function ArchivePortalLifecycleBars({
                 </div>
             ) : null}
 
-            {hasLawsuitLifecycle ? (
+            {hasLawsuitLifecycle && !hideLawsuitPrimaryTabs ? (
                 <div className={ARCHIVE_TOOLBAR_SECTION}>
                     <div className="flex w-full items-center gap-2">
                         <div className={`${ARCHIVE_SEGMENT_SHELL} min-w-0 flex-1`} role="tablist" aria-label="حالة الإضابير">
@@ -164,29 +180,31 @@ export function ArchivePortalLifecycleBars({
                                 ) : null}
                             </LifecycleSegment>
                         </div>
-                        <div className={`${ARCHIVE_SEGMENT_SHELL} shrink-0`}>
-                            <LifecycleSegment
-                                active={lawsuitViewMode === 'trash'}
-                                onClick={() => setLawsuitViewMode('trash')}
-                                testId="lawsuits-trash-toggle"
-                                activeClassName="bg-rose-950/50 text-rose-100 border border-rose-500/30"
-                                iconOnly
-                                ariaLabel="سلة المهملات"
-                            >
-                                <span className="relative inline-flex items-center justify-center">
-                                    <Trash2 size={15} />
-                                    {lawsuitViewMode !== 'trash' && lawsuitTrashedCount > 0 ? (
-                                        <span className="absolute -top-1.5 -left-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-rose-600 text-[10px] font-bold text-white inline-flex items-center justify-center">
-                                            {lawsuitTrashedCount > 9 ? '9+' : lawsuitTrashedCount}
-                                        </span>
-                                    ) : null}
-                                </span>
-                            </LifecycleSegment>
-                        </div>
+                        {trashToggleVisible ? (
+                            <div className={`${ARCHIVE_SEGMENT_SHELL} shrink-0`}>
+                                <LifecycleSegment
+                                    active={lawsuitViewMode === 'trash'}
+                                    onClick={() => setLawsuitViewMode('trash')}
+                                    testId="lawsuits-trash-toggle"
+                                    activeClassName="bg-rose-950/50 text-rose-100 border border-rose-500/30"
+                                    iconOnly
+                                    ariaLabel="سلة المهملات"
+                                >
+                                    <span className="relative inline-flex items-center justify-center">
+                                        <Trash2 size={15} />
+                                        {lawsuitViewMode !== 'trash' && lawsuitTrashedCount > 0 ? (
+                                            <span className="absolute -top-1.5 -left-1.5 min-w-[1rem] h-4 px-1 rounded-full bg-rose-600 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                                                {lawsuitTrashedCount > 9 ? '9+' : lawsuitTrashedCount}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                </LifecycleSegment>
+                            </div>
+                        ) : null}
                     </div>
                     {lawsuitViewMode === 'trash' ? (
                         <p className="mt-2 text-[11px] text-amber-200/75 leading-relaxed">
-                            تبقى الإضابير هنا 30 يوماً ثم تُحذف تلقائياً نهائياً ما لم تُسترجع.
+                            تبقى الإضابير هنا حتى تحذفها نهائياً بنفسك. يمكنك استرجاعها في أي وقت.
                         </p>
                     ) : null}
                 </div>

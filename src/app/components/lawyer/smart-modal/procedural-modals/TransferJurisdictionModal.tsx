@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useState } from 'react';
 import { Scale } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';

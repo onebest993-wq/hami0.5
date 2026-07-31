@@ -44,7 +44,7 @@ console.log(`  ${cssName}: ${kb(css.rawLen)} KB raw / ${kb(css.gzLen)} KB gzip (
 console.log(`  TOTAL first paint JS: ${kb(critRaw)} KB raw / ${kb(critGz)} KB gzip`);
 console.log(`  TOTAL first paint JS+CSS gzip: ${kb(critGz + css.gzLen)} KB`);
 
-const homeTabChunks = [
+const _homeTabChunks = [
   'LawyerDashboard-',
   'LawyerHomeHubCard-',
   'LazyLegalCommandCenterDock', // may not match

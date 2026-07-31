@@ -31,7 +31,7 @@ function shouldDedupe(dedupeKey: string | undefined, now: number): boolean {
     return false;
 }
 
-export function _resetAuditLogDedupe(): void {
+export function resetAuditLogDedupe(): void {
     dedupeCache.clear();
 }
 

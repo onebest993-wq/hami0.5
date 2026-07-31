@@ -43,41 +43,6 @@ export function useDecisionsAppealsAppealEntryMutations(params: AppealEntryMutat
         transitionAppealWorkflow,
     } = params;
 
-    const commitExecutorSideAppealEntry = React.useCallback(
-        (
-            decision: Decision,
-            stage: 'grievance' | 'cassation',
-            appellants: ManualAppealAppellantActor[],
-        ) => {
-            if (appellants.length === 0) {
-                SmartToast.error('اختر طرفاً واحداً على الأقل');
-                return;
-            }
-            const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
-            if (
-                decision.manualExecutorLedgerEntry === true ||
-                appealHub.manualExecutorLedgerEntry === true
-            ) {
-                return;
-            }
-            if (
-                appealHub.requestKind &&
-                EXECUTOR_QUEUE_REQUEST_KINDS.includes(appealHub.requestKind)
-            ) {
-                return;
-            }
-            const patch = buildExecutorSideAppealCommitPatch(stage, appellants);
-            const timelineTitle = stage === 'grievance' ? 'تسجيل تظلم' : 'تسجيل تمييز';
-            const timelineDescription = executorSideAppealTimelineMessage(
-                stage,
-                appellants,
-                appealPerspective,
-            );
-            transitionAppealWorkflow(decision, patch, timelineTitle, timelineDescription, 'amber');
-        },
-        [appealPerspective, decisions, transitionAppealWorkflow],
-    );
-
     const commitQueueRequestAppealEntry = React.useCallback(
         (decision: Decision, stage: 'grievance' | 'cassation') => {
             const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
@@ -131,6 +96,42 @@ export function useDecisionsAppealsAppealEntryMutations(params: AppealEntryMutat
             );
         },
         [appealPerspective, decisions, transitionAppealWorkflow],
+    );
+
+    const commitExecutorSideAppealEntry = React.useCallback(
+        (
+            decision: Decision,
+            stage: 'grievance' | 'cassation',
+            appellants: ManualAppealAppellantActor[],
+        ) => {
+            if (appellants.length === 0) {
+                SmartToast.error('اختر طرفاً واحداً على الأقل');
+                return;
+            }
+            const appealHub = resolveUnderlyingDecisionHub(decision, decisions);
+            if (
+                decision.manualExecutorLedgerEntry === true ||
+                appealHub.manualExecutorLedgerEntry === true
+            ) {
+                return;
+            }
+            if (
+                appealHub.requestKind &&
+                EXECUTOR_QUEUE_REQUEST_KINDS.includes(appealHub.requestKind)
+            ) {
+                commitQueueRequestAppealEntry(decision, stage);
+                return;
+            }
+            const patch = buildExecutorSideAppealCommitPatch(stage, appellants);
+            const timelineTitle = stage === 'grievance' ? 'تسجيل تظلم' : 'تسجيل تمييز';
+            const timelineDescription = executorSideAppealTimelineMessage(
+                stage,
+                appellants,
+                appealPerspective,
+            );
+            transitionAppealWorkflow(decision, patch, timelineTitle, timelineDescription, 'amber');
+        },
+        [appealPerspective, commitQueueRequestAppealEntry, decisions, transitionAppealWorkflow],
     );
 
     const applyLawyerCassationEntry = React.useCallback(

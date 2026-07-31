@@ -27,6 +27,21 @@ const apiRoutes = [
     'src/app/api/notifications/health/route.ts',
 ];
 
+const criticalPaths = [
+    'src/app/infrastructure/notificationModel.ts',
+    'src/app/infrastructure/NotificationRepository.ts',
+    'src/app/hooks/lawyerDashboard/useLawyerDashboardNotifications.ts',
+    'src/app/hooks/lawyerDashboard/notifications/notificationShellOpenFlow.ts',
+    'src/app/hooks/lawyerDashboard/notifications/useNotificationStoreSync.ts',
+    'src/app/hooks/lawyerDashboard/notifications/useNotificationHostLifecycle.ts',
+    'src/app/components/lawyer/CommunityScreen/hooks/useForumAppBarNotifications.ts',
+    'src/app/components/lawyer/CommunityScreen/hooks/forumAppBarNotificationSnapshot.ts',
+    'src/app/components/lawyer/NotificationPanel/NotificationShell.tsx',
+    'src/app/components/lawyer/NotificationPanel/NotificationPanelHost.tsx',
+    'src/app/services/forum/forumNotificationDispatch.ts',
+    'src/app/services/forum/forumNotificationDispatchPush.ts',
+];
+
 let failed = false;
 
 function fail(msg) {
@@ -51,6 +66,11 @@ for (const route of apiRoutes) {
     else fail(`missing ${route}`);
 }
 
+for (const path of criticalPaths) {
+    if (existsSync(path)) ok(path);
+    else fail(`missing ${path}`);
+}
+
 const envExample = readFileSync('.env.production.example', 'utf8');
 for (const key of [
     'SHELL_NOTIFICATIONS_SUPABASE',
@@ -70,8 +90,12 @@ const test = spawnSync(
         'run',
         'src/app/services/notifications/__tests__',
         'src/app/stores/__tests__/notificationStore.test.ts',
+        'src/app/infrastructure/__tests__/notificationModel.test.ts',
         'src/app/services/__tests__/auditLogPublisher.test.ts',
         'src/app/hooks/__tests__/useLawyerDashboardNotifications.test.ts',
+        'src/app/hooks/lawyerDashboard/notifications/__tests__/notificationShellOpenFlow.test.ts',
+        'src/app/components/lawyer/CommunityScreen/hooks/__tests__/forumAppBarNotificationSnapshot.test.ts',
+        'src/app/components/lawyer/CommunityScreen/hooks/__tests__/useForumAppBarNotifications.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/observeNotificationPanelInteractive.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/notificationIntentWarm.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/headerShellIntentWarm.test.ts',
@@ -81,6 +105,8 @@ const test = spawnSync(
         'src/app/components/lawyer/NotificationPanel',
         'src/app/services/forum/__tests__/forumNotificationBridge.test.ts',
         'src/app/services/forum/__tests__/forumNotificationDispatchExtras.test.ts',
+        'src/app/services/forum/__tests__/forumNotificationDispatchPush.test.ts',
+        'src/app/runtime/__tests__/notificationsSectionSurgicalCloseHonesty.test.ts',
     ],
     { stdio: 'inherit', shell: true },
 );

@@ -7,6 +7,7 @@ import {
     AppealWorkflowCardActionsPanel,
     AppealWorkflowCardDetailsSection,
 } from './AppealWorkflowCardSections';
+import { AppealExecutorNoteToggle } from './AppealExecutorNoteToggle';
 import { useAppealWorkflowCardDerivedState } from './useAppealWorkflowCardDerivedState';
 import type { AppealWorkflowCardProps } from './appealWorkflowCardTypes';
 
@@ -43,15 +44,19 @@ function AppealWorkflowCard({
         appealPerspective: perspective,
     } = derived;
 
+    const executorNoteText = String(
+        decision.executorNote ?? underlyingHub.executorNote ?? '',
+    ).trim();
+
     return (
         <div
             id={`hami-appeal-card-${decision.id}`}
-            className={`${DECISION_GLASS_CARD} ${
+            className={`${DECISION_GLASS_CARD} flex flex-col gap-3 p-3 sm:p-4 ${
                 appealCardRank === 0 ? 'ring-1 ring-amber-400/30 shadow-[0_0_24px_rgba(251,191,36,0.08)]' : ''
             }`}
             dir="rtl"
         >
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
                 {!compactAppealCopyChrome ? (
                     <div className="mb-1 flex flex-wrap items-center justify-end gap-1.5">
                         {appealCardRank === 0 && appealCardsTotal > 1 ? (
@@ -113,6 +118,8 @@ function AppealWorkflowCard({
                         ) : null}
                     </div>
                 ) : null}
+
+                <AppealExecutorNoteToggle note={executorNoteText} />
 
                 <AppealWorkflowCardDetailsSection
                     appealPerspective={perspective}

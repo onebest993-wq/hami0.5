@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Gate الملف المهني (هيدر) — اختبارات وحدة + مسارات حرجة.
+ * Gate الملف المهني — اختبارات وحدة + مسارات حرجة.
  *
  * Usage:
  *   npm run gate:profile
@@ -10,6 +10,8 @@ import { existsSync } from 'node:fs';
 
 const criticalPaths = [
     'src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts',
+    'src/app/hooks/lawyerDashboard/profile/profileShellOpenFlow.ts',
+    'src/app/hooks/lawyerDashboard/profile/profileLazyImports.ts',
     'src/app/hooks/lawyerDashboard/profileIntentWarm.ts',
     'src/app/hooks/lawyerDashboard/useProfileTabMobileSuspend.ts',
     'src/app/hooks/lawyerDashboard/headerShellIntentWarm.ts',
@@ -21,6 +23,8 @@ const criticalPaths = [
     'src/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader.ts',
     'src/app/components/lawyer/RoyalLawyerProfile/ProfileErrorBoundary.tsx',
     'src/app/components/lawyer/LawyerDashboardParts/components/HeaderProfileTrigger.tsx',
+    'src/app/components/lawyer/RoyalLawyerProfile/lawyerProfileFx-android.css',
+    'src/app/services/profileMediaService.ts',
 ];
 
 let failed = false;
@@ -34,26 +38,41 @@ function ok(msg) {
     console.log(`✓ ${msg}`);
 }
 
-console.log('=== Profile header production gate ===\n');
+console.log('=== Profile production gate ===\n');
 
 for (const path of criticalPaths) {
     if (existsSync(path)) ok(path);
     else fail(`missing ${path}`);
 }
 
-console.log('\nRunning profile header test suite...');
+console.log('\nRunning profile unit test suite...');
 const test = spawnSync(
     'npx',
     [
         'vitest',
         'run',
         'src/app/hooks/lawyerDashboard/__tests__/useLawyerDashboardProfileTab.test.ts',
+        'src/app/hooks/lawyerDashboard/profile/__tests__/profileShellOpenFlow.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/profileIntentWarm.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/lawyerDashboardHeaderPrefetch.test.ts',
         'src/app/hooks/lawyerDashboard/__tests__/headerShellIntentWarm.test.ts',
         'src/app/services/profile/__tests__',
         'src/app/hooks/__tests__/useLawyerProfileHeader.test.ts',
         'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLifecycle.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileCanvasInView.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileLoader.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileEditSession.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileContentModel.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileDisplayCustomization.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/hooks/__tests__/useProfileScreenEscape.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/__tests__/lawyerProfileFx-android.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/__tests__/profileCanvasFxLoader.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/__tests__/profilePageFxBudget.test.ts',
+        'src/app/components/lawyer/RoyalLawyerProfile/components/profileTextCanvas/__tests__/ProfileTextCanvasMaskLayers.test.tsx',
+        'src/app/components/lawyer/RoyalLawyerProfile/components/profileTextCanvas/__tests__/useProfileTextCanvasReveal.test.ts',
+        'src/app/runtime/__tests__/profileSectionSurgicalCloseHonesty.test.ts',
+        'src/app/runtime/__tests__/worldclassProfileCloseHonesty.test.ts',
+        'src/app/runtime/__tests__/profileOpenGestureSnappiness.test.ts',
     ],
     { stdio: 'inherit', shell: true },
 );

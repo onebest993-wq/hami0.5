@@ -43,7 +43,7 @@ vi.mock('@/app/services/notifications/forumNotificationRead', () => ({
     countForumUnread: (...args: unknown[]) => countForumUnread(...args),
 }));
 
-vi.mock('@/app/services/forum/forumNotificationBridge', () => ({
+vi.mock('@/app/services/forum/forumNotificationEvents', () => ({
     emitForumUnreadCount: (...args: unknown[]) => emitForumUnreadCount(...args),
 }));
 

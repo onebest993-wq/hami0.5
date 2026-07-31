@@ -1,20 +1,19 @@
 // @ts-nocheck
 import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-    Book,
-    Calendar as CalendarIcon,
-    FolderOpen,
-    ListChecks,
-    MessageCircle,
-    Scale,
-    FileText,
-    Warehouse,
-} from 'lucide-react';
+    HomeCalendarIcon,
+    HomeFileTextIcon,
+    HomeListChecksIcon,
+    HomeMessageCircleIcon,
+    HomeScaleIcon,
+    HomeWarehouseIcon,
+} from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { ThemeKey, ShapeKey } from '../LawyerShared';
 import { ExecutionHero, RouteTile } from '@/app/components/lawyer/dashboard/commandHub';
-import { HomeHubErrorBoundary } from '@/app/components/lawyer/LawyerHomeHubCard/HomeHubErrorBoundary';
+import { HomeHubErrorBoundary } from '@/app/components/lawyer/dashboard/HomeHubErrorBoundary';
+import { HomeHubCardShellFallback } from './HomeHubCardShellFallback';
 import { HomeDockChromeErrorBoundary } from './HomeDockChromeErrorBoundary';
 import { LawyerHomeTabErrorBoundary } from './LawyerHomeTabErrorBoundary';
 import { HomeMainZoneErrorBoundary } from './HomeMainZoneErrorBoundary';
@@ -25,15 +24,12 @@ import {
     resolveForumShellAriaLabel,
     shouldShowForumUnreadBadge,
 } from '@/app/services/forum/forumShellNavigation';
-import { classifySecretaryAlertsByHorizon } from '@/app/services/alertTimeClassification';
-import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import type { CommandCenterNote } from '../commandCenterTypes';
 import { LawyerHomeAmbient } from './LawyerHomeAmbient';
 import { HOME_SCROLL, HOME_FLOW_COLUMN } from './lawyerHomeTheme';
 import { HAMI_SHELL_CONTAINER } from './lawyerShellLayout';
-import type { ClusterScanSources } from '@/app/workspace/useClusterScanSources';
+import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
-import { resolveWallpaperSrc } from '@/app/services/settings';
 import {
     getWidgetsInZone,
     transferWidget,
@@ -63,22 +59,19 @@ import {
 } from '@/app/services/settings/homeBlockScale';
 import { HomeBlockShell } from './HomeBlockShell';
 import { HomeLayoutEditProvider } from './homeLayoutEdit/HomeLayoutEditContext';
-import { HomeLayoutEditChrome } from './homeLayoutEdit/HomeLayoutEditChrome';
 import { DraggableHomeWidget } from './homeLayoutEdit/DraggableHomeWidget';
 import { HomeDropZone } from './homeLayoutEdit/HomeDropZone';
-import { HomeDropIndicator } from './homeLayoutEdit/HomeDropIndicator';
 import { HomeLayoutScrollRoot, useHomePageScroll } from './homeLayoutEdit/HomeLayoutScrollRoot';
-import { HomeDockTransferHint } from './homeLayoutEdit/HomeDockTransferHint';
 import { useSettingsPatches } from '@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches';
 import { useCommandCenterDockActions } from './useCommandCenterDockActions';
-import { useForumUnreadCount } from '@/app/hooks/useForumUnreadCount';
-import { useForumNotificationStream } from '@/app/hooks/useForumNotificationStream';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { useViewportShellScale } from '@/app/hooks/useViewportShellScale';
 import { scheduleTransactionHubTileIdlePrefetch } from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
-import { notifyBootContentReady } from '@/app/bootstrap/bootReveal';
+import { FIRST_TAB_OPEN_EVENT } from '@/app/bootstrap/bootReveal';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import { prefetchLawyerHomeHubCard } from '@/app/utils/lazyComponents';
+import { LawyerHomeHubCard } from '@/app/components/lawyer/LawyerHomeHubCard';
 import { resolveDockShellMetrics, scaleDockShellMetrics } from '@/app/services/settings/dockShellLayout';
 import {
     estimateDockChromeOccupiedPx,
@@ -86,9 +79,9 @@ import {
     resolveDockChromeStackGapPx,
 } from '@/app/services/settings/homeDockChromeLayout';
 
-const LazyLawyerHomeHubCard = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LawyerHomeHubCard').then((m) => ({
-        default: m.LawyerHomeHubCard as unknown as LazyComponent,
+const LazyHomeForumSignalsIsland = lazyWithRetry(() =>
+    import('./HomeForumSignalsIsland').then((m) => ({
+        default: m.default as unknown as LazyComponent,
     })),
 );
 
@@ -101,6 +94,24 @@ const LazyLegalCommandCenterDock = lazyWithRetry(() =>
 const LazyCommandCenterOverlays = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/CommandCenterOverlays').then((m) => ({
         default: m.CommandCenterOverlays as unknown as LazyComponent,
+    })),
+);
+
+const LazyHomeLayoutEditChrome = lazyWithRetry(() =>
+    import('./homeLayoutEdit/HomeLayoutEditChrome').then((m) => ({
+        default: m.HomeLayoutEditChrome as unknown as LazyComponent,
+    })),
+);
+
+const LazyHomeDropIndicator = lazyWithRetry(() =>
+    import('./homeLayoutEdit/HomeDropIndicator').then((m) => ({
+        default: m.HomeDropIndicator as unknown as LazyComponent,
+    })),
+);
+
+const LazyHomeDockTransferHint = lazyWithRetry(() =>
+    import('./homeLayoutEdit/HomeDockTransferHint').then((m) => ({
+        default: m.HomeDockTransferHint as unknown as LazyComponent,
     })),
 );
 
@@ -121,12 +132,12 @@ const SECONDARY_HOME_WIDGET_IDS = new Set<HomeWidgetId>([
 
 const HOME_STAGE_DELAYS = {
     overlays: { minDelayMs: 180, timeoutMs: 1_000 },
-    forumSignals: { minDelayMs: 60, timeoutMs: 500 },
+    /** بعد طلاء الـ hub — لا يغيّر شكل الشارة؛ يؤجّل فقط جلب عدّاد المنتدى */
+    forumSignals: { minDelayMs: 180, timeoutMs: 900 },
 } as const;
 export type LawyerDashboardHomeTabProps = {
     visible: boolean;
     homeTabSessionKey?: number;
-    homeHubCardSessionKey?: number;
     homeDockChromeSessionKey?: number;
     homeLayoutEditMode?: boolean;
     onExitHomeLayoutEdit?: () => void;
@@ -155,12 +166,6 @@ export type LawyerDashboardHomeTabProps = {
     fieldTasksSheetOpen?: boolean;
     onAddNote: (note: CommandCenterNote) => void;
 };
-
-function HomeHubStageFallback() {
-    return (
-        <div className="min-h-[280px] rounded-[1.625rem] border border-white/[0.06] bg-[#0D0D1A]/40 animate-pulse" />
-    );
-}
 
 function HomeDockStageFallback() {
     return (
@@ -220,17 +225,19 @@ function HomeTabContent({
     );
     const dockWidgets = useMemo(() => getWidgetsInZone(placements, 'dock'), [placements]);
     const [forumSignalsReady, setForumSignalsReady] = useState(false);
-    const [alertsStageReady, setAlertsStageReady] = useState(true);
+    const [forumUnreadCount, setForumUnreadCount] = useState(0);
     const [secondaryWidgetsStageReady, setSecondaryWidgetsStageReady] = useState(true);
     const [forumStageReady, setForumStageReady] = useState(true);
     const [dockStageReady, setDockStageReady] = useState(true);
     const [overlaysStageReady, setOverlaysStageReady] = useState(homeLayoutEditMode);
     const firstTabOpenMarkedRef = useRef(false);
     const enableForumSignals = useCallback(() => setForumSignalsReady(true), []);
+    const onForumUnreadCount = useCallback((count: number) => {
+        setForumUnreadCount(Number.isFinite(count) ? count : 0);
+    }, []);
 
     useEffect(() => {
         if (!visible) return;
-        setAlertsStageReady(true);
         setSecondaryWidgetsStageReady(true);
         setForumStageReady(true);
         setDockStageReady(true);
@@ -255,10 +262,17 @@ function HomeTabContent({
     ]);
 
     useLayoutEffect(() => {
-        if (!visible || firstTabOpenMarkedRef.current) return;
+        if (!visible) return;
+        prefetchLawyerHomeHubCard();
+        if (firstTabOpenMarkedRef.current) return;
         firstTabOpenMarkedRef.current = true;
         markBootPhase('first-tab-open');
-        notifyBootContentReady();
+        try {
+            window.dispatchEvent(new Event(FIRST_TAB_OPEN_EVENT));
+        } catch {
+            /* ignore */
+        }
+        // content-ready: سباق first-tab مع ensureDeferredAppStylesLoaded في MainView
     }, [visible]);
 
     useEffect(() => {
@@ -274,14 +288,47 @@ function HomeTabContent({
         scheduleTransactionHubTileIdlePrefetch();
     }, [dockStageReady, homeLayoutEditMode, userId]);
 
-    const forumUnreadCount = useForumUnreadCount(userId, !homeLayoutEditMode && forumSignalsReady);
-    useForumNotificationStream(userId, !homeLayoutEditMode && forumSignalsReady);
-    const pinnedCount = useWorkspaceStore((s) => s.pinnedItems.filter((p) => p.type !== 'hub').length);
-    const unpinItem = useWorkspaceStore((s) => s.unpinItem);
-    const urgentAlertsCount = useMemo(() => {
-        const classified = classifySecretaryAlertsByHorizon(secretaryAlerts);
-        return classified.urgentAlerts.length;
-    }, [secretaryAlerts]);
+    const forumSignalsEnabled = Boolean(userId) && !homeLayoutEditMode && forumSignalsReady;
+
+    /** بعد first-tab — لا تسحب workspaceStore/classify إلى تقييم HomeTab الحرج */
+    const [pinnedCount, setPinnedCount] = useState(0);
+    const [urgentAlertsCount, setUrgentAlertsCount] = useState(0);
+    const unpinItemRef = useRef<(id: string) => void>(() => undefined);
+
+    useEffect(() => {
+        if (!visible) return;
+        let cancelled = false;
+        let unsub = () => undefined;
+        const cancelIdle = scheduleIdleWork(
+            () => {
+                void Promise.all([
+                    import('@/app/stores/workspaceStore'),
+                    import('@/app/services/alertTimeClassification'),
+                ]).then(([ws, alerts]) => {
+                    if (cancelled) return;
+                    const syncPins = () => {
+                        const items = ws.useWorkspaceStore.getState().pinnedItems;
+                        setPinnedCount(items.filter((p) => p.type !== 'hub').length);
+                    };
+                    unpinItemRef.current = (id: string) => {
+                        ws.useWorkspaceStore.getState().unpinItem(id);
+                    };
+                    syncPins();
+                    unsub = ws.useWorkspaceStore.subscribe(syncPins);
+                    setUrgentAlertsCount(
+                        alerts.classifySecretaryAlertsByHorizon(secretaryAlerts).urgentAlerts
+                            .length,
+                    );
+                });
+            },
+            { minDelayMs: import.meta.env.DEV ? 80 : 280, timeoutMs: 2_000 },
+        );
+        return () => {
+            cancelled = true;
+            cancelIdle();
+            unsub();
+        };
+    }, [visible, secretaryAlerts]);
 
     const dockAuthUserId = shellAuthUserId ?? userId;
 
@@ -311,7 +358,7 @@ function HomeTabContent({
         secretaryAlerts,
         onNavigateRoute,
         onOpenEntity,
-        onUnpinItem: unpinItem,
+        onUnpinItem: (id: string) => unpinItemRef.current(id),
         pinnedCount,
         urgentAlertsCount,
     });
@@ -326,15 +373,14 @@ function HomeTabContent({
         const ov = overrides[id];
         const layoutSpan = resolveWidgetSpan(id, ov);
         const deferredFallback =
-            id === 'alerts' ? <HomeHubStageFallback /> : <HomeWidgetStageFallback span={layoutSpan} />;
+            id === 'alerts' ? <HomeHubCardShellFallback /> : <HomeWidgetStageFallback span={layoutSpan} />;
         const primaryWidget = PRIMARY_HOME_WIDGET_IDS.has(id);
         const secondaryWidget = SECONDARY_HOME_WIDGET_IDS.has(id);
-        const shouldDeferAlerts = id === 'alerts' && !alertsStageReady && !homeLayoutEditMode;
         const shouldDeferSecondary =
             secondaryWidget && !secondaryWidgetsStageReady && !homeLayoutEditMode;
         const shouldDeferForum = id === 'forum' && !forumStageReady && !homeLayoutEditMode;
 
-        if (!primaryWidget && (shouldDeferAlerts || shouldDeferSecondary || shouldDeferForum)) {
+        if (!primaryWidget && (shouldDeferSecondary || shouldDeferForum)) {
             return deferredFallback;
         }
 
@@ -342,24 +388,22 @@ function HomeTabContent({
             case 'alerts':
                 return (
                     <HomeHubErrorBoundary>
-                        <Suspense fallback={<HomeHubStageFallback />}>
-                            <LazyLawyerHomeHubCard
-                                lawyerId={calendarUserId}
-                                shellAuthUserId={dockAuthUserId}
-                                clusterScanSources={clusterScanSources}
-                                secretaryAlerts={secretaryAlerts}
-                                alertsLoading={alertsLoading}
-                                alertsError={alertsError}
-                                onNavigateRoute={onNavigateRoute}
-                                onOpenEntity={onOpenEntity}
-                                onDismissAlert={onDismissAlert}
-                                onResolved={onAlertResolved}
-                                onAcceptedConvertToCase={onAcceptedConvertToCase}
-                                blockOverride={ov}
-                                themePrimary={themePrimary}
-                                layoutEditMode={homeLayoutEditMode}
-                            />
-                        </Suspense>
+                        <LawyerHomeHubCard
+                            lawyerId={calendarUserId}
+                            shellAuthUserId={dockAuthUserId}
+                            clusterScanSources={clusterScanSources}
+                            secretaryAlerts={secretaryAlerts}
+                            alertsLoading={alertsLoading}
+                            alertsError={alertsError}
+                            onNavigateRoute={onNavigateRoute}
+                            onOpenEntity={onOpenEntity}
+                            onDismissAlert={onDismissAlert}
+                            onResolved={onAlertResolved}
+                            onAcceptedConvertToCase={onAcceptedConvertToCase}
+                            blockOverride={ov}
+                            themePrimary={themePrimary}
+                            layoutEditMode={homeLayoutEditMode}
+                        />
                     </HomeHubErrorBoundary>
                 );
             case 'hubExecution':
@@ -377,7 +421,7 @@ function HomeTabContent({
             case 'hubLawsuit':
                 return (
                     <RouteTile
-                        card={{ id: 'lawsuit', tileId: 'hubLawsuit', label: 'دعاوى', icon: Scale, accent }}
+                        card={{ id: 'lawsuit', tileId: 'hubLawsuit', label: 'دعاوى', icon: HomeScaleIcon, accent }}
                         onOpenArchive={handleHubArchiveOpen}
                         reduceMotion={reduceMotion}
                         blockOverride={ov}
@@ -393,7 +437,7 @@ function HomeTabContent({
                             id: 'transaction',
                             tileId: 'hubTransaction',
                             label: 'معاملات',
-                            icon: FileText,
+                            icon: HomeFileTextIcon,
                             accent: secondaryAccent,
                         }}
                         onOpenArchive={handleHubArchiveOpen}
@@ -459,7 +503,7 @@ function HomeTabContent({
                                 }}
                                 aria-hidden
                             >
-                                <MessageCircle
+                                <HomeMessageCircleIcon
                                     strokeWidth={1.6}
                                     style={{
                                         width: `calc(${forumIcon}px * var(--hami-content-scale, 1))`,
@@ -491,11 +535,11 @@ function HomeTabContent({
             case 'dockVault':
             case 'dockTasks': {
                 const icons = {
-                    dockRepository: Warehouse,
-                    dockNotepad: Warehouse,
-                    dockCalendar: CalendarIcon,
-                    dockVault: Warehouse,
-                    dockTasks: ListChecks,
+                    dockRepository: HomeWarehouseIcon,
+                    dockNotepad: HomeWarehouseIcon,
+                    dockCalendar: HomeCalendarIcon,
+                    dockVault: HomeWarehouseIcon,
+                    dockTasks: HomeListChecksIcon,
                 };
                 const Icon = icons[id];
                 const dockAccent = resolveHomeBlockAccent(ov, themePrimary);
@@ -624,7 +668,11 @@ function HomeTabContent({
               '--hami-dock-chrome-stack-gap': `${dockChromeStackGapPx}px`,
           } as React.CSSProperties)
         : undefined;
-    const hasWallpaper = Boolean(resolveWallpaperSrc(settings.appearance));
+    const hasWallpaper = Boolean(
+        settings.appearance.wallpaper ||
+            settings.appearance.wallpaperStamp ||
+            (typeof document !== 'undefined' && document.documentElement.dataset.hamiWallpaper === '1'),
+    );
 
     const mainBottomPad =
         showBottomChrome && (dockSticky || homeLayoutEditMode)
@@ -638,9 +686,22 @@ function HomeTabContent({
     return (
         <div className={`${HOME_FLOW_COLUMN}${homeLayoutEditMode ? ' hami-home-layout-editing' : ''}`} data-testid="lawyer-home-tab-content">
             <LawyerHomeAmbient wallpaperActive={hasWallpaper} />
-            {homeLayoutEditMode ? <HomeLayoutEditChrome /> : null}
-            <HomeDropIndicator />
-            <HomeDockTransferHint />
+            {forumSignalsEnabled ? (
+                <Suspense fallback={null}>
+                    <LazyHomeForumSignalsIsland
+                        userId={userId}
+                        enabled={forumSignalsEnabled}
+                        onUnreadCount={onForumUnreadCount}
+                    />
+                </Suspense>
+            ) : null}
+            {homeLayoutEditMode ? (
+                <Suspense fallback={null}>
+                    <LazyHomeLayoutEditChrome />
+                    <LazyHomeDropIndicator />
+                    <LazyHomeDockTransferHint />
+                </Suspense>
+            ) : null}
             {overlaysStageReady || homeLayoutEditMode ? (
                 <Suspense fallback={null}>
                     <LazyCommandCenterOverlays

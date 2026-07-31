@@ -374,6 +374,7 @@ export function useExecutionDashboardCoreWorkspacePipeline(p: ExecutionDashboard
         parentDossierId,
         executionData,
         executionDashboardFileId,
+        executionStorageTick,
         setShowOnlyActiveFileTimeline,
         setTimelineEvents,
         persistExecutionMergeRef,
@@ -528,6 +529,8 @@ const {
     useExecutionDashboardOpenDecisionsModalBridge({
         executionDataId: executionData?.id,
         executionId,
+        decisionsStorageExecutionId,
+        executionData,
         setShowExecutionFinancialHub,
         setShowUnifiedExecutionModal: followupOrchestrator.setShowUnifiedExecutionModal,
         setShowUnifiedSummonsModal,

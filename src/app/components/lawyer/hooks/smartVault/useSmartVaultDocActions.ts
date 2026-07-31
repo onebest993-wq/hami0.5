@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { confirmRepositoryAction } from '@/app/components/lawyer/SmartRepository/repositoryDialog';
-import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { resolveVaultDocForViewing } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';

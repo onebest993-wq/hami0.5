@@ -51,6 +51,7 @@ function lastLawsuitActivityTs(f: FileData): number | null {
 
     consider(f.date);
     consider((f as unknown as Record<string, unknown>).nextDate);
+    consider((f as unknown as Record<string, unknown>).firstHearingDate);
     consider((f as unknown as Record<string, unknown>).stayReviewDate);
     for (const h of asArray(f.history)) consider(asRecord(h).date);
     for (const n of asArray(f.notes)) {
@@ -163,8 +164,9 @@ export function buildLawsuitAlerts(
             }
         }
 
-        // 2) nextDate — تاريخ نظر مستقبلي قريب (في حال لم يُسجّل في calendar)
-        const nextDateStr = safeStr((f as unknown as Record<string, unknown>).nextDate);
+        // 2) nextDate / firstHearingDate — تاريخ نظر مستقبلي قريب (في حال لم يُسجّل في calendar)
+        const fileRec = f as unknown as Record<string, unknown>;
+        const nextDateStr = safeStr(fileRec.nextDate) || safeStr(fileRec.firstHearingDate);
         if (nextDateStr) {
             const ts = parseYmdToTs(nextDateStr);
             if (ts != null) {

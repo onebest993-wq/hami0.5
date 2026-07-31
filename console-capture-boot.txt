@@ -1,5 +1,0 @@
-﻿--- all messages ---
---- page errors ---
---- warnings/errors ---
-total messages: 0
-Γ£à Console clean (no warnings/errors/page errors)

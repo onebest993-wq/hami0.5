@@ -10,6 +10,18 @@ type ExecutionFileRow = {
     encrypted_data: string | null;
 };
 
+type AuditorSuggestion = {
+    type?: string;
+    priority?: string;
+    title?: string;
+    description?: string;
+    rationale?: string;
+};
+
+type ExecutionCopilotResult = {
+    suggestions?: AuditorSuggestion[];
+};
+
 const corsHeaders = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
@@ -34,13 +46,13 @@ function parseEncryptedData(raw: string | null): Record<string, unknown> {
     }
 }
 
-function hasRiskSignal(result: any): boolean {
-    const suggestions = Array.isArray(result?.suggestions) ? result.suggestions : [];
+function hasRiskSignal(result: ExecutionCopilotResult): boolean {
+    const suggestions = Array.isArray(result.suggestions) ? result.suggestions : [];
     if (!suggestions.length) return false;
-    return suggestions.some((s: any) => {
-        const t = String(s?.type || '').trim();
-        const p = String(s?.priority || '').trim();
-        const text = `${s?.title || ''} ${s?.description || ''} ${s?.rationale || ''}`;
+    return suggestions.some((s) => {
+        const t = String(s.type || '').trim();
+        const p = String(s.priority || '').trim();
+        const text = `${s.title || ''} ${s.description || ''} ${s.rationale || ''}`;
         return (
             t === 'حرج' ||
             t === 'إجراء_فوري' ||
@@ -53,7 +65,7 @@ function hasRiskSignal(result: any): boolean {
 async function callExecutionCopilot(
     row: ExecutionFileRow,
     encrypted: Record<string, unknown>
-): Promise<any | null> {
+): Promise<ExecutionCopilotResult | null> {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')?.trim();
     const serviceRole = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')?.trim();
     if (!supabaseUrl || !serviceRole) return null;
@@ -198,8 +210,9 @@ Deno.serve(async (req) => {
                 status: 200,
             }
         );
-    } catch (error: any) {
-        return new Response(JSON.stringify({ error: error?.message || 'Unknown error' }), {
+    } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        return new Response(JSON.stringify({ error: message }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         });

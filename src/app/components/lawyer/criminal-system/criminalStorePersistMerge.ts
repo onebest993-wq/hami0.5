@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CriminalCase } from '@/app/types/criminal';
 import { CRIMINAL_STORAGE_PATCHED_EVENT, loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import { normalizeCriminalCaseLocation } from './criminalCaseDraftFactory';

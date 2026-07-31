@@ -11,6 +11,7 @@ export function useForumLifecycle(
     userId: string | null,
     loadingPosts: boolean,
     visiblePostCount: number,
+    isOpen = true,
 ) {
     const hadLocalCacheRef = useRef(false);
 
@@ -37,7 +38,7 @@ export function useForumLifecycle(
     const isShellReady = !loadingPosts || visiblePostCount > 0 || hadLocalCacheRef.current;
 
     useEffect(() => {
-        if (!isShellReady) return;
+        if (!isOpen || !isShellReady) return;
         markForumPerfPhase('first-paint');
         markForumPerfPhase('interactive');
         reportForumPerf({
@@ -45,7 +46,7 @@ export function useForumLifecycle(
             postCount: visiblePostCount,
             hadLocalCache: hadLocalCacheRef.current,
         });
-    }, [isShellReady, userId, visiblePostCount]);
+    }, [isOpen, isShellReady, userId, visiblePostCount]);
 
     return { isShellReady, hadLocalCache: hadLocalCacheRef.current };
 }

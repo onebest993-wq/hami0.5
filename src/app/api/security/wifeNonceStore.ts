@@ -11,6 +11,8 @@
  * - Supabase path expects a unique constraint on "nonce" column to enforce atomicity.
  */
 
+import { supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.ts';
+
 const DEFAULT_NONCE_TABLE = 'wife_nonce_store';
 const IN_MEMORY_NONCE_FALLBACK = new Map<string, number>();
 
@@ -77,13 +79,13 @@ const redisStore: NonceStore = {
 };
 
 function hasSupabaseConfig(): boolean {
-  return Boolean(getEnv('SUPABASE_URL') && (getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY')));
+  return Boolean(getEnv('SUPABASE_URL') && (getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY')));
 }
 
 const supabaseStore: NonceStore = {
   async consumeNonce(nonce: string, nowMs: number, ttlMs: number): Promise<boolean> {
     const supabaseUrl = getEnv('SUPABASE_URL');
-    const supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+    const supabaseKey = getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY');
     if (!supabaseUrl || !supabaseKey) throw new Error('Supabase nonce store is not configured.');
 
     const table = getEnv('WIFE_NONCE_TABLE') || DEFAULT_NONCE_TABLE;

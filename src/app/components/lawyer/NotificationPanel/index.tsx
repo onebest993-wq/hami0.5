@@ -17,6 +17,7 @@ import { NotificationList } from '@/app/components/lawyer/NotificationPanel/comp
 import { NotificationLoadingState } from '@/app/components/lawyer/NotificationPanel/components/NotificationLoadingState';
 import { NotificationErrorBoundary } from '@/app/components/lawyer/NotificationPanel/NotificationErrorBoundary';
 import { CaseShareIncomingSection } from '@/app/components/lawyer/NotificationPanel/components/CaseShareIncomingSection';
+import { NotificationArrivalAnnouncer } from '@/app/components/lawyer/NotificationPanel/components/NotificationArrivalAnnouncer';
 import { useNotificationLifecycle } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationLifecycle';
 import {
     isNotificationHeaderBusy,
@@ -134,6 +135,8 @@ function NotificationPanelInner({
                             onMarkAllRead={handleMarkAllRead}
                             onClose={onClose}
                         />
+
+                        <NotificationArrivalAnnouncer />
 
                         <NotificationTabs
                             activeTab={activeTab}

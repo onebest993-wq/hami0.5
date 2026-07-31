@@ -1,0 +1,6 @@
+<!--
+  أضف إلى ios/App/App/Info.plist قبل </dict> عند إنشاء مشروع iOS.
+  مطلوب لـ Face ID مع @aparajita/capacitor-biometric-auth.
+-->
+<key>NSFaceIDUsageDescription</key>
+<string>حامي يستخدم Face ID لحماية بيانات الموكلين وقفل الجلسة.</string>

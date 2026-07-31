@@ -1,11 +1,4 @@
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { issueCsrfTokenForSubject, invalidateCsrfForSubject } from '../../security/csrfServerStore.ts';
 import { applyWifeSecurityHeaders } from '../../security/wifeSecurityHeaders.ts';
 
@@ -38,34 +31,26 @@ function isSecureRequest(request: Request): boolean {
  */
 export async function GET(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const subject = await getVerifiedTokenSubject(userToken);
-    if (!subject) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: subject } = authGate;
 
     const csrfToken = await issueCsrfTokenForSubject(subject);
     if (!csrfToken) {
       return applyWifeSecurityHeaders(
-        new Response(JSON.stringify({ ok: false, error: 'CSRF store unavailable' }), {
+        new Response(JSON.stringify({ ok: false, error: 'Security session store unavailable' }), {
           status: 503,
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
         }),
       );
     }
 
-    const secure = isSecureRequest(request);
-
     return applyWifeSecurityHeaders(
       new Response(JSON.stringify({ ok: true, csrfToken }), {
         status: 200,
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
-          'Set-Cookie': buildCsrfSetCookie(csrfToken, secure),
+          'Set-Cookie': buildCsrfSetCookie(csrfToken, isSecureRequest(request)),
         },
       }),
     );
@@ -82,15 +67,9 @@ export async function GET(request: Request): Promise<Response> {
 /** Revoke CSRF session on logout — requires JWT + WIFE on DELETE. */
 export async function DELETE(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const subject = await getVerifiedTokenSubject(userToken);
-    if (!subject) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: subject } = authGate;
 
     await invalidateCsrfForSubject(subject);
 

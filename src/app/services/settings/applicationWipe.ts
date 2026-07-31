@@ -16,6 +16,9 @@ import {
 import { purgeClientAuthResidue } from '@/app/utils/authStorage';
 import { clearBffCryptoWrapCredential } from '@/app/utils/bffCryptoSession';
 import { clearCsrfSessionToken } from '@/app/security/csrfSession';
+import { CryptoService } from '@/app/services/CryptoService';
+import { wipeApplicationIndexedDatabases } from '@/app/services/settings/wipeIndexedDatabases';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 
 const KV_PROXY_URL = '/api/kv-proxy';
 
@@ -213,6 +216,20 @@ export async function wipeAllApplicationData(
     } catch {
         /* ignore */
     }
+
+    try {
+        CryptoService.destroy();
+    } catch {
+        /* ignore */
+    }
+
+    try {
+        await wipeApplicationIndexedDatabases();
+    } catch {
+        /* ignore */
+    }
+
+    setLiveAuthUserId(null);
 
     resetToDefaults();
     invalidateLawyerSettingsCache();

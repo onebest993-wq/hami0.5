@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.ts';
 
 const DEFAULT_TABLE = 'kv_store_f09713ba';
 
@@ -8,7 +9,7 @@ function getTableName(): string {
 
 function getAdminClient() {
   const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  const serviceRoleKey = readSupabasePrivilegedKey();
   if (!supabaseUrl || !serviceRoleKey) return null;
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },

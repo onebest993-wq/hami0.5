@@ -158,7 +158,7 @@ describe('executionHandlerClusterGate', () => {
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('followup');
         expect(resolveExecutionHandlerClusterFollowupMode(input)).toBe('dossier-controls');
-        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupDossierControls(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupOtherParty(input)).toBe(false);
@@ -253,7 +253,8 @@ describe('executionHandlerClusterGate', () => {
         };
 
         expect(resolveExecutionHandlerClusterHeavyMode(input)).toBe('coercive');
-        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(false);
+        // محضر مفتوح → جسور الحجز تبقى محمّلة حتى أثناء تبويب/تدفق الجبري
+        expect(shouldLoadExecutionHandlerClusterSeizureHeavy(input)).toBe(true);
         expect(shouldLoadExecutionHandlerClusterFollowupHeavy(input)).toBe(false);
         expect(shouldLoadExecutionHandlerClusterCoerciveHeavy(input)).toBe(true);
     });

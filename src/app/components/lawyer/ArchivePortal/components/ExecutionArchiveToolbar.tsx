@@ -1,25 +1,30 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from 'react';
-import { ChevronDown, Search } from 'lucide-react';
+import { ListFilter, Search } from 'lucide-react';
 import type {
     ExecutionArchiveLifecycleMode,
+    ExecutionDossierStatusFilter,
     ExecutionJurisdictionFilter,
     ExecutionPerspectiveFilter,
 } from '../executionArchiveFilterUtils';
 import {
+    EXECUTION_DOSSIER_STATUS_CHIP_DEFS,
+    EXECUTION_DOSSIER_STATUS_LABELS,
     EXECUTION_JURISDICTION_LABELS,
     EXECUTION_JURISDICTION_TAB_DEFS,
     EXECUTION_PERSPECTIVE_LABELS,
     EXECUTION_PERSPECTIVE_TAB_DEFS,
 } from '../executionArchiveFilterUtils';
 import {
-    ARCHIVE_FILTER_DECK,
+    ARCHIVE_CHIP_ACTIVE,
+    ARCHIVE_CHIP_BASE,
+    ARCHIVE_CHIP_INACTIVE,
     ARCHIVE_SEGMENT_BTN_ACTIVE,
     ARCHIVE_SEGMENT_BTN_BASE,
     ARCHIVE_SEGMENT_BTN_INACTIVE,
     ARCHIVE_SEGMENT_SHELL,
     ARCHIVE_TOOLBAR_LABEL,
-    ARCHIVE_TOOLBAR_SECTION,
 } from '../archiveToolbarStyles';
+import { inertProps } from '@/app/utils/inertProps';
 
 export type ExecutionArchiveFilter = ExecutionJurisdictionFilter;
 
@@ -31,6 +36,8 @@ export type ExecutionArchiveToolbarProps = {
     onFilterTypeChange: (value: ExecutionJurisdictionFilter) => void;
     perspectiveFilter: ExecutionPerspectiveFilter;
     onPerspectiveFilterChange: (value: ExecutionPerspectiveFilter) => void;
+    dossierStatusFilter: ExecutionDossierStatusFilter;
+    onDossierStatusFilterChange: (value: ExecutionDossierStatusFilter) => void;
     jurisdictionCounts?: Partial<Record<ExecutionJurisdictionFilter, number>>;
 };
 
@@ -69,7 +76,9 @@ function FilterTabList<T extends string>({
                         {typeof counts?.[tab.id] === 'number' ? (
                             <span
                                 className={`min-w-[1.15rem] h-4 px-1 rounded-full text-[10px] font-bold inline-flex items-center justify-center tabular-nums ${
-                                    isActive ? 'bg-[#0B1021]/15 text-[#0B1021]' : 'bg-white/10 text-white/55'
+                                    isActive
+                                        ? 'bg-[#F8F1DE]/18 text-[#F8F1DE]'
+                                        : 'bg-white/10 text-white/55'
                                 }`}
                             >
                                 {counts[tab.id]! > 99 ? '99+' : counts[tab.id]}
@@ -111,24 +120,28 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
     onFilterTypeChange,
     perspectiveFilter,
     onPerspectiveFilterChange,
+    dossierStatusFilter,
+    onDossierStatusFilterChange,
     jurisdictionCounts,
 }) => {
     const filtersPanelId = useId();
     const isTrash = lifecycleMode === 'trash';
     const isArchived = lifecycleMode === 'archived';
 
-    const hasActiveFilters = filterType !== 'all' || perspectiveFilter !== 'all';
+    const hasActiveFilters =
+        dossierStatusFilter !== 'all' || filterType !== 'all' || perspectiveFilter !== 'all';
     const [filtersExpanded, setFiltersExpanded] = useState(false);
 
     useEffect(() => {
-        if (!hasActiveFilters) setFiltersExpanded(false);
-    }, [lifecycleMode, hasActiveFilters]);
+        setFiltersExpanded(false);
+    }, [lifecycleMode]);
 
-    const searchPlaceholder = isTrash
-        ? 'ابحث في سلة المهملات…'
-        : isArchived
-          ? 'ابحث في مخزن الأرشيف…'
-          : 'ابحث في الإضابير…';
+    const searchPlaceholder =
+        isTrash
+            ? 'ابحث في سلة المهملات…'
+            : isArchived
+              ? 'ابحث في مخزن الأرشيف…'
+              : 'ابحث برقم الإضبارة أو العنوان...';
 
     const jurisdictionAria = isTrash
         ? 'فلترة اختصاص سلة المهملات'
@@ -144,114 +157,145 @@ export const ExecutionArchiveToolbar: React.FC<ExecutionArchiveToolbarProps> = (
 
     const activeFilterChips = useMemo(() => {
         const chips: string[] = [];
+        if (dossierStatusFilter !== 'all') {
+            chips.push(EXECUTION_DOSSIER_STATUS_LABELS[dossierStatusFilter]);
+        }
         if (filterType !== 'all') chips.push(EXECUTION_JURISDICTION_LABELS[filterType]);
         if (perspectiveFilter !== 'all') chips.push(EXECUTION_PERSPECTIVE_LABELS[perspectiveFilter]);
         return chips;
-    }, [filterType, perspectiveFilter]);
+    }, [dossierStatusFilter, filterType, perspectiveFilter]);
 
     const toggleFilters = useCallback(() => {
         setFiltersExpanded((open) => !open);
     }, []);
 
     const focusShell = focusToneClass(isTrash, isArchived);
+    const showStatusFilters = !isTrash;
 
     return (
-        <div className={ARCHIVE_TOOLBAR_SECTION} dir="rtl">
-            <div className={ARCHIVE_FILTER_DECK} data-testid="execution-archive-search-deck">
-                <div
-                    className={`flex h-10 w-full items-stretch overflow-hidden rounded-xl border border-white/10 bg-[#0B1021]/80 transition-all focus-within:ring-1 ${focusShell}`}
-                >
-                    <input
-                        type="search"
-                        value={searchQuery}
-                        onChange={(e) => onSearchQueryChange(e.target.value)}
-                        placeholder={searchPlaceholder}
-                        data-testid="execution-archive-search"
-                        className="min-w-0 flex-1 bg-transparent px-3 text-sm text-white placeholder:text-white/35 outline-none"
-                        aria-controls={filtersPanelId}
-                        aria-expanded={filtersExpanded}
-                    />
-                    <div className="flex shrink-0 items-center gap-0.5 border-r border-white/10 px-1.5">
-                        <button
-                            type="button"
-                            data-testid="execution-archive-filters-toggle"
-                            aria-label={filtersExpanded ? 'إخفاء التصنيفات' : 'إظهار التصنيفات'}
-                            aria-expanded={filtersExpanded}
-                            aria-controls={filtersPanelId}
-                            onClick={toggleFilters}
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                                filtersExpanded || hasActiveFilters
-                                    ? 'bg-[#E6C673]/15 text-[#E6C673]'
-                                    : 'text-white/45 hover:bg-white/[0.08] hover:text-white/80'
-                            }`}
-                        >
-                            <ChevronDown
-                                size={16}
-                                strokeWidth={2.25}
-                                className={`transition-transform duration-200 ${
-                                    filtersExpanded ? 'rotate-180' : ''
-                                }`}
-                            />
-                        </button>
-                        <span
-                            className="flex h-8 w-8 items-center justify-center text-white/35 pointer-events-none"
-                            aria-hidden
-                        >
-                            <Search size={17} />
-                        </span>
-                    </div>
-                </div>
-
-                {!filtersExpanded && hasActiveFilters ? (
+        <div
+            className="px-4 sm:px-5 py-2.5 border-b border-white/[0.06]"
+            dir="rtl"
+            data-testid="execution-archive-search-deck"
+        >
+            <div
+                className={`flex h-11 w-full items-stretch overflow-hidden rounded-xl border border-white/10 bg-[#0B1021]/70 transition-colors focus-within:ring-1 ${focusShell}`}
+            >
+                <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => onSearchQueryChange(e.target.value)}
+                    placeholder={searchPlaceholder}
+                    data-testid="execution-archive-search"
+                    className="min-w-0 flex-1 bg-transparent px-3 text-sm text-white placeholder:text-white/35 outline-none"
+                    aria-controls={filtersPanelId}
+                    aria-expanded={filtersExpanded}
+                />
+                <div className="flex shrink-0 items-center gap-0.5 border-r border-white/10 px-1">
                     <button
                         type="button"
-                        onClick={() => setFiltersExpanded(true)}
-                        className="mt-2 flex w-full flex-wrap items-center gap-1.5 text-right"
-                        data-testid="execution-archive-active-filters-summary"
+                        data-testid="execution-archive-filters-toggle"
+                        aria-label={filtersExpanded ? 'إخفاء التصنيفات' : 'إظهار التصنيفات'}
+                        aria-expanded={filtersExpanded}
+                        aria-controls={filtersPanelId}
+                        title="تصنيفات الإضبارة"
+                        onClick={toggleFilters}
+                        className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-2 transition-colors touch-manipulation ${
+                            filtersExpanded || hasActiveFilters
+                                ? 'hami-royal-glass-chip'
+                                : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                        }`}
                     >
-                        <span className="text-[10px] font-bold text-white/40">مفعّل:</span>
-                        {activeFilterChips.map((chip) => (
-                            <span
-                                key={chip}
-                                className="rounded-full border border-[#E6C673]/30 bg-[#E6C673]/10 px-2 py-0.5 text-[10px] font-bold text-[#E6C673]/90"
-                            >
-                                {chip}
-                            </span>
-                        ))}
+                        <ListFilter size={16} strokeWidth={2.25} aria-hidden />
                     </button>
-                ) : null}
+                    <span
+                        className="flex h-9 w-9 items-center justify-center text-white/40 pointer-events-none"
+                        aria-hidden
+                    >
+                        <Search size={17} />
+                    </span>
+                </div>
+            </div>
 
-                <div
-                    id={filtersPanelId}
-                    data-testid="execution-archive-filters-panel"
-                    className={`grid transition-[grid-template-rows,opacity,margin,padding] duration-200 ease-out ${
-                        filtersExpanded
-                            ? 'mt-2.5 grid-rows-[1fr] border-t border-white/[0.06] pt-2.5 opacity-100'
-                            : 'grid-rows-[0fr] opacity-0'
-                    }`}
-                    aria-hidden={!filtersExpanded}
+            {!filtersExpanded && hasActiveFilters ? (
+                <button
+                    type="button"
+                    onClick={() => setFiltersExpanded(true)}
+                    className="mt-2 flex w-full flex-wrap items-center gap-1.5 text-right"
+                    data-testid="execution-archive-active-filters-summary"
                 >
-                    <div className="min-h-0 space-y-2 overflow-hidden">
-                        <FilterRow label="الاختصاص">
-                            <FilterTabList
-                                tabs={EXECUTION_JURISDICTION_TAB_DEFS}
-                                activeId={filterType}
-                                onChange={onFilterTypeChange}
-                                ariaLabel={jurisdictionAria}
-                                testIdPrefix="execution-archive-filter"
-                                counts={jurisdictionCounts}
-                            />
+                    <span className="text-[10px] font-bold text-white/40">مفعّل:</span>
+                    {activeFilterChips.map((chip) => (
+                        <span
+                            key={chip}
+                            className="hami-royal-glass-chip rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        >
+                            <span>{chip}</span>
+                        </span>
+                    ))}
+                </button>
+            ) : null}
+
+            <div
+                id={filtersPanelId}
+                data-testid="execution-archive-filters-panel"
+                className={`grid transition-[grid-template-rows,opacity,margin] duration-200 ease-out ${
+                    filtersExpanded
+                        ? 'mt-2.5 grid-rows-[1fr] opacity-100'
+                        : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                }`}
+                aria-hidden={!filtersExpanded}
+                {...inertProps(!filtersExpanded)}
+            >
+                <div className="min-h-0 space-y-2.5 overflow-hidden">
+                    {showStatusFilters ? (
+                        <FilterRow label="الحالة">
+                            <div
+                                className="flex flex-wrap items-center gap-2"
+                                role="tablist"
+                                aria-label="حالة الإضبارة التنفيذية"
+                                data-testid="execution-archive-lifecycle-chips"
+                            >
+                                {EXECUTION_DOSSIER_STATUS_CHIP_DEFS.map((chip) => {
+                                    const isActive = dossierStatusFilter === chip.id;
+                                    return (
+                                        <button
+                                            key={chip.id}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={isActive}
+                                            data-testid={`execution-archive-chip-${chip.id}`}
+                                            onClick={() => onDossierStatusFilterChange(chip.id)}
+                                            className={`${ARCHIVE_CHIP_BASE} ${
+                                                isActive ? ARCHIVE_CHIP_ACTIVE : ARCHIVE_CHIP_INACTIVE
+                                            }`}
+                                        >
+                                            <span>{chip.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </FilterRow>
-                        <FilterRow label="التمثيل">
-                            <FilterTabList
-                                tabs={EXECUTION_PERSPECTIVE_TAB_DEFS}
-                                activeId={perspectiveFilter}
-                                onChange={onPerspectiveFilterChange}
-                                ariaLabel={perspectiveAria}
-                                testIdPrefix="execution-archive-perspective"
-                            />
-                        </FilterRow>
-                    </div>
+                    ) : null}
+                    <FilterRow label="الاختصاص">
+                        <FilterTabList
+                            tabs={EXECUTION_JURISDICTION_TAB_DEFS}
+                            activeId={filterType}
+                            onChange={onFilterTypeChange}
+                            ariaLabel={jurisdictionAria}
+                            testIdPrefix="execution-archive-filter"
+                            counts={jurisdictionCounts}
+                        />
+                    </FilterRow>
+                    <FilterRow label="التمثيل">
+                        <FilterTabList
+                            tabs={EXECUTION_PERSPECTIVE_TAB_DEFS}
+                            activeId={perspectiveFilter}
+                            onChange={onPerspectiveFilterChange}
+                            ariaLabel={perspectiveAria}
+                            testIdPrefix="execution-archive-perspective"
+                        />
+                    </FilterRow>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { CRIMINAL_STORE_KEY, patchCriminalCaseRecord } from '@/app/utils/criminalCasesStorage';
+import { CRIMINAL_STORE_KEY } from '@/app/utils/criminalCasesStorage';
 import { buildStableBridgeId } from '../calendarBridge';
 import { propagateBridgedCalendarUpdate } from '../calendarBridgePersistence';
 

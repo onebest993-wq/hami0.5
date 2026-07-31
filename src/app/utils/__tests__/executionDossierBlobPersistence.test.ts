@@ -4,10 +4,13 @@ import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import {
     isExecutionDossierMainBlobKey,
     persistExecutionDossierBlob,
+    readExecutionDossierBlob,
     shouldRejectExecutionDossierBlobWipe,
     syncExecutionFileInIndex,
 } from '@/app/utils/executionDossierBlobPersistence';
-import { executionStorageKey } from '@/app/utils/executionStorageKeys';
+import { executionStorageKey, unscopedExecutionStorageKey } from '@/app/utils/executionStorageKeys';
+import { scopeExecutionDeviceStorageKey } from '@/app/utils/executionDeviceStorageScope';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 
 describe('executionDossierBlobPersistence', () => {
     const execId = 'exec_persist_test_1';
@@ -15,6 +18,7 @@ describe('executionDossierBlobPersistence', () => {
 
     beforeEach(() => {
         vi.restoreAllMocks();
+        setLiveAuthUserId(null);
         for (const key of SecureStoreService.listKeysSync()) {
             SecureStoreService.deleteItemSync(key);
         }
@@ -129,5 +133,42 @@ describe('executionDossierBlobPersistence', () => {
             SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY) || '[]',
         ) as Array<Record<string, unknown>>;
         expect(index.some((r) => r.id === execId)).toBe(false);
+    });
+
+    it('reads legacy unscoped blob when scoped key is missing', () => {
+        const legacyKey = unscopedExecutionStorageKey(execId);
+        SecureStoreService.setItemSync(
+            legacyKey,
+            JSON.stringify({
+                id: execId,
+                fileNumber: 'legacy-read',
+                timelineEvents: [{ id: 't-legacy', title: 'قديم' }],
+            }),
+        );
+
+        setLiveAuthUserId('scoped-user');
+        const scopedKey = scopeExecutionDeviceStorageKey(legacyKey);
+        expect(scopedKey).not.toBe(legacyKey);
+        expect(SecureStoreService.getItemSync(scopedKey)).toBeNull();
+
+        const blob = readExecutionDossierBlob(execId);
+        expect(blob?.fileNumber).toBe('legacy-read');
+        expect(Array.isArray(blob?.timelineEvents)).toBe(true);
+    });
+
+    it('writes main blob to owner-scoped key when user is live', () => {
+        setLiveAuthUserId('scoped-user');
+        const legacyKey = unscopedExecutionStorageKey(execId);
+        const scopedKey = scopeExecutionDeviceStorageKey(legacyKey);
+
+        persistExecutionDossierBlob(execId, {
+            id: execId,
+            fileNumber: 'scoped-write',
+            timelineEvents: [],
+        });
+
+        expect(SecureStoreService.getItemSync(scopedKey)).toContain('scoped-write');
+        const blob = readExecutionDossierBlob(execId);
+        expect(blob?.fileNumber).toBe('scoped-write');
     });
 });

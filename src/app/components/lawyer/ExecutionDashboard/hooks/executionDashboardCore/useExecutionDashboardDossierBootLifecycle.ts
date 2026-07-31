@@ -14,7 +14,7 @@ import {
     prefetchExecutionModalContainers,
     prefetchExecutionOverlayModals,
 } from '../../executionDashboardLazyRegistry';
-import { prefetchExecutionFollowupDefaultTab } from '../../executionFollowupTabPrefetch';
+import { prefetchExecutionFollowupOverlay } from '../../executionDashboardOverlayPrefetch';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 
 export function useExecutionDashboardUrlDelegationSync(
@@ -166,7 +166,7 @@ export function useExecutionDashboardStoreFileSync({
 export function useExecutionDashboardShellPrefetch() {
     useEffect(() => {
         prefetchExecutionDashboardShell();
-        prefetchExecutionFollowupDefaultTab();
+        prefetchExecutionFollowupOverlay();
         return () => {
             // shell/followup prefetch is synchronous and idempotent.
         };

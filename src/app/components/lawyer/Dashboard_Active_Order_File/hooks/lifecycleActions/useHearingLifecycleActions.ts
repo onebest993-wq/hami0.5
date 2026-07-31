@@ -3,9 +3,6 @@ import { uuidv4 } from '@/app/services/urgent-actions-db';
 import { getActiveDate } from '@/app/utils/hearingDates';
 import {
     getPreDecisionSessionOutcome,
-    isGrievancePleadingClosedSession,
-    isPreDecisionCloseNotes,
-    isPreDecisionNullifyNotes,
 } from '../../utils/hearingRules';
 import { formatDateText } from '../../utils/formatters';
 import { isAdjournReasonValid } from '../../utils/hearingRules';

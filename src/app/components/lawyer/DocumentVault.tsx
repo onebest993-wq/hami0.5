@@ -1,11 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, FileText, Image, File, Calendar, Trash2 } from 'lucide-react';
 import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { VaultPdfJsViewer } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewer';
-import { beginPrivacySensitiveSurface, endPrivacySensitiveSurface } from '@/app/runtime/privacyScreenSession';
+import {
+    prefetchVaultPdfViewerSurface,
+    VaultPdfViewerSurfaceLazy,
+} from '@/app/components/lawyer/SmartVaultModal/VaultPdfViewerSurfaceLazy';
+import { ZoomableContainer } from '@/app/components/shared/ZoomableContainer';
+
+function loadPrivacyScreenSession() {
+    return import('@/app/runtime/privacyScreenSession');
+}
 
 interface Document {
     id: string;
@@ -25,10 +32,54 @@ interface Folder {
     createdAt: string;
 }
 
+type LegacyStoredDocument = {
+    id?: string | number;
+    title?: string;
+    category?: string;
+    fileName?: string;
+    uploadDate?: string;
+    fileType?: string;
+    dataUrl?: string;
+};
+
+function isDocumentSortMode(value: string): value is 'newest' | 'oldest' | 'name_asc' {
+    return value === 'newest' || value === 'oldest' || value === 'name_asc';
+}
+
+function isDocumentFilterType(value: string): value is 'all' | 'image' | 'pdf' {
+    return value === 'all' || value === 'image' || value === 'pdf';
+}
+
+/**
+ * تحويل data URL مخزَّن إلى Blob — العرض عبر Blob/ObjectURL بدل تمرير
+ * السلسلة الضخمة نفسها إلى <img>/عارض PDF (ذاكرة أقل + فك تشفير أسرع).
+ */
+function dataUrlToBlob(dataUrl: string): Blob | null {
+    try {
+        const commaIdx = dataUrl.indexOf(',');
+        if (!dataUrl.startsWith('data:') || commaIdx < 0) return null;
+        const meta = dataUrl.slice(5, commaIdx);
+        const payload = dataUrl.slice(commaIdx + 1);
+        const mime = meta.split(';')[0] || 'application/octet-stream';
+        if (!meta.includes('base64')) return new Blob([decodeURIComponent(payload)], { type: mime });
+        const binary = atob(payload);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+        return new Blob([bytes], { type: mime });
+    } catch {
+        return null;
+    }
+}
+
 interface DocumentVaultProps {
     executionId: string;
     onClose: () => void;
-    onDocumentUploaded?: (info: { title: string; category: string; fileName: string }) => void;
+    onDocumentUploaded?: (info: {
+        title: string;
+        category: string;
+        fileName: string;
+        documentId: string;
+    }) => void;
 }
 
 export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClose, onDocumentUploaded }) => {
@@ -49,12 +100,12 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         }
         if (!folders.some((f) => f.id === 'default')) folders = [defaultFolder, ...folders];
 
-        let rawDocs: any[] = [];
+        let rawDocs: LegacyStoredDocument[] = [];
         try {
             const storedDocs = SecureStoreService.getItemSync(documentsStorageKey);
             if (storedDocs) {
                 const parsed = JSON.parse(storedDocs);
-                if (Array.isArray(parsed)) rawDocs = parsed;
+                if (Array.isArray(parsed)) rawDocs = parsed as LegacyStoredDocument[];
             }
         } catch {
             /* ignore */
@@ -127,6 +178,31 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
     const [renameDocId, setRenameDocId] = useState<string | null>(null);
     const [renameValue, setRenameValue] = useState<string>('');
     const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+    const previewDocument = useMemo(
+        () => documents.find((doc) => doc.id === previewDocId) ?? null,
+        [documents, previewDocId],
+    );
+
+    /** Blob + ObjectURL للمعاينة — يُنشأ عند الفتح ويُلغى (revoke) حتماً عند الإغلاق/التبديل */
+    const [previewObject, setPreviewObject] = useState<{ blob: Blob; url: string } | null>(null);
+    useEffect(() => {
+        const dataUrl = previewDocument?.dataUrl;
+        if (!dataUrl) {
+            setPreviewObject(null);
+            return;
+        }
+        const blob = dataUrlToBlob(dataUrl);
+        if (!blob) {
+            setPreviewObject(null);
+            return;
+        }
+        const url = URL.createObjectURL(blob);
+        setPreviewObject({ blob, url });
+        return () => {
+            URL.revokeObjectURL(url);
+            setPreviewObject(null);
+        };
+    }, [previewDocument]);
 
     const suggestName = (fileName: string): string => {
         const base = String(fileName || '').trim();
@@ -183,15 +259,17 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
     const handleCameraCaptureSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         e.target.value = '';
-        void endPrivacySensitiveSurface();
+        void loadPrivacyScreenSession().then((m) => m.endPrivacySensitiveSurface());
         if (!file) return;
         void startPendingSave(file, 'camera');
     };
 
     const openCameraCapture = () => {
-        void beginPrivacySensitiveSurface().then(() => {
-            document.getElementById('vault-camera-input')?.click();
-        });
+        void loadPrivacyScreenSession().then((m) =>
+            m.beginPrivacySensitiveSurface().then(() => {
+                document.getElementById('vault-camera-input')?.click();
+            }),
+        );
     };
 
     const confirmSave = async () => {
@@ -228,6 +306,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                 title: nextDoc.name,
                 category: folders.find((f) => f.id === nextDoc.folderId)?.name || 'عام',
                 fileName: nextDoc.originalFileName || nextDoc.name,
+                documentId: nextDoc.id,
             });
 
             setShowSaveModal(false);
@@ -257,6 +336,12 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
         if (activeFolderId === 'all') return 'الكل';
         return folders.find((f) => f.id === activeFolderId)?.name || 'عام';
     }, [activeFolderId, folders]);
+
+    useEffect(() => {
+        if (previewDocument?.type === 'pdf') {
+            prefetchVaultPdfViewerSurface();
+        }
+    }, [previewDocument]);
 
     const handleRename = (docId: string) => {
         const d = documents.find((x) => x.id === docId);
@@ -304,12 +389,18 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 0.95, opacity: 0 }}
-                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-2xl max-h-[85vh] overflow-hidden flex flex-col"
+                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+                data-testid="document-vault-modal"
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
                 <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                    <button type="button" onClick={onClose} className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
+                        aria-label="إغلاق الخزينة"
+                    >
                         <X size={20} className="text-white" />
                     </button>
                     <h2 className="text-cyan-400 font-bold text-lg">خزينة المستندات</h2>
@@ -318,7 +409,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                 <div className="p-3 border-b border-slate-700/30 space-y-3">
                     <button type="button"
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        className="mx-auto flex w-full max-w-md items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30 transition-all hover:from-cyan-500 hover:to-blue-500"
+                        className="mx-auto flex min-h-[44px] w-full max-w-md items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-cyan-500/30 transition-all hover:from-cyan-500 hover:to-blue-500 touch-manipulation"
                     >
                         إضافة مستند
                     </button>
@@ -327,8 +418,13 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                         <div className="flex items-center gap-2">
                             <select
                                 value={sortMode}
-                                onChange={(e) => setSortMode(e.target.value as any)}
-                                className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold"
+                                onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    if (isDocumentSortMode(nextValue)) {
+                                        setSortMode(nextValue);
+                                    }
+                                }}
+                                className="min-h-[44px] bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold touch-manipulation"
                                 dir="rtl"
                             >
                                 <option value="newest">الأحدث</option>
@@ -337,8 +433,13 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                             </select>
                             <select
                                 value={filterType}
-                                onChange={(e) => setFilterType(e.target.value as any)}
-                                className="bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold"
+                                onChange={(e) => {
+                                    const nextValue = e.target.value;
+                                    if (isDocumentFilterType(nextValue)) {
+                                        setFilterType(nextValue);
+                                    }
+                                }}
+                                className="min-h-[44px] bg-slate-800/40 border border-slate-700/40 rounded-lg px-3 py-2 text-white text-[11px] font-bold touch-manipulation"
                                 dir="rtl"
                             >
                                 <option value="all">الكل</option>
@@ -376,14 +477,14 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     <label
                                         htmlFor="vault-upload-input"
-                                        className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all"
+                                        className="cursor-pointer flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all touch-manipulation"
                                     >
                                         رفع من الجهاز
                                     </label>
                                     <button
                                         type="button"
                                         onClick={openCameraCapture}
-                                        className="cursor-pointer flex items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all w-full"
+                                        className="cursor-pointer flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-800/40 hover:bg-slate-800/60 border border-slate-700/40 px-4 py-3 text-sm font-bold text-white transition-all w-full touch-manipulation"
                                     >
                                         التقاط بالكاميرا
                                     </button>
@@ -435,7 +536,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                     <button
                                         type="button"
                                         onClick={() => handleRename(doc.id)}
-                                        className="px-3 py-2 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white"
+                                        className="min-h-[44px] px-3 py-2 bg-slate-800/30 hover:bg-slate-800/50 border border-slate-700/40 rounded-lg transition-all text-[11px] font-bold text-white touch-manipulation"
                                         title="إعادة تسمية"
                                     >
                                         تسمية
@@ -443,7 +544,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                     <button
                                         type="button"
                                         onClick={() => handleDeleteDocument(doc.id)}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-[11px] font-bold text-rose-200 transition-all hover:bg-rose-950/50"
+                                        className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-3 py-2 text-[11px] font-bold text-rose-200 transition-all hover:bg-rose-950/50 touch-manipulation"
                                         title="حذف المستند"
                                     >
                                         <Trash2 size={13} />
@@ -468,13 +569,14 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 initial={{ scale: 0.96, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-lg overflow-hidden"
+                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-lg max-h-[90vh] overflow-y-auto"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
                                     <button type="button"
                                         onClick={() => !isSaving && setShowSaveModal(false)}
-                                        className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all"
+                                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
+                                        aria-label="إغلاق"
                                     >
                                         <X size={20} className="text-white" />
                                     </button>
@@ -488,7 +590,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                             type="text"
                                             value={pendingName}
                                             onChange={(e) => setPendingName(e.target.value)}
-                                            className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
+                                            className="w-full min-h-[44px] bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
                                             dir="rtl"
                                         />
                                     </div>
@@ -502,7 +604,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                     <button type="button"
                                         onClick={() => void confirmSave()}
                                         disabled={isSaving}
-                                        className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50"
+                                        className="w-full min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 disabled:opacity-50 touch-manipulation"
                                     >
                                         حفظ
                                     </button>
@@ -525,11 +627,16 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 initial={{ scale: 0.96, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.96, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-lg overflow-hidden"
+                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] md:w-[600px] max-w-lg max-h-[90vh] overflow-y-auto"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center">
-                                    <button type="button" onClick={() => setRenameDocId(null)} className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRenameDocId(null)}
+                                        className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
+                                        aria-label="إغلاق"
+                                    >
                                         <X size={20} className="text-white" />
                                     </button>
                                     <h3 className="text-cyan-400 font-bold text-sm">إعادة تسمية</h3>
@@ -539,13 +646,13 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                         type="text"
                                         value={renameValue}
                                         onChange={(e) => setRenameValue(e.target.value)}
-                                        className="w-full bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
+                                        className="w-full min-h-[44px] bg-slate-800/50 border border-slate-700/50 rounded-xl px-4 py-3 text-white text-right"
                                         dir="rtl"
                                     />
                                     <button
                                         type="button"
                                         onClick={confirmRename}
-                                        className="w-full bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30"
+                                        className="w-full min-h-[44px] bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-bold py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-500/30 touch-manipulation"
                                     >
                                         حفظ
                                     </button>
@@ -568,7 +675,8 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                 initial={{ scale: 0.98, opacity: 0 }}
                                 animate={{ scale: 1, opacity: 1 }}
                                 exit={{ scale: 0.98, opacity: 0 }}
-                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-5xl h-[85vh] overflow-hidden flex flex-col"
+                                className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-[95%] max-w-5xl h-[85vh] max-h-[90vh] overflow-hidden flex flex-col"
+                                data-testid="document-vault-preview"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <div className="border-b border-cyan-500/30 p-4 flex justify-between items-center gap-2">
@@ -576,7 +684,8 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                         <button
                                             type="button"
                                             onClick={() => setPreviewDocId(null)}
-                                            className="rounded-lg p-2 transition-all hover:bg-cyan-500/20"
+                                            className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-all hover:bg-cyan-500/20 touch-manipulation"
+                                            aria-label="إغلاق المعاينة"
                                         >
                                             <X size={20} className="text-white" />
                                         </button>
@@ -584,7 +693,7 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                             <button
                                                 type="button"
                                                 onClick={() => handleDeleteDocument(previewDocId)}
-                                                className="inline-flex items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-2.5 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-950/50"
+                                                className="inline-flex min-h-[44px] items-center gap-1 rounded-lg border border-rose-500/30 bg-rose-950/30 px-2.5 py-1.5 text-[11px] font-bold text-rose-200 hover:bg-rose-950/50 touch-manipulation"
                                                 title="حذف المستند"
                                             >
                                                 <Trash2 size={14} />
@@ -593,25 +702,42 @@ export const DocumentVault: React.FC<DocumentVaultProps> = ({ executionId, onClo
                                         ) : null}
                                     </div>
                                     <h3 className="min-w-0 truncate text-cyan-400 font-bold text-sm">
-                                        {documents.find((d) => d.id === previewDocId)?.name || 'معاينة'}
+                                        {previewDocument?.name || 'معاينة'}
                                     </h3>
                                 </div>
                                 <div className="flex-1 overflow-hidden p-3">
                                     {(() => {
-                                        const d = documents.find((x) => x.id === previewDocId);
+                                        const d = previewDocument;
                                         if (!d || !d.dataUrl) return null;
                                         if (d.type === 'pdf') {
                                             return (
                                                 <div className="w-full h-full rounded-2xl border border-white/10 bg-[#16111B] p-2">
-                                                    <VaultPdfJsViewer source={d.dataUrl} title={d.name} />
+                                                    {/* التقريب بقرصة اللمس أو Ctrl+عجلة — العجلة العادية تبقى لتمرير الصفحات */}
+                                                    <ZoomableContainer
+                                                        key={d.id}
+                                                        wheelZoom="modifier"
+                                                        nativeVerticalScroll
+                                                        showControls
+                                                    >
+                                                        <VaultPdfViewerSurfaceLazy
+                                                            source={previewObject?.blob ?? d.dataUrl}
+                                                            title={d.name}
+                                                            openUrl={previewObject?.url}
+                                                            fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
+                                                        />
+                                                    </ZoomableContainer>
                                                 </div>
                                             );
                                         }
                                         return (
-                                            <img
-                                                src={d.dataUrl}
-                                                className="w-full h-full object-contain rounded-2xl border border-white/10 bg-black"
-                                            />
+                                            <ZoomableContainer key={d.id} wheelZoom="plain">
+                                                <img
+                                                    src={previewObject?.url ?? d.dataUrl}
+                                                    alt={d.name}
+                                                    draggable={false}
+                                                    className="w-full h-full min-h-0 select-none object-contain rounded-2xl border border-white/10 bg-black"
+                                                />
+                                            </ZoomableContainer>
                                         );
                                     })()}
                                 </div>

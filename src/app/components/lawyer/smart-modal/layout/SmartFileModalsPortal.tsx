@@ -26,6 +26,8 @@ export function SmartFileModalsPortal(props: SmartFileModalsPortalProps) {
         setShowCaseConsolidationModal,
         setShowCaseLinkModal,
         setShowCorrespondenceModal,
+        stages,
+        viewingStageIndex,
     } = props;
 
     return (
@@ -52,6 +54,8 @@ export function SmartFileModalsPortal(props: SmartFileModalsPortalProps) {
                     setShowCorrespondenceModal={
                         !isViewingArchived ? setShowCorrespondenceModal : undefined
                     }
+                    stages={stages}
+                    viewingStageIndex={viewingStageIndex}
                 />
             ) : null}
             <SmartFileModalsContentSection {...props} />

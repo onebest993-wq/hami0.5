@@ -67,3 +67,10 @@ export function defaultProfilePageCustomization(): ProfilePageCustomization {
         customBlocks: [],
     };
 }
+
+export function resolveCanvasPaddingPx(block: ProfileCustomBlock): number {
+    const style = resolveBlockCanvasStyle(block);
+    const raw = style.paddingPx;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) return 16;
+    return Math.max(0, Math.min(64, Math.round(raw)));
+}

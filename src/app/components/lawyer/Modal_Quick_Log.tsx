@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Calendar, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X } from 'lucide-react';
+import { DatePickerField } from '@/app/components/lawyer/Dashboard_Active_Order_File/components/DatePickerField';
+import {
+    URGENT_DOSSIER_BTN_PRIMARY,
+    URGENT_DOSSIER_INPUT,
+} from '@/app/components/lawyer/Dashboard_Active_Order_File/layout/urgentDossierUi';
 
 type ActionType = 'notification' | 'grievance' | 'cassation';
 type GrievanceResult = 'affirmed' | 'modified' | 'cancelled' | '';
@@ -25,7 +30,7 @@ export const Modal_Quick_Log: React.FC<Props> = ({
     actionType,
     caseName,
     minActionDate,
-    onSubmit
+    onSubmit,
 }) => {
     const [actionDate, setActionDate] = useState<string>('');
     const [result, setResult] = useState<GrievanceResult>('');
@@ -35,37 +40,31 @@ export const Modal_Quick_Log: React.FC<Props> = ({
         switch (actionType) {
             case 'notification':
                 return {
-                    title: 'تأكيد التبليغ الأصولي',
-                    icon: <CheckCircle2 className="text-green-400" size={24} />,
-                    gradient: 'from-green-900/50 to-emerald-800/30',
-                    description: 'تسجيل تأكيد وصول التبليغ القانوني للخصم',
+                    title: 'تأكيد التبليغ',
+                    description: 'تسجيل تاريخ التبليغ بقرار القاضي',
                     actionLabel: 'تأكيد التبليغ',
-                    needsResult: false
+                    needsResult: false,
                 };
             case 'grievance':
                 return {
-                    title: 'تسجيل التظلم (3 أيام)',
-                    icon: <FileText className="text-amber-400" size={24} />,
-                    gradient: 'from-amber-900/50 to-orange-800/30',
-                    description: 'تسجيل تقديم التظلم ونتيجته أمام نفس القاضي',
+                    title: 'تسجيل التظلم',
+                    description: 'تسجيل تقديم التظلم ونتيجته',
                     actionLabel: 'حفظ التظلم',
-                    needsResult: true
+                    needsResult: true,
                 };
             case 'cassation':
                 return {
-                    title: 'تسجيل الطعن التمييزي (7 أيام)',
-                    icon: <FileText className="text-red-400" size={24} />,
-                    gradient: 'from-red-900/50 to-rose-800/30',
-                    description: 'تسجيل تقديم الطعن التمييزي أمام محكمة التمييز',
+                    title: 'تسجيل الطعن التمييزي',
+                    description: 'تسجيل تقديم الطعن التمييزي',
                     actionLabel: 'حفظ التمييز',
-                    needsResult: false
+                    needsResult: false,
                 };
         }
     };
 
     const config = getModalConfig();
-
-    const minYmd = typeof minActionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(minActionDate) ? minActionDate : '';
+    const minYmd =
+        typeof minActionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(minActionDate) ? minActionDate : '';
     const actionDateValid = !!actionDate && (!minYmd || actionDate >= minYmd);
 
     const handleSubmit = () => {
@@ -74,10 +73,9 @@ export const Modal_Quick_Log: React.FC<Props> = ({
         onSubmit({
             actionDate,
             result: config.needsResult ? result : undefined,
-            notes: notes.trim() || undefined
+            notes: notes.trim() || undefined,
         });
 
-        // Reset form
         setActionDate('');
         setResult('');
         setNotes('');
@@ -87,119 +85,94 @@ export const Modal_Quick_Log: React.FC<Props> = ({
 
     return (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 font-['Tajawal']">
+            <div className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm px-0 sm:px-4 font-['Tajawal']">
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                    className="w-full max-w-lg bg-[#1A1E2E] rounded-2xl shadow-2xl overflow-hidden border border-white/10"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 20 }}
+                    className="w-full sm:max-w-lg bg-[#0B1021] border border-white/10 rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden"
+                    onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Header */}
-                    <div className={`bg-gradient-to-r ${config.gradient} p-6 border-b border-white/10 relative`}>
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.08]">
+                        <div className="min-w-0">
+                            <h2 className="text-white font-extrabold text-sm">{config.title}</h2>
+                            <p className="text-white/45 text-xs mt-0.5">{config.description}</p>
+                        </div>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="absolute top-4 left-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all"
+                            className="w-9 h-9 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center text-white shrink-0 touch-manipulation"
+                            aria-label="إغلاق"
                         >
-                            <X size={16} className="text-white" />
+                            <X size={16} />
                         </button>
-
-                        <div className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center">
-                                {config.icon}
-                            </div>
-                            <div className="flex-1">
-                                <h2 className="text-white font-bold text-lg">{config.title}</h2>
-                                <p className="text-white/60 text-xs mt-1">{config.description}</p>
-                            </div>
-                        </div>
-
-                        {/* Case Name */}
-                        <div className="mt-4 bg-black/30 rounded-lg p-3 border border-white/10">
-                            <div className="text-white/50 text-xs mb-1">الدعوى / الطلب</div>
-                            <div className="text-white font-bold text-sm">{caseName}</div>
-                        </div>
                     </div>
 
-                    {/* Body */}
-                    <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
-                        {/* Action Date */}
+                    <div className="px-4 py-3 border-b border-white/[0.06]">
+                        <div className="text-[10px] font-semibold text-white/40">الطلب</div>
+                        <div className="text-white font-bold text-sm mt-0.5 truncate">{caseName}</div>
+                    </div>
+
+                    <div className="p-4 space-y-3 max-h-[55vh] overflow-y-auto">
                         <div>
-                            <label className="text-white/80 text-sm font-bold mb-2 block flex items-center gap-2">
-                                <Calendar size={14} />
-                                تاريخ الإجراء
-                                <span className="text-red-400">*</span>
+                            <label className="text-[10px] font-semibold text-white/40 mb-1 block">
+                                تاريخ الإجراء <span className="text-red-400">*</span>
                             </label>
-                            <input
-                                type="date"
-                                lang="ar-IQ"
+                            <DatePickerField
                                 value={actionDate}
+                                onValueChange={setActionDate}
                                 min={minYmd || undefined}
-                                onChange={(e) => setActionDate(e.target.value)}
-                                className="w-full bg-[#2A3241] border border-white/15 rounded-lg px-4 py-3 text-white focus:border-[#E6C673] outline-none text-sm"
-                                dir="ltr"
+                                wrapperClassName="w-full max-w-[304px]"
+                                inputClassName={URGENT_DOSSIER_INPUT}
                             />
                         </div>
 
-                        {/* Result (Only for Grievance) */}
                         {config.needsResult && (
                             <div>
-                                <label className="text-white/80 text-sm font-bold mb-2 block flex items-center gap-2">
-                                    <AlertCircle size={14} />
-                                    نتيجة التظلم
-                                    <span className="text-red-400">*</span>
+                                <label className="text-[10px] font-semibold text-white/40 mb-2 block">
+                                    نتيجة التظلم <span className="text-red-400">*</span>
                                 </label>
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-3 gap-2">
                                     {[
-                                        { value: 'affirmed', label: 'تأييد', desc: 'رفض التظلم', color: 'red' },
-                                        { value: 'modified', label: 'تعديل', desc: 'تعديل جزئي', color: 'amber' },
-                                        { value: 'cancelled', label: 'إلغاء', desc: 'إلغاء الأمر', color: 'green' }
+                                        { value: 'affirmed', label: 'تأييد' },
+                                        { value: 'modified', label: 'تعديل' },
+                                        { value: 'cancelled', label: 'إلغاء' },
                                     ].map((option) => (
                                         <button
                                             key={option.value}
                                             type="button"
                                             onClick={() => setResult(option.value as GrievanceResult)}
-                                            className={`p-3 rounded-lg border-2 transition-all text-xs ${
+                                            className={`min-h-[40px] px-2 py-2 rounded-lg border text-xs font-bold transition-colors touch-manipulation ${
                                                 result === option.value
-                                                    ? option.color === 'red'
-                                                        ? 'border-red-500 bg-red-500/20 text-red-300'
-                                                        : option.color === 'amber'
-                                                        ? 'border-amber-500 bg-amber-500/20 text-amber-300'
-                                                        : 'border-green-500 bg-green-500/20 text-green-300'
-                                                    : 'border-white/10 bg-white/5 text-white/50 hover:border-white/30'
+                                                    ? 'border-[#E6C673]/40 bg-[#E6C673]/15 text-[#F5F0E6]'
+                                                    : 'border-white/10 bg-white/[0.03] text-white/55 hover:bg-white/[0.06]'
                                             }`}
                                         >
-                                            <div className="font-bold mb-1">{option.label}</div>
-                                            <div className="text-[9px] opacity-70">{option.desc}</div>
+                                            {option.label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Notes (Optional) */}
                         <div>
-                            <label className="text-white/80 text-sm font-bold mb-2 block flex items-center gap-2">
-                                <FileText size={14} />
-                                ملاحظات إضافية (اختياري)
+                            <label className="text-[10px] font-semibold text-white/40 mb-1 block">
+                                ملاحظات (اختياري)
                             </label>
                             <textarea
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
-                                placeholder="أي تفاصيل أو ملاحظات إضافية..."
-                                rows={3}
-                                className="w-full bg-[#2A3241] border border-white/15 rounded-lg px-4 py-3 text-white focus:border-[#E6C673] outline-none text-sm resize-none"
+                                rows={2}
+                                className={`${URGENT_DOSSIER_INPUT} resize-none py-2`}
                             />
                         </div>
-
                     </div>
 
-                    {/* Footer */}
-                    <div className="p-4 bg-black/30 border-t border-white/10 flex items-center justify-end gap-3">
+                    <div className="px-4 py-3 border-t border-white/[0.08] flex items-center justify-end gap-2">
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-3 rounded-lg bg-transparent text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold"
+                            className="px-4 py-2 rounded-xl text-white/60 hover:text-white hover:bg-white/5 transition-colors font-bold text-sm touch-manipulation"
                         >
                             إلغاء
                         </button>
@@ -207,10 +180,9 @@ export const Modal_Quick_Log: React.FC<Props> = ({
                             type="button"
                             onClick={handleSubmit}
                             disabled={!actionDate || !actionDateValid || (config.needsResult && !result)}
-                            className="px-5 py-3 rounded-lg bg-gradient-to-r from-[#E6C673] to-[#D4AF37] text-[#0B1021] font-bold hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                         >
-                            <CheckCircle2 size={16} />
-                            <span>{config.actionLabel}</span>
+                            {config.actionLabel}
                         </button>
                     </div>
                 </motion.div>

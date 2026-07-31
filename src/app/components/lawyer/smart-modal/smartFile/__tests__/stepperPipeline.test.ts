@@ -7,17 +7,15 @@ import {
 } from '../stepperPipeline';
 
 describe('stepperPipeline', () => {
-    it('shows future التمييز when appeal exists without cassation', () => {
+    it('does not show future التمييز placeholder before cassation exists', () => {
         const stages = [
             { id: '1', stageName: 'البداءة', status: 'locked' },
             { id: '2', stageName: 'الاستئناف', status: 'active' },
         ] as CaseStage[];
 
-        expect(shouldShowFutureCassationStage(stages)).toBe(true);
+        expect(shouldShowFutureCassationStage(stages)).toBe(false);
         const items = buildChromeStageStripItems(stages, 1, 1);
-        expect(items).toHaveLength(3);
-        expect(items[2]?.isPlaceholder).toBe(true);
-        expect(items[2]?.displayName).toBe('التمييز');
+        expect(items).toHaveLength(2);
     });
 
     it('hides future التمييز when cassation stage already exists', () => {

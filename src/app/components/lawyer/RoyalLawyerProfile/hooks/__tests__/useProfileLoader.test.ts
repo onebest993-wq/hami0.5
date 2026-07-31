@@ -98,14 +98,33 @@ describe('useProfileLoader', () => {
         const { result } = renderHook(() => useProfileLoader('u1', 'u1', true, stableUserMeta, undefined));
         await waitFor(() => expect(result.current.loading).toBe(false));
 
-        setProfileWarmCache('u1', {
+        const updated = {
             header: { name: 'محدّث', title: '', coverImage: '', profileImage: '' },
             sections: [],
-        } as never);
+        };
+        setProfileWarmCache('u1', updated as never);
+        vi.mocked(fetchLawyerProfile).mockResolvedValue(updated as never);
 
         window.dispatchEvent(new CustomEvent('hami:lawyer-profile-updated', { detail: { userId: 'u1' } }));
 
         await waitFor(() => expect(result.current.profile?.header.name).toBe('محدّث'));
+    });
+
+    it('يعيد التحميل من السحابة عند LAWYER_PROFILE_UPDATED بلا كاش دافئ جديد', async () => {
+        const { result } = renderHook(() => useProfileLoader('u1', 'u1', true, stableUserMeta, undefined));
+        await waitFor(() => expect(result.current.loading).toBe(false));
+        expect(result.current.profile?.header.name).toBe('أحمد');
+
+        vi.mocked(fetchLawyerProfile).mockResolvedValue({
+            header: { name: 'من السحابة', title: '', coverImage: '', profileImage: '' },
+            sections: [],
+        } as never);
+
+        const callsBefore = vi.mocked(fetchLawyerProfile).mock.calls.length;
+        window.dispatchEvent(new CustomEvent('hami:lawyer-profile-updated', { detail: { userId: 'u1' } }));
+
+        await waitFor(() => expect(result.current.profile?.header.name).toBe('من السحابة'));
+        expect(vi.mocked(fetchLawyerProfile).mock.calls.length).toBeGreaterThan(callsBefore);
     });
 
     it('يُخفّي الهاتف للزائر وفق privacy حتى من warm cache', () => {

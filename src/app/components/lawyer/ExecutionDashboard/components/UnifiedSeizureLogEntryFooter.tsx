@@ -13,7 +13,7 @@ import {
 } from '@/app/components/lawyer/execution/ThirdPartySeizureLogCards';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
 import type { SeizedAsset } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { creditThirdPartySeizureFunds } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
 
 export type UnifiedSeizureLogEntryFooterProps = {
@@ -23,7 +23,7 @@ export type UnifiedSeizureLogEntryFooterProps = {
     realEstateSeizureRegistryAssets: unknown[];
     movableSeizureRegistryAssets: SeizedAsset[];
     salarySeizureTabRows: SeizedAsset[];
-    thirdPartySeizureRegistryAssets: SeizedAsset[];
+    thirdPartySeizureRegistryAssets: any[];
     thirdPartySeizuresUi: ThirdPartySeizure[];
     thirdPartyFundsDraftById: Record<string, string>;
     setThirdPartyFundsDraftById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -42,7 +42,7 @@ export type UnifiedSeizureLogEntryFooterProps = {
     patchSalarySeizureAssetDetails: (assetId: string, patch: SalarySeizureDetailsPatch) => void;
     releaseSeizureAssetRow: (asset: SeizedAsset) => void;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    setTimelineEvents: React.Dispatch<React.SetStateAction<unknown[]>>;
+    setTimelineEvents: React.Dispatch<React.SetStateAction<any[]>>;
     nextTimelineId: () => string;
     getLedgerParams: () => UnifiedLedgerTotalParams | null;
     onLedgerRevision: () => void;

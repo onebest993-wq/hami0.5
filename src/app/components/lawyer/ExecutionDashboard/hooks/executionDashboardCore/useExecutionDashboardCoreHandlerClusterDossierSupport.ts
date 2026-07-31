@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useExecutionDossierLifecycleActionsOrchestrator } from '../../orchestrators';
+import { useExecutionDossierLifecycleActionsOrchestrator } from '../../orchestrators/useExecutionDossierLifecycleActionsOrchestrator';
 import { useDossierMeta } from '../useDossierMeta';
 import { useExecutionDashboardParentDossierPersistence } from './useExecutionDashboardParentDossierPersistence';
 import type { ExecutionDashboardCoreHandlerClusterInput, HandlerClusterPushTimelineDeps } from './executionDashboardCoreHandlerClusterTypes';

@@ -2,10 +2,11 @@ import React from 'react';
 import { Globe } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';
 
-interface ForeignJudgmentData {
+export interface ForeignJudgmentData {
     country: string;
     court: string;
     isAuthenticated: boolean;
+    [key: string]: unknown;
 }
 
 interface ForeignJudgmentSectionProps {

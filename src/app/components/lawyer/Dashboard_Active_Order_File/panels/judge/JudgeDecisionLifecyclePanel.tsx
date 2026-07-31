@@ -12,36 +12,28 @@ export function JudgeDecisionLifecyclePanel(props: JudgeDecisionLifecyclePanelPr
         editJudge,
         fileStatus,
         isFinalized,
-        judgeDecision,
     } = props;
 
-    return (
-                                <div
-                                    className={`border rounded-xl overflow-hidden ${
-                                        fileStatus === 'pending'
-                                            ? 'border-blue-500/30'
-                                            : judgeDecision.decision === 'accepted' || judgeDecision.decision === 'partially_accepted'
-                                              ? 'border-green-500/30'
-                                              : 'border-red-500/30'
-                                    }`}
-                                >
-                                <JudgeDecisionPhaseHeader {...props} />
+    const showWorkspace =
+        (fileStatus === 'pending' || editJudge) && !(defenderPhase1ReadOnly && !isFinalized);
 
-                                <AnimatePresence initial={false}>
-                                    {activeLifecycleStep === 'judge' && (
-                                        <motion.div
-                                            initial={{ opacity: 0, height: 0 }}
-                                            animate={{ opacity: 1, height: 'auto' }}
-                                            exit={{ opacity: 0, height: 0 }}
-                                            className="px-4 py-5 bg-[#0B1021] border-t border-white/10"
-                                        >
-                                            <JudgeDecisionReadOnlySummaries {...props} />
-                                            {(fileStatus === 'pending' || editJudge) && !(defenderPhase1ReadOnly && !isFinalized) && (
-                                            <JudgeDecisionEditableWorkspace {...props} />
-                                            )}
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                        </div>
+    return (
+        <div>
+            <JudgeDecisionPhaseHeader {...props} />
+
+            <AnimatePresence initial={false}>
+                {activeLifecycleStep === 'judge' && (
+                    <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="pt-2 space-y-3"
+                    >
+                        <JudgeDecisionReadOnlySummaries {...props} />
+                        {showWorkspace ? <JudgeDecisionEditableWorkspace {...props} /> : null}
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
     );
 }

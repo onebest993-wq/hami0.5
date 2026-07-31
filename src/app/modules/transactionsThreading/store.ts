@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import type { FinanceRecord, Transaction, TransactionDocument, TransactionTask } from './types';
-import { FinanceRecordType, TransactionStatus, type TransactionDocumentOwnerTag } from './types';
+import { FinanceRecordType, TransactionStatus, TransactionTaskStatus, type TransactionDocumentOwnerTag } from './types';
 import { PersistentTransactionsThreadingRepository } from './persistentRepository';
 import { InMemoryTransactionsThreadingRepository, type TransactionsThreadingRepository } from './repository';
 import { TransactionsThreadingService } from './service';
 import { peekTransactionsThreadingState } from '@/app/services/transactions/transactionsThreadingMirror';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     groupThreadingSeedForStore,
     type ThreadingRepositorySeed,
@@ -26,6 +27,58 @@ type StoreSlice = Pick<
 
 let patchStore: ((patch: Partial<StoreSlice>) => void) | null = null;
 let patchStoreFn: ((fn: (state: StoreSlice) => Partial<StoreSlice>) => void) | null = null;
+
+function findTaskInState(
+  tasksByTransactionId: Record<string, TransactionTask[]>,
+  taskId: string,
+): TransactionTask | undefined {
+  for (const list of Object.values(tasksByTransactionId)) {
+    const found = list.find((t) => t.id === taskId);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+function upsertTaskMap(
+  map: Record<string, TransactionTask[]>,
+  task: TransactionTask,
+): Record<string, TransactionTask[]> {
+  const list = map[task.transactionId] ?? [];
+  const idx = list.findIndex((t) => t.id === task.id);
+  const next = idx === -1 ? [...list, task] : list.map((t, i) => (i === idx ? task : t));
+  return { ...map, [task.transactionId]: next };
+}
+
+function removeTasksFromMap(
+  map: Record<string, TransactionTask[]>,
+  transactionId: string,
+  ids: Set<string>,
+): Record<string, TransactionTask[]> {
+  return {
+    ...map,
+    [transactionId]: (map[transactionId] ?? []).filter((t) => !ids.has(t.id)),
+  };
+}
+
+function upsertFinanceMap(
+  map: Record<string, FinanceRecord[]>,
+  record: FinanceRecord,
+): Record<string, FinanceRecord[]> {
+  const list = map[record.transactionId] ?? [];
+  const idx = list.findIndex((r) => r.id === record.id);
+  const next = idx === -1 ? [...list, record] : list.map((r, i) => (i === idx ? record : r));
+  return { ...map, [record.transactionId]: next };
+}
+
+function upsertDocumentMap(
+  map: Record<string, TransactionDocument[]>,
+  doc: TransactionDocument,
+): Record<string, TransactionDocument[]> {
+  const list = map[doc.transactionId] ?? [];
+  const idx = list.findIndex((d) => d.id === doc.id);
+  const next = idx === -1 ? [...list, doc] : list.map((d, i) => (i === idx ? doc : d));
+  return { ...map, [doc.transactionId]: next };
+}
 
 function bindTransactionsUser(next: string): void {
     if (boundUserId === next) return;
@@ -65,17 +118,15 @@ function rollbackOptimisticTransaction(txId: string): void {
     patchStoreFn?.((state) => ({
         transactions: state.transactions.filter((item) => item.id !== txId),
     }));
-    void import('@/app/components/ui/SmartToast').then(({ SmartToast }) => {
-        SmartToast.error('تعذر حفظ المعاملة — حاول مرة أخرى');
-    });
+    SmartToast.error('تعذر حفظ المعاملة — حاول مرة أخرى');
 }
 
 function syncThreadingToCalendar(): void {
     const lawyerId = boundUserId ?? useTransactionsThreadingStore.getState().userId;
     if (!lawyerId) return;
-    void import('@/app/hooks/useIncrementalCalendarSync').then((m) => {
-        m.bumpThreadingCalendarSync(lawyerId);
-    });
+    void import('@/app/hooks/useIncrementalCalendarSync')
+        .then((m) => m.bumpThreadingCalendarSync(lawyerId))
+        .catch(() => undefined);
 }
 
 interface TransactionsThreadingState {
@@ -150,16 +201,15 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     set({ transactions });
   },
 
+  /** مهام + مستمسكات فقط — المالية لم تعد على واجهة التفاصيل */
   refreshTransactionData: async (transactionId) => {
-    const [tasks, finance, documents] = await Promise.all([
+    const [tasks, documents] = await Promise.all([
       service.listTasks(transactionId),
-      service.listFinanceRecords(transactionId),
       service.listDocuments(transactionId),
     ]);
 
     set((state) => ({
       tasksByTransactionId: { ...state.tasksByTransactionId, [transactionId]: tasks },
-      financeByTransactionId: { ...state.financeByTransactionId, [transactionId]: finance },
       documentsByTransactionId: { ...state.documentsByTransactionId, [transactionId]: documents },
     }));
   },
@@ -190,38 +240,83 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   addTask: async (input) => {
     const task = await service.addTask(input);
     set((state) => ({
-      tasksByTransactionId: {
-        ...state.tasksByTransactionId,
-        [task.transactionId]: [...(state.tasksByTransactionId[task.transactionId] ?? []), task],
-      },
+      tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
     }));
     syncThreadingToCalendar();
     return task;
   },
 
   updateTaskStatus: async (taskId, status) => {
-    const task = await service.updateTaskStatus(taskId, status);
-    await get().refreshTransactionData(task.transactionId);
-    syncThreadingToCalendar();
-    return task;
+    const prev = findTaskInState(get().tasksByTransactionId, taskId);
+    if (prev) {
+      const optimistic: TransactionTask = {
+        ...prev,
+        status,
+        completedAt:
+          status === TransactionTaskStatus.Done ? prev.completedAt ?? new Date().toISOString() : null,
+      };
+      set((state) => ({
+        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, optimistic),
+      }));
+    }
+    try {
+      const task = await service.updateTaskStatus(taskId, status);
+      set((state) => ({
+        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
+      }));
+      syncThreadingToCalendar();
+      return task;
+    } catch (err) {
+      if (prev) {
+        set((state) => ({
+          tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, prev),
+        }));
+      }
+      throw err;
+    }
   },
 
   completeTask: async (taskId, officialReference) => {
-    const task = await service.completeTask(taskId, officialReference ?? null);
-    await get().refreshTransactionData(task.transactionId);
-    syncThreadingToCalendar();
-    return task;
+    const prev = findTaskInState(get().tasksByTransactionId, taskId);
+    if (prev) {
+      const optimistic: TransactionTask = {
+        ...prev,
+        status: TransactionTaskStatus.Done,
+        completedAt: prev.completedAt ?? new Date().toISOString(),
+        officialReference: officialReference ?? prev.officialReference,
+      };
+      set((state) => ({
+        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, optimistic),
+      }));
+    }
+    try {
+      const task = await service.completeTask(taskId, officialReference ?? null);
+      set((state) => ({
+        tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
+      }));
+      syncThreadingToCalendar();
+      return task;
+    } catch (err) {
+      if (prev) {
+        set((state) => ({
+          tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, prev),
+        }));
+      }
+      throw err;
+    }
   },
 
   updateTask: async (taskId, updates) => {
     const task = await service.updateTask(taskId, updates);
-    await get().refreshTransactionData(task.transactionId);
+    set((state) => ({
+      tasksByTransactionId: upsertTaskMap(state.tasksByTransactionId, task),
+    }));
     syncThreadingToCalendar();
     return task;
   },
 
   deleteTaskCascade: async (taskId) => {
-    const existing = await repo.getTask(taskId);
+    const existing = findTaskInState(get().tasksByTransactionId, taskId) ?? (await repo.getTask(taskId));
     if (!existing) return;
     const transactionId = existing.transactionId;
     const tasks = get().tasksByTransactionId[transactionId] ?? [];
@@ -241,23 +336,36 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
       const kids = childrenByParent.get(id) ?? [];
       for (const k of kids) stack.push(k);
     }
-    for (const id of toDelete) {
-      await service.deleteTask(id);
+
+    set((state) => ({
+      tasksByTransactionId: removeTasksFromMap(state.tasksByTransactionId, transactionId, toDelete),
+    }));
+
+    try {
+      for (const id of toDelete) {
+        await service.deleteTask(id);
+      }
+      syncThreadingToCalendar();
+    } catch (err) {
+      await get().refreshTransactionData(transactionId);
+      throw err;
     }
-    await get().refreshTransactionData(transactionId);
-    syncThreadingToCalendar();
   },
 
   addFinanceRecord: async (input) => {
     const record = await service.addFinanceRecord(input);
-    await get().refreshTransactionData(record.transactionId);
+    set((state) => ({
+      financeByTransactionId: upsertFinanceMap(state.financeByTransactionId, record),
+    }));
     syncThreadingToCalendar();
     return record;
   },
 
   updateFinanceRecord: async (recordId, updates) => {
     const record = await service.updateFinanceRecord(recordId, updates);
-    await get().refreshTransactionData(record.transactionId);
+    set((state) => ({
+      financeByTransactionId: upsertFinanceMap(state.financeByTransactionId, record),
+    }));
     syncThreadingToCalendar();
     return record;
   },
@@ -265,33 +373,56 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
   deleteFinanceRecord: async (recordId) => {
     const existing = await repo.getFinanceRecord(recordId);
     await service.deleteFinanceRecord(recordId);
-    if (existing) await get().refreshTransactionData(existing.transactionId);
+    if (existing) {
+      set((state) => ({
+        financeByTransactionId: {
+          ...state.financeByTransactionId,
+          [existing.transactionId]: (state.financeByTransactionId[existing.transactionId] ?? []).filter(
+            (r) => r.id !== recordId,
+          ),
+        },
+      }));
+    }
     syncThreadingToCalendar();
   },
 
   addDocument: async (input) => {
     const doc = await service.addDocument(input);
-    await get().refreshTransactionData(doc.transactionId);
+    set((state) => ({
+      documentsByTransactionId: upsertDocumentMap(state.documentsByTransactionId, doc),
+    }));
     return doc;
   },
 
   deleteDocument: async (docId) => {
     const existing = await repo.getDocument(docId);
     await service.deleteDocument(docId);
-    if (existing) await get().refreshTransactionData(existing.transactionId);
+    if (existing) {
+      set((state) => ({
+        documentsByTransactionId: {
+          ...state.documentsByTransactionId,
+          [existing.transactionId]: (state.documentsByTransactionId[existing.transactionId] ?? []).filter(
+            (d) => d.id !== docId,
+          ),
+        },
+      }));
+    }
   },
 
   setTransactionStatus: async (transactionId, status) => {
     const tx = await service.setTransactionStatus(transactionId, status);
-    await get().refreshTransactions();
-    await get().refreshTransactionData(transactionId);
+    set((state) => ({
+      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
+    }));
     syncThreadingToCalendar();
     return tx;
   },
 
   setTransactionAgreedFees: async (transactionId, agreedFees) => {
     const tx = await service.setTransactionAgreedFees(transactionId, agreedFees);
-    await get().refreshTransactions();
+    set((state) => ({
+      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
+    }));
     return tx;
   },
 };

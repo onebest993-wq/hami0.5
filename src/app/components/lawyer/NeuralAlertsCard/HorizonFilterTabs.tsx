@@ -45,7 +45,7 @@ export const HorizonFilterTabs: React.FC<HorizonFilterTabsProps> = ({
                     role="tab"
                     aria-selected={isActive}
                     onClick={() => onChange(key)}
-                    className={`text-[9px] font-bold px-2 py-0.5 rounded-full border transition-colors ${
+                    className={`text-[9px] font-bold min-h-[44px] px-3 py-1 rounded-full border transition-colors touch-manipulation outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${
                         isActive ? meta.activeClass : meta.idleClass
                     } ${count === 0 ? 'opacity-45' : ''}`}
                 >

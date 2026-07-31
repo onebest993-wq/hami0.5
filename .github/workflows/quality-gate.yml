@@ -1,0 +1,65 @@
+name: Quality Gate
+
+# قبل هذا الملف لم يكن هناك CI: مجلد .github/workflows كان فارغاً على القرص،
+# فكل بوّابات المستودع كانت تعمل فقط إن تذكّر إنسان تشغيلها يدوياً.
+#
+# المِسنَنات تسمح بالإرث المتراكم وتمنع الزيادة. خطوط الأساس عند الإنشاء:
+#   أخطاء أنواع 299 | أخطاء لنت 242 | ملفات @ts-nocheck 195
+#   استيرادات مكسورة 4 | اختبارات فاشلة 216 من 6,063
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: quality-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      # الأرخص أولاً حتى يظهر الفشل الشائع بسرعة
+      - name: No new @ts-nocheck
+        run: npm run guard:ts-nocheck
+
+      - name: No new broken imports, entry points intact
+        run: npm run guard:import-closure
+
+      - name: No new type errors
+        run: npm run guard:tsc
+
+      - name: No new lint errors, no new Rules-of-Hooks violations
+        run: npm run guard:lint
+
+      - name: No newly failing tests
+        run: npm run guard:tests
+
+      - name: Upload baselines and reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-baselines
+          path: |
+            .audit/lint-baseline.json
+            .audit/tsc-ratchet-baseline.json
+            .audit/ts-nocheck-baseline.json
+            .audit/import-closure-gate.json
+            .audit/test-ratchet-baseline.json
+            .audit/vitest-run.json
+          if-no-files-found: ignore
+          retention-days: 7

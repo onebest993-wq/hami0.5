@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { DollarSign, Zap, Scale, AlertTriangle } from 'lucide-react';
+import { Zap, Scale, AlertTriangle } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import type { AlimonyPastLawSystem } from '../hooks/useAlimonyCalculator';
@@ -100,15 +100,14 @@ export const PastAlimonyFieldsSection: React.FC<PastAlimonyFieldsSectionProps> =
                 <span className="text-rose-400">*</span>
             </label>
             <div className={ecg.moneyWrap}>
-                <DollarSign className="text-slate-500 flex-shrink-0" size={16} />
                 <input
                     type="text"
                     value={formatCurrency(alimonyPastWifeMonthly)}
                     onChange={(e) => handleAmountChange(e, onPastWifeMonthlyChange)}
                     className={ecg.moneyInput}
-                    placeholder={formatCurrency(fallbackWifeMonthly) || '0'}
+                    aria-label="مقدار نفقة الزوجة الشهرية للنفقة الماضية (دينار)"
                 />
-                <span className="text-slate-500 text-xs">د.ع/شهر</span>
+                <span className="text-slate-500 text-xs shrink-0">د.ع/شهر</span>
             </div>
             {!alimonyPastWifeMonthly && fallbackWifeMonthly ? (
                 <p className="mt-1.5 text-[10px] text-slate-500 text-right">

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createCriminalShardedJSONStorage, CRIMINAL_STORE_KEY } from '@/app/services/criminalShardedPersistStorage';
 import { makeInitialDraft } from './criminalCaseDraftFactory';
 

@@ -1,6 +1,16 @@
 import React, { useRef } from 'react';
-import { motion } from 'motion/react';
-import { AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+    PERSONAL_STATUS_FIELD,
+    PERSONAL_STATUS_FIELD_ERROR,
+    PERSONAL_STATUS_LABEL,
+    PERSONAL_STATUS_LAW_CHIP_ACTIVE,
+    PERSONAL_STATUS_LAW_CHIP_IDLE,
+    PERSONAL_STATUS_SECTION,
+    PERSONAL_STATUS_SECTION_TITLE,
+    PERSONAL_STATUS_TAB_ACTIVE,
+    PERSONAL_STATUS_TAB_BAR,
+} from './personalStatusVisualTheme';
 
 export type PersonalFormStep = 'identity' | 'parties';
 
@@ -18,20 +28,10 @@ export function PersonalFormStepRail({
     onChange: (step: PersonalFormStep) => void;
     completion: Record<PersonalFormStep, boolean>;
 }) {
-    const idx = PERSONAL_FORM_STEPS.findIndex((s) => s.id === active);
-    const progress = ((idx + 1) / PERSONAL_FORM_STEPS.length) * 100;
-
     return (
-        <div className="sticky top-0 z-30 px-4 pt-3 pb-2 bg-[#0e0812]/92 backdrop-blur-xl border-b border-violet-300/10">
-            <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden mb-3">
-                <motion.div
-                    className="h-full bg-gradient-to-l from-violet-400 via-fuchsia-400 to-teal-300"
-                    animate={{ width: `${progress}%` }}
-                    transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-                />
-            </div>
-            <div className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1">
-                {PERSONAL_FORM_STEPS.map((step, i) => {
+        <div className={PERSONAL_STATUS_TAB_BAR}>
+            <div className="flex gap-2 px-4 py-2">
+                {PERSONAL_FORM_STEPS.map((step, index) => {
                     const isActive = step.id === active;
                     const done = completion[step.id];
                     return (
@@ -39,18 +39,21 @@ export function PersonalFormStepRail({
                             key={step.id}
                             type="button"
                             onClick={() => onChange(step.id)}
-                            className={`snap-start shrink-0 min-w-[7.5rem] rounded-2xl px-3 py-2.5 text-right transition-all duration-300 border ${
+                            className={`flex-1 min-w-0 rounded-xl px-3 py-2.5 text-right border transition-colors touch-manipulation ${
                                 isActive
-                                    ? 'border-violet-300/40 bg-violet-500/12 shadow-[0_8px_28px_rgba(139,92,246,0.18)] scale-[1.02]'
+                                    ? PERSONAL_STATUS_TAB_ACTIVE
                                     : done
-                                      ? 'border-teal-300/25 bg-teal-400/8 text-teal-100/80'
-                                      : 'border-white/8 bg-white/[0.03] text-white/45 hover:border-white/14'
+                                      ? 'border-[#E6C673]/25 bg-[#E6C673]/8 text-[#E6C673]/90'
+                                      : 'border-white/[0.08] bg-white/[0.03] text-white/45 hover:border-white/14 hover:text-white/70'
                             }`}
                         >
-                            <span className="block text-[10px] font-black tracking-wide">
-                                {String(i + 1).padStart(2, '0')}
+                            <span className="block text-[10px] font-bold truncate">
+                                <span className="text-white/35 tabular-nums">
+                                    {String(index + 1).padStart(2, '0')}
+                                </span>
+                                <span className="mx-1 text-white/20" aria-hidden>·</span>
+                                {step.label}
                             </span>
-                            <span className="block text-xs font-bold mt-0.5">{step.label}</span>
                         </button>
                     );
                 })}
@@ -80,18 +83,9 @@ export function PersonalFloatingField({
     dir?: 'rtl' | 'ltr';
     mono?: boolean;
 }) {
-    const filled = value.trim().length > 0;
     return (
-        <label className="group block relative">
-            <span
-                className={`absolute right-3 transition-all duration-200 pointer-events-none font-bold ${
-                    filled || placeholder
-                        ? '-top-2 text-[9px] text-violet-200/75 bg-[#120a18] px-1.5 rounded'
-                        : 'top-3 text-[11px] text-white/35'
-                }`}
-            >
-                {label}
-            </span>
+        <div>
+            <label className={PERSONAL_STATUS_LABEL}>{label}</label>
             <input
                 ref={inputRef}
                 type="text"
@@ -100,17 +94,14 @@ export function PersonalFloatingField({
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 placeholder={placeholder}
-                className={`w-full rounded-[1.35rem] border-b-2 border-t border-x border-white/8 bg-[#16101f]/70 px-4 pt-5 pb-3 text-sm text-white outline-none transition-all
-                    focus:border-violet-300/50 focus:bg-[#1a1228]/90 focus:shadow-[inset_0_-2px_0_0_rgba(167,139,250,0.55)]
-                    ${mono ? 'font-mono tracking-wide' : ''}
-                    ${error ? 'border-amber-400/50' : ''}`}
+                className={`${PERSONAL_STATUS_FIELD} ${error ? PERSONAL_STATUS_FIELD_ERROR : ''} ${mono ? 'font-mono tracking-wide text-left [unicode-bidi:plaintext]' : ''}`}
             />
             {error ? (
                 <span className="flex items-center gap-1 text-[10px] text-amber-400/90 mt-1.5 font-medium">
                     <AlertCircle size={10} /> {error}
                 </span>
             ) : null}
-        </label>
+        </div>
     );
 }
 
@@ -135,17 +126,30 @@ export function PersonalStagePillRail({
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] font-black text-violet-200/80 tracking-wider">المرحلة الحالية</span>
+                <span className={PERSONAL_STATUS_LABEL}>المرحلة الحالية</span>
                 <div className="flex gap-1">
-                    <button type="button" onClick={() => scrollBy(1)} className="w-7 h-7 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80">
+                    <button
+                        type="button"
+                        onClick={() => scrollBy(1)}
+                        className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
+                        aria-label="تمرير لليمين"
+                    >
                         <ChevronRight size={14} />
                     </button>
-                    <button type="button" onClick={() => scrollBy(-1)} className="w-7 h-7 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80">
+                    <button
+                        type="button"
+                        onClick={() => scrollBy(-1)}
+                        className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
+                        aria-label="تمرير لليسار"
+                    >
                         <ChevronLeft size={14} />
                     </button>
                 </div>
             </div>
-            <div ref={scrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1 -mx-1 px-1">
+            <div
+                ref={scrollRef}
+                className="flex gap-2 overflow-x-auto scrollbar-hide snap-x snap-mandatory pb-1 -mx-1 px-1"
+            >
                 {options.map((opt) => {
                     const active = value === opt;
                     return (
@@ -153,10 +157,10 @@ export function PersonalStagePillRail({
                             key={opt}
                             type="button"
                             onClick={() => onChange(opt)}
-                            className={`snap-start shrink-0 max-w-[11rem] rounded-full px-4 py-2.5 text-[11px] font-bold border transition-all duration-250 ${
+                            className={`snap-start shrink-0 max-w-[11rem] rounded-lg px-3 py-2 text-[11px] font-bold border transition-colors touch-manipulation ${
                                 active
-                                    ? 'border-fuchsia-300/50 bg-gradient-to-l from-fuchsia-500/20 to-violet-500/15 text-fuchsia-50 shadow-[0_0_20px_rgba(217,70,239,0.15)]'
-                                    : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-violet-200/25 hover:text-white/75'
+                                    ? 'border-[#E6C673]/45 bg-[#E6C673]/10 text-[#E6C673]'
+                                    : 'border-white/10 bg-white/[0.03] text-white/55 hover:border-white/15 hover:text-white/75'
                             }`}
                         >
                             {opt}
@@ -164,7 +168,14 @@ export function PersonalStagePillRail({
                     );
                 })}
             </div>
-            <select ref={inputRef} value={value} onChange={(e) => onChange(e.target.value)} className="sr-only" aria-hidden tabIndex={-1}>
+            <select
+                ref={inputRef}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                className="sr-only"
+                aria-hidden
+                tabIndex={-1}
+            >
                 <option value="">—</option>
                 {options.map((o) => (
                     <option key={o} value={o}>{o}</option>
@@ -192,29 +203,33 @@ export function PersonalLawSelector({
 }) {
     return (
         <div className="space-y-2">
-            <span className="text-[10px] font-black text-teal-200/80 tracking-wider block">القانون المطبق</span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <span className={PERSONAL_STATUS_LABEL}>القانون المطبق</span>
+            <div className="flex flex-col gap-1.5">
                 {options.map(({ id, label, subtitle }) => {
                     const active = value === id;
                     return (
-                        <motion.button
+                        <button
                             key={id}
                             type="button"
-                            whileTap={{ scale: 0.98 }}
+                            role="checkbox"
+                            aria-checked={active}
                             onClick={() => onChange(id)}
-                            className={`relative overflow-hidden rounded-[1.6rem] p-4 text-right border min-h-[5.5rem] transition-colors ${
-                                active
-                                    ? 'border-teal-300/45 bg-gradient-to-br from-teal-500/14 via-[#14101c] to-violet-500/10'
-                                    : 'border-white/10 bg-[#14101c]/80 hover:border-teal-200/20'
+                            className={`flex items-center gap-2 w-full rounded-lg border px-2.5 py-2 text-[10px] font-medium text-right transition-all ${
+                                active ? PERSONAL_STATUS_LAW_CHIP_ACTIVE : PERSONAL_STATUS_LAW_CHIP_IDLE
                             }`}
                         >
-                            <div className={`absolute top-0 left-0 w-full h-0.5 ${active ? 'bg-gradient-to-l from-teal-300 to-violet-400' : 'bg-white/5'}`} />
-                            <span className={`text-xs font-black leading-snug block ${active ? 'text-teal-50' : 'text-white/70'}`}>{label}</span>
-                            <span className="text-[9px] text-white/40 mt-1.5 block">{subtitle}</span>
-                            {active ? (
-                                <span className="absolute top-3 left-3 w-2 h-2 rounded-full bg-teal-300 shadow-[0_0_10px_rgba(94,234,212,0.8)]" />
-                            ) : null}
-                        </motion.button>
+                            <span
+                                className={`shrink-0 w-3.5 h-3.5 rounded-md border flex items-center justify-center transition-colors ${
+                                    active ? 'border-[#E6C673] bg-[#E6C673] text-[#0F172A]' : 'border-white/25 bg-transparent'
+                                }`}
+                            >
+                                {active && <Check size={9} strokeWidth={3} />}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                                <span className="block leading-tight font-bold">{label}</span>
+                                <span className="block text-[9px] text-white/40 mt-0.5">{subtitle}</span>
+                            </span>
+                        </button>
                     );
                 })}
             </div>
@@ -231,40 +246,18 @@ export function PersonalSectionShell({
     title,
     subtitle,
     children,
-    accent = 'violet',
 }: {
     title: string;
     subtitle?: string;
     children: React.ReactNode;
-    accent?: 'violet' | 'teal' | 'fuchsia';
 }) {
-    const accentBar =
-        accent === 'teal'
-            ? 'from-teal-400/80 to-emerald-300/40'
-            : accent === 'fuchsia'
-              ? 'from-fuchsia-400/80 to-violet-300/40'
-              : 'from-violet-400/80 to-fuchsia-300/40';
-
     return (
-        <motion.section
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: 'easeOut' }}
-            className="relative mx-4 mb-4 rounded-[2rem] border border-white/[0.07] bg-[#120a18]/75 backdrop-blur-2xl overflow-hidden shadow-[0_20px_60px_rgba(0,0,0,0.35)]"
-        >
-            <div className={`h-1 bg-gradient-to-l ${accentBar}`} />
-            <div className="p-5 pt-4">
-                <header className="mb-4 flex items-start justify-between gap-3">
-                    <div>
-                        <h3 className="text-base font-black text-white/95">{title}</h3>
-                        {subtitle ? <p className="text-[10px] text-white/40 mt-1">{subtitle}</p> : null}
-                    </div>
-                    <div className="w-9 h-9 rounded-2xl border border-white/10 bg-white/[0.04] flex items-center justify-center rotate-12 shrink-0">
-                        <div className="w-3 h-3 rounded-full bg-gradient-to-br from-violet-300/60 to-teal-300/40" />
-                    </div>
-                </header>
-                {children}
-            </div>
-        </motion.section>
+        <section className={PERSONAL_STATUS_SECTION}>
+            <header className="mb-4">
+                <h3 className={PERSONAL_STATUS_SECTION_TITLE}>{title}</h3>
+                {subtitle ? <p className="text-[10px] text-white/40 mt-1">{subtitle}</p> : null}
+            </header>
+            {children}
+        </section>
     );
 }

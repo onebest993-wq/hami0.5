@@ -28,7 +28,7 @@ export {
 export const useSmartVault = (
     onClose: () => void,
     propUserId?: string,
-    options?: { embedded?: boolean; onAfterVaultSave?: () => void },
+    options?: { embedded?: boolean; onAfterVaultSave?: () => void; getDefaultRoomId?: () => string | null },
 ): UseSmartVaultReturn => {
     const authUser = useAuthUser();
     const currentUserId =

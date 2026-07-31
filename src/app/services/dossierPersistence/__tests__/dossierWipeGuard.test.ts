@@ -11,6 +11,7 @@ describe('dossierWipeGuard', () => {
         const incoming = JSON.stringify([]);
         expect(shouldRejectDossierWipe('lawyer_files', incoming, existing)).toBe(true);
         expect(shouldRejectDossierWipe('executionFiles', incoming, existing)).toBe(true);
+        expect(shouldRejectDossierWipe('executionFiles:user-abc', incoming, existing)).toBe(true);
         expect(shouldRejectDossierWipe('lawyer_notes', incoming, existing)).toBe(true);
         expect(shouldRejectDossierWipe('hami:calendar:events:v1', incoming, existing)).toBe(true);
         expect(shouldRejectDossierWipe('hami:smartvault:docs:v1', incoming, existing)).toBe(true);

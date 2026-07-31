@@ -8,10 +8,9 @@ import {
     LazyInterlocutoryAppealModal,
     LazyObjectionRegistrationModal,
     LazyObjectionJudgmentModal,
-    LazyAbsentJudgmentNotificationModal,
-    LazyOpponentAbsentObjectionModal,
     LazyTrashModal,
 } from '../../lazySmartFileModalChunks';
+import { AbsentJudgmentNotificationModal, OpponentAbsentObjectionModal } from '../../modals/appealObjectionModals';
 
 export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
     const {
@@ -146,22 +145,18 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                         onConfirm={h.handleObjectionJudgment}
                     />
                 )}
-                {showAbsentJudgmentNotificationModal && (
-                    <LazyAbsentJudgmentNotificationModal
-                        key="abs-notif"
-                        isOpen={showAbsentJudgmentNotificationModal}
-                        onClose={() => setShowAbsentJudgmentNotificationModal(false)}
-                        onConfirm={h.handleAbsentJudgmentNotification}
-                    />
-                )}
-                {showOpponentAbsentObjectionModal && (
-                    <LazyOpponentAbsentObjectionModal
-                        key="opp-abs-obj"
-                        isOpen={showOpponentAbsentObjectionModal}
-                        onClose={() => setShowOpponentAbsentObjectionModal(false)}
-                        onConfirm={h.handleOpponentAbsentObjection}
-                    />
-                )}
+                <AbsentJudgmentNotificationModal
+                    key="abs-notif"
+                    isOpen={showAbsentJudgmentNotificationModal}
+                    onClose={() => setShowAbsentJudgmentNotificationModal(false)}
+                    onConfirm={h.handleAbsentJudgmentNotification}
+                />
+                <OpponentAbsentObjectionModal
+                    key="opp-abs-obj"
+                    isOpen={showOpponentAbsentObjectionModal}
+                    onClose={() => setShowOpponentAbsentObjectionModal(false)}
+                    onConfirm={h.handleOpponentAbsentObjection}
+                />
                 {isTrashOpen && (
                     <LazyTrashModal
                         key="trash"

@@ -22,7 +22,7 @@ export function useProfileMediaUpload({
     isOwnProfile,
     profile,
     setProfile,
-    draft,
+    draft: _draft,
     setDraft,
     setIsEditing,
     stageAvatarInDraft,
@@ -30,30 +30,77 @@ export function useProfileMediaUpload({
     const [uploading, setUploading] = useState<'avatar' | 'gallery' | null>(null);
     const avatarRef = useRef<HTMLInputElement>(null);
     const galleryRef = useRef<HTMLInputElement>(null);
+    const uploadGenRef = useRef(0);
+    const userIdRef = useRef(userId);
+    const isOwnProfileRef = useRef(isOwnProfile);
+    userIdRef.current = userId;
+    isOwnProfileRef.current = isOwnProfile;
+
+    const invalidateUploads = useCallback(() => {
+        uploadGenRef.current += 1;
+        setUploading(null);
+    }, []);
 
     const uploadImage = useCallback(
         async (file: File, target: 'avatar' | 'gallery') => {
             if (!isOwnProfile) return;
+            const requestUserId = userId;
+            const uploadGen = ++uploadGenRef.current;
             setUploading(target);
             try {
-                const res = await uploadProfileMedia(userId, file);
+                const res = await uploadProfileMedia(requestUserId, file);
+                if (
+                    uploadGen !== uploadGenRef.current ||
+                    requestUserId !== userIdRef.current ||
+                    !isOwnProfileRef.current
+                ) {
+                    if (res.storagePath) {
+                        void import('@/app/services/profileMediaService')
+                            .then((m) => m.removeProfileMediaPaths([res.storagePath!]))
+                            .catch(() => undefined);
+                    }
+                    return;
+                }
                 const url = res.displayUrl;
 
                 if (target === 'gallery') {
-                    const base = profile ?? (await ProfileDB.getProfile(userId));
-                    if (!profile) setProfile(base);
-                    const workingDraft =
-                        draft ??
-                        ({
-                            header: { ...base.header },
-                            actions: [...getActions(base.sections)],
-                            gallery: [...getGallery(base.sections)],
-                        } satisfies EditDraft);
-                    if (!draft) {
-                        setDraft(workingDraft);
-                        setIsEditing(true);
+                    const base = profile ?? (await ProfileDB.getProfile(requestUserId));
+                    if (
+                        uploadGen !== uploadGenRef.current ||
+                        requestUserId !== userIdRef.current ||
+                        !isOwnProfileRef.current
+                    ) {
+                        if (res.storagePath) {
+                            void import('@/app/services/profileMediaService')
+                                .then((m) => m.removeProfileMediaPaths([res.storagePath!]))
+                                .catch(() => undefined);
+                        }
+                        return;
                     }
-                    setDraft({ ...workingDraft, gallery: [...workingDraft.gallery, url] });
+                    if (!profile) setProfile(base);
+                    setDraft((prev) => {
+                        const workingDraft =
+                            prev ??
+                            ({
+                                header: { ...base.header },
+                                actions: [...getActions(base.sections)],
+                                gallery: [...getGallery(base.sections)],
+                            } satisfies EditDraft);
+                        return {
+                            ...workingDraft,
+                            gallery: [
+                                ...workingDraft.gallery,
+                                {
+                                    url,
+                                    focusX: 50,
+                                    focusY: 50,
+                                    zoom: 100,
+                                    ...(res.storagePath ? { storagePath: res.storagePath } : null),
+                                },
+                            ],
+                        };
+                    });
+                    setIsEditing(true);
                 } else {
                     stageAvatarInDraft(url, res.storagePath);
                 }
@@ -62,13 +109,17 @@ export function useProfileMediaUpload({
                     res.source === 'cloud' ? 'تم رفع الصورة' : 'تم حفظ الصورة محلياً على هذا الجهاز',
                 );
             } catch (err) {
-                SmartToast.error(profileMediaErrorMessage(err));
+                if (uploadGen === uploadGenRef.current) {
+                    SmartToast.error(profileMediaErrorMessage(err));
+                }
             } finally {
-                setUploading(null);
+                if (uploadGen === uploadGenRef.current) {
+                    setUploading(null);
+                }
             }
         },
-        [userId, draft, profile, isOwnProfile, stageAvatarInDraft, setDraft, setIsEditing, setProfile],
+        [userId, profile, isOwnProfile, stageAvatarInDraft, setDraft, setIsEditing, setProfile],
     );
 
-    return { uploading, avatarRef, galleryRef, uploadImage };
+    return { uploading, avatarRef, galleryRef, uploadImage, invalidateUploads };
 }

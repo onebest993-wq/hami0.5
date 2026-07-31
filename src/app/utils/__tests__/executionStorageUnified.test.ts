@@ -7,6 +7,8 @@ import {
     persistExecutionDossierBlob,
 } from '@/app/utils/executionDossierBlobPersistence';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
+import { scopeExecutionDeviceStorageKey } from '@/app/utils/executionDeviceStorageScope';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 import { storageCache } from '@/app/utils/storageCache';
 import {
     computeGuarantorApprovalMergePatch,
@@ -112,6 +114,40 @@ describe('execution storage unified layer', () => {
         expect(storageCache.get(key)).toBeTruthy();
 
         SecureStoreService.deleteItemSync(key);
+        expect(storageCache.get(key)).toBeNull();
+    });
+
+    it('storageCache.get reads owner-scoped execution dossier blobs', () => {
+        setLiveAuthUserId('scoped-user');
+        const key = executionStorageKey('exec_scoped_cache_read');
+        const scopedKey = scopeExecutionDeviceStorageKey(key);
+
+        storageCache.set(key, {
+            id: 'exec_scoped_cache_read',
+            debtAmount: 2_189_220,
+            maritalFurnitureItems: [
+                {
+                    id: 'mf-1',
+                    name: 'خزانة',
+                    quantity: 1,
+                    unitPriceIqd: 1_633_665,
+                    deliveryOutcome: 'failed',
+                    deliveryRecordedAt: '2026-07-31T12:00:00.000Z',
+                },
+            ],
+        });
+
+        expect(SecureStoreService.getItemSync(key)).toBeNull();
+        expect(SecureStoreService.getItemSync(scopedKey)).toContain('2189220');
+
+        const blob = storageCache.get(key) as { debtAmount?: number };
+        expect(blob?.debtAmount).toBe(2_189_220);
+
+        storageCache.invalidate(key);
+        const afterInvalidate = storageCache.get(key) as { debtAmount?: number };
+        expect(afterInvalidate?.debtAmount).toBe(2_189_220);
+
+        SecureStoreService.deleteItemSync(scopedKey);
         expect(storageCache.get(key)).toBeNull();
     });
 

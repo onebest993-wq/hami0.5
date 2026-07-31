@@ -1,5 +1,26 @@
-import type { FileData, Party } from '@/app/components/lawyer/LawyerShared';
+import type { FileData, Party, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import type { CaseType } from '@/app/components/lawyer/LawyerShared';
+
+export const FIRST_HEARING_TIMELINE_APPT_ID = 'appt_first_hearing';
+
+function buildFirstHearingTimelineEvent(date: string): TimelineEvent {
+    return {
+        id: FIRST_HEARING_TIMELINE_APPT_ID,
+        type: 'appointment',
+        date,
+        title: 'أول مرافعة',
+        details: 'تاريخ أول مرافعة عند إنشاء الإضبارة',
+        subType: 'pleading',
+        isDeleted: false,
+        isNew: true,
+    };
+}
+
+function normalizeYmd(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : undefined;
+}
 
 function isRecord(v: unknown): v is Record<string, unknown> {
     return v !== null && typeof v === 'object';
@@ -159,6 +180,8 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
             ? applicableLawRaw
             : undefined;
 
+    const firstHearingDate = normalizeYmd(details.firstHearingDate);
+
     const parties1 = Array.isArray(d.parties1) ? (d.parties1 as Record<string, unknown>[]) : [];
     const parties2 = Array.isArray(d.parties2) ? (d.parties2 as Record<string, unknown>[]) : [];
     const thirdParties = Array.isArray(d.thirdParties) ? (d.thirdParties as Record<string, unknown>[]) : [];
@@ -176,6 +199,7 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
     ];
 
     const representedParty = resolveRepresentedPartyFromPayload(parties1, parties2, thirdParties);
+    const firstHearingHistory = firstHearingDate ? [buildFirstHearingTimelineEvent(firstHearingDate)] : [];
 
     if (parties.length === 0 && Array.isArray(d.parties)) {
         return buildFromCaseFormPayload(d);
@@ -210,13 +234,14 @@ function buildFromStructuredPayload(d: Record<string, unknown>): FileData {
         feesPaid: '0',
         date: new Date().toLocaleDateString('ar-EG'),
         parties,
-        history: [],
+        history: firstHearingHistory,
         notes: [],
         images: [],
         ...(representedParty ? { representedParty } : {}),
         ...(thirdParties.length > 0 ? { thirdParties } : {}),
         ...(lawsuitJurisdiction ? { lawsuitJurisdiction } : {}),
         ...(applicableLaw ? { applicableLaw } : {}),
+        ...(firstHearingDate ? { firstHearingDate, nextDate: firstHearingDate } : {}),
     };
 }
 

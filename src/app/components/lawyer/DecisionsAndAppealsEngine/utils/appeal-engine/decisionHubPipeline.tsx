@@ -4,7 +4,7 @@ import type { Decision } from '../../types';
 import type { ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { AppealUiPerspective } from '../../appealUiLabels';
 import { isCreditorPartyRequest, isDecisionLikeRow } from '../appealRequestOrigin';
-import { isManualExecutorLedgerDecision, isAppealDeadlinePerpetuallyEnforced, resolveExecutorDecisionStatusFlag } from './manualExecutorIdentity';
+import { isManualExecutorLedgerDecision, resolveExecutorDecisionStatusFlag } from './manualExecutorIdentity';
 import type { DecisionHubStatusPillTone } from './appealTypes';
 import { compareDecisionsNewestFirst } from './appealsHubCatalog';
 import { isExecutorSideAwaitingAppealEntry } from './manualExecutorLedger';

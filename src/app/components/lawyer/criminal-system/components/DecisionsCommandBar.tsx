@@ -196,7 +196,7 @@ export const DecisionsCommandBar = memo(function DecisionsCommandBar({
                     onOpenLawyerMotionModal();
                 }}
             />
-        </div>
+            </div>
         </div>
     );
 });

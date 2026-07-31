@@ -1,9 +1,14 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { sanitizeLawyerProfile } from '@/app/services/profileSanitizer';
-import { refreshProfileMediaUrl } from '@/app/services/profileMediaService';
+import {
+    refreshProfileCustomizationMedia,
+    refreshProfileMediaUrl,
+} from '@/app/services/profileMediaService';
 import { assertCanWriteProfile } from '@/app/services/profile/profileWriteGuard';
 import { shouldPersistProfileLocally } from '@/app/services/profile/profileShellLogic';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { redactProfileForVisitorView } from '@/app/services/profile/profileVisitorView';
+import { coerceGalleryItems } from '@/app/services/profile/profileGalleryItems';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { supabase } from '@/app/lib/supabase-client';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import { lawyerCloudKv } from '@/app/services/cloud/lawyerCloudKv';
@@ -11,6 +16,8 @@ import {
     DEFAULT_LAWYER_PROFILE,
     type LawyerProfileData,
     type LawyerProfileHeader,
+    type LawyerProfileSection,
+    type ProfileGalleryItem,
 } from '@/app/services/cloud/lawyerProfileTypes';
 
 export { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
@@ -45,29 +52,47 @@ async function loadLocalProfile(userId: string): Promise<LawyerProfileData | nul
 }
 
 /** مسار متزامن على الويب — يتجنب حجب الحفظ خلف ensureWebReady الكامل (deadlock في E2E/لوحة). */
-async function saveLocalProfile(userId: string, profile: LawyerProfileData): Promise<void> {
+async function saveLocalProfile(userId: string, profile: LawyerProfileData): Promise<boolean> {
     const key = getProfileLocalKey(userId);
     const value = JSON.stringify(profile);
     try {
         if (typeof window !== 'undefined') {
             SecureStoreService.setItemSync(key, value);
-            return;
+            return true;
         }
         await SecureStoreService.setItem(key, value);
+        return true;
     } catch {
-        /* ignore */
+        return false;
     }
 }
 
 async function resolveProfileMedia(header: LawyerProfileHeader): Promise<LawyerProfileHeader> {
     const next = { ...header };
-    if (next.profileImagePath && !next.profileImage) {
+    if (next.profileImagePath) {
         next.profileImage = await refreshProfileMediaUrl(next.profileImagePath, next.profileImage);
     }
-    if (next.coverImagePath && !next.coverImage) {
+    if (next.coverImagePath) {
         next.coverImage = await refreshProfileMediaUrl(next.coverImagePath, next.coverImage);
     }
     return next;
+}
+
+async function resolveGallerySections(sections: LawyerProfileSection[]): Promise<LawyerProfileSection[]> {
+    return Promise.all(
+        sections.map(async (section) => {
+            if (section.type !== 'gallery' || !Array.isArray(section.data)) return section;
+            const items = coerceGalleryItems(section.data);
+            const nextItems: ProfileGalleryItem[] = await Promise.all(
+                items.map(async (item) => {
+                    if (!item.storagePath) return item;
+                    const url = await refreshProfileMediaUrl(item.storagePath, item.url);
+                    return url && url !== item.url ? { ...item, url } : item;
+                }),
+            );
+            return { ...section, data: nextItems };
+        }),
+    );
 }
 
 const profileMemoryCache = new Map<string, LawyerProfileData>();
@@ -91,7 +116,7 @@ function cacheProfile(userId: string, profile: LawyerProfileData): LawyerProfile
     return snapshot;
 }
 
-async function resolveSessionProfileUserId(): Promise<string | null> {
+export async function resolveSessionProfileUserId(): Promise<string | null> {
     try {
         const { data } = await supabase.auth.getSession();
         const raw = data.session?.user?.id ?? null;
@@ -109,7 +134,10 @@ async function finalizeProfile(
 ): Promise<LawyerProfileData> {
     const cleaned = sanitizeLawyerProfile(raw);
     const header = await resolveProfileMedia(cleaned.header);
-    const profile = { ...cleaned, header };
+    const sections = await resolveGallerySections(cleaned.sections);
+    const customization =
+        (await refreshProfileCustomizationMedia(cleaned.customization)) ?? cleaned.customization;
+    const profile = { ...cleaned, header, sections, customization };
     if (persistLocal) {
         await saveLocalProfile(userId, profile);
     }
@@ -124,14 +152,23 @@ async function refreshProfileFromCloud(userId: string, localBase: LawyerProfileD
         if (!res) return;
         const remote = res as LawyerProfileData;
         const finalized = await finalizeProfile(remote, userId, persistLocal);
+        /* حدّث ذاكرة المالك الكاملة دائماً (حتى لزائر) — وإلا تبقى خصوصية قديمة من جلسة مالك */
         cacheProfile(userId, finalized);
+        if (persistLocal) {
+            void import('@/app/services/profile/profileWarmCache')
+                .then((m) => m.setProfileWarmCache(userId, finalized))
+                .catch(() => undefined);
+        }
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
         }
     } catch {
-        if (localBase) {
+        if (localBase && persistLocal) {
             void finalizeProfile(localBase, userId, persistLocal).then((finalized) => {
                 cacheProfile(userId, finalized);
+                void import('@/app/services/profile/profileWarmCache')
+                    .then((m) => m.setProfileWarmCache(userId, finalized))
+                    .catch(() => undefined);
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
                 }
@@ -140,135 +177,100 @@ async function refreshProfileFromCloud(userId: string, localBase: LawyerProfileD
     }
 }
 
+function scopeProfileForViewer(
+    profile: LawyerProfileData,
+    viewerId: string | null | undefined,
+    ownerId: string,
+): LawyerProfileData {
+    if (shouldPersistProfileLocally(viewerId, ownerId)) return profile;
+    return redactProfileForVisitorView(profile);
+}
+
 export const ProfileDB = {
     async getProfile(userId: string, viewerIdOverride?: string | null): Promise<LawyerProfileData> {
         const viewerId = viewerIdOverride?.trim() || (await resolveSessionProfileUserId());
         const persistLocal = shouldPersistProfileLocally(viewerId, userId);
-        //#region debug-point profile-db-get-start
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'profile-edit-persist',
-                runId: 'post-fix',
-                hypothesisId: 'C',
-                location: 'lawyerProfileCloud.ts:getProfile:start',
-                msg: '[DEBUG] ProfileDB.getProfile resolved viewer scope',
-                data: {
-                    userId,
-                    viewerId,
-                    persistLocal,
-                    memoryCached: profileMemoryCache.has(userId),
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => undefined);
-        //#endregion debug-point profile-db-get-start
 
         if (persistLocal) {
             const local = await loadLocalProfile(userId);
-            //#region debug-point profile-db-get-local
-            fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'profile-edit-persist',
-                    runId: 'post-fix',
-                    hypothesisId: 'C',
-                    location: 'lawyerProfileCloud.ts:getProfile:local',
-                    msg: '[DEBUG] ProfileDB.getProfile checked local storage',
-                    data: {
-                        userId,
-                        hasLocal: Boolean(local),
-                        localName: local?.header?.name ?? null,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => undefined);
-            //#endregion debug-point profile-db-get-local
             if (local) {
                 const cleaned = sanitizeLawyerProfile(local);
-                const quick = cacheProfile(userId, { ...cleaned, header: { ...cleaned.header } });
+                const header = await resolveProfileMedia(cleaned.header);
+                const sections = await resolveGallerySections(cleaned.sections);
+                const customization =
+                    (await refreshProfileCustomizationMedia(cleaned.customization)) ??
+                    cleaned.customization;
+                const quick = cacheProfile(userId, {
+                    ...cleaned,
+                    header,
+                    sections,
+                    customization,
+                });
                 if (shouldSyncProfileCloud(userId)) void refreshProfileFromCloud(userId, quick);
-                return {
-                    ...quick,
-                    header: { ...quick.header },
-                    sections: quick.sections.map((section) => ({ ...section })),
-                };
+                return scopeProfileForViewer(
+                    {
+                        ...quick,
+                        header: { ...quick.header },
+                        sections: quick.sections.map((section) => ({ ...section })),
+                    },
+                    viewerId,
+                    userId,
+                );
             }
         }
 
         const cached = profileMemoryCache.get(userId);
         if (cached) {
             if (shouldSyncProfileCloud(userId)) void refreshProfileFromCloud(userId, cached);
-            return {
-                ...cached,
-                header: { ...cached.header },
-                sections: cached.sections.map((section) => ({ ...section })),
-            };
+            return scopeProfileForViewer(
+                {
+                    ...cached,
+                    header: { ...cached.header },
+                    sections: cached.sections.map((section) => ({ ...section })),
+                },
+                viewerId,
+                userId,
+            );
         }
 
         try {
             const res = await lawyerCloudKv.get(`profile:${userId}`);
             if (res) {
                 const remote = res as LawyerProfileData;
-                return cacheProfile(userId, await finalizeProfile(remote, userId, persistLocal));
+                const finalized = await finalizeProfile(remote, userId, persistLocal);
+                /* ذاكرة كاملة تحت مفتاح المالك؛ التنقيح عند الإرجاع فقط */
+                cacheProfile(userId, finalized);
+                return scopeProfileForViewer(finalized, viewerId, userId);
             }
         } catch {
             /* Cloud-First */
         }
 
         const fallback = { ...DEFAULT_LAWYER_PROFILE, header: { ...DEFAULT_LAWYER_PROFILE.header } };
-        return cacheProfile(userId, fallback);
+        const scopedFallback = persistLocal ? cacheProfile(userId, fallback) : fallback;
+        return scopeProfileForViewer(scopedFallback, viewerId, userId);
     },
 
-    async saveProfile(userId: string, profile: LawyerProfileData, writerId: string): Promise<void> {
+    async saveProfile(
+        userId: string,
+        profile: LawyerProfileData,
+        writerId: string,
+    ): Promise<{ cloudSynced: boolean; localPersisted: boolean }> {
         assertCanWriteProfile(writerId, userId);
         const cleaned = sanitizeLawyerProfile(profile);
-        //#region debug-point profile-db-save-start
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'profile-edit-persist',
-                runId: 'post-fix',
-                hypothesisId: 'B',
-                location: 'lawyerProfileCloud.ts:saveProfile:start',
-                msg: '[DEBUG] ProfileDB.saveProfile received payload',
-                data: {
-                    userId,
-                    writerId,
-                    cleanedName: cleaned.header?.name ?? null,
-                    cleanedImagePath: cleaned.header?.profileImagePath ?? null,
-                    sectionsCount: cleaned.sections.length,
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => undefined);
-        //#endregion debug-point profile-db-save-start
-        await saveLocalProfile(userId, cleaned);
-        //#region debug-point profile-db-save-local-done
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'profile-edit-persist',
-                runId: 'post-fix',
-                hypothesisId: 'C',
-                location: 'lawyerProfileCloud.ts:saveProfile:local-done',
-                msg: '[DEBUG] ProfileDB.saveProfile wrote local profile',
-                data: {
-                    userId,
-                    cleanedName: cleaned.header?.name ?? null,
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => undefined);
-        //#endregion debug-point profile-db-save-local-done
+        const localPersisted = await saveLocalProfile(userId, cleaned);
         cacheProfile(userId, cleaned);
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }));
         }
-        void lawyerCloudKv.set(`profile:${userId}`, cleaned).catch(() => undefined);
+        try {
+            await lawyerCloudKv.set(`profile:${userId}`, cleaned);
+            return { cloudSynced: true, localPersisted };
+        } catch {
+            if (!localPersisted) {
+                throw new Error('profile-persist-failed');
+            }
+            return { cloudSynced: false, localPersisted };
+        }
     },
 };

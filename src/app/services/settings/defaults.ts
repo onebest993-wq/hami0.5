@@ -1,7 +1,7 @@
 import type { AppSettingsState } from './types';
 
 import { SETTINGS_SCHEMA_VERSION } from './types';
-import { HOME_LAYOUT_DEFAULTS } from './homeLayout';
+import { HOME_LAYOUT_DEFAULTS } from './homeLayoutDefaults';
 
 
 
@@ -27,11 +27,16 @@ export const LAWYER_SETTINGS_V2_DEFAULTS: AppSettingsState = {
 
         homeContainerBorder: true,
 
-        backgroundPreset: 'moroccan-zellige',
+        backgroundPreset: 'none',
 
         backgroundPatternOpacity: 0.32,
 
         backgroundPatternBlur: 0,
+
+        themeApplyTarget: 'both',
+
+        /* الزخارف للأقسام فقط — عبر تخصيص الواجهة، لا من إعدادات اللوحة */
+        patternApplyTarget: 'blocks',
 
         brandColor: '#D4BC82',
 

@@ -3,6 +3,8 @@ export const NOTIFICATION_NAV_TARGETS = [
     'community',
     'vault',
     'scan_document',
+    'schedule',
+    'case_details',
 ] as const;
 
 export type NotificationNavTarget = (typeof NOTIFICATION_NAV_TARGETS)[number];

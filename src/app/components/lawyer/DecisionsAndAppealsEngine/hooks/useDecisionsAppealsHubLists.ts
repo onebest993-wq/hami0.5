@@ -10,7 +10,6 @@ import {
     decisionAppealPipelineActive,
     hubHasActiveAppealLedgerEntry,
     manualExecutorAppealPipelineActive,
-    EXECUTOR_QUEUE_REQUEST_KINDS,
     type AppealsHubProponentFilter,
 } from '../utils';
 

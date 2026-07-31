@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { useMemo, useState } from 'react';
 import { useCriminalStore } from '../criminalStore';
 import type { ProceduralPath, ProceduralPathStep } from '../proceduralPathsEngine';

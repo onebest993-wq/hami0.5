@@ -116,11 +116,23 @@ function parseVaultDocsPayload(raw: string | null | undefined): SmartVaultDoc[] 
 
 /** قراءة متزامنة من الذاكرة أو المرآة أو الكاش — بدون انتظار IndexedDB */
 export function readVaultLocalIndexSync(): SmartVaultDoc[] {
-    if (memoryDocs) return memoryDocs;
+    if (memoryDocs !== null) return memoryDocs;
     const mirror = parseVaultDocsPayload(readVaultMirrorPayload());
     if (mirror.length > 0) {
         memoryDocs = mirror;
         return mirror;
+    }
+    /* بذور E2E / كتابات مباشرة على المفتاح الأساسي */
+    if (typeof localStorage !== 'undefined') {
+        try {
+            const direct = parseVaultDocsPayload(localStorage.getItem(VAULT_LOCAL_KEY));
+            if (direct.length > 0) {
+                memoryDocs = direct;
+                return direct;
+            }
+        } catch {
+            /* ignore */
+        }
     }
     const raw = SecureStoreService.getItemSync(VAULT_LOCAL_KEY);
     const parsed = parseVaultDocsPayload(raw);
@@ -129,7 +141,7 @@ export function readVaultLocalIndexSync(): SmartVaultDoc[] {
 }
 
 export async function readVaultLocalIndex(): Promise<SmartVaultDoc[]> {
-    if (memoryDocs) return memoryDocs;
+    if (memoryDocs !== null) return memoryDocs;
     const sync = readVaultLocalIndexSync();
     if (sync.length > 0) return sync;
     try {

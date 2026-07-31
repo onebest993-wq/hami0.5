@@ -1,15 +1,47 @@
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
-import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
-import SecureStoreService from '@/app/services/SecureStoreService';
-import { appModulePromise } from '@/boot/appModule';
-import { scheduleDeferredAppStyles } from '@/app/runtime/deferredAppStyles';
+import { isBootRevealDone, markBootRevealDone, onBootContentReady } from '@/app/bootstrap/bootReveal';
+import { loadAppModule } from '@/boot/appModule';
 import { installConsoleHygiene } from '@/app/utils/consoleHygiene';
+import { registerAppServiceWorker } from '@/app/runtime/appServiceWorker';
+import { applySettingsToDom } from '@/app/services/settings/apply';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import './styles/critical-shell.css';
+
+/** deferred-app بعد content-ready — لا ينافس HomeTab (~52KB) بـ ~577KB من أول بايت */
+onBootContentReady(() => {
+    void import('@/app/runtime/deferredAppStyles').then((m) => m.scheduleDeferredAppStyles());
+});
+
+/** طبّق إعدادات السطح قبل React — حدود/ثيم/خلفية مطابقة لأول إطار */
+try {
+    applySettingsToDom(getLawyerSettingsSnapshot());
+    if (isBootRevealDone()) {
+        document.documentElement.dataset.hamiBootRevealed = '1';
+    }
+} catch {
+    try {
+        document.documentElement.dataset.hamiHomeContainerBorder = '1';
+        document.documentElement.dataset.hamiWallpaper = '0';
+    } catch {
+        /* ignore */
+    }
+}
+
+const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
 
 installConsoleHygiene();
 
-/** chunk اللوحة يُحمَّل عند LawyerDashboardGate / LawyerBootShell فقط — لا تنافس إقلاع التطبيق */
+/** إن اكتمل الإقلاع في هذه الجلسة — أزل الهيكل الثابت فوراً قبل React */
+try {
+    if (isBootRevealDone()) {
+        markBootRevealDone();
+        removeStaticBootShell();
+    }
+} catch {
+    /* ignore */
+}
+
 /** Vite dev: إعادة تحميل واحدة عند فشل dynamic import (HMR stale) */
 if (import.meta.env.DEV) {
     const STALE_IMPORT_RELOAD_KEY = 'hami:vite-stale-import-reload';
@@ -92,12 +124,78 @@ function renderFatalBootError(e: unknown): void {
 }
 
 function runBackgroundBootTasks(): void {
-    SecureStoreService.kickoffBootShellSync();
-    void SecureStoreService.ensureBootShellReady().catch(() => {});
-    void SecureStoreService.ensurePersistedReady().catch(() => {});
+    void Promise.all([
+        import('@/app/services/SecureStoreService'),
+        import('@/app/runtime/sameOriginApiProbe'),
+        import('@/app/bootstrap/deferredBoot'),
+    ]).then(([secureStoreModule, sameOriginApiProbeModule, deferredBootModule]) => {
+        const SecureStoreService = secureStoreModule.default;
+        SecureStoreService.kickoffBootShellSync();
+        void SecureStoreService.ensureBootShellReady().catch(() => {});
+        void SecureStoreService.ensurePersistedReady().catch(() => {});
 
-    void probeSameOriginApi();
-    void import('@/app/bootstrap/deferredBoot').then((m) => m.runDeferredBootTasks());
+        void sameOriginApiProbeModule.probeSameOriginApi();
+        deferredBootModule.runDeferredBootTasks();
+    });
+}
+
+function waitForAppRuntimeReady(timeoutMs = 4000): Promise<void> {
+    return new Promise((resolve) => {
+        if (document.documentElement.dataset.hamiAppRuntimeReady === '1') {
+            resolve();
+            return;
+        }
+
+        let settled = false;
+        let timeoutId = 0;
+
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener(APP_RUNTIME_READY_EVENT, onReady);
+            if (timeoutId) window.clearTimeout(timeoutId);
+            resolve();
+        };
+
+        const onReady = () => {
+            document.documentElement.dataset.hamiAppRuntimeReady = '1';
+            finish();
+        };
+
+        window.addEventListener(APP_RUNTIME_READY_EVENT, onReady, { once: true });
+        timeoutId = window.setTimeout(finish, timeoutMs);
+    });
+}
+
+function waitForBootRevealDone(timeoutMs = 16_000): Promise<void> {
+    return new Promise((resolve) => {
+        try {
+            if (
+                window.__hamiBootRevealDone__ === true ||
+                sessionStorage.getItem('hami_boot_complete') === '1'
+            ) {
+                resolve();
+                return;
+            }
+        } catch {
+            /* ignore */
+        }
+
+        let settled = false;
+        let timeoutId = 0;
+
+        const finish = () => {
+            if (settled) return;
+            settled = true;
+            window.removeEventListener('hami:boot-reveal-done', onDone);
+            if (timeoutId) window.clearTimeout(timeoutId);
+            resolve();
+        };
+
+        const onDone = () => finish();
+        window.addEventListener('hami:boot-reveal-done', onDone, { once: true });
+        timeoutId = window.setTimeout(finish, timeoutMs);
+    });
 }
 
 async function mountApplication(): Promise<void> {
@@ -105,11 +203,21 @@ async function mountApplication(): Promise<void> {
     document.documentElement.dataset.hamiInitialBoot = '1';
 
     try {
+        /* أولاً App/React بلا منافسة compile مع stem اللوحة — على warm كان الـ preload المبكر يضر TTFI */
         const [appMod, ReactMod, ReactDOMMod] = await Promise.all([
-            appModulePromise,
+            loadAppModule(),
             import('react'),
             import('react-dom/client'),
         ]);
+
+        /* بعد جاهزية React: ابدأ Shell + Gate + علامة TTFI + LD موازياً لـ createRoot */
+        void import('@/app/AppRuntimeShell');
+        void import('@/app/bootstrap/LawyerDashboardGate');
+        /* تسخين علامة interactive قبل LD — يمنع شلال app-ttfi-mark عند أول رسم */
+        void import('@/app/bootstrap/dashboardInteractiveMark');
+        void import('@/app/bootstrap/lawyerDashboardChunk').then((m) => {
+            void m.preloadLawyerDashboardChunk();
+        });
 
         const rootElement = document.getElementById('root');
         if (!rootElement) throw new Error('Root element missing');
@@ -126,9 +234,16 @@ async function mountApplication(): Promise<void> {
         );
 
         markBootPhase('app-render');
+        await waitForAppRuntimeReady();
+        // أبقِ الصدفة الثابتة حتى انتهاء كشف اللوحة — يمنع فراغ أسود بين الشعار والواجهة
+        await waitForBootRevealDone();
         removeStaticBootShell();
         document.documentElement.removeAttribute('data-hami-initial-boot');
-        scheduleDeferredAppStyles();
+        if (import.meta.env.PROD) {
+            void registerAppServiceWorker();
+        }
+        /* احتياطي بعد انتهاء الكشف — إن فُوّت مسار MainView/first-tab */
+        void import('@/app/runtime/deferredAppStyles').then((m) => m.scheduleDeferredAppStyles());
 
         try {
             sessionStorage.removeItem('hami:vite-stale-import-reload');

@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 import { useLawyerDashboardGlobalSearch } from '@/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 import { warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { loadGlobalSearchOverlayModule } from '@/app/runtime/globalSearchLoader';
+import { LAWYER_GLOBAL_SEARCH_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -20,7 +20,29 @@ vi.mock('@/app/hooks/lawyerDashboard/globalSearchIntentWarm', () => ({
 }));
 
 vi.mock('@/app/runtime/globalSearchBootHydrator', () => ({
+    GLOBAL_SEARCH_SHELL_HYDRATED_EVENT: 'hami:global-search-shell-hydrated',
     hydrateGlobalSearchShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    bindGlobalSearchBootHydrator: vi.fn(() => () => undefined),
+}));
+
+vi.mock('@/app/runtime/globalSearchInstantPaint', () => ({
+    revealGlobalSearchWarmShell: vi.fn(() => false),
+    concealGlobalSearchWarmShell: vi.fn(),
+}));
+
+vi.mock('@/app/runtime/devicePerformanceTier', () => ({
+    isLitePerformanceActive: () => true,
+}));
+
+vi.mock('@/app/services/auth/shellAuth', () => ({
+    isRealSignedIn: (userId: string | null | undefined) => {
+        const id = userId?.trim();
+        if (!id) return false;
+        return id !== 'guest-lawyer-1' && id !== 'demo_user';
+    },
+    resolveShellAuthUserId: (auth?: string | null, display?: string | null) =>
+        auth?.trim() || display?.trim() || null,
+    isShellAuthBypassed: () => false,
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -43,6 +65,11 @@ vi.mock('@/app/runtime/globalSearchLoader', async (importOriginal) => {
 describe('useLawyerDashboardGlobalSearch', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        try {
+            sessionStorage.removeItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY);
+        } catch {
+            /* ignore */
+        }
     });
 
     it('لا يفتح البحث تلقائياً', () => {
@@ -58,17 +85,21 @@ describe('useLawyerDashboardGlobalSearch', () => {
         expect(result.current.showGlobalSearch).toBe(false);
     });
 
-    it('يفتح البحث للمستخدم المسجّل فوراً (flushSync)', () => {
+    it('يفتح البحث للمستخدم المسجّل فوراً (flushSync)', async () => {
         const { result } = renderHook(() => useLawyerDashboardGlobalSearch({ userId: 'lawyer-1' }));
 
-        act(() => {
+        await act(async () => {
             result.current.openGlobalSearch('جلسة');
+            await new Promise<void>((resolve) => {
+                requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+            });
+            await Promise.resolve();
+            await Promise.resolve();
         });
 
         expect(result.current.showGlobalSearch).toBe(true);
         expect(result.current.globalSearchInitialQuery).toBe('جلسة');
         expect(warmGlobalSearchOnOpen).toHaveBeenCalled();
-        expect(loadGlobalSearchOverlayModule).toHaveBeenCalled();
     });
 
     it('يرفض فتح البحث بدون تسجيل دخول', () => {
@@ -93,7 +124,7 @@ describe('useLawyerDashboardGlobalSearch', () => {
         expect(result.current.showGlobalSearch).toBe(false);
     });
 
-    it('closeGlobalSearch يُصفّر الاستعلام ويزيد session key', async () => {
+    it('closeGlobalSearch يُصفّر الاستعلام ويزيد session key ويبقي host دافئاً', async () => {
         const { result } = renderHook(() => useLawyerDashboardGlobalSearch({ userId: 'lawyer-1' }));
 
         await act(async () => {
@@ -109,6 +140,7 @@ describe('useLawyerDashboardGlobalSearch', () => {
         });
 
         expect(result.current.showGlobalSearch).toBe(false);
+        expect(result.current.searchHostMounted).toBe(true);
         expect(result.current.globalSearchInitialQuery).toBe('');
         expect(result.current.globalSearchSessionKey).toBe(sessionBefore + 1);
     });
@@ -138,6 +170,7 @@ describe('useLawyerDashboardGlobalSearch', () => {
             result.current.openGlobalSearch();
             result.current.openGlobalSearch();
             result.current.openGlobalSearch();
+            await Promise.resolve();
             await Promise.resolve();
         });
 

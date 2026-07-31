@@ -1,4 +1,3 @@
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import {
     addQuestionImport,

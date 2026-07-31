@@ -1,15 +1,24 @@
 import { create } from 'zustand';
 import {
-    NotificationModel,
-    NotificationRepository,
+    type NotificationModel,
     isActivityLogNotification,
     deriveNotificationCategory,
-    peekLocalNotifications,
-} from '../infrastructure/NotificationRepository';
+} from '@/app/infrastructure/notificationModel';
 import { sanitizeNotificationDisplayMessage, isNavigationNoiseNotification } from '@/app/services/notificationMessageFormat';
 import { isIncomingNotification } from '@/app/services/notificationIncomingFilter';
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
 import { capMergedNotificationLists, mergeNotificationRecord } from '@/app/services/notifications/notificationMerge';
+
+type NotificationRepositoryModule = typeof import('@/app/infrastructure/NotificationRepository');
+
+let notificationRepositoryPromise: Promise<NotificationRepositoryModule> | null = null;
+
+function loadNotificationRepository(): Promise<NotificationRepositoryModule> {
+    if (!notificationRepositoryPromise) {
+        notificationRepositoryPromise = import('@/app/infrastructure/NotificationRepository');
+    }
+    return notificationRepositoryPromise;
+}
 
 function normalizeNotification(notification: NotificationModel): NotificationModel | null {
     if (isActivityLogNotification(notification)) return null;
@@ -74,6 +83,8 @@ interface NotificationState {
     addNotification: (notification: NotificationModel) => void;
     upsertNotification: (notification: NotificationModel) => void;
     upsertNotifications: (notifications: NotificationModel[]) => void;
+    /** استبدال كامل لمجموعة إشعارات المنتدى بقائمة الخادم السلطوية */
+    reconcileForumNotifications: (forumNotifications: NotificationModel[]) => void;
     setUserId: (userId: string | null) => void;
 }
 
@@ -99,15 +110,19 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     hydrateFromLocalPeek: (userId: string) => {
         const state = get();
         if (state.currentUserId === userId && state.notifications.length > 0) return;
-        const list = stripInvalidNotifications(capNotificationList(peekLocalNotifications(userId)));
-        if (list.length === 0) return;
-        const unread = list.filter((n) => !n.isRead).length;
-        set({
-            currentUserId: userId,
-            notifications: list,
-            unreadCount: unread,
-            hasHydratedOnce: true,
-            isLoading: false,
+        void loadNotificationRepository().then((mod) => {
+            const latest = get();
+            if (latest.currentUserId === userId && latest.notifications.length > 0) return;
+            const list = stripInvalidNotifications(capNotificationList(mod.peekLocalNotifications(userId)));
+            if (list.length === 0) return;
+            const unread = list.filter((n) => !n.isRead).length;
+            set({
+                currentUserId: userId,
+                notifications: list,
+                unreadCount: unread,
+                hasHydratedOnce: true,
+                isLoading: false,
+            });
         });
     },
 
@@ -124,6 +139,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         if (!hadCached && !hasHydratedOnce) {
             set({ isLoading: true });
         }
+        const { NotificationRepository } = await loadNotificationRepository();
         const raw = await NotificationRepository.fetchNotifications(userId);
         const list = stripInvalidNotifications(raw);
 
@@ -151,6 +167,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         set({ notifications: updatedList, unreadCount: unread });
 
+        const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.markAsRead(userId, notificationId, updatedList);
 
         if (!options?.skipForumPersist && deriveNotificationCategory(target) === 'forum') {
@@ -169,6 +186,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         const unread = updatedList.filter((n) => !n.isRead).length;
 
         set({ notifications: updatedList, unreadCount: unread });
+        const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.saveNotifications(userId, updatedList);
 
         if (!options?.skipForumPersist) {
@@ -186,6 +204,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
         set({ notifications: updatedList, unreadCount: 0 });
 
+        const { NotificationRepository } = await loadNotificationRepository();
         await NotificationRepository.markAllAsRead(userId, updatedList);
 
         if (!options?.skipForumPersist) {
@@ -210,7 +229,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
 
         if (currentUserId) {
-            void NotificationRepository.saveNotifications(currentUserId, updated);
+            void loadNotificationRepository().then(({ NotificationRepository }) => {
+                void NotificationRepository.saveNotifications(currentUserId, updated);
+            });
         }
     },
 
@@ -229,21 +250,23 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
 
         if (currentUserId) {
-            void NotificationRepository.addNotification(currentUserId, normalized).then(
-                (authoritative) => {
-                    if (!authoritative) return;
-                    const state = get();
-                    let list = state.notifications;
-                    if (authoritative.id !== normalized.id) {
-                        list = list.filter((n) => n.id !== normalized.id);
-                    }
-                    const next = applyUpsertsToList(list, [authoritative]);
-                    set({
-                        notifications: next,
-                        unreadCount: next.filter((n) => !n.isRead).length,
-                    });
-                },
-            );
+            void loadNotificationRepository().then(({ NotificationRepository }) => {
+                void NotificationRepository.addNotification(currentUserId, normalized).then(
+                    (authoritative) => {
+                        if (!authoritative) return;
+                        const state = get();
+                        let list = state.notifications;
+                        if (authoritative.id !== normalized.id) {
+                            list = list.filter((n) => n.id !== normalized.id);
+                        }
+                        const next = applyUpsertsToList(list, [authoritative]);
+                        set({
+                            notifications: next,
+                            unreadCount: next.filter((n) => !n.isRead).length,
+                        });
+                    },
+                );
+            });
         }
     },
 
@@ -262,7 +285,29 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
 
         if (currentUserId) {
-            void NotificationRepository.saveNotifications(currentUserId, capped);
+            void loadNotificationRepository().then(({ NotificationRepository }) => {
+                void NotificationRepository.saveNotifications(currentUserId, capped);
+            });
+        }
+    },
+
+    reconcileForumNotifications: (forumIncoming: NotificationModel[]) => {
+        const { notifications, currentUserId } = get();
+        const nonForum = notifications.filter((n) => deriveNotificationCategory(n) !== 'forum');
+        const forumOnly = forumIncoming
+            .map((n) => normalizeNotification({ ...n, category: 'forum' as const }))
+            .filter((n): n is NotificationModel => n != null);
+        const capped = capNotificationList([...forumOnly, ...nonForum]);
+
+        set({
+            notifications: capped,
+            unreadCount: capped.filter((n) => !n.isRead).length,
+        });
+
+        if (currentUserId) {
+            void loadNotificationRepository().then(({ NotificationRepository }) => {
+                void NotificationRepository.saveNotifications(currentUserId, capped);
+            });
         }
     },
 }));

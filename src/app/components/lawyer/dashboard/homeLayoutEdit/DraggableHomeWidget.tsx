@@ -5,8 +5,6 @@ import { resolveHomeBlockShapeClass } from '@/app/services/settings/resolveHomeB
 import { useHomeLayoutEdit } from './HomeLayoutEditContext';
 import { HomeLayoutWidgetEditChrome } from './homeLayoutEditUi';
 
-const DRAG_THRESHOLD_PX = 3;
-
 type DraggableHomeWidgetProps = {
     widgetId: HomeWidgetId;
     zone: HomeWidgetZone;
@@ -20,17 +18,46 @@ type DraggableHomeWidgetProps = {
 };
 
 type DragSession = {
-    pointerId: number;
+    pointerId: number | null;
     startX: number;
     startY: number;
     grabOffsetX: number;
     grabOffsetY: number;
     ghostW: number;
     ghostH: number;
-    moved: boolean;
-    started: boolean;
 };
 
+function clearGhost(ghost: HTMLDivElement | null) {
+    if (!ghost) return;
+    ghost.style.opacity = '0';
+    ghost.replaceChildren();
+}
+
+function fillGhostFromSource(ghost: HTMLDivElement, source: HTMLElement, width: number, height: number) {
+    ghost.replaceChildren();
+    const clone = source.cloneNode(true) as HTMLElement;
+    clone.setAttribute('aria-hidden', 'true');
+    clone.style.pointerEvents = 'none';
+    clone.style.width = `${width}px`;
+    clone.style.height = `${height}px`;
+    clone.style.margin = '0';
+    ghost.appendChild(clone);
+}
+
+function clientPointFromEvent(ev: Event): { x: number; y: number; id: number | null } {
+    if ('changedTouches' in ev || 'touches' in ev) {
+        const te = ev as TouchEvent;
+        const t = te.touches[0] ?? te.changedTouches[0];
+        return { x: t?.clientX ?? 0, y: t?.clientY ?? 0, id: t?.identifier ?? null };
+    }
+    const pe = ev as PointerEvent;
+    return { x: pe.clientX, y: pe.clientY, id: pe.pointerId };
+}
+
+/**
+ * سحب ويدجت — المقبض يبقى mounted أثناء السحب (إزالته كانت تُطلق pointercancel فوراً على Android).
+ * Touch + Pointer مع مستمعات على window قبل beginDrag.
+ */
 export function DraggableHomeWidget({
     widgetId,
     zone,
@@ -45,9 +72,9 @@ export function DraggableHomeWidget({
     const rootRef = useRef<HTMLDivElement>(null);
     const measureRef = useRef<HTMLDivElement>(null);
     const ghostRef = useRef<HTMLDivElement>(null);
+    const handleRef = useRef<HTMLButtonElement | null>(null);
     const dragSessionRef = useRef<DragSession | null>(null);
-    const dragPlaceholderHeightRef = useRef<number | null>(null);
-    const placeholderHeightRef = useRef<number | null>(null);
+    const listenersCleanupRef = useRef<(() => void) | null>(null);
 
     const {
         isEditing,
@@ -65,15 +92,14 @@ export function DraggableHomeWidget({
     const dragging = draggingWidgetId === widgetId;
     const peerDragLock = Boolean(draggingWidgetId && !dragging);
     const elevated = dragging || customizerActive;
+    const stackZ = dragging ? 'z-[170]' : customizerActive ? 'z-[165]' : isEditing ? 'z-[10]' : '';
     const canResizeSpan = zone === 'main' && Boolean(onResizeSpan);
     const shapeClass = resolveHomeBlockShapeClass(blockOverride);
     const shellChromeClass = customizerActive
-        ? 'ring-1 ring-[#E6C673]/40'
+        ? 'shadow-[inset_0_0_0_1px_color-mix(in_srgb,#E6C673_35%,transparent)]'
         : dragging
-          ? 'ring-1 ring-dashed ring-[#E6C673]/25 opacity-50'
-          : isEditing
-            ? 'ring-1 ring-white/[0.05]'
-            : '';
+          ? 'opacity-50'
+          : '';
 
     useEffect(() => {
         if (!isEditing || !measureRef.current) {
@@ -96,6 +122,14 @@ export function DraggableHomeWidget({
         };
     }, [isEditing, widgetId, zone, registerWidgetRect, currentSpan, customizerActive]);
 
+    useEffect(() => {
+        return () => {
+            listenersCleanupRef.current?.();
+            listenersCleanupRef.current = null;
+            dragSessionRef.current = null;
+        };
+    }, []);
+
     const updateGhostPosition = (left: number, top: number, width: number, height: number) => {
         const ghost = ghostRef.current;
         if (!ghost) return;
@@ -104,104 +138,117 @@ export function DraggableHomeWidget({
         ghost.style.transform = `translate3d(${left}px, ${top}px, 0)`;
     };
 
-    const cleanupDragListeners = (
-        onMove: (e: PointerEvent) => void,
-        onUp: (e: PointerEvent) => void,
-        onCancel: (e: PointerEvent) => void,
-    ) => {
-        window.removeEventListener('pointermove', onMove);
-        window.removeEventListener('pointerup', onUp);
-        window.removeEventListener('pointercancel', onCancel);
+        const finishDrag = (commit: boolean) => {
+        const session = dragSessionRef.current;
+        listenersCleanupRef.current?.();
+        listenersCleanupRef.current = null;
+        dragSessionRef.current = null;
+        clearGhost(ghostRef.current);
+        if (rootRef.current) rootRef.current.style.minHeight = '';
+        const handleEl = handleRef.current;
+        try {
+            if (handleEl && session?.pointerId != null && handleEl.hasPointerCapture?.(session.pointerId)) {
+                handleEl.releasePointerCapture(session.pointerId);
+            }
+        } catch {
+            /* ignore */
+        }
+        if (commit) endDrag();
+        else cancelDrag();
     };
 
-    const startDragSession = (e: React.PointerEvent<HTMLElement>) => {
-        if (customizerActive) return;
-        e.stopPropagation();
-        e.preventDefault();
-        e.currentTarget.setPointerCapture(e.pointerId);
+    const startDragAt = (clientX: number, clientY: number, pointerId: number | null, handleEl: HTMLElement) => {
+        if (dragSessionRef.current) return;
+        setSelectedBlockId(null);
 
-        const rect = measureRef.current?.getBoundingClientRect() ?? rootRef.current?.getBoundingClientRect();
+        const source = measureRef.current;
+        const rect = source?.getBoundingClientRect() ?? rootRef.current?.getBoundingClientRect();
         if (!rect) return;
 
-        dragPlaceholderHeightRef.current = rect.height;
-        placeholderHeightRef.current = rect.height;
         if (rootRef.current) rootRef.current.style.minHeight = `${rect.height}px`;
 
         const session: DragSession = {
-            pointerId: e.pointerId,
-            startX: e.clientX,
-            startY: e.clientY,
-            grabOffsetX: e.clientX - rect.left,
-            grabOffsetY: e.clientY - rect.top,
+            pointerId,
+            startX: clientX,
+            startY: clientY,
+            grabOffsetX: clientX - rect.left,
+            grabOffsetY: clientY - rect.top,
             ghostW: rect.width,
             ghostH: rect.height,
-            moved: false,
-            started: false,
         };
         dragSessionRef.current = session;
 
-        updateGhostPosition(
-            rect.left,
-            rect.top,
-            rect.width,
-            rect.height,
-        );
-        if (ghostRef.current) ghostRef.current.style.opacity = '0';
+        if (ghostRef.current && source) {
+            fillGhostFromSource(ghostRef.current, source, rect.width, rect.height);
+            ghostRef.current.style.opacity = '0.92';
+        }
+        updateGhostPosition(rect.left, rect.top, rect.width, rect.height);
 
-        const onMove = (ev: PointerEvent) => {
-            if (ev.pointerId !== session.pointerId) return;
-            ev.preventDefault();
-            const dx = ev.clientX - session.startX;
-            const dy = ev.clientY - session.startY;
-
-            if (!session.moved && Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX) {
-                session.moved = true;
-                if (!session.started) {
-                    session.started = true;
-                    beginDrag(widgetId, ev.clientX, ev.clientY);
-                    if (ghostRef.current) ghostRef.current.style.opacity = '1';
-                }
-            }
-
-            if (session.moved) {
-                updateGhostPosition(
-                    ev.clientX - session.grabOffsetX,
-                    ev.clientY - session.grabOffsetY,
-                    session.ghostW,
-                    session.ghostH,
-                );
-                updateDrag(ev.clientX, ev.clientY);
-            }
+        const onMove = (ev: Event) => {
+            if (!dragSessionRef.current) return;
+            const pt = clientPointFromEvent(ev);
+            if (session.pointerId !== null && pt.id !== null && pt.id !== session.pointerId) return;
+            if (ev.cancelable) ev.preventDefault();
+            updateGhostPosition(
+                pt.x - session.grabOffsetX,
+                pt.y - session.grabOffsetY,
+                session.ghostW,
+                session.ghostH,
+            );
+            updateDrag(pt.x, pt.y);
         };
 
-        const onUp = (ev: PointerEvent) => {
-            if (ev.pointerId !== session.pointerId) return;
-            ev.preventDefault();
-            cleanupDragListeners(onMove, onUp, onCancel);
-            const moved = session.moved;
-            dragSessionRef.current = null;
-            if (ghostRef.current) ghostRef.current.style.opacity = '0';
-            if (rootRef.current) rootRef.current.style.minHeight = '';
-            placeholderHeightRef.current = null;
-            dragPlaceholderHeightRef.current = null;
-            if (moved) endDrag();
-            else cancelDrag();
+        const onEnd = (ev: Event) => {
+            if (!dragSessionRef.current) return;
+            const pt = clientPointFromEvent(ev);
+            if (session.pointerId !== null && pt.id !== null && pt.id !== session.pointerId) return;
+            if (ev.cancelable) ev.preventDefault();
+            finishDrag(true);
         };
 
-        const onCancel = (ev: PointerEvent) => {
-            if (ev.pointerId !== session.pointerId) return;
-            cleanupDragListeners(onMove, onUp, onCancel);
-            dragSessionRef.current = null;
-            if (ghostRef.current) ghostRef.current.style.opacity = '0';
-            if (rootRef.current) rootRef.current.style.minHeight = '';
-            placeholderHeightRef.current = null;
-            dragPlaceholderHeightRef.current = null;
-            cancelDrag();
+        /*
+         * لا ننهي على pointercancel — على Android يظهر فور re-render/scroll
+         * ونعتمد pointerup/touchend فقط لإنهاء الجلسة.
+         */
+        const opts: AddEventListenerOptions = { passive: false, capture: true };
+        window.addEventListener('pointermove', onMove, opts);
+        window.addEventListener('pointerup', onEnd, opts);
+        window.addEventListener('touchmove', onMove, opts);
+        window.addEventListener('touchend', onEnd, opts);
+        window.addEventListener('touchcancel', onEnd, opts);
+
+        listenersCleanupRef.current = () => {
+            window.removeEventListener('pointermove', onMove, opts);
+            window.removeEventListener('pointerup', onEnd, opts);
+            window.removeEventListener('touchmove', onMove, opts);
+            window.removeEventListener('touchend', onEnd, opts);
+            window.removeEventListener('touchcancel', onEnd, opts);
         };
 
-        window.addEventListener('pointermove', onMove, { passive: false });
-        window.addEventListener('pointerup', onUp, { passive: false });
-        window.addEventListener('pointercancel', onCancel, { passive: false });
+        try {
+            if (pointerId !== null) handleEl.setPointerCapture(pointerId);
+        } catch {
+            /* ignore */
+        }
+
+        beginDrag(widgetId, clientX, clientY);
+    };
+
+    const onHandlePointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        handleRef.current = e.currentTarget;
+        startDragAt(e.clientX, e.clientY, e.pointerId, e.currentTarget);
+    };
+
+    const onHandleTouchStart = (e: React.TouchEvent<HTMLButtonElement>) => {
+        if (e.touches.length !== 1) return;
+        e.stopPropagation();
+        /* منع تمرير الصفحة من المقبض — ضروري على WebView */
+        if (e.cancelable) e.preventDefault();
+        handleRef.current = e.currentTarget;
+        const t = e.touches[0];
+        startDragAt(t.clientX, t.clientY, t.identifier, e.currentTarget);
     };
 
     if (!isEditing) {
@@ -228,7 +275,7 @@ export function DraggableHomeWidget({
                 ref={rootRef}
                 data-hami-widget-slot=""
                 data-hami-widget-dragging={dragging ? '1' : undefined}
-                className={`relative ${className} ${elevated ? 'z-[130]' : isEditing ? 'z-[10]' : ''} ${peerDragLock ? 'pointer-events-none' : ''}`}
+                className={`relative ${className} ${stackZ} ${peerDragLock ? 'pointer-events-none' : ''}`}
                 style={{ ...style, ...(elevated ? { isolation: 'isolate' as const } : {}) }}
             >
                 {dragging ? (
@@ -249,22 +296,23 @@ export function DraggableHomeWidget({
                     </div>
                 </div>
 
-                {!dragging ? (
-                    <HomeLayoutWidgetEditChrome
-                        dragLabel={`سحب ${label}`}
-                        onDragPointerDown={startDragSession}
-                        paletteActive={customizerActive}
-                        paletteLabel={`تخصيص ${label}`}
-                        onPaletteClick={() => setSelectedBlockId(customizerActive ? null : widgetId)}
-                        showSpan={canResizeSpan}
-                        span={currentSpan}
-                        onSpanChange={
-                            onResizeSpan
-                                ? (next) => onResizeSpan(next)
-                                : undefined
-                        }
-                    />
-                ) : null}
+                {/* يبقى mounted أثناء السحب — إزالته كانت تُنهي الجلسة على Android */}
+                <HomeLayoutWidgetEditChrome
+                    dragLabel={`سحب ${label}`}
+                    onDragPointerDown={onHandlePointerDown}
+                    onDragTouchStart={onHandleTouchStart}
+                    dragHandleHidden={dragging}
+                    paletteActive={customizerActive}
+                    paletteLabel={`تخصيص ${label}`}
+                    onPaletteClick={() => setSelectedBlockId(customizerActive ? null : widgetId)}
+                    showSpan={canResizeSpan && !dragging}
+                    span={currentSpan}
+                    onSpanChange={
+                        onResizeSpan
+                            ? (next) => onResizeSpan(next)
+                            : undefined
+                    }
+                />
             </div>
         </>
     );

@@ -3,12 +3,16 @@
 import { useEffect, useRef } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { ExecutionFile, RealEstateSeizureAsset, SeizedAsset, TimelineEvent } from '@/app/types/execution';
-import { ensureSubDossierOpenedTimelineEvent } from '@/app/stores';
+import { ensureSubDossierOpenedTimelineEvent, isInabaSubFileId } from '@/app/stores';
 import {
     buildExecutionFileCoerciveRefreshPatch,
     buildExecutionFileLocalHydratePatch,
     timelineHasSubDossierOpenedEvent,
 } from './executionDashboardDossierBootSync';
+import {
+    buildTimelineEventRowSignature,
+    reconcileTimelineEventsState,
+} from './executionDashboardTimelineAndGraceSync';
 
 export function useExecutionDashboardSubDossierTimelineLifecycle({
     activeSubFileId,
@@ -16,6 +20,7 @@ export function useExecutionDashboardSubDossierTimelineLifecycle({
     parentDossierId,
     executionData,
     executionDashboardFileId,
+    executionStorageTick,
     setShowOnlyActiveFileTimeline,
     setTimelineEvents,
     persistExecutionMergeRef,
@@ -31,6 +36,7 @@ export function useExecutionDashboardSubDossierTimelineLifecycle({
     parentDossierId: string;
     executionData: ExecutionFile | null | undefined;
     executionDashboardFileId: string | null;
+    executionStorageTick?: number;
     setShowOnlyActiveFileTimeline: Dispatch<SetStateAction<boolean>>;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     persistExecutionMergeRef: MutableRefObject<((patch: Record<string, unknown>) => void) | null>;
@@ -42,11 +48,15 @@ export function useExecutionDashboardSubDossierTimelineLifecycle({
     setRealEstateSeizureAssets: Dispatch<SetStateAction<RealEstateSeizureAsset[]>>;
 }) {
     const subDossierOpenedBackfillSigRef = useRef('');
+    const hydrateContextRef = useRef('');
+    const incomingTimelineSigRef = useRef('');
 
     useEffect(() => {
-        if (activeSubFileId) {
+        if (activeSubFileId && isInabaSubFileId(activeSubFileId)) {
             setShowOnlyActiveFileTimeline(true);
+            return;
         }
+        setShowOnlyActiveFileTimeline(false);
     }, [activeSubFileId, setShowOnlyActiveFileTimeline]);
 
     useEffect(() => {
@@ -89,19 +99,43 @@ export function useExecutionDashboardSubDossierTimelineLifecycle({
 
     useEffect(() => {
         if (!executionData?.id) return;
+
+        const contextKey = `${executionDashboardFileId ?? ''}:${activeSubFileId ?? ''}:${parentDossierId ?? ''}`;
+        const contextChanged = hydrateContextRef.current !== contextKey;
+        if (contextChanged) hydrateContextRef.current = contextKey;
+
+        const incomingTimelineSig = buildTimelineEventRowSignature(
+            (executionData.timelineEvents || []).filter((e) => !e.trashedAt),
+        );
+        incomingTimelineSigRef.current = incomingTimelineSig;
+
         const patch = buildExecutionFileLocalHydratePatch(
             executionData,
             activeSubFileId,
             parentDossierId,
         );
-        setTimelineEvents(patch.timelineEvents);
+
+        setTimelineEvents((prev) =>
+            reconcileTimelineEventsState(prev, patch.timelineEvents, {
+                forceReplace: contextChanged,
+            }),
+        );
         setCaseNotesLog(patch.caseNotesLog);
         setCaseTasksPending(patch.caseTasksPending);
         setSeizedAssets(patch.seizedAssets);
         setSeizureDraftsByDecisionId(patch.seizureDraftsByDecisionId);
         setActiveCoerciveActions(patch.activeCoerciveActions);
         setRealEstateSeizureAssets(patch.realEstateSeizureAssets ?? []);
-    }, [executionDashboardFileId, activeSubFileId, parentDossierId, executionData?.directorate]);
+    }, [
+        executionDashboardFileId,
+        activeSubFileId,
+        parentDossierId,
+        executionData?.id,
+        executionData?.directorate,
+        executionData?.delegationTargetDirectorate,
+        executionStorageTick,
+        executionData?.timelineEvents,
+    ]);
 }
 
 export function useExecutionDashboardExecutionFileCoerciveRefresh({

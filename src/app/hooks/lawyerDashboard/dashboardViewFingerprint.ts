@@ -1,5 +1,5 @@
 import type { Orchestration } from '@/app/hooks/lawyerDashboard/dashboardViewFingerprint.types';
-import { loadPersistedWallpaper } from '@/app/services/settings';
+import { loadPersistedWallpaper } from '@/app/services/settings/apply';
 
 /** تغيّرات الحذف الناعم/الأرشفة لا تغيّر طول القائمة — يجب تضمينها في البصمة */
 function executionFilesLifecycleFingerprint(

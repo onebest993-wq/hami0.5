@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { lazy, Suspense, type ComponentProps, type ReactNode } from 'react';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z, renderCriminalModalPortal } from './criminalModalPortal';
 

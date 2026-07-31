@@ -30,18 +30,18 @@ export function GrievanceLifecyclePanel(props: GrievanceLifecyclePanelProps) {
         showGrievanceTimingSummary || showGrievanceOutcomeSummary || showGrievanceDetailsSummary;
 
     return (
-                                <div ref={grievanceRef} className="border rounded-xl overflow-hidden border-orange-500/30">
-                                    <GrievancePhaseHeader {...props} />
+        <div ref={grievanceRef}>
+            <GrievancePhaseHeader {...props} />
 
-                                    <AnimatePresence initial={false}>
-                                        {activeLifecycleStep === 'grievance' && (
-                                            <motion.div
-                                                initial={{ opacity: 0, y: -8, height: 0 }}
-                                                animate={{ opacity: 1, y: 0, height: 'auto' }}
-                                                exit={{ opacity: 0, y: -8, height: 0 }}
-                                                transition={{ duration: 0.25, ease: 'easeInOut' }}
-                                                className="px-4 py-5 bg-[#0B1021] border-t border-white/10"
-                                            >
+            <AnimatePresence initial={false}>
+                {activeLifecycleStep === 'grievance' && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -8, height: 0 }}
+                        animate={{ opacity: 1, y: 0, height: 'auto' }}
+                        exit={{ opacity: 0, y: -8, height: 0 }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="pt-2 space-y-3"
+                    >
                                                 <div className="space-y-6">
                                                     {!!grievanceError && <ValidationBanner text={grievanceError} />}
                                                     {!!grievanceDecisionError && <ValidationBanner text={grievanceDecisionError} />}

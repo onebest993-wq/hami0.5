@@ -14,11 +14,26 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
+vi.mock('@/app/services/auth/shellAuth', () => ({
+    isRealSignedIn: (userId: string | null | undefined) => Boolean(userId?.trim()),
+    isShellAuthBypassed: () => false,
+    resolveShellAuthUserId: (a?: string | null, b?: string | null) => a?.trim() || b?.trim() || null,
+}));
+
+vi.mock('@/app/infrastructure/notificationPeekLite', () => ({
+    peekNotificationUnreadCount: () => 2,
+    peekLocalNotifications: () => [],
+}));
+
 vi.mock('@/app/stores/notificationStore', () => {
     const fetchNotifications = vi.fn();
     const state = { notifications: [] as [], unreadCount: 2, fetchNotifications };
     const useNotificationStore = (selector: (s: typeof state) => unknown) => selector(state);
     useNotificationStore.getState = () => state;
+    useNotificationStore.subscribe = (fn: () => void) => {
+        fn();
+        return () => undefined;
+    };
     return { useNotificationStore };
 });
 
@@ -44,6 +59,7 @@ import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificati
 
 vi.mock('@/app/runtime/notificationBootHydrator', () => ({
     hydrateNotificationShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    bindNotificationBootHydrator: vi.fn(() => () => undefined),
 }));
 
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
@@ -60,6 +76,11 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 describe('useLawyerDashboardNotifications', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        try {
+            sessionStorage.removeItem('hami:lawyer-notifications-open');
+        } catch {
+            /* ignore */
+        }
     });
 
     it('لا يفتح اللوحة تلقائياً', () => {
@@ -104,7 +125,7 @@ describe('useLawyerDashboardNotifications', () => {
         expect(result.current.showNotifications).toBe(false);
     });
 
-    it('closeNotifications يغلق اللوحة ويزيد session key', async () => {
+    it('closeNotifications يغلق اللوحة', async () => {
         const { result } = renderHook(() => useLawyerDashboardNotifications('lawyer-1'));
 
         await act(async () => {
@@ -116,7 +137,6 @@ describe('useLawyerDashboardNotifications', () => {
         });
 
         expect(result.current.showNotifications).toBe(false);
-        expect(result.current.notificationPanelSessionKey).toBe(1);
     });
 
     it('يتجاهل النقر المتكرر أثناء الفتح أو عند كون اللوحة مفتوحة', async () => {

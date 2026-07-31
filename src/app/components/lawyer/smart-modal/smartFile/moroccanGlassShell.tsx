@@ -9,7 +9,7 @@ import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from './smartFileOverlayZ';
 export const GLASS_MODAL_OVERLAY = SMART_FILE_NESTED_MODAL_OVERLAY_CLASS;
 
 export const GLASS_MODAL_SHELL =
-    'relative overflow-visible animate-in zoom-in-95 duration-200';
+    'relative overflow-visible';
 
 export const GLASS_MODAL_HEADER =
     'relative px-1 pt-1 pb-4 flex justify-between items-center';
@@ -195,7 +195,7 @@ export function MoroccanGlassShell({
     const layer = (
         <div className={T.overlay} dir="rtl" onClick={onOverlayClick} data-testid={overlayTestId}>
             <div
-                className={`w-full ${maxWidth} ${T.shell} ${className}`}
+                className={`my-auto w-full ${maxWidth} max-h-[calc(100dvh-1.5rem)] ${T.shell} ${className}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {T.useMoroccanCorners ? (
@@ -203,10 +203,14 @@ export function MoroccanGlassShell({
                         <MoroccanArtCornerBrackets />
                         <div className="absolute inset-0 rounded-[28px] border border-[#E6C673]/12 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.10),transparent_34%),linear-gradient(180deg,rgba(18,24,38,0.96),rgba(10,15,28,0.97))] shadow-[0_24px_64px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(255,255,255,0.05)]" aria-hidden />
                         <MoroccanGlassBackdrop className="opacity-20 rounded-[28px]" />
-                        <div className="relative z-[1] px-5 py-4 rounded-[28px]">{children}</div>
+                        <div className="relative z-[1] flex max-h-[calc(100dvh-1.5rem)] flex-col overflow-y-auto overscroll-contain rounded-[28px] px-4 py-3 sm:px-5 sm:py-4">
+                            {children}
+                        </div>
                     </>
                 ) : (
-                    <div className={T.shellCard}>{children}</div>
+                    <div className={`${T.shellCard} max-h-[calc(100dvh-1.5rem)] overflow-y-auto overscroll-contain`}>
+                        {children}
+                    </div>
                 )}
             </div>
         </div>

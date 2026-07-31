@@ -149,7 +149,7 @@ describe('executionArchiveFilterUtils', () => {
         expect(getExecutionArchiveBasePool(files, 'trash')).toHaveLength(1);
     });
 
-    it('filterExecutionArchiveFiles applies lifecycle, jurisdiction, perspective, and search', () => {
+    it('filterExecutionArchiveFiles applies dossier status and search', () => {
         const files = [
             {
                 id: 'active-civil',
@@ -157,6 +157,25 @@ describe('executionArchiveFilterUtils', () => {
                 claimType: 'استحصال دين مالي',
                 creditors: [{ name: 'أحمد الدائن', isClient: true }],
                 debtors: [{ name: 'سامي المدين' }],
+                dossier_lifecycle_status: 'active',
+            },
+            {
+                id: 'paused-civil',
+                fileNumber: 'EX-101',
+                claimType: 'استحصال دين مالي',
+                dossier_lifecycle_status: 'paused',
+            },
+            {
+                id: 'suspended-civil',
+                fileNumber: 'EX-102',
+                claimType: 'استحصال دين مالي',
+                dossier_lifecycle_status: 'suspended',
+            },
+            {
+                id: 'finished-civil',
+                fileNumber: 'EX-103',
+                claimType: 'استحصال دين مالي',
+                dossier_lifecycle_status: 'finished',
             },
             {
                 id: 'trash-civil',
@@ -166,32 +185,55 @@ describe('executionArchiveFilterUtils', () => {
                 creditors: [{ name: 'دائن آخر' }],
                 debtors: [{ name: 'مدين آخر' }],
             },
-            {
-                id: 'active-sharia',
-                claimType: 'مشاهدة',
-                classification: 'أحوال شخصية',
-            },
         ] as LooseArchiveFile[];
 
         expect(
-            filterExecutionArchiveFiles(files, { mode: 'active', jurisdiction: 'civil' })
+            filterExecutionArchiveFiles(files, { mode: 'active', jurisdiction: 'all' }),
+        ).toHaveLength(4);
+        expect(
+            filterExecutionArchiveFiles(files, {
+                mode: 'active',
+                jurisdiction: 'all',
+                dossierStatus: 'paused',
+            }),
         ).toHaveLength(1);
         expect(
-            filterExecutionArchiveFiles(files, { mode: 'trash', jurisdiction: 'all' })
+            filterExecutionArchiveFiles(files, {
+                mode: 'active',
+                jurisdiction: 'all',
+                dossierStatus: 'suspended',
+            }),
+        ).toHaveLength(1);
+        expect(
+            filterExecutionArchiveFiles(files, {
+                mode: 'active',
+                jurisdiction: 'all',
+                dossierStatus: 'finished',
+            }),
+        ).toHaveLength(1);
+        expect(
+            filterExecutionArchiveFiles(files, {
+                mode: 'active',
+                jurisdiction: 'all',
+                dossierStatus: 'active',
+            }),
+        ).toHaveLength(1);
+        expect(
+            filterExecutionArchiveFiles(files, { mode: 'trash', jurisdiction: 'all' }),
         ).toHaveLength(1);
         expect(
             filterExecutionArchiveFiles(files, {
                 mode: 'active',
                 jurisdiction: 'all',
                 searchQuery: 'EX-100',
-            })
+            }),
         ).toHaveLength(1);
         expect(
             filterExecutionArchiveFiles(files, {
                 mode: 'active',
                 jurisdiction: 'all',
                 searchQuery: 'أحمد',
-            })
+            }),
         ).toHaveLength(1);
     });
 

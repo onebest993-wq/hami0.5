@@ -4,7 +4,7 @@ import { stripPendingLabelsFromExecutorSubject } from '@/app/utils/executorDecis
 import {
     inferExecutorDispatcherRoute,
     isGuarantorRequestDecisionRow,
-    patchExecutorDecisionRow,
+    patchExecutorDecisionRowReliable,
     type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
@@ -172,7 +172,7 @@ export function useDecisionDispatcher(params: {
                         : ALTERNATIVE_LEGAL_ACTION_LABELS[aid];
             }
 
-            patchExecutorDecisionRow(params.executionId, id, patchRow);
+            patchExecutorDecisionRowReliable(params.executionId, id, patchRow);
 
             const trimmedBody = String(input.row.body || '').trim();
             let timelineTitle = '';

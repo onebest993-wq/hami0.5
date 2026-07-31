@@ -11,7 +11,9 @@ import {
 } from '@/app/runtime/scheduleBootHydrator';
 import { warmCalendarEventsCache } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 
-type ScheduleTabProps = React.ComponentProps<typeof LawyerDashboardScheduleTab>;
+type ScheduleTabProps = React.ComponentProps<typeof LawyerDashboardScheduleTab> & {
+    keepAlive?: boolean;
+};
 type ScheduleTabComponent = React.ComponentType<ScheduleTabProps>;
 
 const LOAD_RETRY_MS = 700;
@@ -37,9 +39,9 @@ function ScheduleTabLoadError({ onRetry }: { onRetry: () => void }) {
     );
 }
 
-/** محمّل واحد للتقويم — التبويب + الرادار في chunk واحد */
-export function ScheduleTabHost(props: ScheduleTabProps): React.ReactElement {
-    const { visible, onBackToHome, userId, authUserId } = props;
+/** محمّل واحد للتقويم — keepAlive يسخّن مخفياً؛ الفتح = تبويب جاهز أو InstantShell طارئ */
+export function ScheduleTabHost(props: ScheduleTabProps): React.ReactElement | null {
+    const { visible, keepAlive = false, onBackToHome, userId, authUserId } = props;
     const [Component, setComponent] = useState<ScheduleTabComponent | null>(() =>
         getCachedLawyerDashboardScheduleTab(),
     );
@@ -51,21 +53,34 @@ export function ScheduleTabHost(props: ScheduleTabProps): React.ReactElement {
         setLoadGeneration((g) => g + 1);
     }, []);
 
+    /* kick أثناء الرسم إن فُتح/دُفئ بلا كاش */
+    if ((visible || keepAlive) && !Component && typeof window !== 'undefined') {
+        void loadScheduleHubModule().catch(() => undefined);
+    }
+
     useLayoutEffect(() => {
-        if (!visible) return;
+        if (!visible && !keepAlive) return;
         const uid = userId ?? authUserId;
         void hydrateScheduleShellForInstantOpenWithData(uid, true);
         void warmCalendarEventsCache(uid).catch(() => undefined);
-    }, [authUserId, userId, visible]);
+    }, [authUserId, keepAlive, userId, visible]);
 
     useLayoutEffect(() => {
+        if (!visible && !keepAlive) return;
+
+        const cached = getCachedLawyerDashboardScheduleTab();
+        if (cached) {
+            setComponent(() => cached);
+            setLoadFailed(false);
+        }
+
         let cancelled = false;
         let attempts = 0;
 
         const adoptModule = () => {
-            const cached = getCachedLawyerDashboardScheduleTab();
-            if (cached) {
-                setComponent(() => cached);
+            const hit = getCachedLawyerDashboardScheduleTab();
+            if (hit) {
+                setComponent(() => hit);
                 setLoadFailed(false);
                 return;
             }
@@ -96,22 +111,34 @@ export function ScheduleTabHost(props: ScheduleTabProps): React.ReactElement {
         const onHydrated = () => adoptModule();
         window.addEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, onHydrated);
 
-        void hydrateScheduleShellForInstantOpenWithData(userId ?? authUserId).catch(() => undefined);
-
         return () => {
             cancelled = true;
             window.removeEventListener(SCHEDULE_SHELL_HYDRATED_EVENT, onHydrated);
         };
-    }, [authUserId, loadGeneration, userId]);
+    }, [keepAlive, loadGeneration, visible]);
 
+    if (!visible && !keepAlive) {
+        return null;
+    }
+
+    if (Component) {
+        /* keepAlive: أبقِ التبويب في DOM مخفياً — الفتح = إظهار بلا InstantShell/remount */
+        return <Component {...props} />;
+    }
+
+    /* تسخين صامت — بلا InstantShell فوق اللوحة */
     if (!visible) {
         return null;
     }
 
-    if (!Component) {
-        if (loadFailed) return <ScheduleTabLoadError onRetry={retryLoad} />;
-        return <ScheduleInstantShell onBack={onBackToHome} />;
+    if (loadFailed) {
+        return <ScheduleTabLoadError onRetry={retryLoad} />;
     }
 
-    return <Component {...props} />;
+    return (
+        <ScheduleInstantShell
+            onBack={onBackToHome}
+            userId={userId ?? authUserId}
+        />
+    );
 }

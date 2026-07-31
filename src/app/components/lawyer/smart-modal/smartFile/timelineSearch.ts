@@ -1,5 +1,5 @@
 import type { TimelineEvent } from '../../LawyerShared';
-import { filterTimelineFeed, type TimelineFeedCategory } from './timelineFeedTaxonomy';
+import { filterTimelineFeed } from './timelineFeedTaxonomy';
 
 /** @deprecated use filterTimelineFeed */
 export function filterTimelineEvents(events: TimelineEvent[], query: string): TimelineEvent[] {

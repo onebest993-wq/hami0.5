@@ -1,14 +1,11 @@
-import React, { memo } from 'react';
-import { LayoutGrid, Lock, Palette } from 'lucide-react';
+import React, { memo, useRef } from 'react';
+import { Palette, Layers } from 'lucide-react';
 import type { ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
 
 const TAB_META: { id: ProfileSettingsTab; label: string; icon: React.ElementType }[] = [
-    { id: 'privacy', label: 'الخصوصية', icon: Lock },
     { id: 'appearance', label: 'المظهر', icon: Palette },
-    { id: 'containers', label: 'الحاويات', icon: LayoutGrid },
+    { id: 'containers', label: 'المحتويات', icon: Layers },
 ];
-
-export const PROFILE_SETTINGS_TAB_IDS: ProfileSettingsTab[] = ['privacy', 'appearance', 'containers'];
 
 type ProfileSettingsSheetTabBarProps = {
     activeTab: ProfileSettingsTab;
@@ -16,13 +13,19 @@ type ProfileSettingsSheetTabBarProps = {
     onTabKeyDown: (event: React.KeyboardEvent) => void;
 };
 
+/**
+ * لا تستخدم preventDefault على pointerdown —
+ * على Android/المحاكي يمرّر الـ click التالي إلى خلفية الورقة ويغلق الاستوديو.
+ */
 export const ProfileSettingsSheetTabBar = memo(function ProfileSettingsSheetTabBar({
     activeTab,
     onTabChange,
     onTabKeyDown,
 }: ProfileSettingsSheetTabBarProps) {
+    const armedByTouchRef = useRef<ProfileSettingsTab | null>(null);
+
     return (
-        <div className="px-4 pb-3">
+        <div className="shrink-0 px-6 pb-3">
             <div
                 className="profile-settings-luxury-card p-1 flex gap-1"
                 role="tablist"
@@ -39,14 +42,31 @@ export const ProfileSettingsSheetTabBar = memo(function ProfileSettingsSheetTabB
                             type="button"
                             role="tab"
                             aria-selected={active}
+                            aria-controls={`profile-settings-panel-${t.id}`}
                             tabIndex={active ? 0 : -1}
                             data-testid={`profile-settings-tab-${t.id}`}
-                            onClick={() => onTabChange(t.id)}
                             data-active={active}
-                            className="profile-settings-tab flex items-center justify-center gap-1.5 min-h-[44px]"
+                            className="profile-settings-tab flex items-center justify-center gap-1 min-h-[44px] touch-manipulation"
+                            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                            onPointerDown={(event) => {
+                                if (event.button !== 0) return;
+                                event.stopPropagation();
+                                if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+                                    armedByTouchRef.current = t.id;
+                                    onTabChange(t.id);
+                                }
+                            }}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                if (armedByTouchRef.current === t.id) {
+                                    armedByTouchRef.current = null;
+                                    return;
+                                }
+                                onTabChange(t.id);
+                            }}
                         >
-                            <Icon size={13} strokeWidth={2.2} />
-                            {t.label}
+                            <Icon size={13} strokeWidth={2.2} className="shrink-0" />
+                            <span className="truncate">{t.label}</span>
                         </button>
                     );
                 })}

@@ -23,6 +23,7 @@ import { readDecisionsUnionAcrossCandidates } from '@/app/components/lawyer/Deci
 import {
     purgeManualExecutorAppealArtifacts,
     reconcileTerminatedDecisionArchives,
+    reconcileAppealFinalDecisionArchives,
     reconcileAppealDeadlineEnforcement,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
 import { resolveAppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
@@ -57,6 +58,8 @@ function normalizeDecisionsFromRaw(raw: Decision[], syncData: Record<string, unk
     normalized = purgedManual.rows;
     const reconciledArchive = reconcileTerminatedDecisionArchives(normalized);
     normalized = reconciledArchive.rows;
+    const reconciledAppealFinal = reconcileAppealFinalDecisionArchives(normalized);
+    normalized = reconciledAppealFinal.rows;
     const reconciledDeadlines = reconcileAppealDeadlineEnforcement(normalized);
     normalized = reconciledDeadlines.rows;
     if (syncData) {
@@ -360,6 +363,8 @@ export function useDecisionsAppealsEngineStorage({
         let normalized = purgedManual.rows;
         const reconciledArchive = reconcileTerminatedDecisionArchives(normalized);
         normalized = reconciledArchive.rows;
+        const reconciledAppealFinal = reconcileAppealFinalDecisionArchives(normalized);
+        normalized = reconciledAppealFinal.rows;
         const reconciledDeadlines = reconcileAppealDeadlineEnforcement(normalized);
         normalized = reconciledDeadlines.rows;
 
@@ -367,6 +372,7 @@ export function useDecisionsAppealsEngineStorage({
             purgedManual.rows.length !== normalizedFromRaw.length ||
             purgedManual.mutated ||
             reconciledArchive.mutated ||
+            reconciledAppealFinal.mutated ||
             reconciledDeadlines.mutated;
 
         if (!needsPersist) return;

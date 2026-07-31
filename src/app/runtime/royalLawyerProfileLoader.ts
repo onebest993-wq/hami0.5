@@ -2,7 +2,6 @@ type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawy
 
 import {
     markRoyalLawyerProfileModuleResolved,
-    resetRoyalLawyerProfileModuleStateForTests,
 } from '@/app/runtime/royalLawyerProfileModuleState';
 import { warmProfileDataCache } from '@/app/services/profile/profileWarmCache';
 

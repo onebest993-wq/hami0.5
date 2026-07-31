@@ -18,6 +18,10 @@ describe('normalizeTelHref', () => {
     it('normalizes Iraqi local numbers to international tel', () => {
         expect(normalizeTelHref('07567567')).toBe('tel:+9647567567');
     });
+
+    it('يضيف 964 لموبايل عراقي بلا صفر بادئ', () => {
+        expect(normalizeTelHref('7501234567')).toBe('tel:+9647501234567');
+    });
 });
 
 describe('buildProfileContactTarget', () => {
@@ -25,11 +29,23 @@ describe('buildProfileContactTarget', () => {
         expect(buildProfileContactTarget(action('call', '07567567'))).toBe('tel:+9647567567');
     });
 
+    it('يبني واتساب لموبايل بلا صفر بادئ', () => {
+        expect(buildProfileContactTarget(action('whatsapp', '7501234567'))).toBe(
+            'https://wa.me/9647501234567',
+        );
+    });
+
     it('builds mailto only for valid email', () => {
         expect(buildProfileContactTarget(action('email', '756756756'))).toBeNull();
         expect(buildProfileContactTarget(action('email', 'dodo23259@yahoo.com'))).toBe(
             'mailto:dodo23259@yahoo.com',
         );
+    });
+
+    it('يرفض حقن استعلام في mailto', () => {
+        expect(buildProfileContactTarget(action('email', 'user@x.com?bcc=evil'))).toBeNull();
+        expect(buildProfileContactTarget(action('email', 'user@x.com?subject=hi'))).toBeNull();
+        expect(buildProfileContactTarget(action('email', 'user@x.com#frag'))).toBeNull();
     });
 
     it('rejects invalid website hostnames', () => {

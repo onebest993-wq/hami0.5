@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** ترحيل حالة Zustand persist للنظام الجزائي — مُستخرج من criminalStore */
 import type {
     CrimeType,

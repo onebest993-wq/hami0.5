@@ -1,9 +1,24 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, Plus } from 'lucide-react';
 import { DatePickerField } from '../../components/DatePickerField';
 import { formatDateText } from '../../utils/formatters';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
+import {
+    URGENT_DOSSIER_BTN_GHOST,
+    URGENT_DOSSIER_BTN_PRIMARY,
+    URGENT_DOSSIER_INPUT,
+    URGENT_DOSSIER_PILL_BASE,
+    URGENT_DOSSIER_PILL_IDLE,
+} from '../../layout/urgentDossierUi';
+
+const HEARING_OUTCOME_OPTIONS: Array<{
+    value: 'adjourn' | 'close';
+    label: string;
+    active: string;
+}> = [
+    { value: 'adjourn', label: 'تأجيل إلى موعد آخر', active: 'border-amber-500/45 bg-amber-500/15 text-amber-100' },
+    { value: 'close', label: 'ختام المرافعة', active: 'border-emerald-500/45 bg-emerald-500/15 text-emerald-100' },
+];
 
 export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProps) {
     const {
@@ -33,13 +48,10 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                             animate={{ opacity: 1, y: 0, height: 'auto' }}
                                                                             exit={{ opacity: 0, y: -8, height: 0 }}
                                                                             transition={{ duration: 0.22, ease: 'easeInOut' }}
-                                                                            className="overflow-hidden border border-white/10 bg-white/5 rounded-xl p-4"
+                                                                            className="overflow-hidden rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-3"
                                                                         >
                                                                             <div className="flex items-center justify-between gap-3">
-                                                                                <div className="text-white font-extrabold text-sm flex items-center gap-2">
-                                                                                    <Calendar size={16} className="text-orange-200" />
-                                                                                    سجل جلسات التظلم
-                                                                                </div>
+                                                                                <div className="text-xs font-bold text-white/80">سجل جلسات التظلم</div>
                                                                                 {!isFinalized && !grievanceProceedingsClosed && (
                                                                                     <button
                                                                                         type="button"
@@ -55,9 +67,8 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                             })
                                                                                         }
                                                                                         disabled={grievanceWizardInputsLocked}
-                                                                                        className="px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                        className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[36px] py-1.5 px-3 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                                     >
-                                                                                        <Plus size={14} />
                                                                                         إضافة جلسة
                                                                                     </button>
                                                                                 )}
@@ -108,61 +119,46 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                             </div>
 
                                                                             {hearingDraft.open && hearingDraft.stage === 'grievance' && (
-                                                                                <div className="mt-3 border border-white/10 bg-black/20 rounded-xl p-4 space-y-3">
+                                                                                <div className="mt-3 rounded-lg border border-white/[0.08] bg-[#0A0F1C]/40 px-3 py-3 space-y-3">
                                                                                     <div className="space-y-3">
-                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                                            <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
-                                                                                                <input
-                                                                                                    type="radio"
-                                                                                                    name="grievanceHearingOutcome"
-                                                                                                    value="adjourn"
-                                                                                                    checked={hearingDraft.outcome === 'adjourn'}
-                                                                                                    onChange={() =>
-                                                                                                        setHearingDraft((s) => ({
-                                                                                                            ...s,
-                                                                                                            outcome: 'adjourn',
-                                                                                                            notes: '',
-                                                                                                        }))
-                                                                                                    }
-                                                                                                    disabled={isFinalized || grievanceWizardInputsLocked}
-                                                                                                    className="accent-orange-500"
-                                                                                                />
-                                                                                                <div className="flex-1">
-                                                                                                    <p className="text-white font-bold">تأجيل إلى موعد آخر</p>
-                                                                                                </div>
-                                                                                            </label>
-                                                                                            <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
-                                                                                                <input
-                                                                                                    type="radio"
-                                                                                                    name="grievanceHearingOutcome"
-                                                                                                    value="close"
-                                                                                                    checked={hearingDraft.outcome === 'close'}
-                                                                                                    onChange={() =>
-                                                                                                        setHearingDraft((s) => ({
-                                                                                                            ...s,
-                                                                                                            outcome: 'close',
-                                                                                                            nextSessionDate: '',
-                                                                                                            notes: '',
-                                                                                                        }))
-                                                                                                    }
-                                                                                                    disabled={isFinalized || grievanceWizardInputsLocked}
-                                                                                                    className="accent-emerald-500"
-                                                                                                />
-                                                                                                <div className="flex-1">
-                                                                                                    <p className="text-white font-bold">ختام المرافعة</p>
-                                                                                                </div>
-                                                                                            </label>
+                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                                            {HEARING_OUTCOME_OPTIONS.map((opt) => {
+                                                                                                const selected = hearingDraft.outcome === opt.value;
+                                                                                                return (
+                                                                                                    <button
+                                                                                                        key={opt.value}
+                                                                                                        type="button"
+                                                                                                        disabled={isFinalized || grievanceWizardInputsLocked}
+                                                                                                        onClick={() =>
+                                                                                                            setHearingDraft((s) => ({
+                                                                                                                ...s,
+                                                                                                                outcome: opt.value,
+                                                                                                                notes: opt.value === 'close' ? '' : s.notes,
+                                                                                                                nextSessionDate:
+                                                                                                                    opt.value === 'close' ? '' : s.nextSessionDate,
+                                                                                                            }))
+                                                                                                        }
+                                                                                                        className={`${URGENT_DOSSIER_PILL_BASE} ${
+                                                                                                            selected ? opt.active : URGENT_DOSSIER_PILL_IDLE
+                                                                                                        }`}
+                                                                                                    >
+                                                                                                        {opt.label}
+                                                                                                    </button>
+                                                                                                );
+                                                                                            })}
                                                                                         </div>
 
                                                                                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                                                                             <div>
-                                                                                                <label className="block text-white/70 text-sm mb-2">تاريخ الجلسة</label>
+                                                                                                <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wide mb-1">
+                                                                                                    تاريخ الجلسة
+                                                                                                </label>
                                                                                                 <DatePickerField
                                                                                                     value={hearingDraft.sessionDate || ''}
                                                                                                     onValueChange={(v) => setHearingDraft((s) => ({ ...s, sessionDate: v }))}
                                                                                                     min={phase2NewSessionMinYmd || undefined}
                                                                                                     disabled={isFinalized || grievanceWizardInputsLocked}
-                                                                                                    inputClassName="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:border-orange-500/40 focus:outline-none"
+                                                                                                    inputClassName={URGENT_DOSSIER_INPUT}
                                                                                                 />
                                                                                                 {!!hearingDraftSessionDateError && (
                                                                                                     <div className="mt-1 text-red-200 text-xs font-bold">{hearingDraftSessionDateError}</div>
@@ -170,13 +166,15 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                             </div>
                                                                                             {hearingDraft.outcome === 'adjourn' ? (
                                                                                                 <div className="md:col-span-2">
-                                                                                                    <label className="block text-white/70 text-sm mb-2">سبب التأجيل</label>
+                                                                                                    <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wide mb-1">
+                                                                                                        سبب التأجيل
+                                                                                                    </label>
                                                                                                     <input
                                                                                                         type="text"
                                                                                                         value={hearingDraft.notes}
                                                                                                         onChange={(e) => setHearingDraft((s) => ({ ...s, notes: e.target.value }))}
                                                                                                         disabled={isFinalized || grievanceWizardInputsLocked}
-                                                                                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:border-orange-500/40 focus:outline-none"
+                                                                                                        className={URGENT_DOSSIER_INPUT}
                                                                                                     />
                                                                                                     {!!hearingDraftAdjournReasonError && (
                                                                                                         <div className="mt-1 text-red-200 text-xs font-bold">{hearingDraftAdjournReasonError}</div>
@@ -188,7 +186,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
 
                                                                                     {hearingDraft.outcome === 'adjourn' ? (
                                                                                         <div>
-                                                                                            <label className="block text-white/70 text-sm mb-2">
+                                                                                            <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wide mb-1">
                                                                                                 موعد الجلسة القادمة <span className="text-red-400">*</span>
                                                                                             </label>
                                                                                             <DatePickerField
@@ -196,7 +194,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                                 min={hearingDraft.sessionDate || undefined}
                                                                                                 onValueChange={(v) => setHearingDraft((s) => ({ ...s, nextSessionDate: v }))}
                                                                                                 disabled={isFinalized || grievanceWizardInputsLocked}
-                                                                                                inputClassName="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:border-orange-500/40 focus:outline-none"
+                                                                                                inputClassName={URGENT_DOSSIER_INPUT}
                                                                                             />
                                                                                             {!!hearingDraftNextSessionDateError && (
                                                                                                 <div className="mt-1 text-red-200 text-xs font-bold">{hearingDraftNextSessionDateError}</div>
@@ -218,7 +216,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                                     decisionDate: '',
                                                                                                 })
                                                                                             }
-                                                                                            className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all"
+                                                                                            className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[40px] py-2 text-xs`}
                                                                                         >
                                                                                             إغلاق
                                                                                         </button>
@@ -232,7 +230,7 @@ export function GrievanceFiledHearingsSection(props: GrievanceLifecyclePanelProp
                                                                                                 !!hearingDraftNextSessionDateError ||
                                                                                                 !!hearingDraftAdjournReasonError
                                                                                             }
-                                                                                            className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-extrabold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                                         >
                                                                                             حفظ الجلسة
                                                                                         </button>

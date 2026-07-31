@@ -204,7 +204,7 @@ ${followupInner}
     };`;
 
 // find insertion point: before "    return (" of main component - search for ExecutionToast block
-const returnIdx = lines.findIndex((l) => l.trim() === 'return (' && lines[l.indexOf('return') - 1]?.includes('ColleagueConsultationProvider') === false);
+const _returnIdx = lines.findIndex((l) => l.trim() === 'return (' && lines[l.indexOf('return') - 1]?.includes('ColleagueConsultationProvider') === false);
 // better: line before "    return (" after persistExecutionMergeRef
 let insertIdx = lines.findIndex((l) => l.includes('    return (') && lines[lines.indexOf(l) - 1]?.includes('executionFileSnapshotRef'));
 if (insertIdx < 0) {

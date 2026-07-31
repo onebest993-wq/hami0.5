@@ -1,15 +1,23 @@
 /**
- * Prefetch overlays التنفيذ — عند hover/قرب الفتح فقط (لا direct import).
+ * Prefetch overlays التنفيذ — عند hover/قرب الفتح (ومسار حرج للمحضر حتى على lite).
  */
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import {
     prefetchDecisionsAndAppealsEngine,
+    prefetchExecutionDashboardShell,
     prefetchFinancialOperationsCenter,
     prefetchFollowupMemoPanels,
     prefetchLawReferencePanel,
 } from './executionDashboardLazyShell';
-import { prefetchExecutionFollowupDefaultTab } from './executionFollowupTabPrefetch';
+import {
+    prefetchExecutionDecisionsModalContainer,
+    prefetchExecutionFinancialHubPortal,
+    prefetchUnifiedSeizureLogHost,
+} from './executionDashboardLazyRegistry';
 import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
+import { prefetchExecutionDashboardShellOverlays } from './executionDashboardShellOverlaysLazy';
+import { prefetchExecutionFollowupModalPortal } from './executionFollowupModalLazy';
+import { prefetchExecutionFollowupDefaultTab, prefetchExecutionFollowupTab } from './executionFollowupTabPrefetch';
 
 const notesOverlayImport = () =>
     import('./components/ExecutionNotesAndAppointmentModals').then((m) => ({
@@ -34,6 +42,11 @@ const unifiedSummonsImport = () =>
 
 function skipExecutionOverlayPrefetch(): boolean {
     return isLitePerformanceActive();
+}
+
+export function prefetchExecutionShellIntent(): void {
+    if (skipExecutionOverlayPrefetch()) return;
+    prefetchExecutionDashboardShell();
 }
 
 export function prefetchExecutionNotesOverlay(): void {
@@ -61,21 +74,48 @@ export function prefetchExecutionUnifiedSummonsOverlay(): void {
     void unifiedSummonsImport().catch(() => {});
 }
 
+/**
+ * مسار محضر المتابعة الحرج — يعمل حتى على lite لتقليل Suspense عند أول فتح.
+ * ShellOverlays + Portal + تبويب الحجز الافتراضي + جسور الطلبات.
+ */
 export function prefetchExecutionFollowupOverlay(): void {
-    if (skipExecutionOverlayPrefetch()) return;
-    prefetchExecutionCoreHandlers('seizure');
+    if (!skipExecutionOverlayPrefetch()) {
+        prefetchExecutionShellIntent();
+        prefetchFollowupMemoPanels();
+    }
+    prefetchExecutionDashboardShellOverlays();
+    prefetchExecutionFollowupModalPortal();
     prefetchExecutionFollowupDefaultTab();
-    prefetchFollowupMemoPanels();
+    prefetchExecutionFollowupTab('other_party');
+    prefetchExecutionCoreHandlers('seizure-requests');
 }
 
-export function prefetchExecutionFinanceOverlay(): void {
+export function prefetchExecutionFinanceOverlay(_opts?: { force?: boolean }): void {
     if (skipExecutionOverlayPrefetch()) return;
+    prefetchExecutionShellIntent();
     prefetchFinancialOperationsCenter();
+    prefetchExecutionFinancialHubPortal();
+}
+
+export function prefetchExecutionSeizureLogOverlay(): void {
+    if (skipExecutionOverlayPrefetch()) return;
+    prefetchExecutionShellIntent();
+    prefetchExecutionCoreHandlers('seizure-log');
+    prefetchUnifiedSeizureLogHost();
 }
 
 /** hover شبكة الأدوات — prefetch حسب الزر */
 export function prefetchExecutionActionGridTile(tileKey: string): void {
+    if (tileKey === 'followup' || tileKey === 'coercive' || tileKey === 'seizure') {
+        prefetchExecutionFollowupOverlay();
+        if (tileKey === 'coercive') {
+            prefetchExecutionCoreHandlers('coercive');
+            prefetchExecutionCoreHandlers('coercive-lifecycle');
+        }
+        return;
+    }
     if (skipExecutionOverlayPrefetch()) return;
+    prefetchExecutionShellIntent();
     switch (tileKey) {
         case 'appt':
         case 'notes':
@@ -86,21 +126,14 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
             prefetchExecutionDocumentsOverlay();
             break;
         case 'decisions':
+            prefetchExecutionDecisionsModalContainer();
             prefetchDecisionsAndAppealsEngine();
-            break;
-        case 'followup':
-            prefetchExecutionFollowupOverlay();
-            break;
-        case 'coercive':
-            prefetchExecutionCoreHandlers('coercive');
-            prefetchExecutionFollowupOverlay();
-            break;
-        case 'seizure':
-            prefetchExecutionCoreHandlers('seizure');
-            prefetchExecutionFollowupOverlay();
             break;
         case 'finance':
             prefetchExecutionFinanceOverlay();
+            break;
+        case 'seizure-log':
+            prefetchExecutionSeizureLogOverlay();
             break;
         case 'law':
             prefetchLawReferencePanel();

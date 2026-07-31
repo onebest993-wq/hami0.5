@@ -120,7 +120,7 @@ export const ForumCategoryPanel = ({
             role="dialog"
             aria-label="تصنيفات المنتدى"
         >
-            <div className="flex items-center justify-between gap-2 border-b border-[#4A3D52]/40 px-4 py-3">
+            <div className="flex items-center justify-between gap-2 border-b border-[#2A3344]/40 px-4 py-3">
                 <div className="min-w-0">
                     <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>تصفية ذكية</p>
                     <p className={`${FORUM_TEXT_MUTED} text-[11px] truncate mt-0.5`}>
@@ -131,7 +131,7 @@ export const ForumCategoryPanel = ({
                     type="button"
                     onClick={onClose}
                     aria-label="إغلاق"
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#342C3A] text-[#9A9098] transition-colors hover:bg-[#38303E] hover:text-[#F0B896]"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#161E2C] text-[#9AA3B2] transition-colors hover:bg-[#1A2333] hover:text-[#C9A86C]"
                 >
                     <X size={16} />
                 </button>
@@ -174,7 +174,7 @@ export const ForumCategoryPanel = ({
                             <button
                                 type="button"
                                 onClick={() => handleSelect(0)}
-                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
+                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] transition-colors"
                             >
                                 إظهار الكل
                             </button>

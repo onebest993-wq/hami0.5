@@ -5,8 +5,6 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { STORAGE_KEYS, PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
-import SecureStoreService from '@/app/services/SecureStoreService';
-import { readLatestDossierBackup } from '@/app/services/dossierPersistence/dossierBackupStore';
 import { useAutoSave } from '@/app/hooks/useAutoSave';
 import { notesVault } from '@/app/data/NotesVault';
 import {
@@ -19,14 +17,28 @@ import {
 import { normalizeNotesList, dashboardNoteToCloudPayload } from '@/app/services/notesCloudAdapter';
 import { saveGlobalNotesRaw } from '@/app/utils/globalNotesStorage';
 import { invalidateRepositoryFeedCache } from '@/app/services/repository/repositoryFeedWarmCache';
-import { SupabaseService } from '@/app/services/SupabaseService';
-import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
-import { invalidateGlobalSearchExtrasCache } from '@/app/services/globalSearchLoad';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import { LAWYER_NOTES_EXTERNAL_UPDATE } from '@/app/services/forum/forumPostPersistActions';
-import { parseVoiceNoteRef } from '@/app/services/voice/voiceNoteCodec';
-import { deleteVoiceBlob } from '@/app/services/voice/voiceNoteStorage';
+import { LAWYER_NOTES_EXTERNAL_UPDATE } from '@/app/services/notes/lawyerNotesExternalUpdateEvent';
+import {
+    filterDeletedGlobalNotes,
+    markGlobalNoteDeleted,
+} from '@/app/services/notes/globalNotesTombstones';
+
+async function ensureSecureStoreReady(): Promise<void> {
+    const m = await import('@/app/services/SecureStoreService');
+    await m.default.ensurePersistedReady();
+}
+
+async function readNotesDossierBackup(uid: string): Promise<unknown> {
+    const m = await import('@/app/services/dossierPersistence/dossierBackupStore');
+    return m.readLatestDossierBackup('notes');
+}
+
+async function loadPersistenceRepository() {
+    const m = await import('@/app/infrastructure/persistence/LocalStorageRepository');
+    return m.persistenceRepository;
+}
 
 export type UseLawyerGlobalNotesParams = {
     localAutoSave: boolean;
@@ -53,10 +65,18 @@ export function useLawyerGlobalNotes({
 }: UseLawyerGlobalNotesParams) {
     const [globalNotes, setGlobalNotes] = useState<GlobalNote[]>(() => {
         const loaded = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES);
-        return Array.isArray(loaded) ? normalizeNotesList(loaded) : [];
+        const normalized = Array.isArray(loaded) ? normalizeNotesList(loaded) : [];
+        return filterDeletedGlobalNotes(normalized);
     });
     const bootstrapNotesRef = useRef(globalNotes);
-    const [notesHydrated, setNotesHydrated] = useState(true);
+    const [notesHydrated, setNotesHydrated] = useState(!backgroundRuntimeEnabled);
+    const [notesBootSettled, setNotesBootSettled] = useState(!backgroundRuntimeEnabled);
+
+    const resolveNotesUserId = useCallback(
+        () => user?.id ?? authUserId ?? null,
+        [user?.id, authUserId],
+    );
+
     useAutoSave(
         STORAGE_KEYS.LAWYER_NOTES,
         globalNotes,
@@ -66,34 +86,41 @@ export function useLawyerGlobalNotes({
     );
 
     useEffect(() => {
-        if (!backgroundRuntimeEnabled) return;
+        if (!backgroundRuntimeEnabled) {
+            setNotesHydrated(true);
+            setNotesBootSettled(true);
+            return;
+        }
+        setNotesBootSettled(false);
         let cancelled = false;
+        const uid = resolveNotesUserId();
         void (async () => {
-            await SecureStoreService.ensurePersistedReady();
+            await ensureSecureStoreReady();
+            const persistenceRepository = await loadPersistenceRepository();
             let loaded = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES);
             if (!loaded?.length) {
-                const backup = await readLatestDossierBackup('notes');
-                if (backup?.payload.length) {
-                    loaded = normalizeNotesList(backup.payload);
-                    persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, loaded);
+                const backup = (await readNotesDossierBackup(uid ?? '')) as {
+                    payload?: unknown[];
+                } | null;
+                if (backup?.payload?.length) {
+                    loaded = filterDeletedGlobalNotes(normalizeNotesList(backup.payload), uid);
+                    if (loaded.length) {
+                        persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, loaded);
+                    }
                 }
             }
             if (cancelled) return;
             const normalizedLoaded = Array.isArray(loaded) ? normalizeNotesList(loaded) : [];
+            const filteredLoaded = filterDeletedGlobalNotes(normalizedLoaded, uid);
             setGlobalNotes((prev) =>
-                prev === bootstrapNotesRef.current || prev.length === 0 ? normalizedLoaded : prev,
+                prev === bootstrapNotesRef.current || prev.length === 0 ? filteredLoaded : prev,
             );
             setNotesHydrated(true);
         })();
         return () => {
             cancelled = true;
         };
-    }, [backgroundRuntimeEnabled]);
-
-    const resolveNotesUserId = useCallback(
-        () => user?.id ?? authUserId ?? null,
-        [user?.id, authUserId],
-    );
+    }, [backgroundRuntimeEnabled, resolveNotesUserId]);
 
     const mergeNotesStores = useCallback(
         (rawNotes?: unknown) => {
@@ -101,10 +128,14 @@ export function useLawyerGlobalNotes({
             if (!uid) return;
             notesVault.setUserScope(uid);
             setGlobalNotes((prev) => {
-                const base = rawNotes !== undefined ? normalizeNotesList(rawNotes) : prev;
+                const base = filterDeletedGlobalNotes(
+                    rawNotes !== undefined ? normalizeNotesList(rawNotes) : prev,
+                    uid,
+                );
                 const { mergedGlobal, mergedVault } = bidirectionalMerge(uid, base, notesVault.getNotes());
+                const filteredGlobal = filterDeletedGlobalNotes(mergedGlobal, uid);
                 notesVault.replaceAll(mergedVault);
-                return mergedGlobal;
+                return filteredGlobal;
             });
         },
         [resolveNotesUserId],
@@ -116,23 +147,32 @@ export function useLawyerGlobalNotes({
 
     useEffect(() => {
         const uid = resolveNotesUserId();
-        if (!backgroundRuntimeEnabled || !uid || !notesHydrated) return;
+        if (!backgroundRuntimeEnabled || !uid || !notesHydrated) {
+            if (!uid || !backgroundRuntimeEnabled) setNotesBootSettled(true);
+            return;
+        }
         mergeNotesStores();
+        setNotesBootSettled(true);
     }, [backgroundRuntimeEnabled, resolveNotesUserId, mergeNotesStores, notesHydrated]);
 
     useEffect(() => {
         const onExternalNotes = () => {
-            const next = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [];
-            setGlobalNotes(next);
+            const uid = resolveNotesUserId();
+            void loadPersistenceRepository().then((persistenceRepository) => {
+                const next = persistenceRepository.load<GlobalNote[]>(STORAGE_KEYS.LAWYER_NOTES) || [];
+                setGlobalNotes(filterDeletedGlobalNotes(normalizeNotesList(next), uid));
+            });
         };
         window.addEventListener(LAWYER_NOTES_EXTERNAL_UPDATE, onExternalNotes);
         return () => window.removeEventListener(LAWYER_NOTES_EXTERNAL_UPDATE, onExternalNotes);
-    }, []);
+    }, [resolveNotesUserId]);
 
     useEffect(() => {
         const onVaultChanged = () => {
             mergeNotesStores();
-            invalidateGlobalSearchExtrasCache(resolveNotesUserId());
+            void import('@/app/services/globalSearchLoad')
+                .then((m) => m.invalidateGlobalSearchExtrasCache(resolveNotesUserId()))
+                .catch(() => undefined);
             bumpSearchIndex();
         };
         window.addEventListener(NOTES_VAULT_CHANGED, onVaultChanged);
@@ -155,7 +195,9 @@ export function useLawyerGlobalNotes({
                     ? prev.map((n) => (String(n.id) === String(note.id) ? enriched : n))
                     : [...prev, enriched];
                 if (localAutoSave && notesHydrated) {
-                    persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, nextNotes);
+                    void loadPersistenceRepository().then((persistenceRepository) => {
+                        persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, nextNotes);
+                    });
                 }
                 saveGlobalNotesRaw(nextNotes);
                 return nextNotes;
@@ -177,6 +219,7 @@ export function useLawyerGlobalNotes({
 
             if (user) {
                 try {
+                    const { SupabaseService } = await import('@/app/services/SupabaseService');
                     await SupabaseService.saveGlobalNote(
                         dashboardNoteToCloudPayload(note),
                         exists ? { id: String(note.id) } : undefined,
@@ -192,7 +235,7 @@ export function useLawyerGlobalNotes({
                 SmartToast.success('تم ربط الموعد بالتقويم');
             }
 
-            if (note.linkedFileId) {
+            if (note.linkedFileId && !note.repositoryInboxHidden) {
                 setFiles((prevFiles) =>
                     prevFiles.map((f) => {
                         if (f.id !== note.linkedFileId) return f;
@@ -218,25 +261,40 @@ export function useLawyerGlobalNotes({
             const idStr = String(id);
             const uid = resolveNotesUserId();
             const note = globalNotes.find((n) => String(n.id) === idStr);
+            const [{ parseVoiceNoteRef }, { deleteVoiceBlob }] = await Promise.all([
+                import('@/app/services/voice/voiceNoteCodec'),
+                import('@/app/services/voice/voiceNoteStorage'),
+            ]);
             const voiceRef = parseVoiceNoteRef(note?.body);
             if (voiceRef) await deleteVoiceBlob(voiceRef);
+
+            markGlobalNoteDeleted(uid, idStr);
 
             if (uid) {
                 const vaultId = vaultIdForGlobal(uid, idStr);
                 if (vaultId) notesVault.deleteNote(vaultId);
+                // محاولة إضافية: ملاحظات vault بصيغة g_${id}
+                notesVault.deleteNote(`g_${idStr}`);
                 unlinkGlobal(uid, idStr);
             }
             setGlobalNotes((prev) => {
                 const next = prev.filter((n) => String(n.id) !== idStr);
                 if (localAutoSave && notesHydrated) {
-                    persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, next);
+                    void loadPersistenceRepository().then((persistenceRepository) => {
+                        persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, next);
+                    });
                 }
+                saveGlobalNotesRaw(next);
                 return next;
             });
-            unpinWorkspaceItem(idStr, 'notepad');
+            invalidateRepositoryFeedCache();
+            void import('@/app/workspace/unpinWorkspaceEntity')
+                .then((m) => m.unpinWorkspaceItem(idStr, 'notepad'))
+                .catch(() => undefined);
 
             if (user) {
                 try {
+                    const { SupabaseService } = await import('@/app/services/SupabaseService');
                     await SupabaseService.deleteGlobalNote(idStr);
                 } catch (error) {
                     debug.error('[LawyerDashboard] ⚠️ Cloud note delete failed:', error);
@@ -264,6 +322,7 @@ export function useLawyerGlobalNotes({
         setGlobalNotes,
         mergeNotesStores,
         resolveNotesUserId,
+        notesBootSettled,
         handleSaveNote,
         handleDeleteNote,
         handleConvertNote,

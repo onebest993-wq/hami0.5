@@ -7,18 +7,39 @@ const PDF_STANDARD_FONT_URL = '/pdfjs-assets/standard_fonts/';
 
 export type VaultPdfSource = string | Blob;
 
+/**
+ * تصنيف فشل تحميل PDF — يسمح للواجهة بتمييز الملف التالف/المحمي
+ * (لا تنفع إعادة المحاولة) عن الفشل العابر (شبكة/worker — تنفع إعادة المحاولة).
+ */
+export type VaultPdfLoadErrorKind = 'password' | 'invalid' | 'timeout' | 'transient';
+
+export class VaultPdfLoadError extends Error {
+    readonly kind: VaultPdfLoadErrorKind;
+
+    constructor(kind: VaultPdfLoadErrorKind, message: string, cause?: unknown) {
+        super(message);
+        this.name = 'VaultPdfLoadError';
+        this.kind = kind;
+        if (cause !== undefined) (this as { cause?: unknown }).cause = cause;
+    }
+}
+
+export function classifyVaultPdfLoadError(err: unknown): VaultPdfLoadErrorKind {
+    if (err instanceof VaultPdfLoadError) return err.kind;
+    const name = String((err as { name?: unknown } | null)?.name ?? '');
+    if (name === 'PasswordException') return 'password';
+    if (name === 'InvalidPDFException') return 'invalid';
+    const message = String((err as { message?: unknown } | null)?.message ?? '');
+    if (/invalid pdf structure|pdf empty/i.test(message)) return 'invalid';
+    return 'transient';
+}
+
 let workerConfigured = false;
 
 function ensurePdfWorker(): void {
     if (workerConfigured) return;
     pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
     workerConfigured = true;
-}
-
-function rejectAfter<T>(ms: number, message: string): Promise<T> {
-    return new Promise((_, reject) => {
-        window.setTimeout(() => reject(new Error(message)), ms);
-    });
 }
 
 function isHttpUrl(value: string): boolean {
@@ -32,6 +53,8 @@ function pdfDocumentBaseOptions() {
         standardFontDataUrl: PDF_STANDARD_FONT_URL,
         isEvalSupported: false,
         useSystemFonts: true,
+        /** تحمّل أخطاء بنيوية جزئية — يعرض ما أمكن بدل رفض الملف كاملاً */
+        stopAtErrors: false,
     };
 }
 
@@ -39,19 +62,37 @@ async function readBytesFromBlob(blob: Blob): Promise<Uint8Array> {
     const normalized =
         blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
     const buffer = await normalized.arrayBuffer();
-    if (!buffer.byteLength) throw new Error('pdf empty');
+    if (!buffer.byteLength) throw new VaultPdfLoadError('invalid', 'pdf empty');
     return new Uint8Array(buffer);
 }
 
 async function readBytesFromUrl(url: string): Promise<Uint8Array> {
     const response = await fetch(url);
     const buffer = await response.arrayBuffer();
-    if (!buffer.byteLength) throw new Error('pdf empty');
+    if (!buffer.byteLength) throw new VaultPdfLoadError('invalid', 'pdf empty');
     return new Uint8Array(buffer);
 }
 
-/** تحميل PDF — Blob محلياً، أو رابط https مباشرة، أو data/blob URL */
-export async function loadVaultPdfDocument(source: VaultPdfSource): Promise<pdfjs.PDFDocumentProxy> {
+function withTimeout<T>(promise: Promise<T>, ms: number, onTimeout?: () => void): Promise<T> {
+    return new Promise<T>((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+            onTimeout?.();
+            reject(new VaultPdfLoadError('timeout', 'pdf load timeout'));
+        }, ms);
+        promise.then(
+            (value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            },
+            (err) => {
+                window.clearTimeout(timer);
+                reject(err);
+            },
+        );
+    });
+}
+
+async function loadOnce(source: VaultPdfSource): Promise<pdfjs.PDFDocumentProxy> {
     ensurePdfWorker();
     const base = pdfDocumentBaseOptions();
 
@@ -62,15 +103,27 @@ export async function loadVaultPdfDocument(source: VaultPdfSource): Promise<pdfj
     } else if (isHttpUrl(source)) {
         task = pdfjs.getDocument({ ...base, url: source, withCredentials: false });
     } else {
-        const data = await Promise.race([
-            readBytesFromUrl(source),
-            rejectAfter<Uint8Array>(PDF_LOAD_TIMEOUT_MS, 'pdf bytes timeout'),
-        ]);
+        const data = await withTimeout(readBytesFromUrl(source), PDF_LOAD_TIMEOUT_MS);
         task = pdfjs.getDocument({ ...base, data, useWorkerFetch: false });
     }
 
-    return Promise.race([
-        task.promise,
-        rejectAfter<pdfjs.PDFDocumentProxy>(PDF_LOAD_TIMEOUT_MS, 'pdf parse timeout'),
-    ]);
+    // عند انقضاء المهلة يجب تدمير المهمة — وإلا بقي worker معلّقاً (تسريب ذاكرة)
+    return withTimeout(task.promise, PDF_LOAD_TIMEOUT_MS, () => {
+        void task.destroy().catch(() => {});
+    });
+}
+
+/**
+ * تحميل PDF — Blob محلياً، أو رابط https مباشرة، أو data/blob URL.
+ * الفشل العابر (worker/شبكة) يُعاد تلقائياً مرة واحدة قبل الرفض؛
+ * الملف التالف أو المحمي بكلمة مرور يُرفض فوراً بتصنيف واضح.
+ */
+export async function loadVaultPdfDocument(source: VaultPdfSource): Promise<pdfjs.PDFDocumentProxy> {
+    try {
+        return await loadOnce(source);
+    } catch (err) {
+        if (classifyVaultPdfLoadError(err) !== 'transient') throw err;
+        await new Promise((resolve) => window.setTimeout(resolve, 300));
+        return loadOnce(source);
+    }
 }

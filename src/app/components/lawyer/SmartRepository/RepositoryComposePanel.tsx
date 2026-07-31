@@ -2,6 +2,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import { Loader2, Save } from 'lucide-react';
 import type { RefObject } from 'react';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { isVaultImageFile } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { REPO_BTN_GOLD, REPO_INPUT, REPO_TOUCH_CHIP } from './smartRepositoryTheme';
@@ -38,6 +39,7 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
     onSave,
     onCancel,
 }: RepositoryComposePanelProps) {
+    const keyboardInset = useMobileKeyboardInset();
     const attachmentPreviewUrl = useMemo(() => {
         if (!attachmentFile || !isVaultImageFile(attachmentFile)) return undefined;
         try {
@@ -53,6 +55,11 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
         <div
             className="rounded-2xl border border-[#E6C673]/22 bg-[#0A0F1C]/60 p-4 space-y-3 mb-4"
             data-testid="repository-notepad-editor"
+            style={
+                keyboardInset > 0
+                    ? { paddingBottom: `max(1rem, ${keyboardInset}px)` }
+                    : undefined
+            }
         >
             <p className="text-[11px] text-white/45">
                 {new Date().toLocaleString('ar-EG', {
@@ -65,7 +72,7 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                 type="text"
                 value={title}
                 onChange={(e) => onTitleChange(e.target.value)}
-                placeholder="عنوان البطاقة"
+                placeholder="عنوان المسودة"
                 className={REPO_INPUT}
             />
             <RepositoryRichEditor editorRef={editorRef} value={bodyHtml} onChange={onBodyChange} />
@@ -99,9 +106,17 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                 <button
                     type="button"
                     onClick={onTogglePinned}
+                    data-testid="repository-compose-pin"
                     className={`${REPO_TOUCH_CHIP} px-3 rounded-xl text-xs border ${isPinned ? 'border-[#E6C673]/40 text-[#E6C673]' : 'border-white/10 text-white/50'}`}
+                    aria-label={isPinned ? 'إلغاء التثبيت من الواجهة' : 'تثبيت في بطاقة التثبيت'}
+                    aria-pressed={isPinned}
+                    title={
+                        isPinned
+                            ? 'ستُثبت في بطاقة التثبيت بالواجهة بعد الحفظ'
+                            : 'تثبيت في بطاقة التثبيت بالواجهة بعد الحفظ'
+                    }
                 >
-                    تثبيت
+                    {isPinned ? 'مثبّتة في الواجهة' : 'تثبيت في الواجهة'}
                 </button>
             </div>
             <div className="flex gap-2">
@@ -113,7 +128,7 @@ export const RepositoryComposePanel = memo(function RepositoryComposePanel({
                     data-testid="repository-note-save"
                 >
                     {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                    حفظ البطاقة
+                    حفظ المسودة
                 </button>
                 <button type="button" onClick={onCancel} className="inline-flex items-center min-h-[44px] px-4 text-sm text-white/55 touch-manipulation">
                     إلغاء

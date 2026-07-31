@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { Creditor, ExecutionFile } from '@/app/types/execution';
 import {
     buildScopedPartyDeathPersistPatch,
@@ -19,6 +18,7 @@ function resolveExistingCreditorHeirsFromFile(file: ExecutionFile | null | undef
     names: string[];
     details: Array<{ name: string; phone: string; address: string; isClient?: boolean }>;
 } {
+    type HeirDetail = { name: string; phone: string; address: string; isClient?: boolean };
     const c0 = file?.creditors?.[0];
     const fromPartyNames = (c0?.heirs || []).filter((s) => /\S/.test(String(s)));
     const deathCase = getPartyDeathCaseForRole(file, 'creditor');
@@ -35,7 +35,7 @@ function resolveExistingCreditorHeirsFromFile(file: ExecutionFile | null | undef
               }))
               .filter((h) => /\S/.test(h.name))
         : [];
-    const fromCaseDetails = Array.isArray(deathCase?.heir_details)
+    const fromCaseDetails: HeirDetail[] = Array.isArray(deathCase?.heir_details)
         ? deathCase.heir_details
               .map((h) => ({
                   name: String(h?.name || '').trim(),
@@ -45,7 +45,7 @@ function resolveExistingCreditorHeirsFromFile(file: ExecutionFile | null | undef
               .filter((h) => /\S/.test(h.name))
         : [];
 
-    const map = new Map<string, { name: string; phone: string; address: string; isClient?: boolean }>();
+    const map = new Map<string, HeirDetail>();
     [...fromPartyDetails, ...fromCaseDetails].forEach((h) => {
         const key = `${h.name.toLowerCase()}|${h.phone}`;
         const prev = map.get(key);
@@ -98,6 +98,93 @@ export function buildExecutionMergeForCreditorHeirSubstitutionApproval(
         is_creditor_deceased: true,
         deceased_creditor_legal_name_snapshot:
             nameSnapshot || file?.deceased_creditor_legal_name_snapshot,
+    };
+}
+
+function resolveExistingDebtorHeirsFromFile(file: ExecutionFile | null | undefined): {
+    names: string[];
+    details: Array<{ name: string; phone: string; address: string; isClient?: boolean }>;
+} {
+    type HeirDetail = { name: string; phone: string; address: string; isClient?: boolean };
+    const d0 = file?.debtors?.[0];
+    const fromPartyNames = (d0?.heirs || []).filter((s) => /\S/.test(String(s)));
+    const deathCase = getPartyDeathCaseForRole(file, 'debtor');
+    const fromCaseNames = (deathCase?.heir_names || []).filter((s) => /\S/.test(String(s)));
+    const names = mergeHeirNameList(fromPartyNames, fromCaseNames);
+
+    const fromPartyDetails = Array.isArray(d0?.heirs_details)
+        ? d0.heirs_details
+              .map((h) => ({
+                  name: String(h?.name || '').trim(),
+                  phone: String(h?.phone || '').trim(),
+                  address: String(h?.address || '').trim(),
+                  ...(h?.isClient ? { isClient: true as const } : {}),
+              }))
+              .filter((h) => /\S/.test(h.name))
+        : [];
+    const fromCaseDetails: HeirDetail[] = Array.isArray(deathCase?.heir_details)
+        ? deathCase.heir_details
+              .map((h) => ({
+                  name: String(h?.name || '').trim(),
+                  phone: String(h?.phone || '').trim(),
+                  address: String(h?.address || '').trim(),
+              }))
+              .filter((h) => /\S/.test(h.name))
+        : [];
+
+    const map = new Map<string, HeirDetail>();
+    [...fromPartyDetails, ...fromCaseDetails].forEach((h) => {
+        const key = `${h.name.toLowerCase()}|${h.phone}`;
+        const prev = map.get(key);
+        if (!prev) {
+            map.set(key, h);
+            return;
+        }
+        map.set(key, {
+            name: h.name || prev.name,
+            phone: h.phone || prev.phone,
+            address: h.address || prev.address,
+            isClient: Boolean(prev.isClient || h.isClient),
+        });
+    });
+    return { names, details: [...map.values()] };
+}
+
+/** موافقة المنفذ على «إحلال ورثة المدين» — تثبيت الوفاة دون اشتراط إدخال الورثة فوراً. */
+export function buildExecutionMergeForDebtorHeirSubstitutionApproval(
+    file: ExecutionFile | null | undefined,
+    debtorNameSnapshot: string
+): Record<string, unknown> {
+    const creditorsList = [...(file?.creditors || [])];
+    const debtorsList = [...(file?.debtors || [])];
+    const { names, details } = resolveExistingDebtorHeirsFromFile(file);
+    const nameSnapshot = debtorNameSnapshot.trim() || String(debtorsList[0]?.name || '').trim();
+
+    if (debtorsList[0]) {
+        debtorsList[0] = {
+            ...debtorsList[0],
+            type: 'debtor',
+            isDeceased: true,
+            heirs: names,
+            heirs_details: details,
+        } as NonNullable<ExecutionFile['debtors']>[number];
+    }
+
+    const debtorCase = {
+        deceased_party: 'debtor' as const,
+        heir_names: names,
+        heir_details: details,
+        flow: 'heir_substitution' as const,
+        heir_certificate_file_name: null,
+    };
+
+    return {
+        ...buildScopedPartyDeathPersistPatch(file, 'debtor', debtorCase),
+        creditors: creditorsList,
+        debtors: debtorsList,
+        is_debtor_deceased: true,
+        deceased_debtor_legal_name_snapshot:
+            nameSnapshot || file?.deceased_debtor_legal_name_snapshot,
     };
 }
 
@@ -194,13 +281,12 @@ export function buildExecutionMergeForCreditorPartyDeath(
 
     const existingHeirs = resolveExistingCreditorHeirsFromFile(file);
 
-    const deceasedFlags = {
-        is_debtor_deceased: file?.is_debtor_deceased,
+    const deceasedFlags: Record<string, unknown> = {
         is_creditor_deceased: true,
-        deceased_debtor_legal_name_snapshot: file?.deceased_debtor_legal_name_snapshot,
         deceased_creditor_legal_name_snapshot:
             nameSnapshot || file?.deceased_creditor_legal_name_snapshot,
     };
+    // لا تُمرَّر أعلام المدين كـ undefined — وإلا تُمسَح عند الدمج.
 
     const now = new Date().toISOString();
     const closedReason = 'وفاة الدائن دون ورثة — إغلاق الإضبارة';

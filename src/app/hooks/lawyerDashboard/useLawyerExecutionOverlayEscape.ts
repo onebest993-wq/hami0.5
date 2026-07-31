@@ -1,4 +1,6 @@
 import { useEffect } from 'react';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { runExecutionDossierBackFromRegistryOrStore } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierBackHandlerRegistry';
 
 type UseLawyerExecutionOverlayEscapeParams = {
     archiveOpen: boolean;
@@ -9,7 +11,50 @@ type UseLawyerExecutionOverlayEscapeParams = {
     onCloseExecutionCreate?: () => void;
 };
 
-/** Escape يغلق أرشيف التنفيذ أو نموذج الإنشاء أو الإضبارة المفتوحة (الأعلى أولاً) */
+type ExecutionDashboardStoreMod = typeof import('@/app/stores/executionDashboardStore');
+
+let executionStoreMod: ExecutionDashboardStoreMod | null = null;
+let executionStoreLoad: Promise<ExecutionDashboardStoreMod> | null = null;
+
+/** تسخين كسول — لا يسحب المخزن إلى stem اللوحة */
+function warmExecutionDashboardStore(): void {
+    if (executionStoreMod || executionStoreLoad) return;
+    executionStoreLoad = import('@/app/stores/executionDashboardStore')
+        .then((m) => {
+            executionStoreMod = m;
+            return m;
+        })
+        .catch(() => null as unknown as ExecutionDashboardStoreMod);
+}
+
+function hasExecutionDashboardModalStateOpen(): boolean {
+    const getState = executionStoreMod?.useExecutionDashboardStore?.getState;
+    if (!getState) return false;
+    const modalState = getState().modals;
+    return Object.values(modalState).some(Boolean);
+}
+
+function hasNestedBlockingDialog(): boolean {
+    if (typeof document === 'undefined') {
+        return false;
+    }
+
+    const dialogNodes = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
+    return dialogNodes.length > 0;
+}
+
+export function resolveExecutionOverlayBackAction(input: {
+    archiveOpen: boolean;
+    executionFileOpen: boolean;
+    executionCreateOpen: boolean;
+}): 'close-file' | 'close-create' | 'close-archive' | null {
+    if (input.executionFileOpen) return 'close-file';
+    if (input.executionCreateOpen) return 'close-create';
+    if (input.archiveOpen) return 'close-archive';
+    return null;
+}
+
+/** Escape + زر الرجوع الأصلي يغلقان أرشيف التنفيذ أو نموذج الإنشاء أو الإضبارة (الأعلى أولاً) */
 export function useLawyerExecutionOverlayEscape({
     archiveOpen,
     executionFileOpen,
@@ -21,24 +66,48 @@ export function useLawyerExecutionOverlayEscape({
     useEffect(() => {
         if (!archiveOpen && !executionFileOpen && !executionCreateOpen) return;
 
+        if (executionFileOpen) warmExecutionDashboardStore();
+
+        const closeTopLayer = (): boolean => {
+            if (executionFileOpen) {
+                if (runExecutionDossierBackFromRegistryOrStore()) return true;
+                if (hasExecutionDashboardModalStateOpen() || hasNestedBlockingDialog()) {
+                    return false;
+                }
+            }
+            const action = resolveExecutionOverlayBackAction({
+                archiveOpen,
+                executionFileOpen,
+                executionCreateOpen,
+            });
+            if (action === 'close-file') {
+                onCloseExecutionFile();
+                return true;
+            }
+            if (action === 'close-create') {
+                onCloseExecutionCreate?.();
+                return true;
+            }
+            if (action === 'close-archive') {
+                onCloseArchive();
+                return true;
+            }
+            return false;
+        };
+
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
+            if (event.defaultPrevented) return;
+            if (!closeTopLayer()) return;
             event.preventDefault();
-            if (executionFileOpen) {
-                onCloseExecutionFile();
-                return;
-            }
-            if (executionCreateOpen) {
-                onCloseExecutionCreate?.();
-                return;
-            }
-            if (archiveOpen) {
-                onCloseArchive();
-            }
         };
 
         window.addEventListener('keydown', onKeyDown);
-        return () => window.removeEventListener('keydown', onKeyDown);
+        const unregisterNativeBack = registerNativeBackHandler(() => closeTopLayer());
+        return () => {
+            window.removeEventListener('keydown', onKeyDown);
+            unregisterNativeBack();
+        };
     }, [
         archiveOpen,
         executionFileOpen,

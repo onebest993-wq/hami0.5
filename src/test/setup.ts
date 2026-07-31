@@ -3,9 +3,11 @@
  * إعدادات الاختبارات
  */
 
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Cleanup after each test
 afterEach(() => {
@@ -39,10 +41,42 @@ const localStorageMock = (() => {
   };
 })();
 
-global.localStorage = localStorageMock as any;
+Object.defineProperty(globalThis, 'localStorage', {
+  value: localStorageMock,
+  configurable: true,
+});
 
 // Mock Supabase info (for testing)
 vi.mock('@/utils/supabase/info', () => ({
   projectId: 'test-project-id',
   publicAnonKey: 'test-anon-key'
 }));
+
+/** يخدم ملفات القوانين العامة من public/ أثناء vitest (jsdom لا يملك خادماً حقيقياً) */
+beforeAll(() => {
+  const publicRoot = path.join(process.cwd(), 'public');
+  const originalFetch = globalThis.fetch?.bind(globalThis);
+
+  globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const href =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
+    const url = new URL(href, 'http://localhost');
+    if (url.pathname.startsWith('/static-law-data/')) {
+      const filePath = path.join(publicRoot, url.pathname.replace(/^\//, ''));
+      if (fs.existsSync(filePath)) {
+        const body = fs.readFileSync(filePath, 'utf8');
+        return new Response(body, {
+          status: 200,
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+        });
+      }
+      return new Response('not found', { status: 404 });
+    }
+    if (originalFetch) return originalFetch(input, init);
+    throw new Error(`fetch not available for ${href}`);
+  };
+});

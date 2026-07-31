@@ -191,8 +191,8 @@ ${destructure}
 
 const fnStart = lines.findIndex((l) => l.includes('export function useExecutionDashboardCoreHandlerCluster'));
 const foundationLine = lines.findIndex((l) => l.includes('useExecutionDashboardCoreHandlerClusterFoundation(c)'));
-const beforeDestructure = lines.slice(fnStart, fnStart + 2).join('\n');
-const afterFoundation = lines.slice(foundationLine + 9, 429).join('\n'); // through pushTimelineEvent destructure end
+const _beforeDestructure = lines.slice(fnStart, fnStart + 2).join('\n');
+const _afterFoundation = lines.slice(foundationLine + 9, 429).join('\n'); // through pushTimelineEvent destructure end
 const tailFromSeizureCoercive = lines.slice(lines.findIndex((l) => l.includes('const seizureCoercive ='))).join('\n');
 
 const orchestration = `

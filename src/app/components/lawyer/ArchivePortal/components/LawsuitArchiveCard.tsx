@@ -5,6 +5,11 @@ import { lawsuitTrashDaysRemaining } from '@/app/utils/lawsuitTrash';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildLawsuitWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { resolveLawsuitJurisdiction } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import { resolveLawsuitArchiveHearingDisplay } from '../utils/lawsuitArchiveHearing';
+import {
+    ArchiveDossierIdentityBlock,
+    type ArchivePartySnippet,
+} from './ArchiveDossierIdentityBlock';
 import {
     UnifiedDossierCard,
     type DossierKind,
@@ -26,32 +31,61 @@ interface LawsuitArchiveCardProps {
     testIdPrefix?: string;
 }
 
-/**
- * يستخرج أوّل اسم لكلّ من المدعي والمدعى عليه من قائمة الأطراف.
- * يدعم الأدوار الإنكليزية والعربية و`side: left|right` معاً.
- */
-function extractPartyNames(parties: unknown): { plaintiff: string; defendant: string } {
+function normalizeRoleLabel(raw: string, fallback: string): string {
+    const role = raw.trim();
+    if (!role) return fallback;
+    const lower = role.toLowerCase();
+    if (lower === 'plaintiff' || lower === 'client' || lower === 'creditor') return 'المدعي';
+    if (lower === 'defendant' || lower === 'opponent' || lower === 'debtor') return 'المدعى عليه';
+    return role;
+}
+
+function isPlaintiffParty(p: Record<string, unknown>): boolean {
+    const role = String(p.role ?? p.status ?? '').trim().toLowerCase();
+    const side = String(p.side ?? '').trim().toLowerCase();
+    if (role === 'plaintiff' || role === 'client' || role === 'creditor') return true;
+    if (side === 'right') return true;
+    if (role.includes('مدعي') && !role.includes('مدعى')) return true;
+    if (role.includes('دائن')) return true;
+    return false;
+}
+
+function isDefendantParty(p: Record<string, unknown>): boolean {
+    const role = String(p.role ?? p.status ?? '').trim().toLowerCase();
+    const side = String(p.side ?? '').trim().toLowerCase();
+    if (role === 'defendant' || role === 'opponent' || role === 'debtor') return true;
+    if (side === 'left') return true;
+    if (role.includes('مدعى') || role.includes('مدين') || role.includes('خصم')) return true;
+    return false;
+}
+
+function partyName(p?: Record<string, unknown>): string {
+    if (!p) return '';
+    return String(p.name ?? p.fullName ?? '').trim();
+}
+
+function toSnippet(
+    p: Record<string, unknown> | undefined,
+    fallbackRole: string,
+): ArchivePartySnippet | null {
+    const name = partyName(p);
+    if (!name) return null;
+    return {
+        name,
+        role: normalizeRoleLabel(String(p?.role ?? p?.status ?? ''), fallbackRole),
+        isClient: p?.isClient === true,
+    };
+}
+
+/** أوّل مدعي وأوّل مدعى عليه مع المركز القانوني وعلامة الموكل */
+function extractPrimaryParties(parties: unknown): {
+    plaintiff: ArchivePartySnippet | null;
+    defendant: ArchivePartySnippet | null;
+} {
     const list = Array.isArray(parties) ? (parties as Array<Record<string, unknown>>) : [];
-    const isPlaintiff = (p: Record<string, unknown>): boolean => {
-        const role = String(p.role ?? '').trim().toLowerCase();
-        const side = String((p as { side?: string }).side ?? '').trim().toLowerCase();
-        if (role === 'plaintiff' || role === 'client' || role === 'creditor') return true;
-        if (side === 'right') return true;
-        if (role.includes('مدعي') || role === 'مدّعي' || role.includes('دائن')) return true;
-        return false;
-    };
-    const isDefendant = (p: Record<string, unknown>): boolean => {
-        const role = String(p.role ?? '').trim().toLowerCase();
-        const side = String((p as { side?: string }).side ?? '').trim().toLowerCase();
-        if (role === 'defendant' || role === 'opponent' || role === 'debtor') return true;
-        if (side === 'left') return true;
-        if (role.includes('مدعى') || role.includes('مدين') || role.includes('خصم')) return true;
-        return false;
-    };
-    const nameOf = (p?: Record<string, unknown>): string =>
-        String((p?.name as string | undefined) ?? (p?.fullName as string | undefined) ?? '').trim();
-    const plaintiff = nameOf(list.find(isPlaintiff)) || nameOf(list[0]);
-    const defendant = nameOf(list.find(isDefendant));
+    const plaintiff =
+        toSnippet(list.find(isPlaintiffParty), 'المدعي') || toSnippet(list[0], 'المدعي');
+    const defendant = toSnippet(list.find(isDefendantParty), 'المدعى عليه');
     return { plaintiff, defendant };
 }
 
@@ -80,12 +114,6 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
     const pinPayload = buildLawsuitWorkspacePin({ ...file, type: 'lawsuit' });
     const isTransaction = (file as { type?: string }).type === 'transaction';
 
-    /*
-     * نوع البطاقة:
-     *   - معاملة → 'transaction'
-     *   - دعوى مدنية → 'civil' (افتراضي)
-     *   - دعوى أحوال شخصية → 'personal' (يُستنتج من `resolveLawsuitJurisdiction`)
-     */
     const kind: DossierKind = isTransaction
         ? 'transaction'
         : resolveLawsuitJurisdiction(file as Parameters<typeof resolveLawsuitJurisdiction>[0]) ===
@@ -99,20 +127,19 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 ? file.court
                 : file.court.name
             : '';
-    const docType =
-        (file as { docType?: string }).docType ?? file.title ?? String(file.type ?? 'دعوى');
-    const caseNumber = row.caseNo || row.caseNumber || '';
-    const title = courtName || docType || 'دعوى';
-    const subtitle = caseNumber || (courtName ? docType : '');
+    const caseType = String(
+        (file as { docType?: string }).docType ?? file.title ?? '',
+    ).trim();
+    const caseNumber = String(row.caseNo || row.caseNumber || '').trim();
+    const stage = String((file as { currentStage?: string }).currentStage ?? '').trim();
+    const hearingDisplay = resolveLawsuitArchiveHearingDisplay(file as Record<string, unknown>);
 
-    const { plaintiff: plaintiffName, defendant: defendantName } = extractPartyNames(
+    const title = caseNumber || courtName || caseType || 'دعوى';
+
+    const { plaintiff, defendant } = extractPrimaryParties(
         (file as { parties?: unknown }).parties,
     );
 
-    /*
-     * شارة الحالة الذكية تأتي من `file.smartStatus` (محسوبة في `ArchivePortal`):
-     * تحافظ على ألوان المؤقتات (أخضر/كهرماني/أحمر) عبر className دامج لـ bgColor + borderColor + color.
-     */
     const statusBadge = {
         label: status.label,
         className: `${status.bgColor} ${status.borderColor} ${status.color}`,
@@ -151,7 +178,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
     } else if (variant === 'archived' && onRestoreFromArchive) {
         footerIcons.push({
             id: 'restore-archive',
-            label: 'إعادة للأضابير النشطة',
+            label: 'إعادة للإضابير النشطة',
             icon: <RotateCcw size={16} />,
             tone: 'success',
             onClick: () => onRestoreFromArchive(),
@@ -187,17 +214,28 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
             <p className="text-amber-200/80 text-[10px] font-bold">مؤرشفة — للمراجعة فقط</p>
         ) : null;
 
-    const partiesLineForCivil = plaintiffName || defendantName ? (
-        <p className="text-gray-400 text-sm truncate">
-            المدعي: <span className="text-gray-200">{plaintiffName || '—'}</span>
-            {defendantName ? (
-                <>
-                    {' · '}
-                    المدعى عليه: <span className="text-gray-200">{defendantName}</span>
-                </>
-            ) : null}
-        </p>
-    ) : null;
+    const metaRows = [
+        courtName && title !== courtName ? { label: 'المحكمة', value: courtName } : null,
+        caseType && title !== caseType ? { label: 'نوع الدعوى', value: caseType } : null,
+        stage ? { label: 'المرحلة', value: stage } : null,
+    ].filter((row): row is { label: string; value: string } => row !== null);
+
+    const identityBlock = (
+        <ArchiveDossierIdentityBlock
+            hearing={hearingDisplay}
+            metaRows={metaRows}
+            parties={
+                plaintiff || defendant
+                    ? {
+                          left: plaintiff,
+                          right: defendant,
+                          leftTone: 'plaintiff',
+                          rightTone: 'defendant',
+                      }
+                    : null
+            }
+        />
+    );
 
     return (
         <UnifiedDossierCard
@@ -215,8 +253,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
                 ) : undefined
             }
             title={title}
-            subtitle={subtitle}
-            bodyExtra={partiesLineForCivil}
+            bodyExtra={identityBlock}
             footerNote={footerNote}
             onOpen={onOpen}
             openLabel="فتح الإضبارة"

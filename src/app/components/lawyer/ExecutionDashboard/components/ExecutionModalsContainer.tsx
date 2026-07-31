@@ -7,7 +7,7 @@ import type {
     PartyDeathReportModalProps,
     PartyDeathSavePayload,
 } from '@/app/components/lawyer/execution/PartyDeathReportModal';
-import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { parseAmount } from '@/app/utils/execution/amountInput';
 
 interface ExecutionModalsContainerProps {
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;

@@ -21,20 +21,36 @@ export function useGlobalSearchShellLifecycle(
             reportedRef.current = false;
             return;
         }
-        if (!userId) return;
 
-        return observeGlobalSearchOverlayInteractive({
+        markGlobalSearchPerfPhase('first-paint');
+
+        const markInteractiveNow = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            markGlobalSearchPerfPhase('interactive');
+            reportGlobalSearchPerf({
+                userId: userId || undefined,
+                hadLocalCache: hasLocalCache,
+                hadChunkCached: isGlobalSearchOverlayModuleResolved(),
+            });
+        };
+
+        /* بلا userId — interactive فوراً للقياس (لا نُسقِط العلامة) */
+        if (!userId) {
+            const fallbackNoUser = window.setTimeout(markInteractiveNow, 0);
+            return () => window.clearTimeout(fallbackNoUser);
+        }
+
+        const stopObserve = observeGlobalSearchOverlayInteractive({
             isDone: () => reportedRef.current,
-            onInteractive: () => {
-                if (reportedRef.current) return;
-                reportedRef.current = true;
-                markGlobalSearchPerfPhase('interactive');
-                reportGlobalSearchPerf({
-                    userId,
-                    hadLocalCache: hasLocalCache,
-                    hadChunkCached: isGlobalSearchOverlayModuleResolved(),
-                });
-            },
+            onInteractive: markInteractiveNow,
         });
+
+        const fallback = window.setTimeout(markInteractiveNow, 1_200);
+
+        return () => {
+            stopObserve();
+            window.clearTimeout(fallback);
+        };
     }, [hasLocalCache, isOpen, userId]);
 }

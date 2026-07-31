@@ -32,7 +32,7 @@ export function PersonalStatusPartiesPanel({
     const side2AddLabel = getPersonalStatusRoleForSide(stage, 2, 1);
 
     return (
-        <PersonalSectionShell title="أطراف الدعوى" accent="fuchsia">
+        <PersonalSectionShell title="أطراف الدعوى">
             {clientError ? (
                 <p className="text-[10px] text-amber-400/90 font-medium mb-3 rounded-xl border border-amber-500/20 bg-amber-500/8 px-3 py-2">
                     {clientError}
@@ -44,8 +44,8 @@ export function PersonalStatusPartiesPanel({
 
                 <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                        <Users size={14} className="text-violet-300/80" />
-                        <span className="text-xs font-black text-violet-100/90">{side1Label}</span>
+                        <Users size={14} className="text-[#E6C673]/70" />
+                        <span className="text-xs font-bold text-white/85">{side1Label}</span>
                     </div>
                     {parties1.map((p, i) => (
                         <PersonalStatusPartyCard
@@ -62,7 +62,7 @@ export function PersonalStatusPartiesPanel({
                     <button
                         type="button"
                         onClick={() => onAdd(1)}
-                        className="w-full py-2.5 rounded-2xl border border-dashed border-violet-300/25 bg-violet-500/[0.06] text-violet-100/70 text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-violet-500/10 transition-colors"
+                        className="w-full py-2.5 rounded-xl border border-dashed border-white/12 bg-white/[0.02] text-white/55 text-[11px] font-bold flex items-center justify-center gap-2 hover:border-[#E6C673]/25 hover:text-[#E6C673]/80 transition-colors touch-manipulation"
                     >
                         <Plus size={14} /> إضافة {side1AddLabel}
                     </button>
@@ -70,8 +70,8 @@ export function PersonalStatusPartiesPanel({
 
                 <div className="space-y-3">
                     <div className="flex items-center gap-2 mb-1">
-                        <Users size={14} className="text-teal-300/80" />
-                        <span className="text-xs font-black text-teal-100/90">{side2Label}</span>
+                        <Users size={14} className="text-[#E6C673]/70" />
+                        <span className="text-xs font-bold text-white/85">{side2Label}</span>
                     </div>
                     {parties2.map((p, i) => (
                         <PersonalStatusPartyCard
@@ -88,7 +88,7 @@ export function PersonalStatusPartiesPanel({
                     <button
                         type="button"
                         onClick={() => onAdd(2)}
-                        className="w-full py-2.5 rounded-2xl border border-dashed border-teal-300/25 bg-teal-500/[0.06] text-teal-100/70 text-[11px] font-bold flex items-center justify-center gap-2 hover:bg-teal-500/10 transition-colors"
+                        className="w-full py-2.5 rounded-xl border border-dashed border-white/12 bg-white/[0.02] text-white/55 text-[11px] font-bold flex items-center justify-center gap-2 hover:border-[#E6C673]/25 hover:text-[#E6C673]/80 transition-colors touch-manipulation"
                     >
                         <Plus size={14} /> إضافة {side2AddLabel}
                     </button>

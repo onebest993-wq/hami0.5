@@ -523,7 +523,7 @@ export async function exampleUsage() {
     
     const customOperation: FileOperation = {
         type: 'edit',
-        operation: async (filePath: string, content?: string) => {
+        operation: async (filePath: string, _content?: string) => {
             // عملية مخصصة
             return {
                 success: true,

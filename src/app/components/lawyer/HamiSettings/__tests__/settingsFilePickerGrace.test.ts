@@ -13,11 +13,13 @@ describe('settingsFilePickerGrace', () => {
         vi.useRealTimers();
     });
 
-    it('يفعّل فترة سماح بعد فتح منتقي الملفات', () => {
+    it('يفعّل فترة سماح طويلة بعد فتح منتقي الملفات (معرض الجهاز)', () => {
         expect(isSettingsFilePickerGraceActive()).toBe(false);
         markSettingsFilePickerOpening();
         expect(isSettingsFilePickerGraceActive()).toBe(true);
-        vi.advanceTimersByTime(2_600);
+        vi.advanceTimersByTime(11_000);
+        expect(isSettingsFilePickerGraceActive()).toBe(true);
+        vi.advanceTimersByTime(1_500);
         expect(isSettingsFilePickerGraceActive()).toBe(false);
     });
 });

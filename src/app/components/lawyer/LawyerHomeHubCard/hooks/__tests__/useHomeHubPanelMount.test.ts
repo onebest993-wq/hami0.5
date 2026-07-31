@@ -18,4 +18,9 @@ describe('useHomeHubPanelMount', () => {
         const { result } = renderHook(() => useHomeHubPanelMount(true));
         expect(result.current).toBe(true);
     });
+
+    it('true فوراً عند eager حتى لو اللوحة غير نشطة', () => {
+        const { result } = renderHook(() => useHomeHubPanelMount(false, true));
+        expect(result.current).toBe(true);
+    });
 });

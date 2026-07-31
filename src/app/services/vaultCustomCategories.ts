@@ -1,9 +1,109 @@
 const STORAGE_KEY = 'hami:smartvault:custom-categories:v1';
 const BLOCKED_CUSTOM_CATEGORIES = new Set(['المنتدى']);
-const PRIORITIZED_VISIBLE_CATEGORIES = ['PDF', 'صورة', 'تسجيل صوتي'] as const;
+
+/** تصنيفات أزرار المستودع — التسمية الصحيحة الثابتة */
+export const REPOSITORY_ACTION_CATEGORY = {
+    note: 'مسودة',
+    scan: 'مسح',
+    image: 'صورة',
+    pdf: 'PDF',
+    voice: 'تسجيل صوتي',
+} as const;
+
+export type RepositoryActionCategoryKey = keyof typeof REPOSITORY_ACTION_CATEGORY;
+
+export const PRIORITIZED_VISIBLE_CATEGORIES = [
+    REPOSITORY_ACTION_CATEGORY.note,
+    REPOSITORY_ACTION_CATEGORY.scan,
+    REPOSITORY_ACTION_CATEGORY.image,
+    REPOSITORY_ACTION_CATEGORY.pdf,
+    REPOSITORY_ACTION_CATEGORY.voice,
+] as const;
+
+const ACTION_CATEGORY_SET = new Set<string>(PRIORITIZED_VISIBLE_CATEGORIES);
+
+/** تصنيفات أزرار المستودع فقط — لا دمج ولا تصنيفات دخيلة */
+export function isRepositoryActionCategory(name: string): boolean {
+    const trimmed = name.trim();
+    if (ACTION_CATEGORY_SET.has(trimmed)) return true;
+    return trimmed === 'بطاقة'; // توافق قديم → مسودة
+}
+
+export function listRepositoryActionCategoriesWithContent(
+    docs: { customCategory?: string | null }[],
+    notes: NoteCategorySource[],
+    activeFilter?: string,
+): string[] {
+    return PRIORITIZED_VISIBLE_CATEGORIES.filter(
+        (category) =>
+            countRepositoryCategoryItems(docs, notes, category) > 0 ||
+            activeFilter === category ||
+            (category === REPOSITORY_ACTION_CATEGORY.note && activeFilter === 'بطاقة'),
+    );
+}
+
+export function defaultCategoryForVaultUploadKind(kind: 'image' | 'pdf'): string {
+    return kind === 'pdf' ? REPOSITORY_ACTION_CATEGORY.pdf : REPOSITORY_ACTION_CATEGORY.image;
+}
+
+/** توافق مع التصنيف القديم «بطاقة» بعد إعادة التسمية إلى «مسودة» */
+export function categoryMatchesName(value: string | null | undefined, filter: string): boolean {
+    const trimmed = (value ?? '').trim();
+    if (!trimmed || !filter || filter === 'الكل') return filter === 'الكل';
+    if (trimmed === filter) return true;
+    if (filter === REPOSITORY_ACTION_CATEGORY.note && trimmed === 'بطاقة') return true;
+    if (filter === 'بطاقة' && trimmed === REPOSITORY_ACTION_CATEGORY.note) return true;
+    return false;
+}
+
+type NoteCategorySource = {
+    tags?: string[] | null;
+    type?: string | null;
+    attachmentDocId?: string | null;
+    body?: string | null;
+};
+
+function noteHasExplicitActionTag(note: NoteCategorySource): boolean {
+    return (note.tags ?? []).some((t) => isRepositoryActionCategory(t));
+}
+
+/** مطابقة الملاحظة لتصنيف زر — مع استدلال للمسودات/التسجيل بلا وسم قديم */
+export function noteMatchesRepositoryActionCategory(
+    note: NoteCategorySource,
+    category: string,
+): boolean {
+    const normalized = sanitizeCategoryName(category);
+    if ((note.tags ?? []).some((t) => categoryMatchesName(t, normalized))) return true;
+
+    const voice =
+        note.type === 'voice' ||
+        (typeof note.body === 'string' && note.body.includes('hami-voice:'));
+
+    if (normalized === REPOSITORY_ACTION_CATEGORY.voice) return voice;
+    if (normalized === REPOSITORY_ACTION_CATEGORY.note) {
+        if (voice) return false;
+        // مسودة قديمة بلا وسم — تُحسب مسودة ما لم تحمل تصنيفاً صريحاً آخر
+        return !noteHasExplicitActionTag(note);
+    }
+    return false;
+}
+
+export function countRepositoryCategoryItems(
+    docs: { customCategory?: string | null }[],
+    notes: NoteCategorySource[],
+    category: string,
+): number {
+    if (category === 'الكل') return docs.length + notes.length;
+    const fromDocs = docs.filter((d) => categoryMatchesName(d.customCategory, category)).length;
+    const fromNotes = notes.filter((n) => noteMatchesRepositoryActionCategory(n, category)).length;
+    return fromDocs + fromNotes;
+}
+
 
 function sanitizeCategoryName(name: string): string {
-    return name.trim();
+    const trimmed = name.trim();
+    if (trimmed === 'بطاقة') return REPOSITORY_ACTION_CATEGORY.note;
+    return trimmed;
 }
 
 function isVisibleCustomCategory(name: string): boolean {
@@ -89,7 +189,7 @@ export function removeCustomCategory(userId: string, name: string): string[] {
 
 export function docMatchesCategoryFilter(doc: { customCategory?: string | null }, filter: string): boolean {
     if (filter === 'الكل') return true;
-    return (doc.customCategory?.trim() || '') === filter;
+    return categoryMatchesName(doc.customCategory, filter);
 }
 
 export function countDocsInCategory(

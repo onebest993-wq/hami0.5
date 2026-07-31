@@ -45,6 +45,7 @@ export type TransactionDetailsDialogsProps = {
     reportText: string;
     copied: boolean;
     onCopyReport: () => void | Promise<void>;
+    onShareTemplate?: (templateId: string) => void | Promise<void>;
 };
 
 export function TransactionDetailsDialogs({

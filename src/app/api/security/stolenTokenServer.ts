@@ -4,6 +4,7 @@
  */
 import { extractJwtSessionFields } from '@/app/security/jwtFields.ts';
 import { getSupabaseAdminClient } from './supabaseAdminClient.ts';
+import { supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.ts';
 
 const IAT_GRACE_PERIOD_MS = 45_000;
 const SESSION_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -131,7 +132,7 @@ const redisStore: SessionStore = {
 };
 
 function hasSupabaseConfig(): boolean {
-  return Boolean(getEnv('SUPABASE_URL') && getEnv('SUPABASE_SERVICE_ROLE_KEY'));
+  return Boolean(getEnv('SUPABASE_URL') && getEnv(supabasePrivilegedKeyEnvName()));
 }
 
 function getSupabaseAdminClientForSessions(): ReturnType<typeof getSupabaseAdminClient> {

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { CaseStage } from '../../LawyerShared';
 import { useSmartFileDefaultJudgmentActions } from './useSmartFileDefaultJudgmentActions';
@@ -24,6 +23,7 @@ export type SmartFileModalJudgmentBundleParams = {
     parentData: Record<string, unknown>;
     saveToCloud: () => void;
     setStatus: Dispatch<SetStateAction<string>>;
+    status: string;
     calendarUserId: string | undefined;
     lawsuitFileId: string | undefined;
     modalFlags: ModalFlags;
@@ -39,6 +39,7 @@ export function useSmartFileModalJudgmentBundle({
     parentData,
     saveToCloud,
     setStatus,
+    status,
     calendarUserId,
     lawsuitFileId,
     modalFlags,
@@ -102,6 +103,7 @@ export function useSmartFileModalJudgmentBundle({
         parentData,
         saveToCloud,
         setStatus,
+        status,
         tempJudgmentData,
         setTempJudgmentData,
         setShowAppealTransitionModal,

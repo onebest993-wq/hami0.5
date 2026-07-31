@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import { areInAppNotificationsEnabled } from '@/app/services/settings/settingsRuntime';
+import { BUILTIN_NOTIFICATIONS_ENABLED } from '@/app/services/settings/builtInBehavior';
 
 const MAX_VISIBLE = 2;
 const AUTO_DISMISS_MS = 6_500;
@@ -93,7 +93,7 @@ export function useIncomingNotificationPopups(options: {
     }, [userId]);
 
     useEffect(() => {
-        if (!enabled || !areInAppNotificationsEnabled() || !userId) return;
+        if (!enabled || !BUILTIN_NOTIFICATIONS_ENABLED || !userId) return;
 
         if (!baselineReadyRef.current) {
             if (isLoading) return;

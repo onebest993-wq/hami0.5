@@ -1,0 +1,13 @@
+# Z-other batch 1 — 12 files / 1256 lines
+src/app/__tests__/integration/execution-workflow.test.tsx  (345 lines)
+src/data/executionLawHierarchy.ts  (199 lines)
+src/data/executionLaws.ts  (138 lines)
+src/data/__tests__/executionLaws.taxonomy.test.ts  (109 lines)
+src/app/workspace/executionPinMeta.ts  (104 lines)
+src/app/workspace/__tests__/executionPinMeta.test.ts  (84 lines)
+src/data/executionLawsLoader.ts  (66 lines)
+src/app/infrastructure/execution/ExecutionDossierRepository.ts  (63 lines)
+src/scripts/_extract-seized-step.mjs  (63 lines)
+src/app/__tests__/realEstateSeizureMath.test.ts  (39 lines)
+src/data/executionLawsSeeds.ts  (34 lines)
+src/app/slices/execution/public.ts  (12 lines)

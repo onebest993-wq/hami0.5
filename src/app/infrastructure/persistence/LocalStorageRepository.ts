@@ -92,8 +92,19 @@ export class LocalStorageRepository implements IPersistenceRepository {
         try {
             const serializedData = JSON.stringify(data);
             if (this.memoryCache.get(key) === serializedData) return;
-            const existing =
-                this.memoryCache.get(key) ?? SecureStoreService.getItemSync(key);
+            const fromCache = this.memoryCache.get(key);
+            const fromSync = SecureStoreService.getItemSync(key);
+            // لا تثق بكاش ذاكرة فارغ إن كان التخزين المتزامن ما زال يحمل بيانات
+            let existing = fromCache ?? fromSync ?? null;
+            if (
+                fromCache &&
+                fromSync &&
+                fromCache !== fromSync &&
+                shouldRejectDossierWipe(key, fromCache, fromSync)
+            ) {
+                existing = fromSync;
+                this.memoryCache.set(key, fromSync);
+            }
             if (existing && shouldRejectDossierWipe(key, serializedData, existing)) {
                 debug.warn(`[LocalStorageRepository] رفض مسح "${key}" — البيانات الحالية محفوظة.`);
                 return;

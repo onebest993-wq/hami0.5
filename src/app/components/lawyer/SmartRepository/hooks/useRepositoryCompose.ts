@@ -1,20 +1,24 @@
 import { useCallback, useRef, useState } from 'react';
-import type { RefObject } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
-import { saveFileToVault } from '@/app/services/vaultUploadService';
+import { saveFileToVault, isVaultImageFile, isVaultPdfFile } from '@/app/services/vaultUploadService';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import {
     appendNoteToExecutionFile,
     appendNoteToLawsuitFile,
+    encodeBoundDossierId,
     globalNoteToDossierPayload,
+    vaultDocToDossierPayload,
 } from '@/app/services/repository/repositoryDossierNoteSync';
 import { saveVoiceNoteToNotepad } from '@/app/components/lawyer/dashboard/notepadVoiceSave';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
+import { REPOSITORY_ACTION_CATEGORY } from '@/app/services/vaultCustomCategories';
+import { useWorkspaceStore } from '@/app/stores/workspaceStore';
+import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { extractQuickTaskLines, sanitizeRichNoteHtml } from '../legalRichTextEditorUtils';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
 
@@ -24,7 +28,12 @@ function stripHtml(text: string): string {
 
 type VaultApi = Pick<
     ReturnType<typeof useSmartVault>,
-    'currentUserId' | 'activeFilter' | 'prependVaultDoc' | 'refreshDocs'
+    | 'currentUserId'
+    | 'activeFilter'
+    | 'prependVaultDoc'
+    | 'refreshDocs'
+    | 'addVaultCategory'
+    | 'setActiveFilter'
 >;
 
 type UseRepositoryComposeParams = {
@@ -37,6 +46,7 @@ type UseRepositoryComposeParams = {
     onUpdateLawsuitFile: (file: FileData) => void;
     onUpdateExecutionFile: (file: ExecutionFile) => void;
     vault: VaultApi;
+    activeRoomId?: string | null;
     onAfterSave?: (kind: 'note' | 'media') => void;
 };
 
@@ -50,6 +60,7 @@ export function useRepositoryCompose({
     onUpdateLawsuitFile,
     onUpdateExecutionFile,
     vault,
+    activeRoomId = null,
     onAfterSave,
 }: UseRepositoryComposeParams) {
     const [composing, setComposing] = useState(startMode === 'create');
@@ -80,6 +91,14 @@ export function useRepositoryCompose({
             SmartToast.error('أضف عنواناً أو نصاً أو مرفقاً');
             return;
         }
+        if (
+            attachmentFile &&
+            !isVaultImageFile(attachmentFile) &&
+            !isVaultPdfFile(attachmentFile)
+        ) {
+            SmartToast.error('المرفق يجب أن يكون صورة أو PDF فقط');
+            return;
+        }
 
         setSaving(true);
         let attachmentDocId: string | undefined;
@@ -90,11 +109,13 @@ export function useRepositoryCompose({
                 const saved = await saveFileToVault(uid, attachmentFile, {
                     title: title.trim() || attachmentFile.name,
                     lawyerNote: plain || null,
+                    roomId: activeRoomId,
                 });
                 attachmentDocId = saved.doc.id;
                 vault.prependVaultDoc(saved.doc);
             }
 
+            const noteCategory = REPOSITORY_ACTION_CATEGORY.note;
             const note: GlobalNote = {
                 id: `note_${Date.now()}`,
                 title: title.trim() || 'ملاحظة بدون عنوان',
@@ -105,23 +126,39 @@ export function useRepositoryCompose({
                 type: attachmentDocId ? 'media' : 'rich',
                 attachmentDocId,
                 quickTaskLines: extractQuickTaskLines(safeBody),
-                tags:
-                    vault.activeFilter !== 'الكل'
-                        ? Array.from(new Set([...(vault.activeFilter ? [vault.activeFilter] : [])]))
-                        : undefined,
+                roomId: activeRoomId,
+                tags: Array.from(
+                    new Set([
+                        noteCategory,
+                        ...(vault.activeFilter !== 'الكل' && vault.activeFilter
+                            ? [vault.activeFilter]
+                            : []),
+                    ]),
+                ),
             };
 
             await onSaveNote(note);
+            if (isPinned) {
+                const pin = buildNoteWorkspacePin(note);
+                if (pin) useWorkspaceStore.getState().pinItem(pin);
+            }
+            vault.addVaultCategory(noteCategory);
+            vault.setActiveFilter(noteCategory);
             onAfterSave?.(attachmentDocId ? 'media' : 'note');
-            SmartToast.success('تم حفظ البطاقة في المستودع');
+            SmartToast.success(
+                isPinned
+                    ? 'تم حفظ المسودة وتثبيتها في الواجهة'
+                    : 'تم حفظ المسودة في المستودع',
+            );
             resetComposer();
         } catch {
-            SmartToast.error('تعذّر حفظ البطاقة');
+            SmartToast.error('تعذّر حفظ المسودة');
         } finally {
             setSaving(false);
         }
     }, [
         attachmentFile,
+        activeRoomId,
         bodyHtml,
         currentUserId,
         isPinned,
@@ -137,20 +174,26 @@ export function useRepositoryCompose({
             const payload = globalNoteToDossierPayload(note);
             if (dossier.kind === 'lawsuit') {
                 const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) return;
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة الدعوى');
+                    return;
+                }
                 onUpdateLawsuitFile(appendNoteToLawsuitFile(file, payload));
             } else {
                 const file = executionFiles.find((f) => String(f.id) === dossier.id);
-                if (!file) return;
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
+                    return;
+                }
                 onUpdateExecutionFile(appendNoteToExecutionFile(file, payload));
             }
 
+            // لا نضع linkedFileId هنا — يمنع إعادة إلحاق الملاحظة مرتين في handleSaveNote
             await onSaveNote({
                 ...note,
                 repositoryInboxHidden: true,
-                linkedFileId: Number.isFinite(Number(dossier.id)) ? Number(dossier.id) : note.linkedFileId,
             });
-            SmartToast.success('تم ربط البطاقة بالإضبارة — Inbox Zero ✓');
+            SmartToast.success('تم ربط المسودة بالإضبارة — Inbox Zero ✓');
         },
         [executionFiles, lawsuitFiles, onSaveNote, onUpdateExecutionFile, onUpdateLawsuitFile],
     );
@@ -158,26 +201,67 @@ export function useRepositoryCompose({
     const handleBindVaultDoc = useCallback(
         async (doc: SmartVaultDoc, dossier: DossierPickerOption) => {
             const uid = vault.currentUserId || currentUserId || '';
-            if (!uid) throw new Error('user required');
-            await SmartVaultDB.bindToDossier(doc.id, uid, dossier.id);
+            if (!uid) {
+                SmartToast.error('يرجى تسجيل الدخول أولاً');
+                return;
+            }
+
+            const payload = vaultDocToDossierPayload(doc);
+            if (dossier.kind === 'lawsuit') {
+                const file = lawsuitFiles.find((f) => String(f.id) === dossier.id);
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة الدعوى');
+                    return;
+                }
+                onUpdateLawsuitFile(appendNoteToLawsuitFile(file, payload));
+            } else {
+                const file = executionFiles.find((f) => String(f.id) === dossier.id);
+                if (!file) {
+                    SmartToast.error('تعذّر العثور على إضبارة التنفيذ');
+                    return;
+                }
+                onUpdateExecutionFile(appendNoteToExecutionFile(file, payload));
+            }
+
+            await SmartVaultDB.bindToDossier(doc.id, uid, encodeBoundDossierId(dossier.kind, dossier.id));
             await vault.refreshDocs();
-            SmartToast.success('تم ربط الملف بالإضبارة');
+            SmartToast.success(
+                dossier.kind === 'lawsuit'
+                    ? 'تم ربط الملف بإضبارة الدعوى'
+                    : 'تم ربط الملف بإضبارة التنفيذ',
+            );
         },
-        [currentUserId, vault],
+        [
+            currentUserId,
+            executionFiles,
+            lawsuitFiles,
+            onUpdateExecutionFile,
+            onUpdateLawsuitFile,
+            vault,
+        ],
     );
 
     const handleSaveVoice = useCallback(
         async (payload: Parameters<typeof saveVoiceNoteToNotepad>[0]) => {
+            const voiceCategory = REPOSITORY_ACTION_CATEGORY.voice;
             await saveVoiceNoteToNotepad(payload, {
                 userId: currentUserId,
-                saveNote: onSaveNote,
+                saveNote: (note) =>
+                    onSaveNote({
+                        ...note,
+                        roomId: activeRoomId,
+                        tags: Array.from(new Set([...(note.tags ?? []), voiceCategory])),
+                    }),
             });
+            vault.addVaultCategory(voiceCategory);
+            vault.setActiveFilter(voiceCategory);
             setShowVoiceRecorder(false);
         },
-        [currentUserId, onSaveNote],
+        [activeRoomId, currentUserId, onSaveNote, vault],
     );
 
     const openVoiceRecorder = useCallback(() => {
+        void import('@/app/components/lawyer/ActionModals/VoiceRecorderModal');
         setVoiceRecorderKey((k) => k + 1);
         setShowVoiceRecorder(true);
     }, []);
@@ -208,22 +292,4 @@ export function useRepositoryCompose({
         handleSaveVoice,
         openVoiceRecorder,
     };
-}
-
-export function useRepositoryVaultDocHandlers(
-    vaultRef: RefObject<ReturnType<typeof useSmartVault>>,
-) {
-    const handleEditVaultDoc = useCallback((doc: SmartVaultDoc) => {
-        vaultRef.current?.handleEdit(doc);
-    }, [vaultRef]);
-
-    const handleViewVaultDoc = useCallback((doc: SmartVaultDoc) => {
-        void vaultRef.current?.handleViewFile(doc);
-    }, [vaultRef]);
-
-    const handleDeleteVaultDoc = useCallback((doc: SmartVaultDoc) => {
-        void vaultRef.current?.handleDelete(doc);
-    }, [vaultRef]);
-
-    return { handleEditVaultDoc, handleViewVaultDoc, handleDeleteVaultDoc };
 }

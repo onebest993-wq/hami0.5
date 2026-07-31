@@ -27,7 +27,12 @@ export function resolveBlockPosition(
     block: ProfileCustomBlock,
     index: number,
 ): { posX: number; posY: number } {
-    if (typeof block.posX === 'number' && typeof block.posY === 'number') {
+    if (
+        typeof block.posX === 'number' &&
+        typeof block.posY === 'number' &&
+        Number.isFinite(block.posX) &&
+        Number.isFinite(block.posY)
+    ) {
         return {
             posX: clampPct(block.posX, 0, 94),
             posY: clampPct(block.posY, 0, 90),

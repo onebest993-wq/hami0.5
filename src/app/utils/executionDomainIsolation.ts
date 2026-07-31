@@ -29,9 +29,27 @@ import {
 import {
     executionStorageKey,
     normalizeExecutionStorageId,
-} from '@/app/utils/executionStorageKeys';
-import { storageCache } from '@/app/utils/storageCache';
+} from '@/app/utils/executionStorageKeysLite';
 import SecureStoreService from '@/app/services/SecureStoreService';
+
+type StorageCacheLite = {
+    invalidate: (key: string) => void;
+    touchCacheEntry: (key: string, record: Record<string, unknown>) => void;
+};
+
+function touchStorageCache(
+    op: 'invalidate' | 'touch',
+    key: string,
+    record?: Record<string, unknown>,
+): void {
+    void import('@/app/utils/storageCache')
+        .then((m) => {
+            const cache = m.storageCache as StorageCacheLite;
+            if (op === 'invalidate') cache.invalidate(key);
+            else if (record) cache.touchCacheEntry(key, record);
+        })
+        .catch(() => undefined);
+}
 
 export type ExecutionClaimModule =
     | 'financial_debt'
@@ -93,6 +111,14 @@ const CIVIL_MODULES = new Set<ExecutionClaimModule>([
     'specific_delivery',
     'general_civil',
 ]);
+
+/** مطالبات تستخدم إجراءات ميدانية (تخلية / تسليم / تعدٍ / أثاث زوجي) */
+const FIELD_PROCEDURE_CLAIM_MODULES: ExecutionClaimModule[] = [
+    'eviction',
+    'marital_furniture',
+    'specific_delivery',
+    'encroachment',
+];
 
 function claimTypeToModule(ct: string, data: Record<string, unknown>): ExecutionClaimModule {
     const c = String(ct || '').trim();
@@ -167,7 +193,7 @@ export function readExecutionDataForDomainGate(
     try {
         const raw = SecureStoreService.getItemSync(key);
         if (!raw?.trim()) {
-            storageCache.invalidate(key);
+            touchStorageCache('invalidate', key);
             return null;
         }
         const parsed = JSON.parse(raw) as unknown;
@@ -175,11 +201,26 @@ export function readExecutionDataForDomainGate(
             return null;
         }
         const record = parsed as Record<string, unknown>;
-        storageCache.touchCacheEntry(key, record);
+        touchStorageCache('touch', key, record);
         return record;
     } catch {
         return null;
     }
+}
+
+/** يفضّل لقطة الواجهة الحية (إضبارة فرعية) على تخزين الأب عند اختلاف المعرّف */
+export function resolveExecutionDataForDomainGate(
+    executionId: string | undefined,
+    executionDataHint?: Record<string, unknown> | null
+): Record<string, unknown> | null {
+    if (executionDataHint && typeof executionDataHint === 'object' && !Array.isArray(executionDataHint)) {
+        const types = getEffectiveClaimTypes(executionDataHint);
+        const single = String(executionDataHint.claimType || '').trim();
+        if (types.length > 0 || single) {
+            return executionDataHint;
+        }
+    }
+    return readExecutionDataForDomainGate(executionId);
 }
 
 export function resolveExecutionDomainContext(
@@ -356,8 +397,8 @@ export function canPersistExecutorRequestKind(
     }
 
     if (kind === 'eviction_procedure') {
-        if (!ctx.claimModules.includes('eviction')) {
-            return { allowed: false, reasonAr: 'إجراءات الإخلاء غير مسموحة خارج مطالبة إخلاء' };
+        if (!ctx.claimModules.some((m) => FIELD_PROCEDURE_CLAIM_MODULES.includes(m))) {
+            return { allowed: false, reasonAr: 'إجراءات ميدانية غير مسموحة لهذا النوع من المطالبة' };
         }
         return { allowed: true };
     }
@@ -395,9 +436,9 @@ export function canPersistExecutorRequestKind(
 export function gateExecutorRequestPersist(
     executionId: string | undefined,
     requestKind: ExecutorRequestKind | string,
-    meta?: { personalCoerciveSubtype?: string }
+    meta?: { personalCoerciveSubtype?: string; executionData?: Record<string, unknown> | null }
 ): DomainGateResult {
-    const data = readExecutionDataForDomainGate(executionId);
+    const data = resolveExecutionDataForDomainGate(executionId, meta?.executionData);
     const ctx = resolveExecutionDomainContext(data, executionId);
     return canPersistExecutorRequestKind(ctx, requestKind, meta);
 }

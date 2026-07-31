@@ -9,6 +9,7 @@ import {
     readExecutionIndexRow,
     seedDivergedExecutionStorage,
     seedSyncedExecutionStorage,
+    waitForExecutionIndexReconciled,
 } from './helpers/executionStorageFixtures';
 
 test.describe('Execution storage persist', () => {
@@ -28,7 +29,7 @@ test.describe('Execution storage persist', () => {
         await seedDivergedExecutionStorage(page);
         await bootToLawyerHome(page);
 
-        const row = await readExecutionIndexRow(page);
+        const row = await waitForExecutionIndexReconciled(page);
         expect(row?.directorate).toBe(buildE2eExecutionLiveBlob().directorate);
         const timeline = row?.timelineEvents as Array<{ title?: string }> | undefined;
         expect(timeline?.[0]?.title).toBe('حدث E2E تخزين موحّد');

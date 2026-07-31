@@ -1,5 +1,5 @@
 import type { Party, CaseType } from './types';
-import { FIXED_FEE_KEYWORDS, UNIVERSAL_BLOCKED_WORDS, CIVIL_ONLY_BLOCKED_WORDS } from './constants';
+import { FIXED_FEE_KEYWORDS, UNIVERSAL_BLOCKED_WORDS, CIVIL_ONLY_BLOCKED_WORDS } from './wordLists';
 
 export interface ValidationResult {
     errorMap: Record<string, string>;

@@ -1,5 +1,6 @@
 /** بطاقة التنبيهات الكبيرة في الرئيسية — منطق موحّد قابل للاختبار */
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
+import type { CalendarRadarEvent } from '@/app/workspace/types';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 
 export const HOME_HUB_CARD_FEATURE = 'التنبيهات والتثبيت';
@@ -54,9 +55,18 @@ export function resolveHomeHubAlertsEmptyState(input: {
     hasAlerts: boolean;
     hasCarouselAlerts: boolean;
     hasRadar: boolean;
+    radarLoading?: boolean;
 }): HomeHubAlertsEmptyState {
     if (input.alertsError) return 'error';
     if (input.showInitialLoad) return 'loading';
+    if (
+        input.radarLoading &&
+        !input.hasAlerts &&
+        !input.hasCarouselAlerts &&
+        !input.hasRadar
+    ) {
+        return 'loading';
+    }
     if (input.hasAlerts) return 'content';
     if (input.hasCarouselAlerts) return 'empty-filter';
     if (!input.hasRadar) return 'empty';
@@ -80,9 +90,12 @@ export function isHomeHubFullyEmpty(input: {
     pinsCount: number;
     alertsError: string | null;
     showInitialLoad: boolean;
+    /** لا تطوّ البطاقة أثناء مزامنة التنبيهات/الرادار الأولى */
+    hubInitialPending?: boolean;
 }): boolean {
     if (input.alertsError) return false;
     if (input.showInitialLoad) return false;
+    if (input.hubInitialPending) return false;
     return input.alertsTabCount === 0 && input.pinsCount === 0;
 }
 
@@ -101,10 +114,15 @@ export function openHomeHubCardInteraction(input: OpenHomeHubCardInteractionInpu
     return true;
 }
 
+/** مسارات تنقّل خاصة مسموحة من البطاقة/الدوك وليست أنواع تثبيت */
+export const HOME_HUB_SPECIAL_NAV_ROUTES = ['workspace:schedule:calendar'] as const;
+
 /** يتحقق أن مسار workspace آمن قبل التنقل من البطاقة */
 export function isSafeHomeHubNavigateRoute(routePath: string): boolean {
     if (!routePath || typeof routePath !== 'string') return false;
-    return parseWorkspaceRoute(routePath) !== null;
+    const trimmed = routePath.trim();
+    if ((HOME_HUB_SPECIAL_NAV_ROUTES as readonly string[]).includes(trimmed)) return true;
+    return parseWorkspaceRoute(trimmed) !== null;
 }
 
 export function guardedHomeHubNavigateRoute(
@@ -135,6 +153,44 @@ export function resolveHomeHubTabAriaLabel(panel: HomeHubPanel, count: number): 
     const base = panel === 'alerts' ? 'التنبيهات' : 'التثبيت';
     if (!shouldShowHomeHubTabBadge(count)) return base;
     return `${base}، ${formatHomeHubTabBadgeCount(count)}`;
+}
+
+export function resolveHomeHubRadarItemAriaLabel(
+    event: Pick<CalendarRadarEvent, 'title' | 'whenLabel'>,
+): string {
+    const title = String(event.title ?? '').trim() || 'موعد';
+    const whenLabel = String(event.whenLabel ?? '').trim();
+    return whenLabel ? `${title}، ${whenLabel}` : title;
+}
+
+export function resolveHomeHubRadarDismissAriaLabel(
+    event: Pick<CalendarRadarEvent, 'title'>,
+): string {
+    const title = String(event.title ?? '').trim() || 'الموعد';
+    return `إخفاء ${title} من البطاقة`;
+}
+
+export function resolveHomeHubPinNavigateAriaLabel(input: {
+    headline: string;
+    sectionLabel: string;
+    clientLine?: string;
+    caseLine?: string;
+    relatedCount?: number;
+}): string {
+    const headline = input.headline.trim() || input.sectionLabel.trim() || 'عنصر مثبت';
+    const details = [
+        input.sectionLabel.trim(),
+        String(input.clientLine ?? '').trim(),
+        String(input.caseLine ?? '').trim(),
+        input.relatedCount && input.relatedCount > 0 ? `${input.relatedCount} ارتباط` : '',
+    ].filter(Boolean);
+
+    return [headline, ...details.filter((detail) => detail !== headline)].join('، ');
+}
+
+export function resolveHomeHubPinUnpinAriaLabel(headline: string): string {
+    const safeHeadline = headline.trim() || 'العنصر';
+    return `إلغاء تثبيت ${safeHeadline}`;
 }
 
 export function resolveHomeHubShellReady(input: {

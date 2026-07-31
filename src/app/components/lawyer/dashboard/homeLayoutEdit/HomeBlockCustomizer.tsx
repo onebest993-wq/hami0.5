@@ -27,7 +27,6 @@ import {
 } from '@/app/services/settings/homeBlockLabels';
 import { isHomeWidgetId, getWidgetZone, type HomeWidgetId } from '@/app/services/settings/homeLayout';
 import {
-    isHeightProtectedWidget,
     resolveHomeBlockAccent,
 } from '@/app/services/settings/resolveHomeBlockStyle';
 import { normalizeBackgroundPreset } from '@/app/services/settings/backgroundPresets';
@@ -229,16 +228,6 @@ export function HomeBlockCustomizer({
             {inDockZone && blockId !== 'dockShell' && blockId !== 'dockQuickNote' ? (
                 <p className="text-[10px] text-white/40 leading-relaxed">
                     في الشريط السفلي: العرض والارتفاع ثابتان — الألوان والشكل والنمط فقط.
-                </p>
-            ) : blockId !== 'dockShell' && blockId !== 'dockQuickNote' && isHomeWidgetId(blockId) ? (
-                <p className="text-[10px] text-white/40 leading-relaxed">
-                    العرض (نصف / كامل) من شريط البطاقة — الألوان والشكل والنمط من هنا.
-                </p>
-            ) : null}
-
-            {blockId !== 'dockShell' && isHomeWidgetId(blockId) && isHeightProtectedWidget(blockId) ? (
-                <p className="text-[10px] text-white/40 leading-relaxed">
-                    ارتفاع التنبيهات ثابت لحماية المحتوى — يمكنك تغيير الشكل والنمط والألوان.
                 </p>
             ) : null}
 

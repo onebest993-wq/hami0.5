@@ -505,6 +505,11 @@ export type InvestigationDossierClosure = {
 export type CriminalCase = CriminalCaseDraft & {
     id: string;
     createdAt: string;
+    /** محامي مالك الإضبارة — يُختم عند الإنشاء من sessionOwnerLawyerId */
+    ownerLawyerId?: string;
+    /** علامات عرض داخلية للجسر/اللوحة — غير persisted كعقد إلزامي */
+    _isMergedDossier?: boolean;
+    _isArticle3Offense?: boolean;
     isFrozen?: boolean;
     /** استئخار م 183 — يحجب الإجراءات الجنائية الجديدة. */
     isPrejudicialPostponed?: boolean;

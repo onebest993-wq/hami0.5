@@ -3,10 +3,9 @@ import { UserRole } from '@/app/types/admin-types';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
 import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
-import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import { isVaultIdbStoragePath } from '@/app/services/vault/vaultBlobPathLite';
 import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
 import { ForumFollowRepository } from '@/app/services/forum/forumFollowRepository';
-import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import type {
     BanRecord,
     CommunityAttachment,
@@ -15,8 +14,6 @@ import type {
     CommunityReport,
     FollowRecord,
     ForumEditHistoryEntry,
-    ForumNotification,
-    NotificationType,
 } from '@/app/services/cloud/lawyerCommunityTypes';
 
 export type {
@@ -1075,6 +1072,7 @@ export async function notifyFollowers(userId: string, type: 'new_post' | 'new_do
         const followers = await ForumFollowRepository.getFollowers(userId);
         for (const f of followers) {
             if (!f.notifyPosts) continue;
+            const { NotificationDB } = await import('@/app/services/notifications/notificationForumStorage');
             await NotificationDB.addNotification({
                 id: uuidv4(),
                 userId: f.followerId,

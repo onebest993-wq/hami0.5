@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { ForumNotificationStreamService } from '@/app/services/forum/ForumNotificationStreamService';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { resolveForumStreamHealthCheckMs } from '@/app/components/lawyer/CommunityScreen/communityFeedPolicy';
 
@@ -13,25 +12,37 @@ export function useForumNotificationStream(userId: string | null, enabled = true
             return;
         }
 
-        const release = ForumNotificationStreamService.acquire(userId);
-        setConnected(ForumNotificationStreamService.isRunning());
+        let cancelled = false;
+        let release: (() => void) | undefined;
+        let unsub: (() => void) | undefined;
 
-        const unsub = ForumNotificationStreamService.subscribe(() => {
+        void import('@/app/services/forum/ForumNotificationStreamService').then((m) => {
+            if (cancelled) return;
+            const { ForumNotificationStreamService } = m;
+            release = ForumNotificationStreamService.acquire(userId);
             setConnected(ForumNotificationStreamService.isRunning());
+            unsub = ForumNotificationStreamService.subscribe(() => {
+                if (!cancelled) {
+                    setConnected(ForumNotificationStreamService.isRunning());
+                }
+            });
         });
 
         return () => {
-            unsub();
-            release();
+            cancelled = true;
+            unsub?.();
+            release?.();
             setConnected(false);
         };
     }, [enabled, userId]);
 
     useVisibilityAwareInterval(() => {
         if (!enabled || !userId) return;
-        if (!ForumNotificationStreamService.isRunning()) {
-            void ForumNotificationStreamService.start(userId);
-        }
+        void import('@/app/services/forum/ForumNotificationStreamService').then((m) => {
+            if (!m.ForumNotificationStreamService.isRunning()) {
+                void m.ForumNotificationStreamService.start(userId);
+            }
+        });
     }, resolveForumStreamHealthCheckMs(), enabled && Boolean(userId));
 
     return connected;

@@ -16,7 +16,6 @@ import {
 } from '../communityPermissions';
 import {
     prefetchCommunityDeleteConfirmOverlay,
-    prefetchCommunityEditPostOverlay,
 } from '../communityOverlayPrefetch';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
 

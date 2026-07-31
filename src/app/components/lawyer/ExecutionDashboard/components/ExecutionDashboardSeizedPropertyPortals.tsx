@@ -12,7 +12,7 @@ import {
     expertCommitteeSizeLabelAr,
     readExpertCommitteeSize,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/expertCommitteeUtils';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 
 export type ExecutionDashboardSeizedPropertyPortalsProps = Record<string, unknown>;
 

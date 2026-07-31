@@ -353,6 +353,13 @@ async function collectValidBridgeIdsAsync(userId: string, options?: PruneOptions
                 if (grievanceFirst) {
                     ids.add(buildStableBridgeId('urgent', caseId, 'grievance_first_hearing'));
                 }
+                if (normalizeDateToYmd(readStr(c, 'firstHearingDate'))) {
+                    const sessionCmp = normalizeDateToYmd(readStr(c, 'sessionDate'));
+                    const fh = normalizeDateToYmd(readStr(c, 'firstHearingDate'));
+                    if (fh && (!sessionCmp || fh !== sessionCmp)) {
+                        ids.add(buildStableBridgeId('urgent', caseId, 'first_hearing_date'));
+                    }
+                }
                 for (const h of hearings) {
                     if (!isRecord(h)) continue;
                     const hid = String(h.id ?? '');

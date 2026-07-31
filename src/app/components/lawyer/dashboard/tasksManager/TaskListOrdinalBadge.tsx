@@ -8,13 +8,13 @@ export type TaskListOrdinal = {
 const STRIPE_TONE_CLASS = [
     'from-[#A67C52]/45 via-[#1A7059]/25',
     'from-[#6BC4A8]/42 via-[#1A7059]/28',
-    'from-violet-400/38 via-[#A67C52]/22',
+    'from-[#E6C673]/38 via-[#A67C52]/22',
 ] as const;
 
-const EDGE_RING_CLASS = [
-    'ring-[#A67C52]/55 text-[#D4B896]',
-    'ring-[#6BC4A8]/50 text-[#6BC4A8]',
-    'ring-violet-400/45 text-violet-200',
+const ACCENT_CLASS = [
+    'from-[#E6C673] to-[#A67C52]',
+    'from-[#6BC4A8] to-[#1A7059]',
+    'from-[#D4B896] to-[#A67C52]',
 ] as const;
 
 export function taskListStripeToneClass(ordinal?: TaskListOrdinal): string {
@@ -22,44 +22,47 @@ export function taskListStripeToneClass(ordinal?: TaskListOrdinal): string {
     return STRIPE_TONE_CLASS[ordinal.index % STRIPE_TONE_CLASS.length]!;
 }
 
-function edgeRingClass(ordinal: TaskListOrdinal): string {
-    return EDGE_RING_CLASS[ordinal.index % EDGE_RING_CLASS.length]!;
+function accentGradient(ordinal: TaskListOrdinal): string {
+    return ACCENT_CLASS[ordinal.index % ACCENT_CLASS.length]!;
+}
+
+function padIndex(n: number): string {
+    return n < 10 ? `0${n}` : String(n);
 }
 
 export type TaskListOrdinalBadgeProps = {
     ordinal: TaskListOrdinal;
     className?: string;
-    /** مضغوط — دائرة أصغر */
     compact?: boolean;
-    /** edge: خارج البطاقة بدون أخذ مساحة | inline: داخل الصف */
     placement?: 'edge' | 'inline';
     testId?: string;
 };
 
-/** رقم ترتيبي — يظهر فقط عند وجود أكثر من مهمة في القائمة */
+/** مؤشر ترتيب عصري — رقم صفري مبطن + خط تدرج */
 export function TaskListOrdinalBadge({
     ordinal,
     className = '',
     compact = false,
-    placement = 'inline',
     testId,
 }: TaskListOrdinalBadgeProps) {
     if (ordinal.total <= 1) return null;
 
     const n = ordinal.index + 1;
-    const ring = edgeRingClass(ordinal);
+    const label = compact ? `إجراء ${n} من ${ordinal.total}` : `مهمة ${n} من ${ordinal.total}`;
+    const accent = accentGradient(ordinal);
 
-    if (placement === 'edge') {
-        const size = compact ? 'size-6 text-[10px]' : 'size-7 text-[11px]';
+    if (compact) {
         return (
             <span
-                className={`absolute z-[3] pointer-events-none top-4 left-0 -translate-x-[42%] ${className}`}
-                aria-label={`مهمة ${n} من ${ordinal.total}`}
+                className={`relative inline-flex items-center justify-center size-5 shrink-0 rounded-md bg-[#061612]/55 border border-white/[0.07] ${className}`}
+                aria-label={label}
                 data-testid={testId ?? 'tasks-task-list-ordinal'}
             >
                 <span
-                    className={`relative flex items-center justify-center rounded-full border-2 border-[#0c0c0e] bg-[#071612] shadow-[0_4px_14px_rgba(0,0,0,0.45)] ring-1 ${ring} font-extrabold tabular-nums leading-none ${size}`}
-                >
+                    className={`absolute inset-y-1 right-0 w-[1.5px] rounded-full bg-gradient-to-b ${accent} opacity-90`}
+                    aria-hidden
+                />
+                <span className="text-[9px] font-black tabular-nums tracking-wide text-[#E8F5F0]/85">
                     {n}
                 </span>
             </span>
@@ -68,13 +71,22 @@ export function TaskListOrdinalBadge({
 
     return (
         <span
-            className={`inline-flex items-center justify-center rounded-full border border-[#A67C52]/32 bg-[#A67C52]/12 font-extrabold tabular-nums text-[#D4B896] shrink-0 ${
-                compact ? 'size-5 text-[10px]' : 'size-6 text-[11px]'
-            } ${className}`}
-            aria-label={compact ? `إجراء ${n} من ${ordinal.total}` : `مهمة ${n} من ${ordinal.total}`}
-            data-testid={testId}
+            className={`group relative inline-flex flex-row-reverse items-center gap-1.5 shrink-0 h-7 pl-2.5 pr-2 rounded-lg bg-[#061612]/55 border border-white/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ${className}`}
+            aria-label={label}
+            data-testid={testId ?? 'tasks-task-list-ordinal'}
+            title={label}
         >
-            {n}
+            <span
+                className={`absolute inset-y-1.5 right-0 w-[2px] rounded-full bg-gradient-to-b ${accent}`}
+                aria-hidden
+            />
+            <span className="text-[11px] font-black tabular-nums tracking-[0.14em] text-[#E6C673] leading-none">
+                {padIndex(n)}
+            </span>
+            <span className="w-px h-3 rounded-full bg-white/10" aria-hidden />
+            <span className="text-[9px] font-bold tabular-nums tracking-wider text-[#E8F5F0]/45 leading-none">
+                {padIndex(ordinal.total)}
+            </span>
         </span>
     );
 }

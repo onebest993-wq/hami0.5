@@ -1,23 +1,20 @@
 import { useCallback, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
-import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { persistCommunitySection } from '@/app/components/lawyer/CommunityScreen/communitySectionState';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { OpenCriminalCaseOptions } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
-import { warmExecutionDossier } from '@/app/utils/lazyComponents';
-
+import { dispatchGlobalSearchNavigate } from '@/app/hooks/globalSearchNavDispatch';
 import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import type { OpenScheduleTabOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
 
 export type UseLawyerDashboardGlobalSearchNavParams = {
+    userId: string | null;
     files: FileData[];
     executionFiles: ExecutionFile[];
-    setShowGlobalSearch: Dispatch<SetStateAction<boolean>>;
-    setGlobalSearchInitialQuery: Dispatch<SetStateAction<string>>;
+    /** إغلاق موحّد من bag — sessionKey + persist + scroll */
+    closeGlobalSearch: () => void;
     openNotifications: () => void;
     openProfileTab: () => void;
     openScheduleTab: (opts?: OpenScheduleTabOptions) => void;
@@ -37,136 +34,57 @@ export type UseLawyerDashboardGlobalSearchNavParams = {
     onNavigateToCase?: (caseId: string) => void;
 };
 
-export function useLawyerDashboardGlobalSearchNav({
-    files,
-    executionFiles,
-    setShowGlobalSearch,
-    setGlobalSearchInitialQuery,
-    openNotifications,
-    openProfileTab,
-    openScheduleTab,
-    setActiveTab,
-    openCommunityTab,
-    setCommunityDeepLink,
-    openUrgentInLawsuitsWorkspace,
-    openCriminalCase,
-    openTransactionsHub,
-    openTasksManager,
-    openNotepad,
-    openVaultModal,
-    setActiveFile,
-    selectCase,
-    onNavigateToCase,
-}: UseLawyerDashboardGlobalSearchNavParams) {
-    const filesRef = useRef(files);
-    filesRef.current = files;
-    const executionFilesRef = useRef(executionFiles);
-    executionFilesRef.current = executionFiles;
-    const onNavigateToCaseRef = useRef(onNavigateToCase);
-    onNavigateToCaseRef.current = onNavigateToCase;
+export function useLawyerDashboardGlobalSearchNav(params: UseLawyerDashboardGlobalSearchNavParams) {
+    const filesRef = useRef(params.files);
+    filesRef.current = params.files;
+    const executionFilesRef = useRef(params.executionFiles);
+    executionFilesRef.current = params.executionFiles;
+    const onNavigateToCaseRef = useRef(params.onNavigateToCase);
+    onNavigateToCaseRef.current = params.onNavigateToCase;
+    const userIdRef = useRef(params.userId);
+    userIdRef.current = params.userId;
 
-    const closeGlobalSearch = useCallback(() => {
-        setShowGlobalSearch(false);
-        setGlobalSearchInitialQuery('');
-        releaseBodyScrollLock();
-    }, [setGlobalSearchInitialQuery, setShowGlobalSearch]);
+    const {
+        closeGlobalSearch,
+        openCommunityTab,
+        openCriminalCase,
+        openNotifications,
+        openProfileTab,
+        openScheduleTab,
+        openTasksManager,
+        openTransactionsHub,
+        openVaultModal,
+        openNotepad,
+        selectCase,
+        setActiveFile,
+        setActiveTab,
+        setCommunityDeepLink,
+        openUrgentInLawsuitsWorkspace,
+    } = params;
 
     const handleGlobalSearchNavigate = useCallback(
         (nav: GlobalSearchNavigate) => {
-            closeGlobalSearch();
-            if (nav.type === 'notifications') {
-                openNotifications();
-                return;
-            }
-            if (nav.type === 'calendar') {
-                openScheduleTab({ date: nav.date, eventId: nav.eventId });
-                return;
-            }
-            if (nav.type === 'repository') {
-                persistCommunitySection('repository');
-                openCommunityTab();
-                return;
-            }
-            if (nav.type === 'community') {
-                openCommunityTab();
-                if (nav.postId) {
-                    setCommunityDeepLink({ postId: nav.postId, openComments: false });
-                }
-                return;
-            }
-            if (nav.type === 'profile') {
-                openProfileTab();
-                return;
-            }
-            if (nav.type === 'urgent') {
-                setActiveTab('home');
-                openUrgentInLawsuitsWorkspace(nav.urgentId);
-                return;
-            }
-            if (nav.type === 'criminal') {
-                openCriminalCase(nav.criminalId);
-                return;
-            }
-            if (nav.type === 'transactions') {
-                setActiveTab('home');
-                openTransactionsHub(nav.transactionId);
-                return;
-            }
-            if (nav.type === 'tasks_manager') {
-                setActiveTab('home');
-                openTasksManager(nav.taskId);
-                return;
-            }
-            if (nav.type === 'note' || nav.type === 'voice') {
-                setActiveTab('home');
-                openNotepad({ mode: 'list', focusNoteId: nav.noteId });
-                return;
-            }
-            if (nav.type === 'vault') {
-                setActiveTab('home');
-                openVaultModal();
-                return;
-            }
-            setActiveTab('home');
-            if (nav.type === 'file') {
-                const id = String(nav.fileId);
-                const target =
-                    filesRef.current.find((f) => String(f.id) === id) ||
-                    executionFilesRef.current.find((f) => String(f.id) === id);
-                if (target) {
-                    if ((target as { type?: string }).type === 'execution') {
-                        warmExecutionDossier('urgent');
-                    }
-                    if (typeof nav.stageIndex === 'number' || typeof nav.eventId === 'string') {
-                        const enriched = {
-                            ...(target as unknown as Record<string, unknown>),
-                            ...(typeof nav.stageIndex === 'number'
-                                ? { activeStageIndex: nav.stageIndex }
-                                : {}),
-                            ...(typeof nav.eventId === 'string'
-                                ? { __searchFocusEventId: nav.eventId }
-                                : {}),
-                        } as unknown as FileData;
-                        setActiveFile(enriched);
-                    } else {
-                        setActiveFile(target as FileData);
-                    }
-                }
-                return;
-            }
-            if (nav.type === 'case') {
-                selectCase(nav.caseId);
-                const target =
-                    filesRef.current.find((f) => String(f.id) === nav.caseId) ||
-                    executionFilesRef.current.find((f) => String(f.id) === nav.caseId);
-                if (target) {
-                    if ((target as { type?: string }).type === 'execution') {
-                        warmExecutionDossier('urgent');
-                    }
-                    setActiveFile(target as FileData);
-                }
-                onNavigateToCaseRef.current?.(nav.caseId);
-            }
+            dispatchGlobalSearchNavigate(nav, {
+                userId: userIdRef.current,
+                files: filesRef.current,
+                executionFiles: executionFilesRef.current,
+                closeGlobalSearch,
+                openNotifications,
+                openProfileTab,
+                openScheduleTab,
+                setActiveTab,
+                openCommunityTab,
+                setCommunityDeepLink,
+                openUrgentInLawsuitsWorkspace,
+                openCriminalCase,
+                openTransactionsHub,
+                openTasksManager,
+                openNotepad,
+                openVaultModal,
+                setActiveFile,
+                selectCase,
+                onNavigateToCase: onNavigateToCaseRef.current,
+            });
         },
         [
             closeGlobalSearch,

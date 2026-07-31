@@ -8,6 +8,8 @@ export type TransactionsThreadingSystemProps = {
     userId: string;
     initialTransactionId?: string;
     open?: boolean;
+    /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار فقط */
+    keepAlive?: boolean;
 };
 
 export type TransactionsThreadingSystemComponent = ComponentType<TransactionsThreadingSystemProps>;

@@ -25,6 +25,9 @@ type RepositoryFeedPanelProps = {
     executionFiles: ExecutionFile[];
     dossiers: DossierPickerOption[];
     vaultDocsById: Map<string, SmartVaultDoc>;
+    rooms?: unknown[];
+    onMoveGlobalToRoom?: (note: GlobalNote, roomId: string) => void;
+    onMoveVaultDocToRoom?: (doc: SmartVaultDoc, roomId: string) => void;
     onSaveGlobal: (note: GlobalNote) => void;
     onDeleteGlobal: (id: string | number) => void;
     onUpdateLawsuit: (file: FileData) => void;
@@ -35,11 +38,13 @@ type RepositoryFeedPanelProps = {
     onEditVaultDoc: (doc: SmartVaultDoc) => void;
     onViewVaultDoc: (doc: SmartVaultDoc) => void | Promise<void>;
     viewingVaultDocId?: string | null;
+    scrollParentRef?: React.RefObject<HTMLElement | null>;
+    onCreateNote?: () => void;
 };
 
 function emptyCopy(filter: RepositoryFeedFilter, hasSearch: boolean): string {
     if (hasSearch) return 'لا توجد نتائج للبحث';
-    if (filter === 'all') return 'المستودع فارغ — أنشئ بطاقة جديدة أو ارفع ملفاً';
+    if (filter === 'all') return 'المستودع فارغ — استخدم أزرار الإضافة أعلاه';
     return `لا توجد عناصر في «${repositoryFeedFilterLabel(filter)}»`;
 }
 
@@ -67,14 +72,17 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
     viewingVaultDocId,
 }: RepositoryFeedPanelProps) {
     if (items.length === 0) {
+        const hasSearch = Boolean(searchQuery.trim());
         return (
-            <p
+            <div
                 hidden={!active}
-                className={`text-sm text-white/40 text-center py-10 ${active ? '' : 'hidden'}`}
+                className={`flex min-h-[40vh] flex-col items-center justify-center gap-3 px-4 py-12 text-center ${active ? '' : 'hidden'}`}
                 data-testid={`repository-feed-empty-${filter}`}
             >
-                {emptyCopy(filter, Boolean(searchQuery.trim()))}
-            </p>
+                <p className="text-sm text-white/45 max-w-sm leading-relaxed">
+                    {emptyCopy(filter, hasSearch)}
+                </p>
+            </div>
         );
     }
 

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ChevronDown, Loader2, MessageSquare } from 'lucide-react';
+import { ChevronDown, Loader2 } from 'lucide-react';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
 import { useForumFeedWindow } from '../hooks/useForumFeedWindow';
@@ -8,7 +8,6 @@ import {
     FORUM_INTERACT_BTN,
     FORUM_PUBLISH_BTN_DISABLED,
     FORUM_TEXT_MUTED,
-    FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
 
 interface ForumPostListProps {
@@ -59,24 +58,17 @@ export const ForumPostList = memo(function ForumPostList({
 
     if (visiblePosts.length === 0) {
         return (
-            <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
-                <div className="py-14 text-center" data-testid={loadingPosts ? undefined : 'forum-post-empty'}>
+            <div className="px-4 pb-28 space-y-4" data-testid="forum-post-list">
+                <div
+                    className="pt-16 pb-8 flex flex-col items-center justify-end text-center px-3"
+                    data-testid={loadingPosts ? undefined : 'forum-post-empty'}
+                >
                     {loadingPosts ? (
-                        <>
-                            <Loader2 size={36} className="text-[#F0B896]/40 animate-spin mx-auto mb-4" aria-hidden />
-                            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>جاري تحميل المنشورات...</h3>
-                            <p className={`${FORUM_TEXT_MUTED} text-sm`}>سيظهر المنتدى خلال لحظات</p>
-                        </>
+                        <p className={`${FORUM_TEXT_MUTED} text-sm`}>جاري تحميل المنشورات…</p>
                     ) : (
-                        <>
-                            <div className="w-20 h-20 rounded-full bg-[#342C3A] border border-[#4A3D52]/40 flex items-center justify-center mx-auto mb-4">
-                                <MessageSquare size={36} className="text-[#F0B896]/30" />
-                            </div>
-                            <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>لا توجد استشارات حالياً</h3>
-                            <p className={`${FORUM_TEXT_MUTED} text-sm`}>
-                                {emptyHint ?? 'كُن أول من يطرح نقاشاً قانونياً!'}
-                            </p>
-                        </>
+                        <p className={`${FORUM_TEXT_MUTED} text-sm max-w-xs`}>
+                            {emptyHint ?? 'لا منشورات بعد — اطرح أول استشارة من زر النشر.'}
+                        </p>
                     )}
                 </div>
             </div>
@@ -86,7 +78,7 @@ export const ForumPostList = memo(function ForumPostList({
     return (
         <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
             {loadingPosts ? (
-                <div className="flex items-center justify-center gap-2 py-1 text-[#F0B896]/50 text-[11px] font-bold">
+                <div className="flex items-center justify-center gap-2 py-1 text-[#C9A86C]/50 text-[11px] font-bold">
                     <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
                     <span>جاري التحديث...</span>
                 </div>

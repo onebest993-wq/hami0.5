@@ -3,15 +3,18 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { SecretaryOrchestrator, type SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { filterAuthenticSecretaryAlerts } from '@/app/services/calendarAuthenticity';
 import { enrichAlertClientPhone } from '@/app/services/enrichAlertContact';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { syncPushForNewCriticalAlerts } from '@/app/services/appAlertPushSync';
 import { writeHomeHubSecretaryAlertsCache, peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
 import { filterAlertsByNotificationSettings, getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
-import { ensureCalendarPopulatedFromLiveDossiers } from '@/app/services/calendarDossierSync';
 import { isBenignSecureFetchError } from '@/app/services/secureFetchErrors';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { debug } from '@/app/utils/debug';
+
+function loadCalendarDossierSync() {
+    return import('@/app/services/calendarDossierSync');
+}
 
 type RawNote = {
     id: string | number;
@@ -102,6 +105,7 @@ export function useAppAlerts(params: {
         try {
             if (syncCalendar) {
                 try {
+                    const { ensureCalendarPopulatedFromLiveDossiers } = await loadCalendarDossierSync();
                     await ensureCalendarPopulatedFromLiveDossiers(
                         {
                             lawyerId: uid,

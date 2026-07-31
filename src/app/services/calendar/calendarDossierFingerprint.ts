@@ -1,4 +1,6 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/lite';
+import { fieldTaskHasExplicitUserDate } from '@/app/services/calendarAuthenticity';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
     return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -61,6 +63,22 @@ function criminalCaseFingerprint(c: Record<string, unknown>): string {
     return parts.join(';');
 }
 
+function fieldTaskFingerprint(task: LegalTask): string {
+    if (!fieldTaskHasExplicitUserDate(task)) {
+        return `${task.id}:0`;
+    }
+    const ymd =
+        (task.reminderAt && !Number.isNaN(task.reminderAt.getTime())
+            ? normalizeDateToYmd(task.reminderAt.toISOString())
+            : null) ||
+        (task.parsedDate && !Number.isNaN(task.parsedDate.getTime())
+            ? normalizeDateToYmd(task.parsedDate.toISOString())
+            : null) ||
+        '';
+    const loc = (task.location ?? '').trim();
+    return `${task.id}:${ymd}:${task.status}:${loc}:${task.isFatalDeadline ? '1' : '0'}`;
+}
+
 function buildDossierFilesFingerprint(lawsuitFiles: unknown[], executionFiles: unknown[]): string {
     const l = lawsuitFiles
         .filter(isRecord)
@@ -83,15 +101,18 @@ function buildCriminalFingerprint(criminalCases: unknown[]): string {
         .join('||');
 }
 
+function buildFieldTasksFingerprint(fieldTasks: LegalTask[]): string {
+    return fieldTasks.map(fieldTaskFingerprint).sort().join('|');
+}
+
 /** بصمة الإضابير — تُستخدم لمزامنة التقويم و reconcile الذكي */
 export function buildCalendarDossierFingerprint(
     lawsuitFiles: unknown[] = [],
     executionFiles: unknown[] = [],
     _globalNotes: unknown[] = [],
-    _fieldTasks: LegalTask[] = [],
+    fieldTasks: LegalTask[] = [],
     criminalCases: unknown[] = [],
 ): string {
     void _globalNotes;
-    void _fieldTasks;
-    return `${buildDossierFilesFingerprint(lawsuitFiles, executionFiles)}##${buildCriminalFingerprint(criminalCases)}`;
+    return `${buildDossierFilesFingerprint(lawsuitFiles, executionFiles)}##${buildCriminalFingerprint(criminalCases)}##ft:${buildFieldTasksFingerprint(fieldTasks)}`;
 }

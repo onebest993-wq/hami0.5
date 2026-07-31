@@ -1,11 +1,22 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { Clock, MapPin, MessageCircle, Navigation, CheckCircle2, Trash2, ExternalLink } from 'lucide-react';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
+import {
+    Clock,
+    CheckCircle2,
+    Trash2,
+    ExternalLink,
+    Pencil,
+} from 'lucide-react';
 import { TYPE_STYLES } from './utils';
-import { RADAR_GLASS_PANEL, RADAR_ICON_ACCENT } from './radarTheme';
+import { RADAR_GLASS_PANEL } from './radarTheme';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { calendarModuleVisual } from '@/app/services/calendarModuleVisuals';
+import { resolveRadarEventDisplayMeta } from './radarEventDisplayMeta';
+import { describeLegalDeadlineForCalendarCard } from '@/app/services/calendar/legalDeadlineEngine';
+import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 
 interface EventCardProps {
     event: UnifiedEvent;
@@ -16,6 +27,183 @@ interface EventCardProps {
     onOpenSource?: (event: UnifiedEvent) => void;
 }
 
+const LEGAL_DEADLINE_MODULES = new Set<CalendarSourceModule>([
+    'lawsuit',
+    'execution',
+    'criminal',
+    'urgent',
+]);
+
+function looksLikeCaseNumber(value: string): boolean {
+    const v = value.trim();
+    if (!v || v.length < 2) return false;
+    if (/^مهمة\s*ميدان$/i.test(v)) return false;
+    return /\d/.test(v);
+}
+
+function normalizeLabel(value: string): string {
+    return value.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function labelsEqual(a: string, b: string): boolean {
+    return normalizeLabel(a) === normalizeLabel(b);
+}
+
+/** تسميات عامة للمصدر تطابق النوع — لا تُكرَّر بجانب الشارة */
+function isGenericModuleEcho(kind: string, source: string): boolean {
+    if (labelsEqual(kind, source)) return true;
+    const k = normalizeLabel(kind);
+    const s = normalizeLabel(source);
+
+    if (/ميدان/.test(k) && /ميدان/.test(s)) return true;
+
+    /* مهلة مستعجلة ↔ قضاء مستعجل / مستعجل — نفس الدلالة */
+    if (/مستعجل/.test(k) && /مستعجل/.test(s)) return true;
+
+    if (/^دعوى$/.test(s) && /جلسة|مهلة|مرافع/.test(k)) return true;
+    if (/^(تنفيذ|جزائي|إداري|ملاحظة|يدوي)$/.test(s) && (labelsEqual(k, s) || k.includes(s))) {
+        return true;
+    }
+
+    return false;
+}
+
+/** نوع الحدث الظاهر — جلسة / مهلة / مهلة مستعجلة / … */
+function resolveKindLabel(event: UnifiedEvent): string {
+    const title = String(event.title ?? '');
+    const mod = event.bridge?.sourceModule;
+    const base = TYPE_STYLES[event.type] || TYPE_STYLES.custom;
+
+    if (mod === 'task') {
+        if (/تبليغ/i.test(title)) return 'تبليغ';
+        if (/كشف|معاينة/i.test(title)) return 'معاينة';
+        return 'مهمة ميدان';
+    }
+
+    const urgentish =
+        mod === 'urgent' || /مهلة\s*مستعجل|مستعجل\w*\s*مهلة|قضاء\s*مستعجل/i.test(title);
+    if (
+        urgentish &&
+        (event.type === 'deadline' || /مهلة|موعد\s*نهائي|انتهاء|مستعجل/i.test(title))
+    ) {
+        return 'مهلة مستعجلة';
+    }
+
+    if (/مرافع/i.test(title)) return 'موعد مرافعة';
+    if (/مهلة|طعن|تمييز|استئناف|اعتراض|انتهاء/i.test(title)) return 'مهلة';
+    if (event.type === 'deadline') return 'مهلة';
+    if (event.type === 'hearing') return 'جلسة';
+    if (event.type === 'execution') return 'تنفيذ';
+    if (event.type === 'consultation') return 'استشارة';
+    return base.label;
+}
+
+function stripKindNoiseFromTitle(title: string): string {
+    return title
+        .replace(/جلسة\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/مهلة\s*مستعجل[ةه]?\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/موعد\s*نهائي\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/مهلة\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/موعد\s*مرافع[ةه]?\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/مهمة\s*ميدان\s*[—\-·:：]?\s*/gi, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function isUselessMark(value: string, kind: string, source?: string | null): boolean {
+    if (!value.trim()) return true;
+    if (labelsEqual(value, kind)) return true;
+    if (source && labelsEqual(value, source)) return true;
+    if (/^(مهمة\s*)?ميدان$/i.test(value.trim())) return true;
+    return false;
+}
+
+/** رقم دعوى / مرجع / عنوان قصير مميز */
+function resolveDistinctiveMark(
+    event: UnifiedEvent,
+    meta: { court?: string; freeNotes?: string },
+    kind: string,
+    source: string,
+): string | null {
+    const caseNo = event.caseNo?.trim();
+    if (caseNo && looksLikeCaseNumber(caseNo) && !isUselessMark(caseNo, kind, source)) {
+        return caseNo;
+    }
+
+    const title = String(event.title ?? '');
+    const refInTitle = title.match(/\d{1,4}\s*[\\/]\s*\d{2,4}|\b\d{3,}\b/);
+    if (refInTitle) {
+        const ref = refInTitle[0].replace(/\s+/g, '');
+        if (!isUselessMark(ref, kind, source)) return ref;
+    }
+
+    const court = meta.court?.trim();
+    if (court && !isUselessMark(court, kind, source)) return court;
+
+    const cleaned = stripKindNoiseFromTitle(title);
+    if (cleaned && !isUselessMark(cleaned, kind, source)) {
+        return cleaned.length > 36 ? `${cleaned.slice(0, 34)}…` : cleaned;
+    }
+
+    const note = meta.freeNotes?.trim().split(/\n+/)[0]?.trim();
+    if (note && looksLikeCaseNumber(note) && !isUselessMark(note, kind, source)) {
+        return note.slice(0, 36);
+    }
+
+    return null;
+}
+
+/**
+ * يبني سطراً بلا تكرار: شارة النوع + نص عريض (مصدر أو معرّف) + ثانوي اختياري
+ */
+function buildDedupedCardText(input: {
+    kind: string;
+    source: string;
+    distinctive: string | null;
+}): { primary: string | null; secondary: string | null; primaryIsSource: boolean } {
+    const { kind, source, distinctive } = input;
+    const sourceUseful =
+        Boolean(source.trim()) &&
+        !labelsEqual(source, 'يدوي') &&
+        !isGenericModuleEcho(kind, source);
+
+    if (sourceUseful) {
+        const secondary =
+            distinctive &&
+            !labelsEqual(distinctive, source) &&
+            !labelsEqual(distinctive, kind)
+                ? distinctive
+                : null;
+        return { primary: source, secondary, primaryIsSource: true };
+    }
+
+    if (distinctive && !labelsEqual(distinctive, kind)) {
+        return { primary: distinctive, secondary: null, primaryIsSource: false };
+    }
+
+    return { primary: null, secondary: null, primaryIsSource: false };
+}
+
+function shouldShowLegalCountdown(event: UnifiedEvent): boolean {
+    const mod = event.bridge?.sourceModule;
+    const title = String(event.title ?? '');
+    if (mod && LEGAL_DEADLINE_MODULES.has(mod)) {
+        return (
+            event.type === 'deadline' ||
+            /مهلة|طعن|تمييز|استئناف|اعتراض|انتهاء|مستعجل/i.test(title)
+        );
+    }
+    if (event.isBridged) return false;
+    return event.type === 'deadline' || /مهلة|طعن|تمييز|استئناف|اعتراض/i.test(title);
+}
+
+function Dot() {
+    return <span className="shrink-0 text-[#F5EDE0]/25 select-none" aria-hidden>·</span>;
+}
+
+/**
+ * صف مضغوط: نوع · وقت · مصدر (عريض) · معرّف مميز · مهلة
+ */
 export const EventCard = React.memo(function EventCard({
     event,
     index,
@@ -29,145 +217,192 @@ export const EventCard = React.memo(function EventCard({
     const moduleVisual = calendarModuleVisual(event.bridge?.sourceModule);
     const isDiscovered = Boolean(event.bridge?.sourceEventId?.startsWith('field_'));
     const canOpenSource = Boolean(event.isBridged && onOpenSource);
+    const canMutateCalendar = event.source === 'calendar' && !isDiscovered;
     const reduceMotion = useReduceMotion();
 
+    const meta = useMemo(
+        () =>
+            resolveRadarEventDisplayMeta({
+                notes: event.notes,
+                court: event.court,
+                partiesSummary: event.partiesSummary,
+                sourceLabel: event.sourceLabel,
+                location: event.location,
+                moduleLabel: event.isBridged ? moduleVisual.label : undefined,
+            }),
+        [
+            event.notes,
+            event.court,
+            event.partiesSummary,
+            event.sourceLabel,
+            event.location,
+            event.isBridged,
+            moduleVisual.label,
+        ],
+    );
+
+    const kindLabel = useMemo(() => resolveKindLabel(event), [event]);
+
+    const sourceLabel =
+        meta.sourceLabel || (event.isBridged ? moduleVisual.label : undefined) || 'يدوي';
+
+    const distinctive = useMemo(
+        () =>
+            resolveDistinctiveMark(
+                event,
+                { court: meta.court, freeNotes: meta.freeNotes },
+                kindLabel,
+                sourceLabel,
+            ),
+        [event, meta.court, meta.freeNotes, kindLabel, sourceLabel],
+    );
+
+    const lines = useMemo(
+        () =>
+            buildDedupedCardText({
+                kind: kindLabel,
+                source: sourceLabel,
+                distinctive,
+            }),
+        [kindLabel, sourceLabel, distinctive],
+    );
+
+    const legalCountdown = useMemo(() => {
+        if (!shouldShowLegalCountdown(event)) return null;
+        if (!/^\d{4}-\d{2}-\d{2}/.test(String(event.date ?? ''))) return null;
+        return describeLegalDeadlineForCalendarCard({
+            expirationYmd: String(event.date).trim().slice(0, 10),
+            decisionSource: event.title,
+            asOf: getLocalTodayYmd(),
+        });
+    }, [event]);
+
+    const countdownLabel = legalCountdown
+        ? legalCountdown.remainingLegalWorkingDays <= 0
+            ? 'انتهت'
+            : `${legalCountdown.remainingLegalWorkingDays}ي عمل`
+        : null;
+
+    const cardClassName = `relative ${RADAR_GLASS_PANEL} transition-colors overflow-hidden group ${
+        highlighted
+            ? 'border-[#E8DCC8]/40 ring-2 ring-[#FAF7F2]/12'
+            : 'hover:border-[#E8DCC8]/28'
+    }`;
+    /* Android WebView: بلا motion على أول رسم — نفس الهيكل البصري */
+    const skipMotion = reduceMotion || isAndroidNativeShell();
+    const CardRoot = skipMotion ? 'div' : motion.div;
+    const motionProps = skipMotion
+        ? {}
+        : {
+              initial: { opacity: 0, y: 6 },
+              animate: { opacity: 1, y: 0 },
+              transition: { delay: Math.min(index * 0.03, 0.12) },
+          };
+
     return (
-        <motion.div
+        <CardRoot
             key={event.id}
-            initial={reduceMotion ? false : { opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={reduceMotion ? { duration: 0 } : { delay: Math.min(index * 0.05, 0.25) }}
-            className={`relative ${RADAR_GLASS_PANEL} transition-all overflow-hidden group ${
-                highlighted
-                    ? 'border-[#C4956A]/55 ring-2 ring-[#C4956A]/25'
-                    : 'hover:border-[#F5EDE0]/18'
-            }`}
+            {...motionProps}
+            className={cardClassName}
             data-testid={`radar-event-card-${event.id}`}
         >
             <div className={`absolute top-0 right-0 bottom-0 w-1 bg-gradient-to-b ${moduleVisual.rail}`} />
-            <div className="p-4 pr-5">
-                <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <Icon size={14} className={style.color} />
-                            <span
-                                className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold ${style.bg} ${style.color} ${style.border} border`}
+
+            <div className="flex items-center gap-1.5 py-2 pl-1.5 pr-3 min-h-[52px]">
+                <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden" dir="rtl">
+                    <span
+                        className={`inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${style.bg} ${style.color} ${style.border}`}
+                        data-testid={`radar-event-kind-${event.id}`}
+                    >
+                        <Icon size={10} aria-hidden />
+                        {kindLabel}
+                    </span>
+
+                    {event.time ? (
+                        <span className="inline-flex shrink-0 items-center gap-0.5 font-mono text-[10px] font-bold text-[#FAF7F2]/90">
+                            <Clock size={10} aria-hidden />
+                            {event.time}
+                        </span>
+                    ) : null}
+
+                    {event.isCompleted ? (
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" aria-label="مكتمل" />
+                    ) : null}
+
+                    {lines.primary ? (
+                        <p
+                            className="min-w-0 max-w-[50%] truncate text-[13px] font-extrabold text-[#FAF7F2] leading-none tracking-tight"
+                            data-testid={`radar-event-source-${event.id}`}
+                            title={lines.primaryIsSource ? `المصدر: ${lines.primary}` : lines.primary}
+                        >
+                            {lines.primary}
+                        </p>
+                    ) : null}
+
+                    {lines.secondary ? (
+                        <>
+                            <Dot />
+                            <p
+                                className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#E8DCC8]/75 leading-none"
+                                data-testid={`radar-event-summary-${event.id}`}
+                                title={lines.secondary}
                             >
-                                {style.label}
-                            </span>
-                            {event.isBridged ? (
-                                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${moduleVisual.badge}`}>
-                                    {moduleVisual.label}
-                                </span>
-                            ) : null}
-                            {event.time && (
-                                <span className="text-[#D4A87A] font-bold font-mono text-xs flex items-center gap-1">
-                                    <Clock size={12} />
-                                    {event.time}
-                                </span>
-                            )}
-                            {event.isCompleted && <CheckCircle2 size={14} className="text-emerald-400" />}
-                        </div>
-                        <h3 className="text-[#F5EDE0]/95 font-bold">{event.title}</h3>
-                        {event.caseNo && (
-                            <span className="text-[#E8DCC8]/45 text-xs">رقم الدعوى: {event.caseNo}</span>
-                        )}
-                    </div>
-                    <div className="flex gap-1 items-center shrink-0">
-                        {isDiscovered && (
-                            <span className="text-[10px] font-bold text-[#D4A87A]/90 bg-[#C4956A]/12 border border-[#C4956A]/30 px-2 py-0.5 rounded-md">
-                                مكتشف تلقائياً
-                            </span>
-                        )}
-                        {canOpenSource && (
-                            <button
-                                type="button"
-                                onClick={() => onOpenSource!(event)}
-                                title="فتح المصدر الأصلي"
-                                className="p-1.5 rounded-lg hover:bg-[#C4956A]/15 text-[#D4A87A]/80 hover:text-[#F5EDE0] transition-colors"
-                            >
-                                <ExternalLink size={14} />
-                            </button>
-                        )}
-                        {event.source === 'calendar' && !isDiscovered && (
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
-                                <button
-                                    type="button"
-                                    onClick={() => onEdit(event)}
-                                    aria-label="تعديل الموعد"
-                                    className="p-1.5 rounded-lg hover:bg-[#F5EDE0]/10 text-[#E8DCC8]/55 hover:text-[#D4A87A] transition-colors touch-manipulation"
-                                >
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="14"
-                                        height="14"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                        <path d="m15 5 4 4" />
-                                    </svg>
-                                </button>
-                                {!event.isBridged && (
-                                    <button
-                                        type="button"
-                                        onClick={() => onDelete(event)}
-                                        aria-label="حذف الموعد"
-                                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors touch-manipulation"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
+                                {lines.secondary}
+                            </p>
+                        </>
+                    ) : null}
+
+                    {countdownLabel ? (
+                        <span
+                            className="shrink-0 rounded-md border border-[#E8DCC8]/22 bg-[#F5EDE0]/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-[#EDE4D6] leading-none"
+                            data-testid={`radar-event-legal-deadline-${event.id}`}
+                            title={
+                                legalCountdown
+                                    ? legalCountdown.remainingLegalWorkingDays <= 0
+                                        ? `انتهت المهلة · ${legalCountdown.expirationYmd}`
+                                        : `متبقٍ ${legalCountdown.remainingLegalWorkingDays} يوم عمل · ${legalCountdown.expirationYmd}`
+                                    : undefined
+                            }
+                        >
+                            {countdownLabel}
+                        </span>
+                    ) : null}
                 </div>
-                {event.location && (
-                    <div className="flex items-center gap-2 text-[#E8DCC8]/55 text-sm mb-2">
-                        <MapPin size={14} className={RADAR_ICON_ACCENT} />
-                        <span>{event.location}</span>
-                    </div>
-                )}
-                {event.notes && <p className="text-[#E8DCC8]/45 text-xs mb-2">{event.notes}</p>}
-                {event.clientName && event.clientPhone && (
-                    <div className="flex gap-2 mt-2">
+
+                <div className="flex shrink-0 items-center gap-0">
+                    {canOpenSource ? (
                         <button
                             type="button"
-                            onClick={() =>
-                                window.open(
-                                    `https://wa.me/${encodeURIComponent(String(event.clientPhone).replace(/[^\d+]/g, ''))}?text=${encodeURIComponent(`مرحباً ${event.clientName}، تذكير بالموعد: ${event.title}`)}`,
-                                    '_blank',
-                                    'noopener,noreferrer',
-                                )
-                            }
-                            className="flex-1 bg-[#F5EDE0]/[0.04] hover:bg-emerald-600/15 hover:text-emerald-400 border border-[#F5EDE0]/10 hover:border-emerald-500/30 text-[#E8DCC8]/75 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"
+                            onClick={() => onOpenSource!(event)}
+                            title="فتح المصدر"
+                            aria-label={`فتح المصدر الأصلي للموعد ${event.title}`}
+                            className="flex h-11 w-11 items-center justify-center rounded-xl text-[#B7C5C7] transition-colors touch-manipulation hover:bg-[#FAF7F2]/10 hover:text-[#FAF7F2]"
                         >
-                            <MessageCircle size={14} />
-                            إشعار الموكل
+                            <ExternalLink size={14} aria-hidden />
                         </button>
-                        {event.location && (
+                    ) : null}
+                    {canMutateCalendar ? (
+                        <div className="flex items-center opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100 transition-opacity">
                             <button
                                 type="button"
-                                onClick={() =>
-                                    window.open(
-                                        `https://www.google.com/maps/search/${encodeURIComponent(event.location)}`,
-                                        '_blank',
-                                        'noopener,noreferrer',
-                                    )
-                                }
-                                className="flex-1 bg-[#F5EDE0]/[0.04] hover:bg-[#C4956A]/15 hover:text-[#F5EDE0] border border-[#F5EDE0]/10 hover:border-[#C4956A]/35 text-[#E8DCC8]/75 py-2 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all"
+                                onClick={() => onEdit(event)}
+                                aria-label={`تعديل الموعد ${event.title}`}
+                                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#E8DCC8]/60 transition-colors touch-manipulation hover:bg-[#F5EDE0]/10 hover:text-[#FAF7F2]"
                             >
-                                <Navigation size={14} />
-                                الاتجاهات
+                                <Pencil size={13} aria-hidden />
                             </button>
-                        )}
-                    </div>
-                )}
+                            <button
+                                type="button"
+                                onClick={() => onDelete(event)}
+                                aria-label={`حذف الموعد ${event.title}`}
+                                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#E8DCC8]/45 transition-colors touch-manipulation hover:bg-[#9AADB0]/18 hover:text-[#B7C5C7]"
+                            >
+                                <Trash2 size={13} aria-hidden />
+                            </button>
+                        </div>
+                    ) : null}
+                </div>
             </div>
-        </motion.div>
+        </CardRoot>
     );
 });

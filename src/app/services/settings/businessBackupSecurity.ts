@@ -1,5 +1,20 @@
 import { STORAGE_KEYS } from '@/app/utils/constants';
 
+/** حد أدنى لكلمة مرور حماية نسخة التصدير (بيانات قانونية حساسة) */
+export const BACKUP_PASSWORD_MIN_LENGTH = 12;
+
+export type BackupPasswordValidation =
+    | { ok: true }
+    | { ok: false; reason: 'empty' | 'too_short' };
+
+/** يتحقق من كلمة مرور حماية النسخة قبل التشفير. */
+export function validateBackupPassword(password: string): BackupPasswordValidation {
+    const trimmed = password.trim();
+    if (!trimmed) return { ok: false, reason: 'empty' };
+    if (trimmed.length < BACKUP_PASSWORD_MIN_LENGTH) return { ok: false, reason: 'too_short' };
+    return { ok: true };
+}
+
 /** أقصى عدد مفاتيح في استيراد واحد */
 export const MAX_BACKUP_IMPORT_KEYS = 500;
 

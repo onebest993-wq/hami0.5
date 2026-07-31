@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 type UseRepositoryEscapeStackParams = {
     enabled: boolean;
@@ -17,7 +18,7 @@ type UseRepositoryEscapeStackParams = {
     onCloseModal: () => void;
 };
 
-/** Escape متدرّج: مسجّل → رفع ملف → معاينة → تعديل → ماسح → إنشاء بطاقة → إغلاق المستودع */
+/** Escape/Cap متدرّج: مسجّل → رفع ملف → معاينة → تعديل → ماسح → إنشاء بطاقة → إغلاق المستودع */
 export function useRepositoryEscapeStack({
     enabled,
     composing,
@@ -37,38 +38,47 @@ export function useRepositoryEscapeStack({
     useEffect(() => {
         if (!enabled) return;
 
+        const consumeBackStack = (): boolean => {
+            if (showVoiceRecorder) return true;
+            if (pendingUploadOpen && !pendingUploadSaving) {
+                onCancelPendingUpload?.();
+                return true;
+            }
+            if (fileViewerOpen) {
+                onCloseFileViewer?.();
+                return true;
+            }
+            if (editDocOpen) {
+                onCloseEditDoc?.();
+                return true;
+            }
+            if (scannerOpen) {
+                onCloseScanner();
+                return true;
+            }
+            if (composing) {
+                onResetComposer();
+                return true;
+            }
+            onCloseModal();
+            return true;
+        };
+
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
             if (showVoiceRecorder) return;
 
             e.preventDefault();
             e.stopPropagation();
-
-            if (pendingUploadOpen && !pendingUploadSaving) {
-                onCancelPendingUpload?.();
-                return;
-            }
-            if (fileViewerOpen) {
-                onCloseFileViewer?.();
-                return;
-            }
-            if (editDocOpen) {
-                onCloseEditDoc?.();
-                return;
-            }
-            if (scannerOpen) {
-                onCloseScanner();
-                return;
-            }
-            if (composing) {
-                onResetComposer();
-                return;
-            }
-            onCloseModal();
+            consumeBackStack();
         };
 
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => consumeBackStack());
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
     }, [
         composing,
         editDocOpen,

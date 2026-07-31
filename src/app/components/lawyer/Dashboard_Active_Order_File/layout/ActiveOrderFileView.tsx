@@ -1,13 +1,13 @@
 import React from 'react';
 import { Modal_Quick_Log } from '../../Modal_Quick_Log';
-import { MetaEditModal } from '../modals/MetaEditModal';
-import { PartyEditModal } from '../modals/PartyEditModal';
+import { DossierEditModal } from '../modals/DossierEditModal';
 import { ActiveOrderFileHeader } from './ActiveOrderFileHeader';
 import { ArchiveBanner } from './ArchiveBanner';
 import { PartiesSidebar } from './PartiesSidebar';
 import { LifecyclePanel } from './LifecyclePanel';
 import { AdminWorkspacePanel } from './AdminWorkspacePanel';
 import type { ActiveOrderFileViewProps } from './ActiveOrderFileViewProps';
+import { URGENT_DOSSIER_CARD } from './urgentDossierUi';
 
 export type { ActiveOrderFileViewProps } from './ActiveOrderFileViewProps';
 
@@ -17,8 +17,7 @@ export function ActiveOrderFileView({
     lifecyclePanelProps,
     adminWorkspace,
     decisionNotificationModal,
-    metaEdit,
-    partyEdit,
+    dossierEdit,
     header,
     archive,
     parties,
@@ -26,7 +25,7 @@ export function ActiveOrderFileView({
     return (
         <>
             <div
-                className="fixed inset-0 z-[200] bg-[#0B1021] font-['Tajawal'] overflow-hidden"
+                className="fixed inset-0 z-[200] bg-[#0B1021] font-['Tajawal'] flex flex-col overflow-hidden"
                 onSubmit={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -40,8 +39,7 @@ export function ActiveOrderFileView({
                     minActionDate={decisionNotificationModal.minActionDate}
                     onSubmit={decisionNotificationModal.onSubmit}
                 />
-                <MetaEditModal {...metaEdit} />
-                <PartyEditModal {...partyEdit} />
+                <DossierEditModal {...dossierEdit} />
 
                 <ActiveOrderFileHeader {...header} onClose={onClose} />
 
@@ -54,22 +52,27 @@ export function ActiveOrderFileView({
                     />
                 ) : null}
 
-                <div className="h-[calc(100vh-58px)] overflow-y-auto">
-                    <div className="max-w-7xl mx-auto px-4 py-5 grid grid-cols-1 lg:grid-cols-4 gap-4">
-                        <PartiesSidebar
-                            party1Entries={parties.party1Entries}
-                            party2Entries={parties.party2Entries}
-                            procedureType={parties.procedureType}
-                            isFinalized={parties.isFinalized}
-                            onEditParty={parties.onEditParty}
-                        />
-
-                        <div className="lg:col-span-3 space-y-4">
-                            <LifecyclePanel {...lifecyclePanelProps} />
-                            <AdminWorkspacePanel {...adminWorkspace} />
+                <div
+                    className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]"
+                >
+                    <div className="max-w-5xl mx-auto px-4 py-4">
+                        <div className={`${URGENT_DOSSIER_CARD} overflow-hidden`}>
+                            <PartiesSidebar
+                                embedded
+                                party1Entries={parties.party1Entries}
+                                party2Entries={parties.party2Entries}
+                                procedureType={parties.procedureType}
+                                isFinalized
+                                onEditParty={() => {}}
+                            />
+                            <div className="border-t border-white/[0.06] px-4 py-3">
+                                <LifecyclePanel embedded {...lifecyclePanelProps} />
+                            </div>
                         </div>
                     </div>
                 </div>
+
+                <AdminWorkspacePanel variant="dock" {...adminWorkspace} />
             </div>
             {confirmPortal}
         </>

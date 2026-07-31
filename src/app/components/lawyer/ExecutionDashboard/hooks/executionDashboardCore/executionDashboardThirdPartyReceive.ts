@@ -1,6 +1,6 @@
 /** استلام أموال محجوزة لدى الغير — منطق نقي (موجة 8) */
 import type { ThirdPartySeizureAsset } from '@/app/types/execution';
-import { parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { parseAmount } from '@/app/utils/execution/amountInput';
 
 export type ThirdPartyReceiveValidation =
     | { ok: true; amountIqd: number }

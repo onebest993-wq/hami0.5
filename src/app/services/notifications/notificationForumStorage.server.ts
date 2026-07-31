@@ -1,5 +1,5 @@
-import { kvGetByPrefix } from '@/app/api/security/kvStoreAdmin';
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
+import { loadKvStoreAdmin } from '@/app/api/security/loadKvStoreAdmin';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
 import {
     dismissForumNotificationInModels,
@@ -86,7 +86,9 @@ export const ServerNotificationDB = {
 
 export async function countLegacyPrefixKeysServer(userId: string): Promise<number> {
     try {
-        const values = await kvGetByPrefix(`notifications:${userId}:`);
+        const kv = await loadKvStoreAdmin();
+        if (!kv) return -1;
+        const values = await kv.kvGetByPrefix(`notifications:${userId}:`);
         return Array.isArray(values) ? values.length : 0;
     } catch {
         return -1;

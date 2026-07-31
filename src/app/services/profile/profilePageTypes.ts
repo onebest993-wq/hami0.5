@@ -21,7 +21,12 @@ export type ProfileMediaTemplate =
     | 'cinema'
     | 'vault';
 
+/** من يمكنه زيارة الصفحة الشخصية — مرتبط بمتابعة المنتدى عند followers */
+export type ProfilePageAccess = 'public' | 'followers' | 'private';
+
 export interface ProfilePrivacySettings {
+    /** افتراضي public — للتوافق مع ملفات قديمة */
+    pageAccess?: ProfilePageAccess;
     showPhoneMeta: boolean;
     showCityMeta: boolean;
     showSyndicate: boolean;
@@ -32,16 +37,35 @@ export interface ProfilePrivacySettings {
     hiddenContactIds: string[];
 }
 
+export type ProfilePortraitFrameId = 'classic' | 'ornate' | 'minimal' | 'circle' | 'arch';
+
+/** @deprecated استخدم ProfilePortraitFrameId للقيمة المخزّنة؛ والخيار المعروض هو ProfilePortraitFrameOption */
+export type ProfilePortraitFrame = ProfilePortraitFrameId;
+
+export type ProfilePortraitFrameOption = {
+    id: ProfilePortraitFrameId;
+    label: string;
+    hint: string;
+};
+
 export interface ProfileAppearanceSettings {
     accentColor: ProfileAppearanceColor;
     material: ProfileAppearanceMaterial;
+    portraitFrame?: ProfilePortraitFrameId;
 }
 
 export type ProfileTextEffect = 'none' | 'glow' | 'gradient' | 'underline' | 'shadow';
 
 export type ProfileFontSize = 'xs' | 'sm' | 'base' | 'lg' | 'xl' | '2xl' | '3xl';
 
-export type ProfileTextFont = 'tajawal' | 'cairo' | 'literary';
+export type ProfileTextFont =
+    | 'tajawal'
+    | 'cairo'
+    | 'literary'
+    | 'almarai'
+    | 'changa'
+    | 'noto'
+    | 'reem';
 
 export interface ProfileBlockTextStyle {
     color?: string;
@@ -93,6 +117,8 @@ export interface ProfileBlockCanvasStyle {
     enabled?: boolean;
     backgroundColor?: string;
     backgroundImage?: string;
+    /** مسار تخزين سحابي لخلفية اللوحة (إن وُجد) */
+    backgroundStoragePath?: string;
     material?: ProfileCanvasMaterial;
     frameShape?: ProfileCanvasFrameShape;
     frameGlow?: ProfileCanvasFrameGlow;
@@ -113,6 +139,8 @@ export interface ProfileCustomBlock {
     width: 'full' | 'half';
     minHeightPx: number;
     imageUrl?: string;
+    /** مسار تخزين سحابي لصورة الكتلة — يُستخدم لإعادة التوقيع دون فقد الكتلة */
+    imageStoragePath?: string;
     mediaTemplate?: ProfileMediaTemplate;
     /** النص الحر متعدد الأسطر */
     body?: string;

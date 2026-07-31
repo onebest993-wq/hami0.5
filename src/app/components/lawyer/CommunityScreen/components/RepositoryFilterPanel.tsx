@@ -65,7 +65,7 @@ export const RepositoryFilterPanel = ({
             role="dialog"
             aria-label="تصفية المستودع"
         >
-            <div className="px-4 py-3 border-b border-[#4A3D52]/40">
+            <div className="px-4 py-3 border-b border-[#2A3344]/40">
                 <p className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>تصفية المستودع</p>
                 <p className={`${FORUM_TEXT_MUTED} text-[11px] truncate mt-0.5`}>
                     {repositoryFilterSummary(selectedType, sortBy, selectedTag)}
@@ -111,7 +111,7 @@ export const RepositoryFilterPanel = ({
                                     onTagChange(null);
                                     onClose();
                                 }}
-                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
+                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] transition-colors"
                             >
                                 إظهار الكل
                             </button>
@@ -151,7 +151,7 @@ export const RepositoryFilterPanel = ({
                             <button
                                 type="button"
                                 onClick={() => handleType('الكل')}
-                                className="text-[10px] text-[#9A9098] hover:text-[#F0B896] transition-colors"
+                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] transition-colors"
                             >
                                 إظهار الكل
                             </button>

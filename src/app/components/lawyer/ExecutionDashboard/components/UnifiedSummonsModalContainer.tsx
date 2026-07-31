@@ -9,6 +9,14 @@ import type {
 } from '@/app/types/execution';
 import type { UnifiedSummonsHubProps } from '@/app/components/lawyer/Modal_Unified_Summons_Hub';
 import { isGuarantorSummonsEligible } from './guarantorExternalUtils';
+import { executionHandlerNotReadyFallback, isExecutionHandlerStubLeaf } from '../hooks/executionHandlerClusterStubs';
+import { getActivePublicationNoticeForDebtorKey } from '@/app/utils/publicationNoticeDebtor';
+import {
+    markPublicationNoticeDebtorAttended,
+    registerPublicationNoticeForDebtor,
+    terminatePublicationNoticeForDebtor,
+} from '@/app/utils/publicationNoticeRegistration';
+import { registerDebtorVoluntaryAttendanceForDebtor } from '@/app/utils/debtorVoluntaryAttendanceRegistration';
 
 type SummonsMainTab = 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null;
 
@@ -23,6 +31,7 @@ type SummonsMarkerLike = {
 
 type ActiveDebtorNoticeScopeLike = {
     notificationDate?: string | null;
+    memoAnchorDate?: string | null;
     voluntaryPeriodEndDeclared?: boolean;
 };
 
@@ -34,9 +43,10 @@ interface UnifiedSummonsModalContainerProps {
     executionId: string;
     unifiedSummonsTargetDebtorKey: string;
     summonsHubInitialMainTab: SummonsMainTab;
-    setSummonsHubInitialMainTab: Dispatch<SetStateAction<SummonsMainTab>>;
-    setSummonsContextDebtorKey: (debtorKey: string | null) => void;
-    setShowUnifiedSummonsModal: (show: boolean) => void;
+    setSummonsHubInitialMainTab?: Dispatch<SetStateAction<SummonsMainTab>>;
+    setSummonsContextDebtorKey?: (debtorKey: string | null) => void;
+    setShowUnifiedSummonsModal?: (show: boolean) => void;
+    onCloseUnifiedSummonsModal?: () => void;
 
     primaryDebtorKeyResolved: string;
     isEvictionExecutionModule: boolean;
@@ -125,6 +135,7 @@ interface UnifiedSummonsModalContainerProps {
     scopedSummonsMarker: SummonsMarkerLike;
     terminateDebtorSummonsMarker: () => void;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     pushTimelineEvent: (
         event: TimelineEvent,
         options?: { mergePatch?: Record<string, unknown> }
@@ -146,6 +157,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
     setSummonsHubInitialMainTab,
     setSummonsContextDebtorKey,
     setShowUnifiedSummonsModal,
+    onCloseUnifiedSummonsModal,
     primaryDebtorKeyResolved,
     isEvictionExecutionModule,
     setManualGraceCalendarExtra,
@@ -209,10 +221,104 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
     scopedSummonsMarker,
     terminateDebtorSummonsMarker,
     persistExecutionMerge,
+    setTimelineEvents,
     pushTimelineEvent,
     nextTimelineId,
     showToast,
 }) => {
+    const notifyDebtorSafe =
+        typeof handleNotifyDebtor === 'function'
+            ? handleNotifyDebtor
+            : (executionHandlerNotReadyFallback('handleNotifyDebtor') as typeof handleNotifyDebtor);
+
+    const closeUnifiedSummonsModal = () => {
+        setSummonsHubInitialMainTab?.(null);
+        setSummonsContextDebtorKey?.(null);
+        if (typeof onCloseUnifiedSummonsModal === 'function') {
+            onCloseUnifiedSummonsModal();
+        } else {
+            setShowUnifiedSummonsModal?.(false);
+        }
+    };
+
+    const employeeTaklifHubEnabled =
+        employeeAssignmentTabEnabled && activeDebtorIsEmployee && !isEvictionExecutionModule;
+
+    const publicationNoticeDeps = () => ({
+        executionData,
+        debtorKey: unifiedSummonsTargetDebtorKey,
+        primaryDebtorKeyResolved,
+        nextTimelineId,
+        persistExecutionMerge,
+        showToast,
+        pushTimelineEvent: (event: TimelineEvent) => {
+            pushTimelineEvent(event);
+        },
+    });
+
+    const registerPublicationNoticeSafe = (p: {
+        publicationDateYmd: string;
+        newspaper1: string;
+        newspaper2: string;
+    }) => {
+        if (
+            typeof handlePublicationNoticeRegister === 'function' &&
+            !isExecutionHandlerStubLeaf(handlePublicationNoticeRegister)
+        ) {
+            handlePublicationNoticeRegister(p);
+            return;
+        }
+        registerPublicationNoticeForDebtor(publicationNoticeDeps(), p);
+    };
+
+    const terminatePublicationNoticeSafe = () => {
+        if (
+            typeof handlePublicationNoticeTerminate === 'function' &&
+            !isExecutionHandlerStubLeaf(handlePublicationNoticeTerminate)
+        ) {
+            handlePublicationNoticeTerminate();
+            return;
+        }
+        terminatePublicationNoticeForDebtor(publicationNoticeDeps());
+    };
+
+    const attendPublicationNoticeSafe = () => {
+        if (
+            typeof handlePublicationNoticeDebtorAttended === 'function' &&
+            !isExecutionHandlerStubLeaf(handlePublicationNoticeDebtorAttended)
+        ) {
+            handlePublicationNoticeDebtorAttended();
+            return;
+        }
+        markPublicationNoticeDebtorAttended(publicationNoticeDeps());
+    };
+
+    const registerDebtorVoluntaryAttendanceSafe = (): boolean => {
+        if (
+            typeof registerDebtorVoluntaryAttendance === 'function' &&
+            !isExecutionHandlerStubLeaf(registerDebtorVoluntaryAttendance)
+        ) {
+            registerDebtorVoluntaryAttendance();
+            return true;
+        }
+        return registerDebtorVoluntaryAttendanceForDebtor({
+            executionData,
+            debtorKey: unifiedSummonsTargetDebtorKey,
+            primaryDebtorKeyResolved,
+            notificationDateYmd: activeDebtorNoticeScope.notificationDate,
+            memoAnchorDateYmd:
+                activeDebtorNoticeScope.memoAnchorDate ??
+                (executionData as { execution_memo_anchor_date?: string })?.execution_memo_anchor_date,
+            voluntaryAttendanceCount: executionData?.voluntaryAttendanceCount,
+            summoningRound,
+            nextTimelineId,
+            setTimelineEvents,
+            persistExecutionMerge,
+            pushTimelineEvent,
+            showToast,
+        });
+    };
+
     return (
         <>
             {showUnifiedSummonsModal && (
@@ -221,11 +327,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                         key={`${String(executionId || '')}:${String(unifiedSummonsTargetDebtorKey || '')}:${summonsHubInitialMainTab ?? 'default'}`}
                         isOpen
                         initialMainTab={summonsHubInitialMainTab}
-                        onClose={() => {
-                            setSummonsHubInitialMainTab(null);
-                            setSummonsContextDebtorKey(null);
-                            setShowUnifiedSummonsModal(false);
-                        }}
+                        onClose={closeUnifiedSummonsModal}
                         onDebtorNotification={(
                             date,
                             purpose,
@@ -311,7 +413,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                             } catch {
                                 /* ignore */
                             }
-                            handleNotifyDebtor(
+                            notifyDebtorSafe(
                                 date,
                                 evictionMeta,
                                 initialNoticeLawyerFeesIncluded,
@@ -331,9 +433,9 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                             activeCoerciveActions.includes('salary') &&
                             activeDebtorIsEmployee
                         }
-                        onRegisterDebtorVoluntaryAttendance={registerDebtorVoluntaryAttendance}
+                        onRegisterDebtorVoluntaryAttendance={registerDebtorVoluntaryAttendanceSafe}
                         onOpenCoerciveModal={() => {
-                            setShowUnifiedSummonsModal(false);
+                            closeUnifiedSummonsModal();
                             openExecutionSeizuresTab();
                         }}
                         summonsProfile={followupDebtorSummonsProfile}
@@ -411,18 +513,22 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                                           !debtorAttendedVoluntarily &&
                                           !lawyerStartedPostNoticeExecution &&
                                           !coerciveUiLocked,
-                                      onRegisterAttendance: registerDebtorVoluntaryAttendance,
+                                      onRegisterAttendance: registerDebtorVoluntaryAttendanceSafe,
                                       onOpenCoercive: () => {
-                                          setShowUnifiedSummonsModal(false);
+                                          closeUnifiedSummonsModal();
                                           openExecutionSeizuresTab();
                                       },
                                   }
                                 : undefined
                         }
                         employeeAssignmentFeature={{
-                            enabled: employeeAssignmentTabEnabled,
+                            enabled: employeeTaklifHubEnabled,
                             state: resolvedEmployeeSummonsAssignment ?? null,
-                            onConfirm: handleEmployeeAssignmentConfirm,
+                            onConfirm:
+                                handleEmployeeAssignmentConfirm ??
+                                executionHandlerNotReadyFallback(
+                                    'employeeAssignmentHandlers.handleEmployeeAssignmentConfirm',
+                                ),
                             onAttend: handleEmployeeAssignmentAttend,
                             onDeclareAbsent: handleEmployeeAssignmentDeclareAbsent,
                             onTerminate: handleEmployeeAssignmentTerminate,
@@ -445,13 +551,13 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                             activeDebtorIsEmployee
                                 ? undefined
                                 : {
-                                      state: getPublicationNoticeForDebtorKey(
+                                      state: getActivePublicationNoticeForDebtorKey(
                                           executionData,
                                           unifiedSummonsTargetDebtorKey
                                       ),
-                                      onRegister: handlePublicationNoticeRegister,
-                                      onTerminate: handlePublicationNoticeTerminate,
-                                      onDebtorAttended: handlePublicationNoticeDebtorAttended,
+                                      onRegister: registerPublicationNoticeSafe,
+                                      onTerminate: terminatePublicationNoticeSafe,
+                                      onDebtorAttended: attendPublicationNoticeSafe,
                                   }
                         }
                         suppressPublicationNotice={activeDebtorIsEmployee}
@@ -465,6 +571,7 @@ export const UnifiedSummonsModalContainer: React.FC<UnifiedSummonsModalContainer
                                       (unifiedSummonsTargetDebtorKey === primaryDebtorKeyResolved &&
                                           noticeVoluntaryPeriodEndOptimistic))
                         )}
+                        showEmployeeTaklifHubTab={employeeTaklifHubEnabled}
                         tablighTask={
                             scopedSummonsMarker?.date
                                 ? {

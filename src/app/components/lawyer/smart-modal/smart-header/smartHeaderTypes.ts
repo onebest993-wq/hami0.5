@@ -43,3 +43,13 @@ export interface SmartHeaderProps {
     onUpdateIncidentalEntryDecision?: (id: string, decision: string) => void;
     crossAppealEligibility?: import('../smartFile/crossAppealEngine').CrossAppealEligibility;
 }
+
+/** طرف في شريط الرأس — متوافق مع Party من LawyerShared */
+export type HeaderParty = {
+    name?: string | null;
+    role?: string | null;
+    address?: string | null;
+    isClient?: boolean;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    [key: string]: any;
+};

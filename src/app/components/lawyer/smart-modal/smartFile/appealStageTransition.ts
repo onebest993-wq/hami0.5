@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
     isPersonalStatusCoreStage,
@@ -17,6 +16,7 @@ import {
     isThirdPartyRole,
     isInterpleaderThirdPartyRole,
 } from './partyRoleClassification';
+import { resolveRetrialTargetStageIndex } from './extraordinaryAppealGateway';
 
 export type AppealTransitionParams = {
     appealType: string;
@@ -296,31 +296,6 @@ export function applyAppealStageTransition(
         dossierLayout,
         priorJudgmentType,
     } = params;
-    // #region debug-point E:apply-appeal-stage-transition-entry
-    fetch('http://127.0.0.1:7777/event', {
-        method: 'POST',
-        body: JSON.stringify({
-            sessionId: 'opponent-appeal-crash',
-            runId: 'pre-fix',
-            hypothesisId: 'E',
-            location: 'appealStageTransition.ts:applyAppealStageTransition:entry',
-            msg: '[DEBUG] applyAppealStageTransition entry',
-            data: {
-                activeStageIndex,
-                currentStageName: currentStage.stageName ?? currentStage.name ?? null,
-                appealType,
-                appellant,
-                newCaseNumber,
-                newCourt,
-                currentPartyCount: Array.isArray(currentStage.parties) ? currentStage.parties.length : 0,
-                currentIncidentalCount: Array.isArray(currentStage.incidentalCases) ? currentStage.incidentalCases.length : 0,
-                layoutMode: dossierLayout?.mode ?? null,
-                layoutAppellantLegalSide: dossierLayout?.appellantLegalSide ?? null,
-            },
-            ts: Date.now(),
-        }),
-    }).catch(() => {});
-    // #endregion
 
     const updatedStages = [...stages];
     const stageName = String(currentStage.stageName ?? currentStage.name ?? '');
@@ -336,28 +311,6 @@ export function applyAppealStageTransition(
         dossierLayout,
     );
     const appealIncidentalCases = migrateAppealIncidentalCases(currentStage.incidentalCases);
-    // #region debug-point E:apply-appeal-stage-transition-parties
-    fetch('http://127.0.0.1:7777/event', {
-        method: 'POST',
-        body: JSON.stringify({
-            sessionId: 'opponent-appeal-crash',
-            runId: 'pre-fix',
-            hypothesisId: 'E',
-            location: 'appealStageTransition.ts:applyAppealStageTransition:parties',
-            msg: '[DEBUG] applyAppealStageTransition built stage payload',
-            data: {
-                appealStageName,
-                transferredAttachmentCount: Array.isArray(transferredAttachments) ? transferredAttachments.length : 0,
-                flippedPartyCount: Array.isArray(flippedParties) ? flippedParties.length : 0,
-                flippedRoles: Array.isArray(flippedParties)
-                    ? flippedParties.map((party) => ({ id: party.id, role: party.role, side: party.side }))
-                    : [],
-                migratedIncidentalCount: Array.isArray(appealIncidentalCases) ? appealIncidentalCases.length : 0,
-            },
-            ts: Date.now(),
-        }),
-    }).catch(() => {});
-    // #endregion
 
     const archiveEvent: TimelineEvent = archiveTimelineEvent ?? {
         id: `appeal_archive_${Date.now()}`,
@@ -603,6 +556,178 @@ export function cassationRemandSuccessMessage(target: CassationRemandTarget): st
         return 'تم نقض الحكم وإعادة الإضبارة لمرحلة الاستئناف';
     }
     return `تم نقض الحكم وإعادة الإضبارة لمرحلة ${target.stageName}`;
+}
+
+export type CassationCorrectionOpenParams = {
+    judgmentDate: string;
+    judgmentType?: string;
+    notes?: string;
+};
+
+/** فتح مرحلة «تصحيح قرار» بعد قفل التمييز — مرة واحدة. */
+export function applyCassationCorrectionOpen(
+    stages: CaseStage[],
+    cassationStageIndex: number,
+    params: CassationCorrectionOpenParams,
+): { updatedStages: CaseStage[]; newActiveIndex: number } {
+    const updatedStages = [...stages];
+    const currentStage = updatedStages[cassationStageIndex];
+    if (!currentStage) {
+        throw new Error('applyCassationCorrectionOpen: cassation stage not found');
+    }
+
+    const now = params.judgmentDate || getLocalTodayYmd();
+    const notes = String(params.notes ?? '').trim();
+    const stageName = stageLabel(currentStage);
+    const finalDecision =
+        String(params.judgmentType ?? '').trim()
+        || String(currentStage.finalDecision ?? '').trim()
+        || 'مكتسبة الدرجة القطعية';
+
+    const archiveEvent: TimelineEvent = {
+        id: `cassation_correction_archive_${Date.now()}`,
+        type: 'milestone',
+        date: now,
+        title: `🔒 أُقفلت إضبارة ${stageName} — طلب تصحيح القرار`,
+        details: notes
+            ? `${notes}\n\n➡️ فتح مرحلة تصحيح قرار تمييزي.`
+            : '➡️ فتح مرحلة تصحيح قرار تمييزي.',
+        isSystemLog: true,
+        isNew: true,
+    };
+
+    updatedStages[cassationStageIndex] = {
+        ...currentStage,
+        status: 'completed',
+        isPleadingsClosed: true,
+        awaitingOpponentAppeal: false,
+        finalDecision,
+        decisionDate: now,
+        timeline: [archiveEvent, ...(currentStage.timeline ?? [])],
+    };
+
+    const openingEvent: TimelineEvent = {
+        id: `cassation_correction_open_${Date.now()}`,
+        type: 'milestone',
+        date: now,
+        title: '📝 فتح مرحلة تصحيح قرار تمييزي',
+        details: notes
+            ? `${notes}\n\n⏳ بانتظار نتيجة التدقيق في محكمة التمييز.`
+            : '⏳ بانتظار نتيجة التدقيق في محكمة التمييز.',
+        isNew: true,
+    };
+
+    const transferredAttachments = collectTransferableAttachments(currentStage.attachments);
+    const correctionStageName = 'تصحيح قرار';
+    const newStage: CaseStage = {
+        id: `stage_correction_${Date.now()}`,
+        name: correctionStageName,
+        stageName: correctionStageName,
+        type: currentStage.type,
+        docType: currentStage.docType,
+        claimValue: currentStage.claimValue,
+        caseNo: currentStage.caseNo,
+        court: currentStage.court || 'محكمة التمييز الاتحادية',
+        judge: '',
+        parties: currentStage.parties ?? [],
+        timeline: [openingEvent],
+        attachments: transferredAttachments,
+        tasks: [],
+        incidentalCases: currentStage.incidentalCases,
+        provisionalOrders: [],
+        thirdParties: [],
+        createdDate: now,
+        finalDecision: null,
+        decisionDate: null,
+        status: 'active',
+        isPleadingsClosed: false,
+        awaitingOpponentAppeal: false,
+        wasReopened: false,
+        extraordinaryAppealType: 'تصحيح القرار التمييزي',
+        firstInstanceCaseNumber: currentStage.firstInstanceCaseNumber,
+        firstInstanceCourt: currentStage.firstInstanceCourt,
+    };
+
+    updatedStages.push(newStage);
+
+    return {
+        updatedStages,
+        newActiveIndex: updatedStages.length - 1,
+    };
+}
+
+export type CorrectionCompleteParams = {
+    completionDate?: string;
+    notes?: string;
+    outcome?: string;
+};
+
+/** إتمام مرحلة التصحيح والعودة لآخر مرحلة تقاضٍ (استئناف أو بداءة). */
+export function applyCorrectionComplete(
+    stages: CaseStage[],
+    correctionStageIndex: number,
+    params?: CorrectionCompleteParams,
+): { updatedStages: CaseStage[]; newActiveIndex: number; targetStageName: string } {
+    const updatedStages = [...stages];
+    const correctionStage = updatedStages[correctionStageIndex];
+    if (!correctionStage) {
+        throw new Error('applyCorrectionComplete: correction stage not found');
+    }
+
+    const now = params?.completionDate ?? getLocalTodayYmd();
+    const notes = String(params?.notes ?? '').trim();
+    const outcome = String(params?.outcome ?? '').trim() || 'تم البت في طلب التصحيح';
+
+    const completeEvent: TimelineEvent = {
+        id: `correction_complete_${Date.now()}`,
+        type: 'milestone',
+        date: now,
+        title: '✅ اكتملت مرحلة تصحيح القرار',
+        details: notes ? `${outcome}\n\n${notes}` : outcome,
+        isNew: true,
+    };
+
+    updatedStages[correctionStageIndex] = {
+        ...correctionStage,
+        status: 'completed',
+        isPleadingsClosed: true,
+        finalDecision: outcome,
+        decisionDate: now,
+        timeline: [completeEvent, ...(correctionStage.timeline ?? [])],
+    };
+
+    const targetIndex = resolveRetrialTargetStageIndex(updatedStages);
+    const targetStage = updatedStages[targetIndex];
+    if (!targetStage) {
+        throw new Error('applyCorrectionComplete: litigation target stage missing');
+    }
+
+    const targetName = stageLabel(targetStage);
+    const returnEvent: TimelineEvent = {
+        id: `correction_return_${Date.now()}`,
+        type: 'milestone',
+        date: now,
+        title: `↩️ العودة لمرحلة ${targetName} بعد التصحيح`,
+        details: `استئناف السير في مرحلة ${targetName} وفق نتيجة طلب التصحيح.`,
+        isNew: true,
+    };
+
+    updatedStages[targetIndex] = {
+        ...targetStage,
+        status: 'active',
+        isPleadingsClosed: false,
+        awaitingOpponentAppeal: false,
+        finalDecision: null,
+        decisionDate: null,
+        wasReopened: true,
+        timeline: [returnEvent, ...(targetStage.timeline ?? [])],
+    };
+
+    return {
+        updatedStages,
+        newActiveIndex: targetIndex,
+        targetStageName: targetName,
+    };
 }
 
 function isQuashedCassationStage(stage: CaseStage | undefined): boolean {

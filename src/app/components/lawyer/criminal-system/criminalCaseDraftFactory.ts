@@ -9,7 +9,7 @@ import type {
     SocialInquiryWorkflowStatus,
 } from './criminalCaseModel';
 import { sanitizeCaseReferenceField } from './criminalCaseReferenceUtils';
-import { isValidSocialInquiryWorkflowStatus } from './criminalStageUtils';
+import { isValidSocialInquiryWorkflowStatus } from './criminalStagePresentationCore';
 
 export function makeEmptyComplainant(): CriminalComplainant {
     return {
@@ -130,6 +130,42 @@ export function makeInitialDraft(): CriminalCaseDraft {
         isMutualComplaint: false,
         isPublicProsecutionComplainant: false,
         articleIncludesPublicRight: false,
+    };
+}
+
+/** يضمن مسودة مكتملة الشكل — يحمي من hydrate بـ `draft: {}` أو سباق التحميل. */
+export function ensureCriminalCaseDraft(raw: unknown): CriminalCaseDraft {
+    const base = makeInitialDraft();
+    if (!raw || typeof raw !== 'object') return base;
+    const d = raw as Partial<CriminalCaseDraft> & Record<string, unknown>;
+    const basics =
+        d.basics && typeof d.basics === 'object'
+            ? { ...base.basics, ...d.basics }
+            : base.basics;
+    const location =
+        d.location && typeof d.location === 'object'
+            ? normalizeCriminalCaseLocation(d.location)
+            : base.location;
+    return {
+        ...base,
+        ...d,
+        basics,
+        location,
+        complainants: Array.isArray(d.complainants) && d.complainants.length
+            ? d.complainants
+            : base.complainants,
+        defendants: Array.isArray(d.defendants) && d.defendants.length
+            ? d.defendants
+            : base.defendants,
+        statements: Array.isArray(d.statements) ? d.statements : [],
+        otherEvidenceItems: Array.isArray(d.otherEvidenceItems) ? d.otherEvidenceItems : [],
+        timelineEvents: Array.isArray(d.timelineEvents) ? d.timelineEvents : [],
+        investigationLogs: Array.isArray(d.investigationLogs) ? d.investigationLogs : [],
+        proceduralContainers: Array.isArray(d.proceduralContainers) ? d.proceduralContainers : [],
+        proceduralCanvasAudit: Array.isArray(d.proceduralCanvasAudit) ? d.proceduralCanvasAudit : [],
+        lawyerRequests: Array.isArray(d.lawyerRequests) ? d.lawyerRequests : [],
+        trials: Array.isArray(d.trials) ? d.trials : [],
+        trialDepositions: Array.isArray(d.trialDepositions) ? d.trialDepositions : [],
     };
 }
 

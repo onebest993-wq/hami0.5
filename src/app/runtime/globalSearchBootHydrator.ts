@@ -28,8 +28,9 @@ function globalSearchPrefetchAllowed(): boolean {
 
 function hydrateDelayMs(): number {
     if (!globalSearchPrefetchAllowed()) return -1;
-    if (isCapacitorNativePlatform()) return 400;
-    return import.meta.env.DEV ? 120 : 200;
+    /* فوري بعد interactive — التأخير السابق كان يترك أول ضغط بارداً */
+    if (isCapacitorNativePlatform()) return 80;
+    return 0;
 }
 
 function dispatchHydratedOnce(): void {
@@ -76,10 +77,15 @@ export function bindGlobalSearchBootHydrator(): () => void {
     const scheduleHydrate = () => {
         const delay = hydrateDelayMs();
         if (delay < 0) return;
+        /* chunk فوراً — لا تنتظر idle لبدء الشبكة */
+        prefetchGlobalSearchOverlayChunk();
+        if (delay === 0) {
+            void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
+            return;
+        }
         cancelIdle?.();
         cancelIdle = scheduleIdleWork(
             () => {
-                prefetchGlobalSearchOverlayChunk();
                 void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
             },
             { minDelayMs: delay, timeoutMs: 8_000 },

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CriminalCaseDraft, CriminalComplainant, CriminalDefendant, OurRepresentation } from './criminalStore';
 import { legacyRoleFromRepresentation } from './criminalStageUtils';
 import { isDefendantIdentityUnknown, pruneEmptyDefendantShells } from './criminalUnknownDefendant';

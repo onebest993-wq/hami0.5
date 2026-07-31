@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { executionDecisionsStorageKey } from '@/app/utils/executionStorageKeys';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 import {
     buildDecisionsNamespaceSlug,
     clearDecisionsNamespaceForTests,
@@ -20,9 +21,41 @@ describe('executionDecisionsNamespace', () => {
     let execId: string;
 
     beforeEach(() => {
+        setLiveAuthUserId(null);
         execId = `exec-ns-${globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`}`;
         clearDecisionsNamespaceForTests(execId);
         clearDomainReconcileMarker(execId);
+    });
+
+    it('writes decisions to owner-scoped key when session user is present', () => {
+        setLiveAuthUserId('owner-decisions-1');
+        const financialData = {
+            id: execId,
+            claimType: 'استحصال دين مالي',
+            creditors: [{ name: 'دائن', isClient: true }],
+            debtors: [{ name: 'مدين' }],
+        };
+        writeExecutorDecisionsArray(
+            execId,
+            [
+                {
+                    id: 'scoped-1',
+                    requestKind: 'personal_coercive',
+                    personalCoerciveSubtype: 'travel_ban',
+                    executorOutcome: 'pending',
+                    appealRequestOrigin: 'creditor_side',
+                },
+            ],
+            financialData,
+        );
+        const finSlug = buildDecisionsNamespaceSlug('financial_debt', 'creditor_agent');
+        const logical = executionDecisionsNamespaceStorageKey(execId, finSlug);
+        const scoped = `${logical}:u:owner-decisions-1`;
+        expect(SecureStoreService.getItemSync(scoped)).toBeTruthy();
+        expect(SecureStoreService.getItemSync(logical)).toBeNull();
+        const rows = readExecutorDecisionsFromActiveNamespace(execId, financialData);
+        expect(rows.some((r) => String(r.id) === 'scoped-1')).toBe(true);
+        setLiveAuthUserId(null);
     });
 
     it('builds stable namespace slug from module and perspective', () => {

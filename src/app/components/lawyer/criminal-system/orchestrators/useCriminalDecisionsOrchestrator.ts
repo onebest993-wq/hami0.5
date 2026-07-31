@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CaseStage, JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
-import type { CriminalCaseStage } from '../criminalStore';
-import { defaultDecisionsScopeForStage, type DecisionsScopeFilter } from '../casePhaseFilterEngine';
+import { defaultDecisionsScopeForStage, type DecisionsScopeFilter } from '../decisionsScopeCore';
 import type { DecisionsLedgerKindFilter } from '../judicialDecisionsLedgerEngine';
 import type { JudicialCassationAppealModalVariant } from '../components/JudicialCassationAppealModal';
 import type { CriminalDecisionsOrchestratorSlice } from './criminalOrchestratorSliceTypes';
@@ -9,7 +8,7 @@ import type { CriminalDecisionsOrchestratorSlice } from './criminalOrchestratorS
 const DECISIONS_PAGE_SIZE = 12;
 
 export type UseCriminalDecisionsOrchestratorParams = {
-    effectiveUiStage: CriminalCaseStage;
+    effectiveUiStage: CaseStage;
     caseId: string;
     selectedNodeFilter: string;
     selectedJourneyBranchId: string;
@@ -23,7 +22,7 @@ export function useCriminalDecisionsOrchestrator({
     selectedJourneyBranchId,
 }: UseCriminalDecisionsOrchestratorParams): CriminalDecisionsOrchestratorSlice {
     const [decisionsScopeFilter, setDecisionsScopeFilter] = useState<DecisionsScopeFilter>(() =>
-        defaultDecisionsScopeForStage(effectiveUiStage as CaseStage),
+        defaultDecisionsScopeForStage(effectiveUiStage),
     );
     const [visibleLawyerRequestsCount, setVisibleLawyerRequestsCount] = useState(DECISIONS_PAGE_SIZE);
     const [visibleJudicialDecisionsCount, setVisibleJudicialDecisionsCount] =
@@ -57,6 +56,19 @@ export function useCriminalDecisionsOrchestrator({
         [],
     );
 
+    const handleInterventionCassation = useCallback(
+        (decision: JudicialDecision) => openAppealModal(decision, 'intervention_264b'),
+        [openAppealModal],
+    );
+    const handleDeclareJudgmentFinal = useCallback(
+        (decision: JudicialDecision) => openAppealModal(decision, 'declare_final'),
+        [openAppealModal],
+    );
+    const handleCassationCorrection = useCallback(
+        (decision: JudicialDecision) => openAppealModal(decision, 'correction_266'),
+        [openAppealModal],
+    );
+
     return {
         decisionsScopeFilter,
         setDecisionsScopeFilter,
@@ -74,6 +86,9 @@ export function useCriminalDecisionsOrchestrator({
         cassationResultContext,
         setCassationResultContext,
         openAppealModal,
+        handleInterventionCassation,
+        handleDeclareJudgmentFinal,
+        handleCassationCorrection,
         decisionsPageSize: DECISIONS_PAGE_SIZE,
     };
 }

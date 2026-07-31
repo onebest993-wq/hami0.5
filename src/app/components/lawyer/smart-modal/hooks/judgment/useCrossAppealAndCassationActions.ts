@@ -1,43 +1,43 @@
-import type { Dispatch, SetStateAction } from 'react';
-import type { CaseStage, Party, TimelineEvent } from '../../../LawyerShared';
+import type { Dispatch as _Dispatch, SetStateAction as _SetStateAction } from 'react';
+import type { CaseStage as _CaseStage, Party as _Party, TimelineEvent as _TimelineEvent } from '../../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { validateJudgmentData } from '@/app/utils/validationUtils';
-import { logError } from '@/app/utils/errorHandler';
+import { validateJudgmentData as _validateJudgmentData } from '@/app/utils/validationUtils';
+import { logError as _logError } from '@/app/utils/errorHandler';
 import { debug } from '@/app/utils/debug';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { applyStageTransition } from '../../smartFile/stageTransition';
+import { applyStageTransition as _applyStageTransition } from '../../smartFile/stageTransition';
 import {
-    applyAppealStageTransition,
+    applyAppealStageTransition as _applyAppealStageTransition,
     applyCassationRemand,
     cassationRemandSuccessMessage,
-    resolveCassationRemandTarget,
+    resolveCassationRemandTarget as _resolveCassationRemandTarget,
 } from '../../smartFile/appealStageTransition';
-import type { SmartFileParentData } from '../../smartFile/parentDataInit';
+import type { SmartFileParentData as _SmartFileParentData } from '../../smartFile/parentDataInit';
 import type {
-    AppealTransitionPayload,
+    AppealTransitionPayload as _AppealTransitionPayload,
     CrossAppealPayload,
-    JudgmentPayload,
-    SmartFileAttachment,
-    StageTransitionPayload,
+    JudgmentPayload as _JudgmentPayload,
+    SmartFileAttachment as _SmartFileAttachment,
+    StageTransitionPayload as _StageTransitionPayload,
 } from '../../smartFile/judgmentTypes';
 import {
-    addDaysYmd,
-    isSulhJudgmentType,
-    JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY,
-    JUDGMENT_TYPE_WAIVER,
-    parseJudgmentDateInput,
-    prependTimeline,
-    stageAttachments,
-    str,
+    addDaysYmd as _addDaysYmd,
+    isSulhJudgmentType as _isSulhJudgmentType,
+    JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY as _JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY,
+    JUDGMENT_TYPE_WAIVER as _JUDGMENT_TYPE_WAIVER,
+    parseJudgmentDateInput as _parseJudgmentDateInput,
+    prependTimeline as _prependTimeline,
+    stageAttachments as _stageAttachments,
+    str as _str,
 } from '../../smartFile/judgmentTypes';
 import {
-    interpleaderClientAwaitingOpponentAppeal,
-    interpleaderOriginalClaimOutcome,
-    isInterpleaderJudgmentType,
-    resolveInterpleaderDecisionText,
-    resolveLawyerJudgmentBucket,
+    interpleaderClientAwaitingOpponentAppeal as _interpleaderClientAwaitingOpponentAppeal,
+    interpleaderOriginalClaimOutcome as _interpleaderOriginalClaimOutcome,
+    isInterpleaderJudgmentType as _isInterpleaderJudgmentType,
+    resolveInterpleaderDecisionText as _resolveInterpleaderDecisionText,
+    resolveLawyerJudgmentBucket as _resolveLawyerJudgmentBucket,
 } from '../../smartFile/interpleaderJudgmentEngine';
-import { resolveAppealDossierLayout, inferAppellantSideFromLawyer } from '../../smartFile/appealPartyEngine';
+import { resolveAppealDossierLayout as _resolveAppealDossierLayout, inferAppellantSideFromLawyer as _inferAppellantSideFromLawyer } from '../../smartFile/appealPartyEngine';
 import {
     markPartiesAsCrossAppellants,
     resolveCrossAppealEligibility,
@@ -55,14 +55,14 @@ export function useCrossAppealAndCassationActions(options: UseSmartFileJudgmentA
         parentData,
         saveToCloud,
         setStatus,
-        tempJudgmentData,
-        setTempJudgmentData,
-        setShowAppealTransitionModal,
-        setShowAppealModal,
-        setShowObjectionRegistrationModal,
-        setShowJudgmentModal,
+        tempJudgmentData: _tempJudgmentData,
+        setTempJudgmentData: _setTempJudgmentData,
+        setShowAppealTransitionModal: _setShowAppealTransitionModal,
+        setShowAppealModal: _setShowAppealModal,
+        setShowObjectionRegistrationModal: _setShowObjectionRegistrationModal,
+        setShowJudgmentModal: _setShowJudgmentModal,
         setShowCrossAppealModal,
-        setShowTransitionModal,
+        setShowTransitionModal: _setShowTransitionModal,
     } = options;
 
 const handleCrossAppeal = (crossAppealData: CrossAppealPayload) => {
@@ -189,14 +189,15 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
         setActiveStageIndex(newActiveIndex);
         setViewingStageIndex(newActiveIndex);
         setStatus(`مرحلة ${target.stageName}`);
-        saveToCloud(remandedStages, parentData, newActiveIndex);
+        saveToCloud(remandedStages, parentData, newActiveIndex, `مرحلة ${target.stageName}`);
         SmartToast.error(cassationRemandSuccessMessage(target));
         return;
     }
 
+    const finalStatus = 'مكتسبة الدرجة القطعية';
     setStages(updatedStages);
-    setStatus('مصدق — اكتسب الدرجة القطعية');
-    saveToCloud(updatedStages, parentData, activeStageIndex);
+    setStatus(finalStatus);
+    saveToCloud(updatedStages, { ...parentData, status: finalStatus }, activeStageIndex, finalStatus);
 };
 
 

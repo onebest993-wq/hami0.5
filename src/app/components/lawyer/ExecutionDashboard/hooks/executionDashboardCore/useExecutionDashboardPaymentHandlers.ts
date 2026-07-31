@@ -1,12 +1,13 @@
 // @ts-nocheck
 /** تسديد الإضبارة + الوعاء الموحّد + حاسبة السداد */
-import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useEffect, useMemo, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { buildCreditorDebtRows, distributePaymentProRata } from '@/app/utils/creditorPaymentProRata';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { buildExecutionTimelineSnapshot } from '@/app/utils/buildExecutionTimelineSnapshot';
 import { storageCache } from '@/app/utils/storageCache';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
+import { guardCreditorAgentMutation } from '@/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege';
 
 export type FinancialLedgerEntry = {
     id: string;
@@ -46,6 +47,8 @@ export type UseExecutionDashboardPaymentHandlersParams = {
     setPaymentAmount: Dispatch<SetStateAction<string>>;
     setPaymentDate: Dispatch<SetStateAction<string>>;
     setShowPaymentModal: (show: boolean) => void;
+    /** بوابة وكيل المدين — اختيارية حتى لا تكسر الجسور القديمة */
+    isRepresentingDebtor?: boolean;
 };
 
 export function normalizePaymentAmountInput(raw: string): number {
@@ -82,8 +85,18 @@ export function useExecutionDashboardPaymentHandlers({
     setPaymentAmount,
     setPaymentDate,
     setShowPaymentModal,
+    isRepresentingDebtor = false,
 }: UseExecutionDashboardPaymentHandlersParams) {
     const handlePayment = useCallback(() => {
+        if (
+            !guardCreditorAgentMutation({
+                isRepresentingDebtor,
+                showToast,
+                actionLabel: 'تسجيل التسديد',
+            })
+        ) {
+            return;
+        }
         const amount = normalizePaymentAmountInput(paymentAmount);
         if (!Number.isFinite(amount) || amount <= 0) {
             showToast('يرجى إدخال مبلغ صحيح', 'warning');
@@ -249,10 +262,20 @@ export function useExecutionDashboardPaymentHandlers({
         setPaymentDate,
         setShowPaymentModal,
         showToast,
+        isRepresentingDebtor,
     ]);
 
     const handlePaymentFromCalculator = useCallback(
         (amount: number) => {
+            if (
+                !guardCreditorAgentMutation({
+                    isRepresentingDebtor,
+                    showToast,
+                    actionLabel: 'تسجيل التسديد',
+                })
+            ) {
+                return;
+            }
             const newPaidDebt = paidDebt + amount;
             if (executionId) {
                 const current = storageCache.get(executionStorageKey(executionId));
@@ -312,6 +335,7 @@ export function useExecutionDashboardPaymentHandlers({
             setPaidDebt,
             showToast,
             totalOwed,
+            isRepresentingDebtor,
         ],
     );
 
@@ -325,6 +349,15 @@ export function useExecutionDashboardPaymentHandlers({
             kind: 'full' | 'partial';
             description: string;
         }) => {
+            if (
+                !guardCreditorAgentMutation({
+                    isRepresentingDebtor,
+                    showToast,
+                    actionLabel: 'تسجيل التسديد',
+                })
+            ) {
+                return;
+            }
             if (!amount || amount <= 0) return;
             const newPaid = paidDebtRef.current + amount;
             paidDebtRef.current = newPaid;
@@ -398,6 +431,7 @@ export function useExecutionDashboardPaymentHandlers({
             setPaidDebt,
             showToast,
             totalWithExecutionFee,
+            isRepresentingDebtor,
         ],
     );
 
@@ -436,6 +470,15 @@ export function useExecutionDashboardPaymentHandlers({
 
     const handleSettlementFromCalculator = useCallback(
         (downPayment: number, monthlyInstallment: number) => {
+            if (
+                !guardCreditorAgentMutation({
+                    isRepresentingDebtor,
+                    showToast,
+                    actionLabel: 'تسجيل التسوية/التسديد',
+                })
+            ) {
+                return;
+            }
             const newPaidDebt = paidDebt + downPayment;
             if (executionId) {
                 const current = storageCache.get(executionStorageKey(executionId));
@@ -500,13 +543,22 @@ export function useExecutionDashboardPaymentHandlers({
             setPaidDebt,
             showToast,
             totalOwed,
+            isRepresentingDebtor,
         ],
     );
 
-    return {
-        handlePayment,
-        handlePaymentFromCalculator,
-        handleFundsLedgerPayment,
-        handleSettlementFromCalculator,
-    };
+    return useMemo(
+        () => ({
+            handlePayment,
+            handlePaymentFromCalculator,
+            handleFundsLedgerPayment,
+            handleSettlementFromCalculator,
+        }),
+        [
+            handlePayment,
+            handlePaymentFromCalculator,
+            handleFundsLedgerPayment,
+            handleSettlementFromCalculator,
+        ],
+    );
 }

@@ -1,7 +1,7 @@
 import { UserRole } from '@/app/types/admin-types';
 import type { CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
 import { addCommunityComment, deleteCommunityComment, editCommunityComment } from '@/app/services/forum/forumCommunityRuntime';
-import { getForumSupabaseAdmin } from './supabaseAdmin';
+import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 
 export type ForumPostReader = {
     getPostById(postId: string): Promise<CommunityPost | null>;
@@ -10,7 +10,7 @@ export type ForumPostReader = {
 export function createForumCommentRepository(posts: ForumPostReader) {
     return {
         async addComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
-            const admin = getForumSupabaseAdmin();
+            const admin = await loadForumSupabaseAdmin();
             if (!admin) {
                 await addCommunityComment(postId, comment);
                 const post = await posts.getPostById(postId);
@@ -73,7 +73,7 @@ export function createForumCommentRepository(posts: ForumPostReader) {
                 throw new Error('ليس لديك صلاحية لحذف هذا التعليق');
             }
 
-            const admin = getForumSupabaseAdmin();
+            const admin = await loadForumSupabaseAdmin();
             if (!admin) {
                 return deleteCommunityComment(postId, commentId, requesterId, requesterRole);
             }
@@ -122,7 +122,7 @@ export function createForumCommentRepository(posts: ForumPostReader) {
             if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
             if (trimmed.length > 5_000) throw new Error('نص التعليق طويل جداً');
 
-            const admin = getForumSupabaseAdmin();
+            const admin = await loadForumSupabaseAdmin();
             if (!admin) {
                 return editCommunityComment(postId, commentId, trimmed, requesterId);
             }

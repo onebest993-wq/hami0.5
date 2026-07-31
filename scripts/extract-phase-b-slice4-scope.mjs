@@ -7,13 +7,10 @@ import path from 'node:path';
 import {
     CORE_PATH,
     DYNAMIC_SCOPE_PATH,
-    extractBalancedBlock,
-    extractShorthandKeys,
     getModalKeySet,
     readDynamicScopeCallKeys,
     rebuildScopeCall,
     removeKeysFromDynamicScope,
-    transformShorthandLines,
     writeBagFile,
 } from './lib/phaseBScopeBagUtils.mjs';
 

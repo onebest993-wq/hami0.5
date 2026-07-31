@@ -1,6 +1,34 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { seedFreshDecisionsNamespace } from '@/app/utils/executionDecisionsNamespace';
 import { storageCache } from '@/app/utils/storageCache';
+export {
+    normalizeExecutionStorageId,
+    unscopedExecutionStorageKey,
+    executionStorageKey,
+    executionDecisionsStorageKey,
+    executionFieldVisitAppointmentStorageKey,
+    executionDocumentsStorageKey,
+    executionDocumentFoldersStorageKey,
+    executionFormStorageKey,
+    executionExpensesStorageKey,
+    executionExpensesChangedEventName,
+    executionGarnishmentFlagStorageKey,
+    executionGarnishmentDetailsStorageKey,
+    executionBadgesHiddenStorageKey,
+    generateExecutionDossierId,
+    getExecutionStorageBundleKeys,
+    executionDossierIdFromStorageKey,
+    scopeExecutionDeviceStorageKey,
+    stripExecutionDeviceStorageUserScope,
+} from '@/app/utils/executionStorageKeysLite';
+import {
+    normalizeExecutionStorageId,
+    unscopedExecutionStorageKey,
+    executionStorageKey,
+    executionDecisionsStorageKey,
+    scopeExecutionDeviceStorageKey,
+    getExecutionStorageBundleKeys,
+} from '@/app/utils/executionStorageKeysLite';
 
 const bundleDeletionInFlight = new Map<string, Promise<void>>();
 
@@ -20,76 +48,6 @@ const FRESH_DOSSIER_EMPTY_ARRAY_KEYS = [
 ] as const;
 
 const FRESH_DOSSIER_NULL_KEYS = ['guarantor_followup', 'procedural_guarantee'] as const;
-
-export function normalizeExecutionStorageId(executionId: string | undefined): string {
-    const id = String(executionId ?? 'default').trim();
-    return id || 'default';
-}
-
-export function executionStorageKey(executionId: string | undefined): string {
-    return `execution_${normalizeExecutionStorageId(executionId)}`;
-}
-
-export function executionDecisionsStorageKey(executionId: string | undefined): string {
-    return `${executionStorageKey(executionId)}_decisions`;
-}
-
-export function executionFieldVisitAppointmentStorageKey(executionId: string | undefined): string {
-    return `${executionStorageKey(executionId)}_eviction_field_visit_appointment_iso`;
-}
-
-export function executionDocumentsStorageKey(executionId: string | undefined): string {
-    return `${executionStorageKey(executionId)}_documents`;
-}
-
-export function executionDocumentFoldersStorageKey(executionId: string | undefined): string {
-    return `${executionStorageKey(executionId)}_document_folders`;
-}
-
-export function executionFormStorageKey(formId: string | undefined): string {
-    return `execution_form_${normalizeExecutionStorageId(formId)}`;
-}
-
-export function executionExpensesStorageKey(): string {
-    return 'execution_expenses';
-}
-
-export function executionExpensesChangedEventName(): string {
-    return 'hami-expenses-changed';
-}
-
-export function executionGarnishmentFlagStorageKey(executionId: string | undefined): string {
-    return `garnishment_${normalizeExecutionStorageId(executionId)}`;
-}
-
-export function executionGarnishmentDetailsStorageKey(executionId: string | undefined): string {
-    return `hami_garnishment_details_${normalizeExecutionStorageId(executionId)}`;
-}
-
-export function executionBadgesHiddenStorageKey(executionId: string | undefined): string {
-    return `hami_party_badges_hidden_${normalizeExecutionStorageId(executionId)}`;
-}
-
-export function generateExecutionDossierId(): string {
-    const cryptoApi = globalThis.crypto;
-    if (cryptoApi?.randomUUID) return `exec_${cryptoApi.randomUUID()}`;
-    return `exec_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-}
-
-export function getExecutionStorageBundleKeys(executionId: string | undefined): string[] {
-    const id = normalizeExecutionStorageId(executionId);
-    return [
-        executionStorageKey(id),
-        executionDecisionsStorageKey(id),
-        executionDocumentsStorageKey(id),
-        executionDocumentFoldersStorageKey(id),
-        executionFieldVisitAppointmentStorageKey(id),
-        executionFormStorageKey(id),
-        executionGarnishmentFlagStorageKey(id),
-        executionGarnishmentDetailsStorageKey(id),
-        executionBadgesHiddenStorageKey(id),
-    ];
-}
 
 /** يمسح ذاكرة التخزين المؤقت للإضبارة — يُستدعى عند الحذف النهائي أو قبل تهيئة إضبارة جديدة */
 export function purgeExecutionStorageCache(executionId: string | undefined): void {
@@ -136,14 +94,15 @@ export async function removeExecutionStorageBundleAsync(executionId: string | un
         return;
     }
     const task = (async () => {
-        const base = `execution_${id}`;
+        const base = unscopedExecutionStorageKey(id);
+        const scopedBase = scopeExecutionDeviceStorageKey(base);
         const keys = getExecutionStorageBundleKeys(id);
         await Promise.all(keys.map((k) => SecureStoreService.deleteItem(k)));
         const allKeys = await SecureStoreService.listKeys();
         await Promise.all(
             allKeys
-                .filter((k) => k.startsWith(base))
-                .map((k) => SecureStoreService.deleteItem(k))
+                .filter((k) => k.startsWith(base) || k.startsWith(scopedBase))
+                .map((k) => SecureStoreService.deleteItem(k)),
         );
         purgeExecutionStorageCache(id);
     })();

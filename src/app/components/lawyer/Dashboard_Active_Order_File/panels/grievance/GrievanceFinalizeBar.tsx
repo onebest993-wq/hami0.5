@@ -1,5 +1,6 @@
 import React from 'react';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
+import { URGENT_DOSSIER_BTN_PRIMARY } from '../../layout/urgentDossierUi';
 
 export function GrievanceFinalizeBar(props: GrievanceLifecyclePanelProps) {
     const {
@@ -39,11 +40,11 @@ export function GrievanceFinalizeBar(props: GrievanceLifecyclePanelProps) {
                                                                     handleGrievanceSubmit(e);
                                                                 }}
                                                                 disabled={isFinalized}
-                                                                className="px-8 py-2.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2.5 px-6 text-xs`}
                                                             >
                                                                 {grievanceData.outcome === 'expired'
-                                                                    ? '🔒 حفظ وإنهاء الإضبارة'
-                                                                    : '🔒 حفظ وإنهاء مرحلة التظلم'}
+                                                                    ? 'حفظ وإنهاء الإضبارة'
+                                                                    : 'حفظ وإنهاء مرحلة التظلم'}
                                                             </button>
                                                         )}
                                                         {editGrievance && (

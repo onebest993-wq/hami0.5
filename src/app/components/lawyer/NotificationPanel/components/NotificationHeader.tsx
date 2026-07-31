@@ -90,7 +90,7 @@ export function NotificationHeader({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="hidden sm:flex w-11 h-11 rounded-2xl bg-white/[0.04] border border-white/[0.08] items-center justify-center text-white/40 hover:text-white hover:border-white/15 active:scale-[0.96] touch-manipulation"
+                        className="hidden sm:flex w-11 h-11 min-h-[44px] min-w-[44px] rounded-2xl bg-white/[0.04] border border-white/[0.08] items-center justify-center text-white/40 hover:text-white hover:border-white/15 active:scale-[0.96] touch-manipulation"
                         aria-label="إغلاق الإشعارات"
                     >
                         <X size={18} />

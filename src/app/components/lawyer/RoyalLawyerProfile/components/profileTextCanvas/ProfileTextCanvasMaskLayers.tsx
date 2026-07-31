@@ -53,6 +53,13 @@ export function ProfileTextCanvasMaskLayers({
                 <div
                     className="profile-text-canvas__stardust"
                     data-interactive={canInteract ? 'true' : 'false'}
+                    data-testid="profile-text-stardust-hit"
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 12,
+                        touchAction: 'none',
+                    }}
                     onPointerDown={canInteract ? onPetalPointerDown : undefined}
                     onPointerMove={canInteract ? onPetalPointerMove : undefined}
                     onPointerUp={canInteract ? onPetalPointerEnd : undefined}
@@ -74,6 +81,7 @@ export function ProfileTextCanvasMaskLayers({
                                     top: p.top,
                                     '--petal-rot': `${p.rot}deg`,
                                     '--petal-delay': `${p.delay}s`,
+                                    pointerEvents: 'none',
                                 } as React.CSSProperties
                             }
                         />
@@ -120,18 +128,42 @@ export function ProfileTextCanvasMaskLayers({
             canInteract ? (
                 <button
                     type="button"
-                    className="profile-text-canvas__reveal-tap"
+                    className="profile-text-canvas__reveal-tap touch-manipulation"
                     aria-label={hintText}
+                    data-testid="profile-text-reveal-tap"
+                    /* هندسة الهدف inline — تعمل حتى قبل اكتمال تحميل CSS التفاعل */
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        zIndex: 14,
+                        margin: 0,
+                        padding: 0,
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent',
+                    }}
                     onPointerDown={(e) => {
+                        if (typeof e.button === 'number' && e.button !== 0) return;
                         e.preventDefault();
                         e.stopPropagation();
+                        onTapReveal();
+                    }}
+                    onClick={(e) => {
+                        /* احتياط لو WebView أسقط pointerdown بعد preventDefault */
+                        e.preventDefault();
                         onTapReveal();
                     }}
                 />
             ) : null}
 
             {showHint && hintText ? (
-                <div className="profile-text-canvas__reveal-hint" aria-hidden>
+                <div
+                    className="profile-text-canvas__reveal-hint"
+                    aria-hidden
+                    style={{ pointerEvents: 'none', position: 'absolute', insetInline: 0, bottom: '0.55rem', zIndex: 9 }}
+                >
                     <span className="profile-text-canvas__reveal-hint-text">{hintText}</span>
                 </div>
             ) : null}

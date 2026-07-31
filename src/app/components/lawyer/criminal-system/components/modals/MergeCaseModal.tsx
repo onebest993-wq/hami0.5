@@ -115,6 +115,6 @@ export const MergeCaseModal = ({
                         </button>
                     </div>
                 </div>
-            </div>
+        </div>
     );
 };

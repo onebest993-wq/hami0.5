@@ -1,12 +1,27 @@
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useRepositoryEscapeStack } from '../useRepositoryEscapeStack';
+
+let nativeBackHandler: (() => boolean) | null = null;
+
+vi.mock('@/app/runtime/capacitorAppLifecycle', () => ({
+    registerNativeBackHandler: (handler: () => boolean) => {
+        nativeBackHandler = handler;
+        return () => {
+            if (nativeBackHandler === handler) nativeBackHandler = null;
+        };
+    },
+}));
 
 function pressEscape() {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
 }
 
 describe('useRepositoryEscapeStack', () => {
+    beforeEach(() => {
+        nativeBackHandler = null;
+    });
+
     it('يغلق المستودع عند عدم وجود طبقات فرعية', () => {
         const onCloseModal = vi.fn();
         renderHook(() =>
@@ -41,5 +56,41 @@ describe('useRepositoryEscapeStack', () => {
         pressEscape();
         expect(onResetComposer).toHaveBeenCalledTimes(1);
         expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('Cap native back يغلق الماسح قبل المستودع', () => {
+        const onCloseScanner = vi.fn();
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: true,
+                showVoiceRecorder: false,
+                onResetComposer: vi.fn(),
+                onCloseScanner,
+                onCloseModal,
+            }),
+        );
+        expect(nativeBackHandler?.()).toBe(true);
+        expect(onCloseScanner).toHaveBeenCalledTimes(1);
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('Cap native back يغلق المستودع عند عدم وجود طبقات', () => {
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: false,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseModal,
+            }),
+        );
+        expect(nativeBackHandler?.()).toBe(true);
+        expect(onCloseModal).toHaveBeenCalledTimes(1);
     });
 });

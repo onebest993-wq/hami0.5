@@ -6,7 +6,7 @@ import {
     resolveSettlementGuarantorGateFromLedger,
     resolveUnifiedLedgerFinancialTotals,
     type UnifiedLedgerTotalParams,
-} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+} from '@/app/slices/financial/ledgerPublic';
 import { syncSoldMovableProceedsToTrustLedger } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureFinancialUtils';
 import { syncSoldPropertyProceedsToTrustLedger } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureFinancialUtils';
 

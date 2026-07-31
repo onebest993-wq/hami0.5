@@ -4,11 +4,11 @@
 import { test, expect } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissBlockingOverlays } from './helpers/notificationFixtures';
-import { openSettingsDataTab, openSettingsFromHeader, prepareSettingsE2E, teardownSettingsE2E } from './helpers/settingsFixtures';
+import { openSettingsDataTab, openSettingsFromHeader, prepareSettingsE2E, switchSettingsTab, teardownSettingsE2E, enableLocalOnlyModeFromSecurity, activateSettingsTab, ensureSmartDialogInfrastructure } from './helpers/settingsFixtures';
 import { prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 
 test.describe('حالة المزامنة في الإعدادات', () => {
-    test.describe.configure({ timeout: 90_000 });
+    test.describe.configure({ mode: 'serial', timeout: 120_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareProductivityE2E(page);
@@ -22,7 +22,7 @@ test.describe('حالة المزامنة في الإعدادات', () => {
 
     test('تعرض سطر حالة صادقاً في تبويب البيانات', async ({ page }) => {
         await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
         await dismissBlockingOverlays(page);
 
         const shell = await openSettingsDataTab(page);
@@ -38,7 +38,7 @@ test.describe('حالة المزامنة في الإعدادات', () => {
 
     test('تنعكس إيقاف المزامنة السحابية في النص', async ({ page }) => {
         await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
         await dismissBlockingOverlays(page);
 
         const shell = await openSettingsDataTab(page);
@@ -54,38 +54,37 @@ test.describe('حالة المزامنة في الإعدادات', () => {
     });
 
     test('وضع قطع الاتصال يوقف المزامنة بشفافية', async ({ page }) => {
+        test.setTimeout(180_000);
         await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
         await dismissBlockingOverlays(page);
 
         const shell = await openSettingsFromHeader(page);
-        await shell.getByTestId('settings-nav-security').click();
-        const localOnly = shell.getByTestId('settings-toggle-security-localOnlyMode');
-        if ((await localOnly.getAttribute('aria-checked')) !== 'true') {
-            await localOnly.click();
-            await expect(page.getByTestId('smart-dialog-overlay')).toBeVisible({ timeout: 5_000 });
-            await page.getByRole('button', { name: 'تأكيد' }).click();
-        }
-        await expect(shell.getByTestId('settings-local-only-banner')).toBeVisible({ timeout: 8_000 });
-
-        await shell.getByTestId('settings-nav-data').click();
-        await expect(shell.getByTestId('settings-sync-status')).toContainText('قطع الاتصال', { timeout: 5_000 });
-        await expect(shell.getByTestId('settings-sync-status')).toHaveAttribute('data-sync-tone', 'warning');
-        await expect(shell.getByTestId('settings-sync-now')).toBeHidden();
-
-        await shell.getByTestId('settings-nav-security').click();
-        await localOnly.click();
-        await expect(shell.getByTestId('settings-local-only-banner')).toBeHidden({ timeout: 5_000 });
+        await switchSettingsTab(shell, 'security');
+        await enableLocalOnlyModeFromSecurity(page);
+        await activateSettingsTab(page, 'data');
+        const status = page.getByTestId('settings-sync-status');
+        await expect(async () => {
+            await expect(page.getByTestId('settings-section-data')).toBeVisible({ timeout: 4_000 });
+            await expect(status).toBeVisible({ timeout: 4_000 });
+            await expect(status).toContainText('قطع الاتصال');
+            await expect(status).toHaveAttribute('data-sync-tone', 'warning');
+            await expect(page.getByTestId('settings-sync-now')).toBeHidden();
+        }).toPass({ timeout: 25_000 });
+        // إعادة ضبط localOnly في teardown عبر resetSettingsE2EPageState
     });
 
     test('Escape يغلق حوار التأكيد قبل الإعدادات', async ({ page }) => {
         await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
         await dismissBlockingOverlays(page);
 
         const shell = await openSettingsDataTab(page);
-        await shell.getByRole('button', { name: 'إعادة ضبط' }).click();
-        await expect(page.getByTestId('smart-dialog-overlay')).toBeVisible({ timeout: 5_000 });
+        await ensureSmartDialogInfrastructure(page);
+        await expect(async () => {
+            await shell.getByRole('button', { name: 'إعادة ضبط' }).click({ force: true, noWaitAfter: true });
+            await expect(page.getByTestId('smart-dialog-overlay')).toBeVisible({ timeout: 4_000 });
+        }).toPass({ timeout: 20_000 });
 
         await page.keyboard.press('Escape');
         await expect(page.getByTestId('smart-dialog-overlay')).toBeHidden({ timeout: 5_000 });

@@ -239,6 +239,33 @@ if (cssFiles.length > 0) {
 }
 
 
+try {
+
+    const { evaluateNamedChunkBudget } = await import('./check-named-chunk-budget.mjs');
+
+    const named = evaluateNamedChunkBudget(budget);
+
+    for (const msg of named.failures) {
+
+        failed = true;
+
+        console.error(`[check-bundle-size] named ${msg}`);
+
+    }
+
+    if (named.checked > 0 && named.ok) {
+
+        console.log(`[check-bundle-size] named chunk caps OK (${named.checked})`);
+
+    }
+
+} catch (err) {
+
+    console.warn('[check-bundle-size] named chunk check skipped:', err?.message || err);
+
+}
+
+
 
 if (failed) {
 

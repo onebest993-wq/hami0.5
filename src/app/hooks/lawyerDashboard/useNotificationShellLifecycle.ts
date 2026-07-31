@@ -24,18 +24,30 @@ export function useNotificationShellLifecycle(
         }
         if (!userId) return;
 
-        return observeNotificationPanelInteractive({
+        markNotificationPerfPhase('first-paint');
+
+        const markInteractiveNow = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            markNotificationPerfPhase('interactive');
+            reportNotificationPerf({
+                userId,
+                hadLocalCache: hasLocalCache,
+                hadChunkCached: isNotificationPanelModuleResolved(),
+            });
+        };
+
+        const stopObserve = observeNotificationPanelInteractive({
             isDone: () => reportedRef.current,
-            onInteractive: () => {
-                if (reportedRef.current) return;
-                reportedRef.current = true;
-                markNotificationPerfPhase('interactive');
-                reportNotificationPerf({
-                    userId,
-                    hadLocalCache: hasLocalCache,
-                    hadChunkCached: isNotificationPanelModuleResolved(),
-                });
-            },
+            onInteractive: markInteractiveNow,
         });
+
+        /* احتياط: إن تأخر DOM observer لا نترك marks ناقصة بعد الفتح */
+        const fallback = window.setTimeout(markInteractiveNow, 1_200);
+
+        return () => {
+            stopObserve();
+            window.clearTimeout(fallback);
+        };
     }, [hasLocalCache, isOpen, userId]);
 }

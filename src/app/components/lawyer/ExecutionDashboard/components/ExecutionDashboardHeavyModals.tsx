@@ -69,7 +69,11 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazyDocumentVault
                         executionId={String(s.executionId || s.file?.id || 'unknown')}
-                        onClose={() => s.setShowDocumentsModal(false)}
+                        onClose={
+                            typeof s.onCloseDocumentsModal === 'function'
+                                ? s.onCloseDocumentsModal
+                                : () => s.setShowDocumentsModal(false)
+                        }
                         onDocumentUploaded={(info) => {
                             const now = new Date().toISOString();
                             const docEvent: TimelineEvent = {
@@ -92,8 +96,16 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                     <LazyRealEstateSeizurePostApprovalModal
                         open={s.showRealEstateSeizureModal}
                         onOpenChange={(open) => {
-                            s.setShowRealEstateSeizureModal(open);
-                            if (!open) s.setRealEstateSeizureModalDecisionId(null);
+                            if (open) {
+                                s.setShowRealEstateSeizureModal(true);
+                                return;
+                            }
+                            if (typeof s.onCloseRealEstateSeizureModal === 'function') {
+                                s.onCloseRealEstateSeizureModal();
+                            } else {
+                                s.setShowRealEstateSeizureModal(false);
+                                s.setRealEstateSeizureModalDecisionId(null);
+                            }
                         }}
                         decisionId={String(s.realEstateSeizureModalDecisionId || '')}
                         initial={s.realEstateModalInitial}
@@ -107,10 +119,14 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutionDecisionsModalContainer
                 showDecisionsModal={s.showDecisionsModal}
-                onCloseDecisionsModal={() => {
-                    s.setShowDecisionsModal(false);
-                    s.clearDecisionsModalBootState();
-                }}
+                onCloseDecisionsModal={
+                    typeof s.onCloseDecisionsModal === 'function'
+                        ? s.onCloseDecisionsModal
+                        : () => {
+                              s.setShowDecisionsModal(false);
+                              s.clearDecisionsModalBootState?.();
+                          }
+                }
                 LazyDecisionsAndAppealsEngine={LazyDecisionsAndAppealsEngine}
                 executionId={
                     s.decisionsStorageExecutionId && s.decisionsStorageExecutionId !== 'default'
@@ -188,6 +204,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 EXEC_OVERLAY_LAZY_FALLBACK={EXEC_OVERLAY_LAZY_FALLBACK}
                 LazyModalSeizedAssetsManager={LazyModalSeizedAssetsManager}
                 setShowSeizedAssetsModal={s.setShowSeizedAssetsModal}
+                onCloseSeizedAssetsModal={s.onCloseSeizedAssetsModal}
                 seizedAssetsModalExecutionId={s.executionId || s.file?.id}
             />
             </Suspense>
@@ -198,6 +215,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             <LazyExecutionPaymentModalContainer
                 showPaymentModal={s.showPaymentModal}
                 setShowPaymentModal={s.setShowPaymentModal}
+                onClosePaymentModal={s.onClosePaymentModal}
                 paymentAmount={s.paymentAmount}
                 setPaymentAmount={s.setPaymentAmount}
                 paymentDate={s.paymentDate}
@@ -212,6 +230,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             <LazyExecutionFullTimelineModalContainer
                 showTimelineModal={s.showTimelineModal}
                 setShowTimelineModal={s.setShowTimelineModal}
+                onCloseTimelineModal={s.onCloseTimelineModal}
                 debtorBrowserTabsMode={s.debtorBrowserTabsMode}
                 activeTimelineEventsDebtorScoped={s.mergedTimelineEventsDebtorScoped}
                 activeTimelineEvents={s.mergedTimelineEvents}
@@ -235,6 +254,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <LazyExecutionDebtorNotificationMemoModalContainer
                     showNotificationModal={s.showNotificationModal}
                     setShowNotificationModal={s.setShowNotificationModal}
+                    onCloseNotificationModal={s.onCloseNotificationModal}
                     debtorNotificationDate={s.debtorNotificationDate}
                     setDebtorNotificationDate={s.setDebtorNotificationDate}
                     handleNotifyDebtor={s.handleNotifyDebtor}
@@ -249,6 +269,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <LazyExecutionCoerciveActionsModalContainer
                     showCoerciveModal={s.showCoerciveModal}
                     setShowCoerciveModal={s.setShowCoerciveModal}
+                    onCloseCoerciveModal={s.onCloseCoerciveModal}
                     followupEmployeeFinancialSalaryOnlyCoercive={s.followupEmployeeFinancialSalaryOnlyCoercive}
                     followupMonetaryCoerciveLimitedOnly={s.followupMonetaryCoerciveLimitedOnly}
                     activeDebtorIsEmployee={s.activeDebtorIsEmployee}
@@ -269,6 +290,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <LazyExecutionHeirsNotificationModalContainer
                     showHeirsNotificationModal={s.showHeirsNotificationModal}
                     setShowHeirsNotificationModal={s.setShowHeirsNotificationModal}
+                    onCloseHeirsNotificationModal={s.onCloseHeirsNotificationModal}
                     EXEC_MODAL_BACKDROP_STRONG={EXEC_MODAL_BACKDROP_STRONG}
                     heirsNotificationModalZIndex={EXEC_MODAL_Z.unifiedSummonsAndLegacyNotification}
                     activeDebtorHeirsForNotification={s.activeDebtorHeirsForNotification}
@@ -300,6 +322,10 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 storageCache={s.storageCache}
                 showToast={s.showToast}
                 setTimelineEvents={s.setTimelineEvents}
+                onCloseGuarantorDetailsModal={s.onCloseGuarantorDetailsModal}
+                onCloseStayOfExecutionModal={s.onCloseStayOfExecutionModal}
+                onClosePartyDeathModal={s.onClosePartyDeathModal}
+                onClosePauseModal={s.onClosePauseModal}
                 GuarantorDetailsPostApprovalModal={LazyGuarantorDetailsPostApprovalModal}
                 showGuarantorDetailsModal={s.showGuarantorDetailsModal}
                 setShowGuarantorDetailsModal={s.setShowGuarantorDetailsModal}
@@ -368,6 +394,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 setSummonsHubInitialMainTab={s.setSummonsHubInitialMainTab}
                 setSummonsContextDebtorKey={s.setSummonsContextDebtorKey}
                 setShowUnifiedSummonsModal={s.setShowUnifiedSummonsModal}
+                onCloseUnifiedSummonsModal={s.onCloseUnifiedSummonsModal}
                 primaryDebtorKeyResolved={s.primaryDebtorKeyResolved}
                 isEvictionExecutionModule={s.isEvictionExecutionModule}
                 setManualGraceCalendarExtra={s.setManualGraceCalendarExtra}
@@ -433,6 +460,7 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 scopedSummonsMarker={s.scopedSummonsMarker}
                 terminateDebtorSummonsMarker={s.terminateDebtorSummonsMarker}
                 persistExecutionMerge={s.persistExecutionMerge}
+                setTimelineEvents={s.setTimelineEvents}
                 pushTimelineEvent={s.pushTimelineEvent}
                 nextTimelineId={s.nextTimelineId}
                 showToast={s.showToast}
@@ -446,7 +474,11 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazyPaymentCalculator
                         isOpen
-                        onClose={() => s.setShowPaymentCalculator(false)}
+                        onClose={
+                            typeof s.onClosePaymentCalculator === 'function'
+                                ? s.onClosePaymentCalculator
+                                : () => s.setShowPaymentCalculator(false)
+                        }
                         currentTotal={s.totalOwed}
                         onPayment={s.handlePaymentFromCalculator}
                     />
@@ -458,7 +490,11 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                     <LazySettlementCalculator
                         isOpen
-                        onClose={() => s.setShowSettlementCalculator(false)}
+                        onClose={
+                            typeof s.onCloseSettlementCalculator === 'function'
+                                ? s.onCloseSettlementCalculator
+                                : () => s.setShowSettlementCalculator(false)
+                        }
                         currentTotal={s.totalOwed}
                         onSettlement={s.handleSettlementFromCalculator}
                     />
@@ -482,7 +518,11 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 calculatedExecutionFee={s.calculatedExecutionFee}
                 hasFinancialLedger={s.hasFinancialLedger}
                 financialLedger={s.financialLedger}
-                onClose={() => s.setShowLedgerModal(false)}
+                onClose={
+                    typeof s.onCloseLedgerModal === 'function'
+                        ? s.onCloseLedgerModal
+                        : () => s.setShowLedgerModal(false)
+                }
                 readUnifiedFundsLedger={s.readUnifiedFundsLedger}
                 filterUnifiedLawyerFeesHideFileDuplicate={s.filterUnifiedLawyerFeesHideFileDuplicate}
                 filterUnifiedExpensesHideFileDuplicate={s.filterUnifiedExpensesHideFileDuplicate}
@@ -496,7 +536,11 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
             <LazyExecutionTransferFileNumberModal
                 open={s.showTransferFileNumberChangeModal}
                 initialFileNumber={String(s.executionData?.fileNumber || '').trim()}
-                onClose={() => s.setShowTransferFileNumberChangeModal(false)}
+                onClose={
+                    typeof s.onCloseTransferFileNumberChangeModal === 'function'
+                        ? s.onCloseTransferFileNumberChangeModal
+                        : () => s.setShowTransferFileNumberChangeModal(false)
+                }
                 onValidationWarning={(message) => s.showToast(message, 'warning')}
                 onConfirm={(nextNo) => {
                     s.persistExecutionMerge({
@@ -513,7 +557,14 @@ export function ExecutionDashboardHeavyModals(props: Record<string, any>) {
                 <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
                 <LazyLinkedDossierTimelineModal
                     dossier={s.linkedDossierToView}
-                    onClose={() => { s.setShowLinkedDossierTimeline(false); s.setLinkedDossierToView(null); }}
+                    onClose={
+                        typeof s.onCloseLinkedDossierTimeline === 'function'
+                            ? s.onCloseLinkedDossierTimeline
+                            : () => {
+                                  s.setShowLinkedDossierTimeline(false);
+                                  s.setLinkedDossierToView(null);
+                              }
+                    }
                 />
                 </Suspense>
             )}

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pin } from 'lucide-react';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { isClusterPinEligibleType, type WorkspacePinnedItem } from './types';
@@ -33,29 +33,6 @@ export const WorkspacePinButton: React.FC<WorkspacePinButtonProps> = ({
         : relatedLinkCount && relatedLinkCount > 0
           ? `تثبيت — ${relatedLinkCount} ارتباط`
           : 'تثبيت الإضبارة في الواجهة';
-
-    useEffect(() => {
-        //#region debug-point nested-button-warning-pin-button
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'nested-button-warning',
-                runId: 'post-fix',
-                hypothesisId: 'A',
-                location: 'WorkspacePinButton.tsx:render',
-                msg: '[DEBUG] WorkspacePinButton rendered native button',
-                data: {
-                    itemId: item.id,
-                    itemType: item.type,
-                    pinned,
-                    interactiveTag: 'button',
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => undefined);
-        //#endregion debug-point nested-button-warning-pin-button
-    }, [item.id, item.type, pinned]);
 
     return (
         <button

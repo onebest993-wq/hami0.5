@@ -1,3 +1,5 @@
+/** خادم فقط — بدون jsdom حتى لا يُسقط guard الـ window في forumReportModeratorNotify */
+/** @vitest-environment node */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 const mockDb = {
@@ -17,9 +19,9 @@ vi.mock('@/app/services/forum/forumModeratorIds', () => ({
 import {
     dispatchCommentUpvoteNotification,
     dispatchBestAnswerNotification,
-    dispatchForumReportSubmitted,
     dispatchReportOutcomeNotification,
 } from '@/app/services/forum/forumNotificationDispatch';
+import { dispatchForumReportSubmitted } from '@/app/services/forum/forumReportModeratorNotify.server';
 import { ANONYMOUS_USER_NAME } from '@/app/services/forum/forumMapper';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 

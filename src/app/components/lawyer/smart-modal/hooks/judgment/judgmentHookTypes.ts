@@ -7,6 +7,7 @@ export type SaveToCloud = (
     updatedStages: CaseStage[],
     updatedParent?: SmartFileParentData,
     stageIndex?: number,
+    statusOverride?: string,
 ) => void;
 
 export type UseSmartFileJudgmentActionsOptions = {
@@ -27,4 +28,5 @@ export type UseSmartFileJudgmentActionsOptions = {
     setShowJudgmentModal: (v: boolean) => void;
     setShowCrossAppealModal: (v: boolean) => void;
     setShowTransitionModal: (v: boolean) => void;
+    status: string;
 };

@@ -1,7 +1,6 @@
 import React from 'react';
 import { Scale } from 'lucide-react';
 import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
-import type { CriminalCaseUserRole } from '../complainantCassationGovernance';
 import type { CassationCorrectionUserRole } from '../decisionAppealPeriodEngine';
 import {
     resolveDecisionAppealActions,

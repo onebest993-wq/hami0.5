@@ -1,4 +1,5 @@
 import type { ComponentProps, ComponentType } from 'react';
+import { ensureRejectClearingPromise } from '@/app/runtime/ensureRejectClearingPromise';
 
 type LawyerDashboardProfileTabModule =
     typeof import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab');
@@ -46,8 +47,10 @@ export function resetProfileHubModuleCacheForTests(): void {
 }
 
 function ensureHubModulePromise(): Promise<ProfileHubModule> {
-    if (!hubModulePromise) {
-        hubModulePromise = Promise.all([
+    return ensureRejectClearingPromise(hubModulePromise, (next) => {
+        hubModulePromise = next;
+    }, () =>
+        Promise.all([
             import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab').then((mod) => {
                 if (mod?.LawyerDashboardProfileTab) {
                     cachedLawyerDashboardProfileTab = mod.LawyerDashboardProfileTab;
@@ -60,9 +63,8 @@ function ensureHubModulePromise(): Promise<ProfileHubModule> {
                 }
                 return mod;
             }),
-        ]);
-    }
-    return hubModulePromise;
+        ]),
+    );
 }
 
 export function loadProfileHubModule(): Promise<ProfileHubModule> {

@@ -305,6 +305,8 @@ export interface FileData {
     notes: { id: number; text: string; meta: string; stageCtx: string; date: string; apptDate?: string; isPinned?: boolean }[];
     images: { url: string; name: string }[];
     date: string;
+    /** تاريخ أول مرافعة / جلسة عند إنشاء الإضبارة */
+    firstHearingDate?: string;
     nextDate?: string;
     isPinned?: boolean;
     tasks?: Task[];

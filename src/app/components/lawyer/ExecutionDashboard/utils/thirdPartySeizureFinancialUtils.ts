@@ -1,16 +1,18 @@
-// @ts-nocheck
 import { storageCache } from '@/app/utils/storageCache';
+import type { LocalPaymentRow } from '@/app/components/lawyer/FinancialOperationsCenter/types';
 import {
-    computeTotalOwedUnifiedFromStore,
     emptyStore,
-    notifyUnifiedLedgerUpdated,
     parseUnifiedLedgerFromStorage,
-    recomputeUnifiedLedgerPaymentSnapshots,
     resolveUnifiedLedgerFinancialTotals,
     storageKey,
-    type UnifiedLedgerStore,
     type UnifiedLedgerTotalParams,
-} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+} from '@/app/slices/financial/ledgerPublic';
+import {
+    persistReconciledTrustStore,
+    resolveTotalOwedForStore,
+    upsertTrustCollectPayment,
+    type SeizureTrustCollectCreditResult,
+} from './seizureFinancialTrustLedgerUtils';
 
 /** معرّف دفع واحد لكل حجز لدى الغير — يمنع الإيداع المزدوج */
 export function thirdPartyFundsTrustPaymentId(seizureId: string, _decisionRowId?: string): string {
@@ -20,7 +22,7 @@ export function thirdPartyFundsTrustPaymentId(seizureId: string, _decisionRowId?
 }
 
 function findExistingThirdPartyPaymentIndex(
-    payments: Array<{ id?: string; thirdPartySeizureId?: string }>,
+    payments: LocalPaymentRow[],
     seizureId: string
 ): number {
     const sid = String(seizureId || '').trim();
@@ -28,30 +30,12 @@ function findExistingThirdPartyPaymentIndex(
     const canonicalId = thirdPartyFundsTrustPaymentId(sid);
     const byId = payments.findIndex((p) => String(p.id || '') === canonicalId);
     if (byId >= 0) return byId;
-    return payments.findIndex((p) => String(p.thirdPartySeizureId || '').trim() === sid);
+    return payments.findIndex(
+        (p) => String((p as LocalPaymentRow & { thirdPartySeizureId?: string }).thirdPartySeizureId || '').trim() === sid
+    );
 }
 
-export type ThirdPartyFundsTrustCreditResult = {
-    ok: boolean;
-    amount: number;
-    created: boolean;
-    updated: boolean;
-    paymentId?: string;
-};
-
-function resolveTotalOwedForStore(
-    store: UnifiedLedgerStore,
-    totalOwedIqd: number | undefined,
-    ledgerParams?: UnifiedLedgerTotalParams
-): number {
-    if (typeof totalOwedIqd === 'number' && Number.isFinite(totalOwedIqd) && totalOwedIqd > 0) {
-        return Math.trunc(totalOwedIqd);
-    }
-    if (ledgerParams) {
-        return Math.max(0, Math.trunc(computeTotalOwedUnifiedFromStore(store, ledgerParams)));
-    }
-    return 0;
-}
+export type ThirdPartyFundsTrustCreditResult = SeizureTrustCollectCreditResult;
 
 function buildThirdPartyFundsPaymentRow(input: {
     paymentId: string;
@@ -78,22 +62,6 @@ function buildThirdPartyFundsPaymentRow(input: {
     };
 }
 
-function persistReconciledStore(exId: string, nextStore: UnifiedLedgerStore, paymentRow?: Record<string, unknown>) {
-    storageCache.set(storageKey(exId), nextStore);
-    notifyUnifiedLedgerUpdated(exId);
-    if (paymentRow) {
-        try {
-            window.dispatchEvent(
-                new CustomEvent('hami-unified-ledger-external-collect', {
-                    detail: { executionId: exId, payment: paymentRow },
-                })
-            );
-        } catch {
-            /* ignore */
-        }
-    }
-}
-
 /** إيداع مبلغ حجز لدى الغير في الأمانات وخصمه من المتبقي */
 export function creditThirdPartyFundsToTrustLedger(input: {
     executionId: string;
@@ -118,20 +86,14 @@ export function creditThirdPartyFundsToTrustLedger(input: {
     const store = parseUnifiedLedgerFromStorage(storageCache.get(key)) ?? emptyStore();
     const totalOwed = resolveTotalOwedForStore(store, input.totalOwedIqd, input.ledgerParams);
 
-    const payments = [...(store.payments || [])];
-    const idx = findExistingThirdPartyPaymentIndex(payments, seizureId);
-    let created = false;
-    let updated = false;
-
-    if (idx >= 0) {
-        const cur = payments[idx];
-        const curAmt = Math.trunc(Number(cur.amount) || 0);
-        if (curAmt !== amount) {
-            payments[idx] = { ...cur, amount, at: String(cur.at || at) };
-            updated = true;
-        }
-    } else {
-        payments.unshift(
+    const upsert = upsertTrustCollectPayment({
+        store,
+        paymentId,
+        amount,
+        at,
+        totalOwed,
+        findExistingIndex: (payments) => findExistingThirdPartyPaymentIndex(payments, seizureId),
+        buildNewRow: () =>
             buildThirdPartyFundsPaymentRow({
                 paymentId,
                 amount,
@@ -139,21 +101,15 @@ export function creditThirdPartyFundsToTrustLedger(input: {
                 thirdPartySeizureId: seizureId,
                 thirdPartyName: input.thirdPartyName,
                 decisionRowId: input.decisionRowId,
-            }) as (typeof payments)[number]
-        );
-        created = true;
-    }
+            }),
+    });
 
-    if (!created && !updated) {
+    if (upsert.unchanged) {
         return { ok: true, amount, created: false, updated: false, paymentId };
     }
 
-    let nextStore: UnifiedLedgerStore = { ...store, payments };
-    nextStore = recomputeUnifiedLedgerPaymentSnapshots(nextStore, totalOwed);
-    const row = nextStore.payments.find((p) => String(p.id || '') === paymentId);
-    persistReconciledStore(exId, nextStore, row as Record<string, unknown> | undefined);
-
-    return { ok: true, amount, created, updated, paymentId };
+    persistReconciledTrustStore(exId, upsert.store, upsert.paymentRow as Record<string, unknown> | undefined);
+    return { ok: true, amount, created: upsert.created, updated: upsert.updated, paymentId };
 }
 
 export function creditThirdPartyFundsForExecution(

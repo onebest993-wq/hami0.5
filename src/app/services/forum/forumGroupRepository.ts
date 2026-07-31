@@ -1,4 +1,4 @@
-import { getForumSupabaseAdmin, isForumSupabaseConfigured } from './supabaseAdmin';
+import { loadForumSupabaseAdmin, isForumSupabaseConfigured } from './loadForumSupabaseAdmin';
 import { ForumGroupLocalStore } from './forumGroupLocalStore';
 import type {
     CreateForumGroupInput,
@@ -14,7 +14,7 @@ function createId(): string {
 }
 
 async function hydrateGroups(rows: ForumGroupRow[], viewerId: string | null): Promise<ForumGroup[]> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin || rows.length === 0) {
         return ForumGroupLocalStore.listGroups(viewerId);
     }
@@ -57,7 +57,7 @@ export const ForumGroupRepository = {
     isConfigured: isForumSupabaseConfigured,
 
     async listGroups(viewerId: string | null, query = ''): Promise<ForumGroup[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return ForumGroupLocalStore.listGroups(viewerId, query);
         }
@@ -76,7 +76,7 @@ export const ForumGroupRepository = {
     },
 
     async getGroup(groupId: string, viewerId: string | null): Promise<ForumGroup | null> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return ForumGroupLocalStore.getGroup(groupId, viewerId);
         }
@@ -91,7 +91,7 @@ export const ForumGroupRepository = {
         input: CreateForumGroupInput,
         allowOfficial: boolean,
     ): Promise<ForumGroup> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         const isOfficial = allowOfficial && input.isOfficial === true;
         if (!admin) {
             return ForumGroupLocalStore.createGroup(creatorId, { ...input, isOfficial });
@@ -125,7 +125,7 @@ export const ForumGroupRepository = {
     },
 
     async joinGroup(groupId: string, lawyerId: string): Promise<ForumGroup | null> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             ForumGroupLocalStore.joinGroup(groupId, lawyerId);
             return ForumGroupLocalStore.getGroup(groupId, lawyerId);
@@ -146,7 +146,7 @@ export const ForumGroupRepository = {
     },
 
     async leaveGroup(groupId: string, lawyerId: string): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             ForumGroupLocalStore.leaveGroup(groupId, lawyerId);
             return;
@@ -160,7 +160,7 @@ export const ForumGroupRepository = {
     },
 
     async isMember(groupId: string, lawyerId: string): Promise<boolean> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return ForumGroupLocalStore.isMember(groupId, lawyerId);
         }
@@ -175,7 +175,7 @@ export const ForumGroupRepository = {
     },
 
     async listMemberIds(groupId: string): Promise<string[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return ForumGroupLocalStore.listMemberIds(groupId);
         }

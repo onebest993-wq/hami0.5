@@ -5,8 +5,23 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
   applyExecutionDossierBlobSet,
+  isExecutionDossierMainBlobKey,
+  readExecutionDossierBlob,
   registerExecutionBlobCacheTouch,
 } from '@/app/utils/executionDossierBlobPersistence';
+import { executionDossierIdFromStorageKey } from '@/app/utils/executionStorageKeys';
+
+function readExecutionDossierCacheValue(key: string): Record<string, unknown> | null {
+  if (!isExecutionDossierMainBlobKey(key)) return null;
+  const dossierId = executionDossierIdFromStorageKey(key);
+  if (!dossierId) return null;
+  const blob = readExecutionDossierBlob(dossierId);
+  return blob && typeof blob === 'object' ? blob : null;
+}
+
+function executionDossierValueExistsInStorage(key: string): boolean {
+  return readExecutionDossierCacheValue(key) != null;
+}
 
 interface CacheEntry {
   value: any;
@@ -45,7 +60,10 @@ class StorageCacheClass {
       }
       // إن حُذف المفتاح من SecureStore مباشرةً — لا نُرجع قيمة قديمة من الذاكرة
       try {
-        if (SecureStoreService.getItemSync(key) === null) {
+        const stillExists = isExecutionDossierMainBlobKey(key)
+          ? executionDossierValueExistsInStorage(key)
+          : SecureStoreService.getItemSync(key) !== null;
+        if (!stillExists) {
           this.cache.delete(key);
           return null;
         }
@@ -184,9 +202,12 @@ class StorageCacheClass {
    */
   private readFromLocalStorage(key: string): any | null {
     try {
+      const dossierBlob = readExecutionDossierCacheValue(key);
+      if (dossierBlob) return dossierBlob;
+
       const value = SecureStoreService.getItemSync(key);
       if (value === null) return null;
-      
+
       try {
         return JSON.parse(value);
       } catch {
@@ -240,7 +261,7 @@ if (typeof window !== 'undefined') {
       w.__hamiStorageCacheCleanupInterval = undefined;
     }
   };
-  window.addEventListener('unload', cleanup, { once: true });
+  window.addEventListener('pagehide', cleanup, { once: true });
   import.meta.hot?.dispose(() => cleanup());
 }
 

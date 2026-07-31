@@ -1,4 +1,3 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { isNotificationServerSyncEnabled } from '@/app/services/notifications/notificationServerSync';
 
@@ -18,6 +17,7 @@ export async function syncMarkReadClient(notificationId: string): Promise<Notifi
     if (!isNotificationServerSyncEnabled()) return null;
 
     try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure<ReadStateResponse>('/api/notifications/read-state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -33,6 +33,7 @@ export async function syncMarkAllReadClient(): Promise<NotificationModel[] | nul
     if (!isNotificationServerSyncEnabled()) return null;
 
     try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure<ReadStateResponse>('/api/notifications/read-state', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -50,6 +51,7 @@ export async function mergeNotificationsClient(
     if (!isNotificationServerSyncEnabled() || notifications.length === 0) return null;
 
     try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure<MergeResponse>('/api/notifications/merge', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -71,6 +73,7 @@ export async function fetchNotificationsClient(): Promise<NotificationModel[] | 
     if (!isNotificationServerSyncEnabled()) return null;
 
     try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure<ListResponse>('/api/notifications/list', {
             method: 'GET',
         });

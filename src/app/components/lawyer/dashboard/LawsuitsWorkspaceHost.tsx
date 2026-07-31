@@ -1,29 +1,53 @@
-// @ts-nocheck
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ThemeConfig } from '@/app/types/common';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import { allLawsuitFilesForArchive } from '@/app/domain/lawsuit/lawsuitFileFactory';
-import {
-    LazyViewUrgentAndOrdersDashboard,
-    prefetchUrgentOrdersView,
-    resetUrgentOrdersViewPrefetch,
-} from '@/app/utils/lazyComponents';
-import { resetActiveOrderFilePanelCache } from '@/app/components/lawyer/DeferredActiveOrderFile';
 import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
 import { loadArchivePortalModule } from '@/app/runtime/hubArchiveLoader';
-import { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
-import { prefetchSmartFileModalPhased } from '@/app/runtime/smartFileModalLoader';
-import { prefetchArchivePortal } from '@/app/utils/lazyComponents';
-import { ArchivePortalHost } from './ArchivePortalHost';
+import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import { setPendingLawyerNewCaseJurisdiction } from '@/app/runtime/lawyerNewCaseLoader';
+import { ArchivePortalHost } from '@/app/components/lawyer/dashboard/ArchivePortalHost';
+import { LawsuitsAddCaseFabWithPicker } from '@/app/components/lawyer/dashboard/LawsuitsAddCaseFabWithPicker';
 import {
-    LawsuitsAddCaseFab,
     LawsuitsWorkspaceShell,
     LawsuitsWorkspaceTabLoading,
     type LawsuitsWorkspaceTab,
 } from './LawsuitsWorkspaceShell';
+import {
+    URGENT_DOSSIER_BTN_GHOST,
+    URGENT_DOSSIER_DIALOG_PANEL,
+} from '@/app/components/lawyer/Dashboard_Active_Order_File/layout/urgentDossierUi';
+
+function createLazyUrgentDashboard(loadKey: number) {
+    void loadKey;
+    return lazyWithRetry(() =>
+        import('@/app/runtime/urgentOrdersViewLoader')
+            .then((m) => m.loadUrgentOrdersViewModule())
+            .then((mod) => ({
+                default: mod.View_Urgent_And_Orders_Dashboard as unknown as LazyComponent,
+            })),
+    );
+}
+
+type UrgentWorkspaceTabProps = {
+    loadKey: number;
+    focusCaseId?: string;
+};
+
+function UrgentWorkspaceTab({ loadKey, focusCaseId }: UrgentWorkspaceTabProps) {
+    const LazyView = useMemo(() => createLazyUrgentDashboard(loadKey), [loadKey]);
+    return (
+        <Suspense fallback={<LawsuitsWorkspaceTabLoading label="جاري تحميل الطلبات المستعجلة..." />}>
+            <LazyView embeddedInWorkspace focusCaseId={focusCaseId} />
+        </Suspense>
+    );
+}
 
 type LawsuitsWorkspaceHostProps = {
+    active?: boolean;
+    escapeEnabled?: boolean;
     files: FileData[];
     criminalCases: unknown[];
     theme: ThemeConfig;
@@ -36,31 +60,36 @@ type LawsuitsWorkspaceHostProps = {
     onDeleteCriminalCase: (id: string) => void;
     onOpenFile: (file: unknown) => void;
     onAddNewCase: () => void;
-    onMoveLawsuitToTrash?: (id: string) => void;
-    onRestoreLawsuitFromTrash?: (id: string) => void;
-    onArchiveLawsuit?: (id: string) => void;
-    onRestoreArchivedLawsuit?: (id: string) => void;
-    onPermanentlyDeleteLawsuits?: (ids: string[]) => void;
+    onMoveLawsuitToTrash?: (id: string | number) => void;
+    onRestoreLawsuitFromTrash?: (id: string | number) => void;
+    onArchiveLawsuit?: (id: string | number) => void;
+    onRestoreArchivedLawsuit?: (id: string | number) => void;
+    onPermanentlyDeleteLawsuits?: (ids: (string | number)[]) => void;
+    onExitToHome?: () => void;
 };
 
 function TabLoadErrorFallback({ onRetry }: { onRetry: () => void }) {
     return (
-        <div className="h-full flex flex-col items-center justify-center gap-3 p-6 text-center">
-            <p className="text-red-400 font-bold text-sm">تعذّر تحميل هذا القسم</p>
-            <p className="text-white/40 text-xs">تحقق من الاتصال ثم أعد المحاولة</p>
-            <button
-                type="button"
-                onClick={onRetry}
-                className="min-h-[44px] rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] text-xs font-bold touch-manipulation"
-            >
-                إعادة المحاولة
-            </button>
+        <div className="h-full flex items-center justify-center p-4">
+            <div className={`${URGENT_DOSSIER_DIALOG_PANEL} max-w-md w-full text-right`}>
+                <p className="text-white font-extrabold text-sm">تعذّر تحميل هذا القسم</p>
+                <p className="text-white/50 text-xs mt-1 leading-relaxed">
+                    تحقق من الاتصال ثم أعد المحاولة. إن استمر الخطأ، حدّث الصفحة (Ctrl+Shift+R).
+                </p>
+                <div className="mt-4 flex justify-end">
+                    <button type="button" onClick={onRetry} className={`${URGENT_DOSSIER_BTN_GHOST} min-h-[40px] py-2 text-xs`}>
+                        إعادة المحاولة
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }
 
 export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.ReactElement {
     const {
+        active = true,
+        escapeEnabled = true,
         files,
         criminalCases,
         theme,
@@ -78,58 +107,115 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
         onArchiveLawsuit,
         onRestoreArchivedLawsuit,
         onPermanentlyDeleteLawsuits,
+        onExitToHome,
     } = props;
 
     const [urgentLoadKey, setUrgentLoadKey] = useState(0);
     const lawsuitArchiveFiles = useMemo(() => allLawsuitFilesForArchive(files), [files]);
 
-    const primeCivilArchive = useCallback(() => {
-        prefetchArchivePortal();
+    const primeCivilArchiveCore = useCallback(() => {
         void loadArchivePortalModule().catch(() => undefined);
-        prefetchLawyerNewCaseModule();
-        prefetchSmartFileModalPhased();
     }, []);
 
+    const scheduleSecondaryLawsuitWarm = useCallback(() => {
+        window.setTimeout(() => {
+            void import('@/app/runtime/lawyerNewCaseLoader')
+                .then((m) => m.prefetchLawyerNewCaseModule())
+                .catch(() => undefined);
+        }, 400);
+        window.setTimeout(() => {
+            void import('@/app/runtime/smartFileModalLoader')
+                .then((m) => m.prefetchSmartFileModalPhased())
+                .catch(() => undefined);
+        }, 5_000);
+    }, []);
+
+    const primeCivilArchive = useCallback(() => {
+        primeCivilArchiveCore();
+        scheduleSecondaryLawsuitWarm();
+    }, [primeCivilArchiveCore, scheduleSecondaryLawsuitWarm]);
+
     const primeUrgentTab = useCallback(() => {
-        prefetchUrgentOrdersView();
+        void import('@/app/runtime/urgentOrdersViewLoader')
+            .then((m) => m.prefetchUrgentOrdersViewModule())
+            .catch(() => undefined);
+        void import('@/app/components/lawyer/DeferredActiveOrderFile')
+            .then((m) => m.preloadActiveOrderFilePanel())
+            .catch(() => undefined);
+        void import('@/app/components/lawyer/Form_Urgent_Actions').catch(() => undefined);
     }, []);
 
     const retryUrgentLoad = useCallback(() => {
-        resetUrgentOrdersViewPrefetch();
-        resetActiveOrderFilePanelCache();
-        prefetchUrgentOrdersView();
+        void import('@/app/runtime/urgentOrdersViewLoader')
+            .then((m) => {
+                m.resetUrgentOrdersViewLoaderForTests();
+                m.prefetchUrgentOrdersViewModule();
+            })
+            .catch(() => undefined);
         setUrgentLoadKey((key) => key + 1);
     }, []);
 
     useEffect(() => {
-        primeCivilArchive();
-    }, [primeCivilArchive]);
+        primeCivilArchiveCore();
+        scheduleSecondaryLawsuitWarm();
+    }, [primeCivilArchiveCore, scheduleSecondaryLawsuitWarm]);
+
+    const handleJurisdictionSelect = useCallback(
+        (id: JurisdictionId) => {
+            setPendingLawyerNewCaseJurisdiction(id);
+            if (id === 'criminal') {
+                void import('@/app/components/lawyer/criminal-system/criminalStore').then(
+                    ({ useCriminalStore }) => useCriminalStore.getState().prepareNormalCriminalCaseForm(),
+                );
+            }
+            onAddNewCase();
+        },
+        [onAddNewCase],
+    );
 
     return (
         <LawsuitsWorkspaceShell
             defaultTab={defaultTab}
+            open={active}
             onClose={onClose}
-            onShellReady={primeCivilArchive}
+            onExitToHome={onExitToHome}
+            onShellReady={primeCivilArchiveCore}
             onUrgentTabIntent={primeUrgentTab}
-            onTabChange={(tab) => {
-                if (tab === 'civil') primeCivilArchive();
-                if (tab === 'urgent') primeUrgentTab();
+            escapeEnabled={escapeEnabled && active}
+            onTabChange={(nextTab) => {
+                if (nextTab === 'civil') primeCivilArchive();
+                if (nextTab === 'urgent') primeUrgentTab();
             }}
+            addCaseFab={
+                <LawsuitsAddCaseFabWithPicker
+                    onSelect={handleJurisdictionSelect}
+                    onIntent={primeCivilArchive}
+                    label="إضبارة جديدة"
+                />
+            }
         >
             {(tab) => (
                 <>
-                    <div className={tab === 'civil' ? 'relative h-full min-h-0' : 'hidden'} aria-hidden={tab !== 'civil'}>
+                    <div
+                        className={tab === 'civil' ? 'relative h-full min-h-0' : 'hidden'}
+                        aria-hidden={tab !== 'civil'}
+                    >
                         <div className="absolute inset-0 overflow-hidden">
-                            <ErrorBoundary fallback={<TabLoadErrorFallback onRetry={primeCivilArchive} />}>
+                            <ErrorBoundary
+                                fallback={<TabLoadErrorFallback onRetry={primeCivilArchiveCore} />}
+                            >
                                 <ArchivePortalHost
                                     type="lawsuits"
-                                    files={lawsuitArchiveFiles}
+                                    files={lawsuitArchiveFiles as never}
                                     criminalCases={criminalCases}
                                     theme={theme}
                                     shapeClass={shapeClass}
                                     onClose={onClose}
                                     onFileClick={onOpenFile}
-                                    onAddAction={onAddNewCase}
+                                    onAddAction={() => {
+                                        primeCivilArchive();
+                                        onAddNewCase();
+                                    }}
                                     embedded
                                     hideHeader
                                     hideTopActionBar
@@ -145,30 +231,25 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
                                 />
                             </ErrorBoundary>
                         </div>
-                        <LawsuitsAddCaseFab onClick={onAddNewCase} onIntent={primeCivilArchive} />
                     </div>
 
                     <div
-                        className={tab === 'urgent' ? 'h-full overflow-y-auto overscroll-y-contain touch-pan-y' : 'hidden'}
+                        className={
+                            tab === 'urgent'
+                                ? 'h-full overflow-y-auto overscroll-y-contain touch-pan-y'
+                                : 'hidden'
+                        }
                         aria-hidden={tab !== 'urgent'}
                     >
-                        <ErrorBoundary key={`urgent-${urgentLoadKey}`} fallback={<TabLoadErrorFallback onRetry={retryUrgentLoad} />}>
-                            <Suspense fallback={<LawsuitsWorkspaceTabLoading label="جاري تحميل الطلبات المستعجلة..." />}>
-                                <LazyViewUrgentAndOrdersDashboard
-                                    embeddedInWorkspace
-                                    focusCaseId={urgentFocusCaseId}
-                                />
-                            </Suspense>
+                        <ErrorBoundary
+                            key={`urgent-${urgentLoadKey}`}
+                            fallback={<TabLoadErrorFallback onRetry={retryUrgentLoad} />}
+                        >
+                            <UrgentWorkspaceTab loadKey={urgentLoadKey} focusCaseId={urgentFocusCaseId} />
                         </ErrorBoundary>
                     </div>
                 </>
             )}
         </LawsuitsWorkspaceShell>
     );
-}
-
-if (typeof window !== 'undefined') {
-    prefetchArchivePortal();
-    prefetchLawyerNewCaseModule();
-    prefetchSmartFileModalPhased();
 }

@@ -3,14 +3,10 @@ import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { mergeSmartVaultDocs } from '@/app/services/vault/vaultDocUtils';
 import { readVaultLocalIndexSync } from '@/app/services/vault/vaultLocalIndex';
 import {
-    invalidateVaultDocsWarmCache,
     mergeVaultDocsWarmCache,
-    peekVaultDocsWarmCache,
-    setVaultDocsWarmCache,
     sortVaultDocs,
     vaultDocsWarmCacheStore as cache,
     vaultDocsWarmInflightStore as inflight,
-    removeVaultDocFromWarmCache,
 } from '@/app/services/vault/vaultDocsWarmState';
 export {
     invalidateVaultDocsWarmCache,

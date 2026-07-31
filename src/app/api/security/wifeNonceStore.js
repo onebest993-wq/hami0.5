@@ -10,6 +10,7 @@
  * - Redis path is atomic using SET NX PX.
  * - Supabase path expects a unique constraint on "nonce" column to enforce atomicity.
  */
+import { readSupabasePrivilegedKey, supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.js';
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -116,7 +117,7 @@ var redisStore = {
     },
 };
 function hasSupabaseConfig() {
-    return Boolean(getEnv('SUPABASE_URL') && (getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY')));
+    return Boolean(getEnv('SUPABASE_URL') && (getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY')));
 }
 var supabaseStore = {
     consumeNonce: function (nonce, nowMs, ttlMs) {
@@ -126,7 +127,7 @@ var supabaseStore = {
                 switch (_a.label) {
                     case 0:
                         supabaseUrl = getEnv('SUPABASE_URL');
-                        supabaseKey = getEnv('SUPABASE_SERVICE_ROLE_KEY') || getEnv('SUPABASE_ANON_KEY');
+                        supabaseKey = getEnv(supabasePrivilegedKeyEnvName()) || getEnv('SUPABASE_ANON_KEY');
                         if (!supabaseUrl || !supabaseKey)
                             throw new Error('Supabase nonce store is not configured.');
                         table = getEnv('WIFE_NONCE_TABLE') || DEFAULT_NONCE_TABLE;

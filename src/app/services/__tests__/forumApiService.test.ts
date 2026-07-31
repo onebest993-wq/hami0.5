@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
-import { sanitizeCommunityPostForCreate } from '@/app/services/forum/forumPostCreateGuard';
 
 vi.mock('@/app/utils/authStorage', () => ({
     readPersistedSupabaseAuth: vi.fn(() => ({ user: { id: 'session-user' } })),
@@ -43,7 +42,14 @@ vi.mock('@/app/services/SecureAPIClient', () => {
 vi.mock('@/app/lib/supabase-client', () => ({
     supabase: {
         auth: {
-            getSession: vi.fn().mockResolvedValue({ data: { session: { user: { id: 'session-user' } } } }),
+            getSession: vi.fn().mockResolvedValue({
+                data: {
+                    session: {
+                        user: { id: 'session-user' },
+                        access_token: 'test-access-token',
+                    },
+                },
+            }),
             getUser: vi.fn().mockResolvedValue({ data: { user: null } }),
         },
     },
@@ -163,7 +169,12 @@ beforeEach(async () => {
     for (const fn of Object.values(lawyerCloudMocks)) fn.mockReset();
     (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockReset();
     (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValue({
-        data: { session: { user: { id: 'session-user' } } },
+        data: {
+            session: {
+                user: { id: 'session-user' },
+                access_token: 'test-access-token',
+            },
+        },
     });
     (supabaseModule.supabase.auth.getUser as ReturnType<typeof vi.fn>).mockReset();
     (supabaseModule.supabase.auth.getUser as ReturnType<typeof vi.fn>).mockResolvedValue({ data: { user: null } });
@@ -285,8 +296,10 @@ describe('ForumApiService.withFallback', () => {
             expect(rows[0]?.id).toBe('g1');
         });
 
-        it('يتخطى API عند غياب access token', async () => {
-            getCurrentAccessToken.mockResolvedValueOnce(null);
+        it('يتخطى API عند غياب جلسة بعيدة (بدون access_token)', async () => {
+            (supabaseModule.supabase.auth.getSession as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+                data: { session: { user: { id: 'session-user' } } },
+            });
             forumGroupLocalMocks.listGroups.mockReturnValueOnce([sampleGroup]);
             const rows = await ForumApiService.listGroups();
             expect(rows[0]?.id).toBe('g1');
@@ -322,13 +335,14 @@ describe('ForumApiService.withFallback', () => {
             (SecureAPIClient.fetchSecure as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new Error('5xx'));
             lawyerCloudMocks.addCommunityPost.mockResolvedValueOnce(undefined);
             const result = await ForumApiService.createPost(post);
-            expect(result.id).toBe('new-2');
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(
-                sanitizeCommunityPostForCreate(
-                    { ...post, content: post.content.trim() },
-                    post.authorId,
-                ),
-            );
+            /* معرّف خادم جديد دائماً — لا يُعاد استخدام id العميل */
+            expect(result.id).not.toBe('new-2');
+            expect(result.authorId).toBe(post.authorId);
+            expect(result.content).toBe(post.content.trim());
+            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledTimes(1);
+            const saved = lawyerCloudMocks.addCommunityPost.mock.calls[0][0];
+            expect(saved.id).toBe(result.id);
+            expect(saved.authorId).toBe(post.authorId);
         });
 
         it('لا يعيد تجهيز المرفق إذا كان لديه storagePath محلي ثابت', async () => {
@@ -351,12 +365,10 @@ describe('ForumApiService.withFallback', () => {
 
             expect(result.attachment).toEqual(post.attachment);
             expect(prepareForumAttachmentForPublish).not.toHaveBeenCalled();
-            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledWith(
-                sanitizeCommunityPostForCreate(
-                    { ...post, content: post.content.trim() },
-                    post.authorId,
-                ),
-            );
+            expect(lawyerCloudMocks.addCommunityPost).toHaveBeenCalledTimes(1);
+            const saved = lawyerCloudMocks.addCommunityPost.mock.calls[0][0];
+            expect(saved.attachment?.storagePath).toBe('idb:forum:stable-scan');
+            expect(saved.attachment?.name).toBe('scan.png');
         });
     });
 

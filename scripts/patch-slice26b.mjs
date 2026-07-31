@@ -31,7 +31,7 @@ const hcBlockEnd =
 
 // Remove scopeRuntimeBag block
 const scopeBlockStart = core.indexOf('    const scopeRuntimeBag = {');
-const scopeBlockEnd = scopeStart >= 0 ? scopeEnd : -1;
+const _scopeBlockEnd = scopeStart >= 0 ? scopeEnd : -1;
 
 if (hcBlockStart < 0 || scopeBlockStart < 0) {
     console.error('bags not found');

@@ -14,6 +14,10 @@ import {
     resolveFirstMatchingAppointmentDate,
     applyAutoResolvedAnchor,
     formatSmartFirstAppointmentMessage,
+    formatDateCompactAr,
+    buildVisitationCalendarDayMarkers,
+    resolveVisitationCalendarCellToneForDate,
+    summarizeVisitationAppointment,
     VISITATION_CALENDAR_WINDOW_MONTHS,
 } from '../visitationScheduleEngine';
 import type { VisitationScheduleConfig } from '@/app/types/visitationSchedule';
@@ -84,6 +88,16 @@ describe('visitationScheduleEngine', () => {
         expect(validateVisitationScheduleConfig(baseConfig())).toBeNull();
     });
 
+    it('requires time fields for schedule setup', () => {
+        const withoutTimes = {
+            ...baseConfig(),
+            startTime: '',
+            endTime: '',
+            returnTime: '',
+        };
+        expect(validateVisitationScheduleConfig(withoutTimes)).toMatch(/وقت/);
+    });
+
     it('extends calendar window to four months', () => {
         expect(VISITATION_CALENDAR_WINDOW_MONTHS).toBe(4);
         const rolled = syncRollingCalendarSessions(baseConfig(), [], '2026-06-15');
@@ -95,6 +109,16 @@ describe('visitationScheduleEngine', () => {
         );
         expect(months.size).toBeGreaterThanOrEqual(2);
         expect(rolled.every((s) => s.date >= '2026-06-01' && s.date <= '2026-09-30')).toBe(true);
+    });
+
+    it('rolling sync stabilizes after first pass (no endless session growth)', () => {
+        const config = baseConfig();
+        const first = syncRollingCalendarSessions(config, [], '2026-06-15');
+        const second = syncRollingCalendarSessions(config, first, '2026-06-15');
+        const sig = (list: typeof first) =>
+            list.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
+        expect(sig(second)).toBe(sig(first));
+        expect(second.length).toBe(first.length);
     });
 
     it('finds nearest scheduled session (due or upcoming)', () => {
@@ -127,5 +151,52 @@ describe('visitationScheduleEngine', () => {
         expect(sanitizeVisitationSession(fake).status).toBe('scheduled');
         expect(sessionCalendarLabel(fake, 'viewing_pickup', '2026-06-28')).toBe('لم يُوثَّق بعد');
         expect(sessionCalendarLabel(real, 'viewing_pickup', '2026-06-28')).toContain('استصحاب');
+    });
+
+    it('maps sleepover return dates on calendar with distinct tone', () => {
+        const config: VisitationScheduleConfig = {
+            ...baseConfig(),
+            decisionMode: 'viewing_pickup_sleepover',
+            sleepoverNights: 1,
+            returnTime: '15:00',
+        };
+        const session = {
+            id: 'vs-1',
+            date: '2026-08-04',
+            dayLabel: 'ثلاثاء',
+            status: 'scheduled' as const,
+        };
+        const markers = buildVisitationCalendarDayMarkers(config, [session]);
+        expect(markers.get('2026-08-04')?.[0]?.role).toBe('pickup');
+        expect(markers.get('2026-08-05')?.[0]?.role).toBe('return');
+        expect(
+            resolveVisitationCalendarCellToneForDate(
+                markers.get('2026-08-04'),
+                '2026-08-04',
+                '2026-08-01',
+            ),
+        ).toBe('scheduled');
+        expect(
+            resolveVisitationCalendarCellToneForDate(
+                markers.get('2026-08-05'),
+                '2026-08-05',
+                '2026-08-01',
+            ),
+        ).toBe('return_scheduled');
+    });
+
+    it('summarizes sleepover appointment compactly', () => {
+        const summary = summarizeVisitationAppointment(
+            {
+                ...baseConfig(),
+                decisionMode: 'viewing_pickup_sleepover',
+                sleepoverNights: 2,
+                returnTime: '14:00',
+            },
+            '2026-08-04',
+        );
+        expect(summary.returnDateYmd).toBe('2026-08-06');
+        expect(summary.nightsLabel).toBe('2 ليالي');
+        expect(formatDateCompactAr('2026-08-04')).toContain('4');
     });
 });

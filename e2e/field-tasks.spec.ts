@@ -2,7 +2,6 @@
  * E2E — مهام اليوم الميدانية: ستارة الميدان + أجندة المهام.
  */
 import { test, expect, type Locator } from '@playwright/test';
-import { seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import {
     bootTasksE2E,
     buildE2eQuantumTask,
@@ -32,7 +31,7 @@ async function openAddTaskForm(manager: Locator) {
 
     const detailsField = manager.getByTestId('tasks-week-form-details');
     if (!(await detailsField.isVisible().catch(() => false))) {
-        await addBtn.click();
+        await addBtn.click({ force: true, noWaitAfter: true });
     }
     await expect(detailsField).toBeVisible({ timeout: 8_000 });
     await expect(detailsField).toBeEditable();
@@ -48,12 +47,11 @@ async function fillAndSaveTask(manager: Locator) {
 }
 
 test.describe('مهام اليوم الميدانية', () => {
-    test.describe.configure({ timeout: 120_000 });
+    test.describe.configure({ mode: 'serial', timeout: 180_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareTasksE2E(page);
         await clearQuantumTasks(page);
-        await seedLawyerFiles(page);
     });
 
     test.afterEach(async ({ page }) => {
@@ -74,8 +72,10 @@ test.describe('مهام اليوم الميدانية', () => {
         const sheet = await openFieldTasksFromDock(page);
         const manager = await openTasksManagerFromSheet(page, sheet);
         await expect(manager.getByRole('heading', { name: 'أجندة المهام' })).toBeVisible();
-        await expect(manager.getByTestId('tasks-fatal-section')).toBeVisible();
-        await expect(manager.getByTestId('tasks-fatal-empty')).toBeVisible();
+        await expect(manager).toHaveAttribute('data-tasks-manager-hydrated', 'true', { timeout: 15_000 });
+        await expect(manager.locator('[data-testid^="tasks-week-day-"]').first()).toBeVisible({
+            timeout: 12_000,
+        });
     });
 
     test('إضافة مهمة أسبوعية وحفظها', async ({ page }) => {

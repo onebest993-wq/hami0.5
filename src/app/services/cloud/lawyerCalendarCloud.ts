@@ -1,10 +1,6 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { lawyerCloudKv, fetchPrefixOnceInTick } from '@/app/services/cloud/lawyerCloudKv';
 import {
-    clearCalendarEventsLocalStorageMirror,
-    mirrorCalendarEventsToLocalStorage,
-} from '@/app/services/calendar/calendarLocalSnapshot';
-import {
     dedupeCalendarGetEvents,
     invalidateCalendarEventsCache,
 } from '@/app/services/calendar/calendarEventsCache';
@@ -15,6 +11,10 @@ export type { CalendarEventType, CalendarEvent } from '@/app/services/cloud/lawy
 
 const CALENDAR_LOCAL_KEY = 'hami:calendar:events:v1';
 const CALENDAR_SECURE_READY_MS = 4_000;
+
+function loadCalendarLocalSnapshot() {
+    return import('@/app/services/calendar/calendarLocalSnapshot');
+}
 
 function parseCalendarEventsRaw(raw: string | null | undefined): CalendarEvent[] | null {
     if (raw == null) return null;
@@ -100,14 +100,18 @@ async function saveLocalCalendarEvents(
 
     if (events.length === 0) {
         if (mode !== 'replace') return;
-        clearCalendarEventsLocalStorageMirror();
+        void loadCalendarLocalSnapshot()
+            .then((m) => m.clearCalendarEventsLocalStorageMirror())
+            .catch(() => undefined);
         if (!silent) notifyCalendarUpdated();
         void SecureStoreService.deleteItem(CALENDAR_LOCAL_KEY).catch(() => undefined);
         return;
     }
 
     const payload = JSON.stringify(events);
-    mirrorCalendarEventsToLocalStorage(payload);
+    void loadCalendarLocalSnapshot()
+        .then((m) => m.mirrorCalendarEventsToLocalStorage(payload))
+        .catch(() => undefined);
     if (!silent) notifyCalendarUpdated();
     void persistCalendarEventsToSecureStore(payload);
 }

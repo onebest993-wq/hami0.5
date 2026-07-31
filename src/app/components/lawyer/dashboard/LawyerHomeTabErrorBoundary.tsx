@@ -1,9 +1,9 @@
 import React from 'react';
-import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
+import { HomeLiteErrorBoundary } from '@/app/components/lawyer/dashboard/homeLiteErrorBoundary';
 
 export function LawyerHomeTabErrorBoundary({ children }: { children: React.ReactNode }) {
     return (
-        <ErrorBoundary
+        <HomeLiteErrorBoundary
             fallback={
                 <div
                     data-testid="lawyer-home-tab-error-fallback"
@@ -18,6 +18,6 @@ export function LawyerHomeTabErrorBoundary({ children }: { children: React.React
             }
         >
             {children}
-        </ErrorBoundary>
+        </HomeLiteErrorBoundary>
     );
 }

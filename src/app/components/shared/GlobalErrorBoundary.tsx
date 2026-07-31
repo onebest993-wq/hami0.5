@@ -1,6 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
-import { resetArchivePortalPrefetch } from '@/app/utils/lazyComponents';
+import { resetArchivePortalPrefetch } from '@/app/runtime/archivePortalPrefetch';
 import { debug } from "@/app/utils/debug";
 
 interface Props {
@@ -46,6 +46,16 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     }
 
     debug.error("❌ [GlobalErrorBoundary] Uncaught error:", error, errorInfo);
+
+    // قياس/تشخيص فقط — لا يظهر في واجهة الإنتاج المغلقة
+    if (import.meta.env.VITE_SHELL_AUTH_OPEN === 'true' && typeof window !== 'undefined') {
+      try {
+        (window as Window & { __HAMI_LAST_BOUNDARY_ERROR?: string }).__HAMI_LAST_BOUNDARY_ERROR =
+          `${error?.name || 'Error'}: ${error?.message || String(error)}\n${errorInfo?.componentStack || ''}`;
+      } catch {
+        /* ignore */
+      }
+    }
     
     // Log to external service (e.g., Sentry) if configured
     // if (window.Sentry) {

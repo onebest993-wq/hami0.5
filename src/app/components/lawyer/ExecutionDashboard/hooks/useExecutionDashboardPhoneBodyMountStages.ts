@@ -26,7 +26,7 @@ export function useExecutionDashboardPhoneBodyMountStages(
         [flags],
     );
 
-    const [secondaryStageReady, setSecondaryStageReady] = useState(false);
+    const [secondaryStageReady, setSecondaryStageReady] = useState(true);
     const [tertiaryStageReady, setTertiaryStageReady] = useState(false);
     const [quaternaryStageReady, setQuaternaryStageReady] = useState(false);
 
@@ -50,7 +50,7 @@ export function useExecutionDashboardPhoneBodyMountStages(
 
     useEffect(() => {
         if (secondaryStageReady) return;
-        return scheduleIdleWork(() => setSecondaryStageReady(true), 180);
+        return scheduleIdleWork(() => setSecondaryStageReady(true), 0);
     }, [secondaryStageReady]);
 
     useEffect(() => {

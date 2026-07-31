@@ -9,14 +9,18 @@ vi.mock('@/app/utils/bodyScrollLock', () => ({
     HAMI_DISMISS_OVERLAYS_EVENT: 'hami:dismiss-overlays',
 }));
 
-vi.mock('@/app/utils/lazyComponents', () => ({
-    prefetchProfileSettingsSheet: vi.fn(),
-    prefetchProfileSettingsStudioTabs: vi.fn(),
+vi.mock('@/app/utils/lazyComponentsIntent', () => ({
     loadProfileSettingsSheetModule: vi.fn(() => Promise.resolve({ ProfileSettingsSheet: () => null })),
 }));
 
 vi.mock('@/app/runtime/profileSettingsSheetLoader', () => ({
     prefetchProfileSettingsSheetModule: vi.fn(),
+}));
+
+vi.mock('@/app/services/cloud/lawyerProfileCloud', () => ({
+    ProfileDB: {
+        saveProfile: vi.fn(),
+    },
 }));
 
 vi.mock('@/app/services/lawyer-cloud', () => ({
@@ -37,15 +41,14 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
         success: vi.fn(),
         error: vi.fn(),
+        warning: vi.fn(),
+        info: vi.fn(),
     },
 }));
 
-import { ProfileDB } from '@/app/services/lawyer-cloud';
-import {
-    prefetchProfileSettingsSheet,
-    prefetchProfileSettingsStudioTabs,
-    loadProfileSettingsSheetModule,
-} from '@/app/utils/lazyComponents';
+import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
+import { loadProfileSettingsSheetModule } from '@/app/utils/lazyComponentsIntent';
+import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 
@@ -83,7 +86,7 @@ describe('useProfileStudioSettings', () => {
         expect(loadProfileSettingsSheetModule).not.toHaveBeenCalled();
     });
 
-    it('يفتح الاستوديو ويسخّن الورقة للمالك', () => {
+    it('يفتح الاستوديو ويسخّن الورقة للمالك', async () => {
         const { result } = renderHook(() =>
             useProfileStudioSettings({
                 userId: 'owner-1',
@@ -99,13 +102,17 @@ describe('useProfileStudioSettings', () => {
         });
 
         expect(result.current.settingsOpen).toBe(true);
-        expect(prefetchProfileSettingsSheet).toHaveBeenCalledTimes(1);
-        expect(prefetchProfileSettingsStudioTabs).toHaveBeenCalledTimes(1);
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(prefetchProfileSettingsSheetModule).toHaveBeenCalledTimes(1);
         expect(loadProfileSettingsSheetModule).toHaveBeenCalledTimes(1);
     });
 
     it('يحفظ التخصيص ويحدّث الكاش', async () => {
-        vi.mocked(ProfileDB.saveProfile).mockResolvedValue(undefined as never);
+        vi.mocked(ProfileDB.saveProfile).mockResolvedValue({ cloudSynced: true, localPersisted: true });
         const nextCustomization = {
             ...defaultProfilePageCustomization(),
             accentColor: 'emerald' as const,
@@ -175,5 +182,109 @@ describe('useProfileStudioSettings', () => {
         });
 
         await waitFor(() => expect(result.current.settingsOpen).toBe(false));
+    });
+
+    it('لا يغلق الاستوديو بـ dismiss أثناء الحفظ', async () => {
+        let resolveSave!: (value: { cloudSynced: boolean; localPersisted: boolean }) => void;
+        vi.mocked(ProfileDB.saveProfile).mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveSave = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() =>
+            useProfileStudioSettings({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profileRef,
+                setProfile,
+                enqueueProfileSave: (fn) => fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.openSettings();
+        });
+
+        let savePromise!: Promise<boolean>;
+        act(() => {
+            savePromise = result.current.saveCustomization(defaultProfilePageCustomization());
+        });
+
+        await waitFor(() => expect(result.current.savingSettings).toBe(true));
+
+        const discard = vi.fn();
+        act(() => {
+            result.current.registerStudioDiscard(discard);
+        });
+
+        act(() => {
+            window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: {} }));
+        });
+        expect(result.current.settingsOpen).toBe(true);
+
+        act(() => {
+            result.current.closeSettings();
+        });
+        expect(result.current.settingsOpen).toBe(true);
+        expect(discard).not.toHaveBeenCalled();
+
+        act(() => {
+            result.current.closeSettings({ force: true });
+        });
+        expect(result.current.settingsOpen).toBe(false);
+        expect(discard).not.toHaveBeenCalled();
+
+        await act(async () => {
+            resolveSave({ cloudSynced: true, localPersisted: true });
+            await savePromise;
+        });
+    });
+
+    it('يمنع الإغلاق وحذف الوسائط فوراً بعد بدء الحفظ قبل إعادة الرسم', async () => {
+        let resolveSave!: (value: { cloudSynced: boolean; localPersisted: boolean }) => void;
+        vi.mocked(ProfileDB.saveProfile).mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveSave = resolve;
+                }),
+        );
+        const discard = vi.fn();
+
+        const { result } = renderHook(() =>
+            useProfileStudioSettings({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profileRef,
+                setProfile,
+                enqueueProfileSave: (fn) => fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.openSettings();
+            result.current.registerStudioDiscard(discard);
+        });
+
+        let savePromise!: Promise<boolean>;
+        let closed = true;
+        act(() => {
+            savePromise = result.current.saveCustomization(defaultProfilePageCustomization());
+            /* نفس المزامنة — قبل أن يلتزم React بـ savingSettings=true */
+            closed = result.current.closeSettings();
+        });
+
+        expect(closed).toBe(false);
+        expect(result.current.settingsOpen).toBe(true);
+        expect(discard).not.toHaveBeenCalled();
+        expect(SmartToast.info).toHaveBeenCalled();
+
+        await waitFor(() => expect(ProfileDB.saveProfile).toHaveBeenCalled());
+
+        await act(async () => {
+            resolveSave({ cloudSynced: true, localPersisted: true });
+            await savePromise;
+        });
     });
 });

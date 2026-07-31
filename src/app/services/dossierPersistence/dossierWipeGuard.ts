@@ -3,6 +3,8 @@ import {
     PROTECTED_ARRAY_STORAGE_KEYS,
     PROTECTED_OBJECT_STORAGE_KEYS,
 } from './protectedStorageKeys';
+import { areAllStoredNotesTombstoned } from '@/app/services/notes/globalNotesTombstones';
+import { areAllStoredVaultDocsTombstoned } from '@/app/services/vault/vaultDocsTombstonesLite';
 
 const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -72,13 +74,24 @@ export function shouldRejectDossierWipe(
     if (trimmed === '{}' && countProtectedItems(storageKey, existingRaw) > 0) return true;
 
     const isArrayKey =
-        PROTECTED_ARRAY_STORAGE_KEYS.has(storageKey) || storageKey.includes('lawyer_files');
+        PROTECTED_ARRAY_STORAGE_KEYS.has(storageKey) ||
+        storageKey.includes('lawyer_files') ||
+        storageKey.startsWith('executionFiles:');
     const isObjectKey = PROTECTED_OBJECT_STORAGE_KEYS.has(storageKey);
 
     if (isArrayKey || isObjectKey) {
         const incomingCount = countProtectedItems(storageKey, incomingRaw);
         const existingCount = countProtectedItems(storageKey, existingRaw);
-        if (incomingCount === 0 && existingCount > 0) return true;
+        if (incomingCount === 0 && existingCount > 0) {
+            // حذف كل الملاحظات عمداً + tombstones — لا ترفض [] وإلا تُبعثَر المحذوفات عند reload
+            if (storageKey === 'lawyer_notes' && areAllStoredNotesTombstoned(existingRaw)) {
+                return false;
+            }
+            if (storageKey === 'hami:smartvault:docs:v1' && areAllStoredVaultDocsTombstoned(existingRaw)) {
+                return false;
+            }
+            return true;
+        }
     }
 
     return false;

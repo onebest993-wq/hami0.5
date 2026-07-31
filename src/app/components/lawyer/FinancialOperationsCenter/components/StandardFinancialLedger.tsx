@@ -9,7 +9,7 @@ import LedgerExpenseEditCluster from './LedgerExpenseEditCluster';
 import { SettlementRepaymentStrip } from './SettlementRepaymentStrip';
 import type { SettlementUxTier } from '../settlementUxMatrix';
 import { DECISIONS_RELOAD_EVENT, readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
-import { ExecutionInlineExecutorDecisionActions } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';
+import { ExecutionInlineExecutorDecisionActions } from '@/app/components/shared/ExecutionInlineExecutorDecisionActions';
 
 interface StandardFinancialLedgerProps {
     executionId: string | undefined;

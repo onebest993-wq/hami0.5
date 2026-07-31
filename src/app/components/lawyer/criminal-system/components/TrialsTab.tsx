@@ -3,6 +3,7 @@ import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
 import type { AddTrialSessionInput, TrialSession } from '../trialSessionsEngine';
 import {
     findCurrentPendingTrialSession,
+    filterTrialSessionsForDisplay,
     formatTrialSessionIsoDate,
     isTrialDossierConcluded,
     isTrialSessionPostCassationRemand,
@@ -22,6 +23,7 @@ import { useCriminalStore } from '../criminalStore';
 import type { CriminalCaseUserRole } from '../complainantCassationGovernance';
 import { getPendingCassationAppealForResult } from '../judicialDecisionsEngine';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../criminalModalPortal';
+import { TrialHearingDateHint } from './TrialHearingDateHint';
 
 export type TrialsTabProps = {
     caseId: string;
@@ -58,6 +60,8 @@ export type TrialsTabProps = {
     onAddModalOpenChange?: (open: boolean) => void;
     /** تاريخ نقض التمييز وإعادة الأوراق — لتمييز جلسات الجولة الثانية. */
     remandPivotDate?: string | null;
+    /** موعد المحاكمة المسجّل كتلميح — يُعرض بدل جلسة وهمية */
+    scheduledHearingDate?: string | null;
 };
 
 export const TrialsTab = ({
@@ -84,11 +88,18 @@ export const TrialsTab = ({
     addModalOpen,
     onAddModalOpenChange,
     remandPivotDate = null,
+    scheduledHearingDate = null,
 }: TrialsTabProps) => {
-    const sorted = useMemo(() => sortTrialSessionsAsc(sessions), [sessions]);
-    const displaySessions = useMemo(() => sortTrialSessionsDesc(sessions), [sessions]);
+    const scheduledDate = String(scheduledHearingDate ?? '').trim();
+    const effectiveSessions = useMemo(
+        () => filterTrialSessionsForDisplay(sessions, scheduledDate),
+        [sessions, scheduledDate],
+    );
+    const sorted = useMemo(() => sortTrialSessionsAsc(effectiveSessions), [effectiveSessions]);
+    const displaySessions = useMemo(() => sortTrialSessionsDesc(effectiveSessions), [effectiveSessions]);
     const currentPending = useMemo(() => findCurrentPendingTrialSession(sorted), [sorted]);
     const dossierConcluded = isTrialDossierConcluded(sorted);
+    const showScheduledHearingHint = Boolean(scheduledDate) && displaySessions.length === 0;
 
     const [isAddOpenInternal, setIsAddOpenInternal] = useState(false);
     const isAddOpen = addModalOpen ?? isAddOpenInternal;
@@ -301,6 +312,10 @@ export const TrialsTab = ({
                         </button>
                     ) : null}
                 </div>
+            ) : null}
+
+            {showScheduledHearingHint ? (
+                <TrialHearingDateHint hearingDate={scheduledDate} />
             ) : null}
 
             {displaySessions.length === 0 ? null : (

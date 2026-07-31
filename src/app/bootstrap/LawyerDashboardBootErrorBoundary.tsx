@@ -34,8 +34,7 @@ class LawyerDashboardBootErrorBoundaryInner extends Component<
 
     render(): ReactNode {
         if (this.state.hasError) {
-            const devDetail =
-                import.meta.env.DEV && this.state.error ? this.state.error.message : null;
+            const detailMessage = this.state.error?.message ?? null;
 
             return (
                 <div
@@ -44,17 +43,19 @@ class LawyerDashboardBootErrorBoundaryInner extends Component<
                     role="alertdialog"
                     aria-label="خطأ في تحميل لوحة المحامي"
                     data-testid="lawyer-dashboard-boot-error"
+                    data-boot-error-message={detailMessage ?? undefined}
+                    data-boot-error-stack={this.state.error?.stack?.slice(0, 1500) ?? undefined}
                 >
                     <p className="text-white/70 text-sm max-w-xs text-center leading-relaxed mb-6">
                         تعذّر تحميل لوحة المحامي. يمكنك المحاولة مجدداً دون إعادة تحميل الصفحة
                         بالكامل.
                     </p>
-                    {devDetail ? (
+                    {import.meta.env.DEV && detailMessage ? (
                         <pre
                             className="text-[11px] text-red-300/90 max-w-sm w-full mb-4 p-3 rounded-lg bg-white/5 border border-white/10 overflow-auto text-left direction-ltr whitespace-pre-wrap"
                             data-testid="lawyer-dashboard-boot-error-detail"
                         >
-                            {devDetail}
+                            {detailMessage}
                         </pre>
                     ) : null}
                     <button

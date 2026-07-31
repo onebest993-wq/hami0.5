@@ -1,20 +1,46 @@
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import {
     prefetchHamiSettingsModule,
 } from '@/app/runtime/hamiSettingsLoader';
+import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
 import {
     loadNotificationPanelModule,
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
-import { loadRoyalLawyerProfileWithData } from '@/app/runtime/royalLawyerProfileLoader';
-import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { warmNotificationsOnHover, warmNotificationsOnOpen } from '@/app/hooks/lawyerDashboard/notificationIntentWarm';
-import { warmProfileOnHover, warmProfileOnOpen } from '@/app/hooks/lawyerDashboard/profileIntentWarm';
-import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
-import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
+
+function loadGlobalSearchIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/globalSearchIntentWarm');
+}
+
+function loadNotificationIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/notificationIntentWarm');
+}
+
+function loadProfileIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/profileIntentWarm');
+}
+
+function loadSettingsIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/settingsIntentWarm');
+}
+
+function loadSettingsBootHydrator() {
+    return import('@/app/runtime/settingsBootHydrator');
+}
+
+function loadProfileBootHydrator() {
+    return import('@/app/runtime/profileBootHydrator');
+}
+
+function loadProfileHubLoader() {
+    return import('@/app/runtime/profileHubLoader');
+}
+
+function loadRoyalLawyerProfileLoader() {
+    return import('@/app/runtime/royalLawyerProfileLoader');
+}
 
 export type HeaderShellWarmPhase = 'hover' | 'open';
 
@@ -24,8 +50,9 @@ export function resetHeaderShellIntentWarmForTests(): void {
     headerShellHydrateStarted = false;
 }
 
-export function shouldAggressiveHeaderShellWarm(): boolean {
+export async function shouldAggressiveHeaderShellWarm(): Promise<boolean> {
     try {
+        const { getLawyerSettingsSnapshot } = await import('@/app/services/settings/settingsRuntime');
         const s = getLawyerSettingsSnapshot();
         if (s.security.localOnlyMode) return false;
         if (s.performance.prefetchScreens === false) return false;
@@ -43,20 +70,27 @@ export function warmLawyerDashboardHeaderShell(
 ): void {
     if (!isRealSignedIn(userId)) return;
 
-    const useOpenWarm = phase === 'open' && shouldAggressiveHeaderShellWarm();
-
-    if (useOpenWarm) {
-        warmSettingsOnOpen();
-        warmNotificationsOnOpen(userId);
-        warmGlobalSearchOnOpen();
-        warmProfileOnOpen(userId);
+    if (phase !== 'open') {
+        void loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover());
+        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
+        void loadGlobalSearchIntentWarm().then((m) => m.warmGlobalSearchOnHover());
+        void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
         return;
     }
 
-    warmSettingsOnHover();
-    warmNotificationsOnHover();
-    warmGlobalSearchOnHover();
-    warmProfileOnHover(userId);
+    void shouldAggressiveHeaderShellWarm().then((aggressive) => {
+        if (aggressive) {
+            void loadSettingsIntentWarm().then((m) => m.warmSettingsOnOpen());
+            void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnOpen(userId));
+            void loadGlobalSearchIntentWarm().then((m) => m.warmGlobalSearchOnOpen());
+            void loadProfileIntentWarm().then((m) => m.warmProfileOnOpen(userId));
+            return;
+        }
+        void loadSettingsIntentWarm().then((m) => m.warmSettingsOnHover());
+        void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
+        void loadGlobalSearchIntentWarm().then((m) => m.warmGlobalSearchOnHover());
+        void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
+    });
 }
 
 /**
@@ -67,14 +101,38 @@ export function preloadLawyerDashboardHeaderShellChunks(): void {
     if (typeof window === 'undefined') return;
 
     prefetchHamiSettingsModule();
+    prefetchSettingsOverlayEntry();
     prefetchNotificationPanel();
+    void import('@/app/runtime/globalSearchLoader')
+        .then((m) => m.prefetchGlobalSearchOverlayChunk())
+        .catch(() => undefined);
+    void loadProfileHubLoader().then((m) => m.prefetchProfileHubModule());
 }
 
 function scheduleHeaderShellHeavyWarm(userId: string): void {
+    // الملف المهني أولاً — فتح فوري بعد الإقلاع/إعادة التشغيل
     scheduleIdleWork(
         () => {
             if (typeof document !== 'undefined' && document.hidden) return;
-            void hydrateSettingsShellForInstantOpen();
+            void loadProfileBootHydrator()
+                .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, false))
+                .catch(() => undefined);
+            void loadRoyalLawyerProfileLoader()
+                .then((m) => m.loadRoyalLawyerProfileWithData(userId))
+                .catch(() => undefined);
+        },
+        {
+            minDelayMs: 0,
+            timeoutMs: 8_000,
+        },
+    );
+
+    scheduleIdleWork(
+        () => {
+            if (typeof document !== 'undefined' && document.hidden) return;
+            void loadSettingsBootHydrator()
+                .then((m) => m.hydrateSettingsShellForInstantOpen())
+                .catch(() => undefined);
         },
         {
             minDelayMs: 0,
@@ -96,11 +154,13 @@ function scheduleHeaderShellHeavyWarm(userId: string): void {
     scheduleIdleWork(
         () => {
             if (typeof document !== 'undefined' && document.hidden) return;
-            void loadRoyalLawyerProfileWithData(userId).catch(() => undefined);
+            void import('@/app/runtime/globalSearchLoader')
+                .then((m) => m.loadGlobalSearchOverlayWithEngine())
+                .catch(() => undefined);
         },
         {
-            minDelayMs: import.meta.env.DEV ? 2_000 : 5_000,
-            timeoutMs: 15_000,
+            minDelayMs: import.meta.env.DEV ? 900 : 2_000,
+            timeoutMs: 8_000,
         },
     );
 }
@@ -116,7 +176,8 @@ export function hydrateLawyerDashboardHeaderShellChunks(userId: string | null | 
 
     warmLawyerDashboardHeaderShell(userId, 'hover');
 
-    if (!shouldAggressiveHeaderShellWarm()) return;
-
-    scheduleHeaderShellHeavyWarm(userId);
+    void shouldAggressiveHeaderShellWarm().then((aggressive) => {
+        if (!aggressive) return;
+        scheduleHeaderShellHeavyWarm(userId);
+    });
 }

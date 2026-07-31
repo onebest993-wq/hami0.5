@@ -17,6 +17,8 @@ interface PartyCardProps {
     /** مستقل / ضامن — عند تعدد المدينين مع تقسيم مدني فقط */
     debtorLiabilityLabel?: 'مستقل' | 'ضامن' | null;
     lockedEntityKind?: DebtorEntityKind | null;
+    /** أحوال شخصية — لا اختيار طبيعي/معنوي */
+    hideDebtorEntityKind?: boolean;
 }
 
 const OCCUPATIONS = ['كاسب', 'موظف'] as const;
@@ -33,23 +35,22 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
     party, index, totalCount, type, onUpdate, onRemove,
     debtorLiabilityLabel = null,
     lockedEntityKind = null,
+    hideDebtorEntityKind = false,
 }) => {
     const isCreditor = type === 'creditor';
     const isClient = Boolean(party.isClient);
     const entityKind = readEntityKind(party);
     const isLegalEntity = !isCreditor && entityKind === 'legal_entity';
-    const showDebtorEntityKind = !isCreditor && !isClient;
+    const showDebtorEntityKind = !isCreditor && !isClient && !hideDebtorEntityKind;
 
     const [draft, setDraft] = useState({
         name: party.name ?? '',
-        phone: party.phone ?? '',
         address: party.address ?? '',
     });
 
     useEffect(() => {
         setDraft({
             name: party.name ?? '',
-            phone: party.phone ?? '',
             address: party.address ?? '',
         });
     }, [party.id]);
@@ -177,24 +178,14 @@ const PartyCard: React.FC<PartyCardProps> = React.memo(({
                     </span>
                 ) : null}
             </div>
-            <div className="grid grid-cols-2 gap-3">
-                <input
-                    type="text"
-                    placeholder="رقم الهاتف"
-                    value={draft.phone}
-                    onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
-                    onBlur={() => onUpdate(party.id, 'phone', draft.phone)}
-                    className={ecg.field}
-                />
-                <input
-                    type="text"
-                    placeholder={isCreditor ? 'العنوان (اختياري)' : 'العنوان الدقيق (مطلوب للتبليغ)'}
-                    value={draft.address}
-                    onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
-                    onBlur={() => onUpdate(party.id, 'address', draft.address)}
-                    className={ecg.field}
-                />
-            </div>
+            <input
+                type="text"
+                placeholder={isCreditor ? 'العنوان (اختياري)' : 'العنوان الدقيق (مطلوب للتبليغ)'}
+                value={draft.address}
+                onChange={(e) => setDraft((d) => ({ ...d, address: e.target.value }))}
+                onBlur={() => onUpdate(party.id, 'address', draft.address)}
+                className={ecg.field}
+            />
         </div>
     );
 });

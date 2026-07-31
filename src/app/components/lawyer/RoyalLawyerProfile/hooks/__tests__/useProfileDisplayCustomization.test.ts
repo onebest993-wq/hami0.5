@@ -40,11 +40,11 @@ describe('useProfileDisplayCustomization', () => {
         expect(result.current.displayCustomization.appearance.material).toBe('glass');
     });
 
-    it('يطبّق معاينة المسودة بعد debounce في الاستوديو', () => {
+    it('يطبق ثيم المعاينة فوراً ويعيد مزامنة material في React (ornate)', () => {
         const customization = defaultProfilePageCustomization();
         const nextDraft = {
             ...customization,
-            appearance: { ...customization.appearance, material: 'metallic' as const },
+            appearance: { ...customization.appearance, material: 'ornate' as const },
         };
 
         const { result } = renderHook(() =>
@@ -61,12 +61,111 @@ describe('useProfileDisplayCustomization', () => {
         });
 
         expect(applyProfileRootTheme).toHaveBeenCalledWith(nextDraft.appearance);
+        expect(result.current.displayCustomization.appearance.material).toBe('ornate');
+    });
+
+    it('عند بدء التعديل يعرض التخصيص المحفوظ وليس معاينة قديمة', () => {
+        const committed = {
+            ...defaultProfilePageCustomization(),
+            appearance: {
+                ...defaultProfilePageCustomization().appearance,
+                accentColor: 'emerald' as const,
+                portraitFrame: 'classic' as const,
+            },
+        };
+        const { result, rerender } = renderHook(
+            ({ isEditing }: { isEditing: boolean }) =>
+                useProfileDisplayCustomization({
+                    customization: committed,
+                    isEditing,
+                    settingsOpen: false,
+                    saveCustomization,
+                }),
+            { initialProps: { isEditing: false } },
+        );
+
+        expect(result.current.displayCustomization.appearance.accentColor).toBe('emerald');
 
         act(() => {
-            vi.advanceTimersByTime(200);
+            rerender({ isEditing: true });
         });
 
-        expect(result.current.displayCustomization.appearance.material).toBe('metallic');
+        expect(result.current.displayCustomization.appearance.accentColor).toBe('emerald');
+        expect(result.current.displayCustomization.appearance.portraitFrame).toBe('classic');
+    });
+
+    it('يزامن الخصوصية أثناء الاستوديو دون مزامنة نص الكتل الموجودة', () => {
+        const baseBlock = {
+            id: 'b1',
+            kind: 'text' as const,
+            title: 'نص',
+            body: 'قديم',
+            order: 0,
+        };
+        const customization = {
+            ...defaultProfilePageCustomization(),
+            customBlocks: [baseBlock],
+        };
+        const nextDraft = {
+            ...customization,
+            privacy: { ...customization.privacy, showGallery: false },
+            customBlocks: [{ ...baseBlock, body: 'كتابة طويلة لا يجب أن تُرسم على الملف' }],
+        };
+
+        const { result } = renderHook(() =>
+            useProfileDisplayCustomization({
+                customization,
+                isEditing: false,
+                settingsOpen: true,
+                saveCustomization,
+            }),
+        );
+
+        act(() => {
+            result.current.handleSettingsDraftChange(nextDraft);
+        });
+
+        expect(result.current.displayCustomization.privacy.showGallery).toBe(false);
+        expect(result.current.displayCustomization.customBlocks[0]?.body).toBe('قديم');
+    });
+
+    it('يزامن حذف/إضافة الكتل فوراً أثناء الاستوديو', () => {
+        const customization = {
+            ...defaultProfilePageCustomization(),
+            customBlocks: [
+                {
+                    id: 'keep',
+                    kind: 'text' as const,
+                    title: 'نص',
+                    body: 'يبقى',
+                    order: 0,
+                },
+                {
+                    id: 'gone',
+                    kind: 'image' as const,
+                    title: 'صورة',
+                    order: 1,
+                },
+            ],
+        };
+
+        const { result } = renderHook(() =>
+            useProfileDisplayCustomization({
+                customization,
+                isEditing: false,
+                settingsOpen: true,
+                saveCustomization,
+            }),
+        );
+
+        act(() => {
+            result.current.handleSettingsDraftChange({
+                ...customization,
+                customBlocks: customization.customBlocks.filter((b) => b.id !== 'gone'),
+            });
+        });
+
+        expect(result.current.displayCustomization.customBlocks.map((b) => b.id)).toEqual(['keep']);
     });
 
     it('يحفظ عبر handleSettingsSave', async () => {
@@ -89,7 +188,30 @@ describe('useProfileDisplayCustomization', () => {
             await result.current.handleSettingsSave(next);
         });
 
-        expect(saveCustomization).toHaveBeenCalledWith(next);
+        expect(saveCustomization).toHaveBeenCalledWith(next, undefined);
         expect(result.current.displayCustomization.appearance.accentColor).toBe('emerald');
+    });
+
+    it('يمرّر silent إلى saveCustomization', async () => {
+        const customization = defaultProfilePageCustomization();
+        const next = {
+            ...customization,
+            appearance: { ...customization.appearance, accentColor: 'navy' as const },
+        };
+
+        const { result } = renderHook(() =>
+            useProfileDisplayCustomization({
+                customization,
+                isEditing: false,
+                settingsOpen: true,
+                saveCustomization,
+            }),
+        );
+
+        await act(async () => {
+            await result.current.handleSettingsSave(next, { silent: true });
+        });
+
+        expect(saveCustomization).toHaveBeenCalledWith(next, { silent: true });
     });
 });

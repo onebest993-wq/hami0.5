@@ -1,4 +1,4 @@
-import { URGENT_JUDICIARY_DROPDOWN_OPTIONS } from './procedureCategory';
+import { PETITION_ORDERS_DROPDOWN_OPTIONS, URGENT_JUDICIARY_DROPDOWN_OPTIONS } from './procedureCategory';
 
 /** Phase 39 — نوعان مرجعيان (بيانات قديمة فقط) */
 export const URGENT_PETITION_PRIMARY = 'أمر ولائي / قضاء مستعجل';
@@ -22,12 +22,8 @@ const LEGACY_URGENT_DISCOVERY = [
 const LEGACY_ACKNOWLEDGMENT = ['إقرار الملكية', 'إقرار الدين', 'إقرار العقد'];
 
 export const actionTypeOptions = {
-    state_order: [
-        'وضع إشارة عدم التصرف',
-        'أمر ولائي آخر (تحديد يدوي)',
-        ...LEGACY_STATE_ORDER,
-    ],
-    urgent_discovery: ['الحجز الاحتياطي', ...URGENT_JUDICIARY_DROPDOWN_OPTIONS, ...LEGACY_URGENT_DISCOVERY],
+    state_order: [...PETITION_ORDERS_DROPDOWN_OPTIONS, ...LEGACY_STATE_ORDER],
+    urgent_discovery: [...URGENT_JUDICIARY_DROPDOWN_OPTIONS, ...LEGACY_URGENT_DISCOVERY],
     acknowledgment: [...LEGACY_ACKNOWLEDGMENT],
 };
 

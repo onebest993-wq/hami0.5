@@ -6,21 +6,21 @@ import {
     SCHEDULE_SHELL_FEATURE,
     openScheduleFromShell,
 } from '@/app/services/schedule/scheduleShellNavigation';
-import {
-    registerScheduleWarmUserId,
-    warmScheduleOnHover,
-    warmScheduleOnOpen,
-    warmCalendarEventsCache,
-} from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
-import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
-import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
-import {
-    clearCalendarPerfMarks,
-    markCalendarPerfPhase,
-} from '@/app/services/calendar/calendarPerfMetrics';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { useKeepAliveIdleRelease, getLatchedTabIdleReleaseMs } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
+import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
+import {
+    loadScheduleBootHydrator,
+    loadScheduleHubLoader,
+    loadScheduleIntentWarm,
+    SCHEDULE_PRIME_HOST_EVENT,
+} from '@/app/hooks/lawyerDashboard/schedule/scheduleLazyImports';
+import { commitScheduleTabOpen } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
+import type { CalendarSearchFocus } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
 
-export type CalendarSearchFocus = { date?: string; eventId?: string } | null;
+export type { CalendarSearchFocus };
 
 export type OpenScheduleTabOptions = {
     date?: string;
@@ -38,27 +38,122 @@ export function useLawyerDashboardScheduleTab({
     activeTab,
     setActiveTab,
 }: UseLawyerDashboardScheduleTabParams) {
+    const scheduleInitiallyOpen = activeTab === 'schedule';
     const [calendarSearchFocus, setCalendarSearchFocus] = useState<CalendarSearchFocus>(null);
-    const [scheduleTabSessionKey, setScheduleTabSessionKey] = useState(0);
-    const hasMarkedScheduleOpenRef = useRef(false);
+    const [scheduleTabSessionKey, setScheduleTabSessionKey] = useState(() =>
+        scheduleInitiallyOpen ? 1 : 0,
+    );
+    const [scheduleHostMounted, setScheduleHostMounted] = useState(() => scheduleInitiallyOpen);
+    const hasMarkedScheduleOpenRef = useRef(scheduleInitiallyOpen);
+
+    const armScheduleHost = useCallback(() => {
+        setScheduleHostMounted(true);
+        void loadScheduleHubLoader().then((m) => {
+            m.prefetchScheduleTabHostModule();
+            m.prefetchScheduleHubModule();
+        });
+        queueMicrotask(() => {
+            void ensureDeferredFeatureStylesLoaded();
+        });
+    }, []);
 
     const primeScheduleTabMount = useCallback(() => {
-        warmScheduleOnHover(userId ?? undefined);
+        void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId ?? undefined));
+        armScheduleHost();
+    }, [armScheduleHost, userId]);
+
+    useEffect(() => {
+        let disposed = false;
+        let unsub: (() => void) | undefined;
+        void loadScheduleIntentWarm().then((m) => {
+            if (disposed) return;
+            unsub = m.registerScheduleWarmUserId(userId);
+        });
+        return () => {
+            disposed = true;
+            unsub?.();
+        };
     }, [userId]);
 
     useEffect(() => {
-        return registerScheduleWarmUserId(userId);
+        let disposed = false;
+        let unbind: (() => void) | undefined;
+        const unbindInteractive = onDashboardInteractive(() => {
+            void loadScheduleBootHydrator().then((m) => {
+                if (disposed) return;
+                unbind = m.bindScheduleBootHydrator(userId);
+            });
+        });
+        return () => {
+            disposed = true;
+            unbindInteractive();
+            unbind?.();
+        };
     }, [userId]);
+
+    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة تقويم (مثل الإعدادات/المعاملات) */
+    useLayoutEffect(() => {
+        if (!isRealSignedIn(userId)) return;
+        armScheduleHost();
+        void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId));
+        void loadScheduleHubLoader()
+            .then((m) => m.loadScheduleHubModule())
+            .catch(() => undefined);
+    }, [armScheduleHost, userId]);
+
+    useKeepAliveIdleRelease(
+        activeTab === 'schedule',
+        () => setScheduleHostMounted(false),
+        getLatchedTabIdleReleaseMs(),
+    );
+
+    /** جلسة تقويم مفتوحة بلا هوية — ارجع للرئيسية وامسح الـ host (C2) */
+    useEffect(() => {
+        if (isRealSignedIn(userId)) return;
+        setCalendarSearchFocus(null);
+        setScheduleHostMounted(false);
+        if (activeTab === 'schedule') {
+            setActiveTab('home');
+        }
+    }, [activeTab, setActiveTab, userId]);
 
     useLayoutEffect(() => {
         if (activeTab !== 'schedule') return;
-        warmScheduleOnOpen(userId ?? undefined);
-        void warmCalendarEventsCache(userId ?? undefined).catch(() => undefined);
+        armScheduleHost();
+        void loadScheduleIntentWarm().then((m) => m.warmScheduleOnOpen(userId ?? undefined));
         if (!hasMarkedScheduleOpenRef.current) {
             hasMarkedScheduleOpenRef.current = true;
             setScheduleTabSessionKey((k) => (k === 0 ? 1 : k));
         }
-    }, [activeTab, userId]);
+    }, [activeTab, armScheduleHost, userId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        const scheduleWarm = () => {
+            void loadScheduleIntentWarm().then((m) => m.warmScheduleOnHover(userId));
+            void loadScheduleBootHydrator()
+                .then((m) => m.prefetchScheduleAfterBootReveal(userId))
+                .catch(() => undefined);
+        };
+
+        if (isBootRevealDone()) {
+            scheduleWarm();
+            return;
+        }
+
+        window.addEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
+        return () => window.removeEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
+    }, [userId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onPrime = () => {
+            primeScheduleTabMount();
+        };
+        window.addEventListener(SCHEDULE_PRIME_HOST_EVENT, onPrime);
+        return () => window.removeEventListener(SCHEDULE_PRIME_HOST_EVENT, onPrime);
+    }, [primeScheduleTabMount]);
 
     const clearCalendarSearchFocus = useCallback(() => {
         setCalendarSearchFocus(null);
@@ -76,26 +171,16 @@ export function useLawyerDashboardScheduleTab({
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${SCHEDULE_SHELL_FEATURE}`),
                 onOpenCalendar: () => {
-                    dismissTransientOverlays();
-                    clearCalendarPerfMarks();
-                    markCalendarPerfPhase('open-request');
-                    warmScheduleOnOpen(userId ?? undefined);
-                    void warmCalendarEventsCache(userId ?? undefined).catch(() => undefined);
-                    primeScheduleTabMount();
-                    if (opts?.date !== undefined || opts?.eventId !== undefined) {
-                        setCalendarSearchFocus({
-                            date: opts.date,
-                            eventId: opts.eventId,
-                        });
-                    } else {
-                        setCalendarSearchFocus(null);
-                    }
-                    setActiveTab('schedule');
-                    void hydrateScheduleShellForInstantOpenWithData(userId, true).catch(() => undefined);
+                    commitScheduleTabOpen({
+                        opts,
+                        armScheduleHost,
+                        setCalendarSearchFocus,
+                        setActiveTab,
+                    });
                 },
             });
         },
-        [primeScheduleTabMount, setActiveTab, userId],
+        [armScheduleHost, setActiveTab, userId],
     );
 
     const resetScheduleTabShell = useCallback(() => {
@@ -109,6 +194,7 @@ export function useLawyerDashboardScheduleTab({
         clearCalendarSearchFocus,
         primeScheduleTabMount,
         scheduleTabSessionKey,
+        scheduleHostMounted,
         resetScheduleTabShell,
         openScheduleTab,
         backToHomeFromSchedule,

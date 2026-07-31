@@ -1,5 +1,6 @@
 import { useEffect, useCallback, type RefObject } from 'react';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 export function useSearchKeyboard(
     overlayOpen: boolean,
@@ -19,7 +20,14 @@ export function useSearchKeyboard(
             onClose();
         };
         window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            onClose();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [overlayOpen, onClose]);
 
     const focusResultAt = useCallback(

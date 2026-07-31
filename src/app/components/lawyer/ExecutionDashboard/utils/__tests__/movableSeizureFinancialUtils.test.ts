@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { storageCache } from '@/app/utils/storageCache';
-import { emptyStore, storageKey, recomputeUnifiedLedgerPaymentSnapshots } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import { emptyStore, storageKey, recomputeUnifiedLedgerPaymentSnapshots } from '@/app/slices/financial/ledgerPublic';
 import {
     creditMovableSaleProceedsToTrustLedger,
     movableProceedsTrustPaymentId,

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { CRIMINAL_STORAGE_PATCHED_EVENT } from '@/app/utils/criminalCasesStorage';
-import { ensureCalendarPopulatedFromLiveDossiers } from '@/app/services/calendarDossierSync';
 import { buildCalendarDossierFingerprint } from '@/app/services/calendar/calendarDossierFingerprint';
 import {
     clearDossierSyncFingerprint,
@@ -10,9 +9,9 @@ import {
 import { CALENDAR_REQUEST_SYNC_EVENT } from '@/app/services/calendarBridge.types';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
+import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
 
 const DEBOUNCE_MS = 500;
-export const QUANTUM_TASKS_CHANGED_EVENT = 'hami:quantum-tasks-changed';
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
 const lastPayloadByLawyer = new Map<string, SyncPayload>();
@@ -28,16 +27,21 @@ type SyncPayload = {
 function runIncrementalSync(lawyerId: string, payload: SyncPayload, fingerprint: string): void {
     if (shouldSkipDossierSyncForFingerprint(lawyerId, fingerprint)) return;
     lastPayloadByLawyer.set(lawyerId, payload);
-    void ensureCalendarPopulatedFromLiveDossiers({
-        lawyerId,
-        lawsuitFiles: payload.lawsuitFiles,
-        executionFiles: payload.executionFiles,
-        criminalCases: payload.criminalCases,
-        globalNotes: payload.globalNotes,
-        fieldTasks: payload.fieldTasks,
-    }).then(() => {
-        markDossierSyncFingerprint(lawyerId, fingerprint);
-    });
+    void import('@/app/services/calendarDossierSync')
+        .then((m) =>
+            m.ensureCalendarPopulatedFromLiveDossiers({
+                lawyerId,
+                lawsuitFiles: payload.lawsuitFiles,
+                executionFiles: payload.executionFiles,
+                criminalCases: payload.criminalCases,
+                globalNotes: payload.globalNotes,
+                fieldTasks: payload.fieldTasks,
+            }),
+        )
+        .then(() => {
+            markDossierSyncFingerprint(lawyerId, fingerprint);
+        })
+        .catch(() => undefined);
 }
 
 function scheduleIncrementalSync(lawyerId: string, payload: SyncPayload, fingerprint: string): void {

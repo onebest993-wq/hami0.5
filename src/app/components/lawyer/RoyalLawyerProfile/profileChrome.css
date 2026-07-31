@@ -1,0 +1,108 @@
+/**
+ * سطح الملف المهني — أول إطار قبل profilePageFx / deferred-app.
+ * يمنع ثقب Suspense والوميض بين #05060D والخلفية النهائية.
+ */
+
+:root {
+    --profile-page-bg: #020408;
+    --profile-accent: #e6c673;
+    --profile-accent-ink: #e6c673;
+    --profile-accent-on-solid: #0a0c12;
+}
+
+.hami-profile-instant-shell {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
+    width: 100%;
+    overflow-x: clip;
+    color: #fff;
+    background-color: var(--profile-page-bg, #020408);
+    padding-bottom: max(8rem, calc(env(safe-area-inset-bottom) + 6rem));
+}
+
+.hami-profile-instant-back {
+    position: fixed;
+    z-index: 60;
+    left: 1rem;
+    top: max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem));
+    pointer-events: none;
+}
+
+.hami-profile-instant-back-btn {
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    min-height: 44px;
+    min-width: 44px;
+    border-radius: 0.75rem;
+    background-color: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    color: var(--profile-accent, #e6c673);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hami-profile-instant-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    /* يطابق حشو الـ hero الحقيقي — يمنع رعشة حجم عند الانتقال من القشرة */
+    padding-top: max(1.25rem, calc(env(safe-area-inset-top) + 3.25rem));
+    padding-inline: 1.25rem;
+    gap: 0.55rem;
+}
+
+.hami-profile-instant-avatar {
+    width: 8.25rem; /* 132px — مطابق ProfileFloatingPortrait size=lg */
+    height: 8.25rem;
+    border-radius: 9999px;
+    border: 2.5px solid color-mix(in srgb, var(--profile-accent, #e6c673) 28%, transparent);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 8%, #0a0c12);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+}
+
+.hami-profile-instant-name {
+    width: 10rem;
+    height: 1.25rem;
+    border-radius: 0.5rem;
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 12%, transparent);
+}
+
+.hami-profile-instant-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.hami-profile-instant-chip {
+    width: 5.5rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid color-mix(in srgb, var(--profile-accent, #e6c673) 22%, transparent);
+    background: color-mix(in srgb, var(--profile-accent, #e6c673) 8%, transparent);
+}
+
+.hami-profile-instant-section {
+    margin-top: 2rem;
+    padding-inline: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.hami-profile-instant-row {
+    height: 3.25rem;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+/* سطح preserve للملف يطابق خلفية الصفحة */
+.hami-dashboard-tab-preserve[data-testid='lawyer-dashboard-profile-surface'] {
+    background-color: var(--profile-page-bg, #020408);
+}

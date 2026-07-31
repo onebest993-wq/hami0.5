@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CaseStage } from '../../LawyerShared';
 import type { SmartFileParentData } from './parentDataInit';
 import { resolveDisplayParties } from './resolveDisplayParties';
@@ -30,26 +29,24 @@ export function buildCloudSavePayload(
         parties?: unknown;
         tasks?: unknown;
     };
-    const parentCaseNo =
-        typeof updatedParent.caseNo === 'string' && updatedParent.caseNo.trim()
-            ? updatedParent.caseNo.trim()
-            : active?.caseNo;
-    const parentCourt =
-        typeof updatedParent.court === 'string' && updatedParent.court.trim()
-            ? updatedParent.court.trim()
-            : active?.court;
-    const parentDocType =
-        typeof updatedParent.docType === 'string' && updatedParent.docType.trim()
-            ? updatedParent.docType.trim()
-            : active?.docType;
-    const parentClaimValue =
-        typeof updatedParent.claimValue === 'string' && updatedParent.claimValue.trim()
-            ? updatedParent.claimValue.trim()
-            : active?.claimValue;
-    const parentJudge =
-        typeof updatedParent.judge === 'string' && updatedParent.judge.trim()
-            ? updatedParent.judge.trim()
-            : active?.judge;
+    // Prefer the active stage (source of truth after edits) over stale parent fields.
+    const pickField = (
+        stageVal: unknown,
+        parentVal: unknown,
+    ): string | undefined => {
+        const fromStage = typeof stageVal === 'string' ? stageVal.trim() : '';
+        if (fromStage) return fromStage;
+        const fromParent = typeof parentVal === 'string' ? parentVal.trim() : '';
+        return fromParent || undefined;
+    };
+    const parentCaseNo = pickField(active?.caseNo, updatedParent.caseNo);
+    const parentCourt = pickField(active?.court, updatedParent.court);
+    const parentDocType = pickField(
+        active?.docType ?? (active as { type?: string } | undefined)?.type,
+        updatedParent.docType,
+    );
+    const parentClaimValue = pickField(active?.claimValue, updatedParent.claimValue);
+    const parentJudge = pickField(active?.judge, updatedParent.judge);
     const consolidationRefs =
         updatedParent.consolidationSecondaryRefs ??
         (active as CaseStage & { consolidatedSecondaryRefs?: unknown })?.consolidatedSecondaryRefs;

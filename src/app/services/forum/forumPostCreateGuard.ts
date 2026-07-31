@@ -1,14 +1,12 @@
-import type { CommunityAttachment, CommunityPost } from '@/app/services/forum/forumTypes';
+import type { CommunityAttachment, CommunityComment, CommunityPost } from '@/app/services/forum/forumTypes';
+import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 
-const BLOCKED_URL_SCHEMES = /^(javascript|data:text\/html|vbscript):/i;
-
-function isSafeExternalUrl(url: string): boolean {
-    const trimmed = url.trim();
-    if (!trimmed) return false;
-    if (trimmed.startsWith('data:')) return trimmed.startsWith('data:image/') || trimmed.startsWith('data:audio/');
-    if (trimmed.startsWith('blob:')) return true;
-    if (BLOCKED_URL_SCHEMES.test(trimmed)) return false;
-    return true;
+/** معرّف خادم فقط — لا يُقبل معرّف من العميل في مسارات الإنشاء. */
+export function mintForumEntityId(): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return `forum_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
 function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachment | null {
@@ -19,7 +17,7 @@ function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachme
     const name = typeof raw.name === 'string' ? raw.name.trim() : '';
     const storagePath = typeof raw.storagePath === 'string' ? raw.storagePath.trim() : '';
     const hasDurableStorage = storagePath.length > 0;
-    if (!type || !name || (!url && !hasDurableStorage) || (url && !isSafeExternalUrl(url))) {
+    if (!type || !name || (!url && !hasDurableStorage) || (url && !isSafeForumAttachmentUrl(url))) {
         return null;
     }
     return {
@@ -32,7 +30,8 @@ function sanitizeAttachment(raw: CommunityPost['attachment']): CommunityAttachme
 }
 
 /**
- * يبني منشوراً آمناً للإنشاء — يزيل حقول الصلاحيات/التصويت/التعليقات المحقونة من العميل.
+ * يبني منشوراً آمناً للإنشاء — يزيل حقول الصلاحيات/التصويت/التعليقات المحقونة من العميل،
+ * ويولّد معرّفاً جديداً دائماً (يمنع overwrite عبر upsert بمعرّف مهاجم).
  */
 export function sanitizeCommunityPostForCreate(post: CommunityPost, authorId: string): CommunityPost {
     const now = new Date().toISOString();
@@ -44,14 +43,14 @@ export function sanitizeCommunityPostForCreate(post: CommunityPost, authorId: st
         : [];
 
     return {
-        id: typeof post.id === 'string' && post.id.trim() ? post.id.trim() : now,
+        id: mintForumEntityId(),
         authorId,
         author_id: authorId,
         authorName: typeof post.authorName === 'string' ? post.authorName.trim() : '',
         content: typeof post.content === 'string' ? post.content.trim() : '',
         tags,
-        createdAt: typeof post.createdAt === 'string' && post.createdAt.trim() ? post.createdAt : now,
-        updatedAt: typeof post.updatedAt === 'string' && post.updatedAt.trim() ? post.updatedAt : now,
+        createdAt: now,
+        updatedAt: now,
         attachment: sanitizeAttachment(post.attachment),
         upvoterIds: [],
         comments: [],
@@ -62,5 +61,27 @@ export function sanitizeCommunityPostForCreate(post: CommunityPost, authorId: st
         isPinned: undefined,
         isLocked: undefined,
         groupId: typeof post.groupId === 'string' && post.groupId.trim() ? post.groupId.trim() : undefined,
+    };
+}
+
+/**
+ * يبني تعليقاً آمناً — معرّف خادم + طوابع زمنية خادم، يتجاهل id/createdAt من العميل.
+ */
+export function sanitizeCommunityCommentForCreate(input: {
+    postId: string;
+    authorId: string;
+    authorName: string;
+    content: string;
+    parentId?: string;
+}): CommunityComment {
+    const content = input.content.trim();
+    return {
+        id: mintForumEntityId(),
+        postId: input.postId,
+        authorId: input.authorId,
+        authorName: input.authorName.trim(),
+        content,
+        createdAt: new Date().toISOString(),
+        parentId: input.parentId?.trim() || undefined,
     };
 }

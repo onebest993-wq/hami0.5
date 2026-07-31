@@ -4,8 +4,20 @@ const lazyComponentMocks = vi.hoisted(() => ({
     warmExecutionWorkspace: vi.fn(),
     warmLawsuitWorkspace: vi.fn(),
 }));
+const executionWarmMocks = vi.hoisted(() => ({
+    warmExecutionWorkspace: vi.fn(),
+    warmExecutionDossier: vi.fn(),
+    warmExecutionDossierUntilReady: vi.fn(() => Promise.resolve()),
+}));
+const executionOpenMocks = vi.hoisted(() => ({
+    openExecutionDossierWithContract: vi.fn((commit: () => void) => {
+        commit();
+    }),
+}));
 
-vi.mock('@/app/utils/lazyComponents', () => lazyComponentMocks);
+vi.mock('@/app/utils/lazyComponentsIntent', () => lazyComponentMocks);
+vi.mock('@/app/runtime/executionWorkspaceWarm', () => executionWarmMocks);
+vi.mock('@/app/runtime/executionOpenContract', () => executionOpenMocks);
 import {
     buildLawyerDashboardTabBundle,
     resetBuildLawyerDashboardTabBundleCacheForTests,
@@ -36,7 +48,6 @@ function minimalTabBundleParams(
         enterHomeLayoutEdit: vi.fn(),
         exitHomeLayoutEdit: vi.fn(),
         homeTabSessionKey: 1,
-        homeHubCardSessionKey: 1,
         homeDockChromeSessionKey: 1,
         isNewCaseModalOpen: false,
         isNotepadOpen: false,
@@ -72,6 +83,7 @@ function minimalTabBundleParams(
         dismissAppAlert: vi.fn(),
         handleAlertResolved: vi.fn(),
         setArchiveType: vi.fn(),
+        armExecutionArchiveHost: vi.fn(),
         openNormalNewCaseModal: vi.fn(),
         openCommunityTab: vi.fn(),
         setLawsuitsDossierSection: vi.fn(),
@@ -107,11 +119,12 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         resetBuildLawyerDashboardTabBundleCacheForTests();
     });
 
-    it('يفتح التنفيذ دون رمي خطأ ويغلق المعاملات/الدعاوى', () => {
+    it('يفتح التنفيذ مع تسليح Host ويغلق المعاملات/الدعاوى', () => {
         const setArchiveType = vi.fn();
         const setShowLawsuitsWorkspace = vi.fn();
         const closeTransactionsHub = vi.fn();
         const closeNotepad = vi.fn();
+        const armExecutionArchiveHost = vi.fn();
 
         const { homeTabProps } = buildLawyerDashboardTabBundle(
             minimalTabBundleParams({
@@ -119,6 +132,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
                 setShowLawsuitsWorkspace,
                 closeTransactionsHub,
                 closeNotepad,
+                armExecutionArchiveHost,
             }),
         );
 
@@ -127,6 +141,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         expect(closeNotepad).toHaveBeenCalledTimes(1);
         expect(setShowLawsuitsWorkspace).toHaveBeenCalledWith(false);
         expect(closeTransactionsHub).toHaveBeenCalledTimes(1);
+        expect(armExecutionArchiveHost).toHaveBeenCalledTimes(1);
         expect(setArchiveType).toHaveBeenCalledWith('execution');
     });
 
@@ -172,7 +187,7 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
         expect(openTransactionsHub).toHaveBeenCalledTimes(1);
     });
 
-    it('يفتح إضبارة التنفيذ بتحميل عاجل قبل تفعيل الملف', () => {
+    it('يفتح إضبارة التنفيذ عبر عقد الفتح ثم تفعيل الملف', () => {
         const setActiveFile = vi.fn();
         const executionFile = { id: 'ex-1', type: 'execution', fileNumber: '12', year: '2026' } as any;
 
@@ -185,8 +200,24 @@ describe('buildLawyerDashboardTabBundle onOpenArchive', () => {
 
         scheduleTabProps.onOpenExecutionFile(executionFile);
 
-        expect(lazyComponentMocks.warmExecutionDossier).toHaveBeenCalledWith('urgent');
+        expect(executionOpenMocks.openExecutionDossierWithContract).toHaveBeenCalledTimes(1);
         expect(setActiveFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('تسخين قسم الدعاوى/التنفيذ من الـ hub بلا secondary عاجل', async () => {
+        const { homeTabProps } = buildLawyerDashboardTabBundle(minimalTabBundleParams());
+        homeTabProps.onOpenArchive('lawsuit');
+        await vi.waitFor(() => {
+            expect(lazyComponentMocks.warmLawsuitWorkspace).toHaveBeenCalledWith(
+                expect.objectContaining({ includeSecondary: false }),
+            );
+        });
+        homeTabProps.onOpenArchive('execution');
+        await vi.waitFor(() => {
+            expect(executionWarmMocks.warmExecutionWorkspace).toHaveBeenCalledWith(
+                expect.objectContaining({ includeSecondary: false }),
+            );
+        });
     });
 
     it('يخفي الهيدر عند فتح مركز المعاملات', () => {

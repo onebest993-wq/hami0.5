@@ -1,6 +1,17 @@
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { isInjectedFieldTaskAlert } from '@/app/services/fieldTaskAlerts';
 import { daysFromTodayYmd, localTodayYmd } from '@/app/services/alertFutureGate';
+
+/** بادئة حقن مهام الميدان — محليًا لكسر سحب fieldTaskAlerts إلى مسارات خفيفة */
+const FIELD_TASK_ALERT_ID_PREFIX = 'field-task:';
+
+function isInjectedFieldTaskAlert(
+    alert: Pick<SecretaryAlert, 'id' | 'fieldTaskInjected' | 'calendarSource'>,
+): boolean {
+    if (alert.fieldTaskInjected) return true;
+    const id = alert.id ?? '';
+    if (id.startsWith(FIELD_TASK_ALERT_ID_PREFIX)) return true;
+    return alert.calendarSource?.module === 'field_day_task';
+}
 
 function dueMs(alert: SecretaryAlert): number | null {
     if (!alert.dueAt) return null;

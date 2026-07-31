@@ -44,7 +44,7 @@ const rows = fs
     .sort((a, b) => b.rawKb - a.rawKb);
 
 const top = rows.slice(0, 25);
-const matched = rows.filter((r) => KEYWORDS.some((k) => r.file.includes(k) || fs.readFileSync(path.join(assetsDir, r.file), 'utf8').slice(0, 500).includes(k)));
+const _matched = rows.filter((r) => KEYWORDS.some((k) => r.file.includes(k) || fs.readFileSync(path.join(assetsDir, r.file), 'utf8').slice(0, 500).includes(k)));
 
 console.log('\n=== Top 25 JS chunks (raw KB) ===');
 for (const r of top) {

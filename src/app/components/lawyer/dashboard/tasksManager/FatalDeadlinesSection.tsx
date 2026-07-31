@@ -1,58 +1,72 @@
 import React from 'react';
-import { ShieldAlert } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { TASKS_GLASS_PANEL } from './tasksBoucleTheme';
-
-import type { TaskListOrdinal } from './TaskListOrdinalBadge';
+import { formatShortDate } from './utils';
 
 export type FatalDeadlinesSectionProps = {
     fatalTasks: LegalTask[];
-    renderTaskCard: (task: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal) => React.ReactNode;
 };
 
+/**
+ * سجل متابعة عاجل — صفوف ملخّصة داخل لوحة واحدة.
+ * البطاقة الكاملة تبقى في يومها بالأجندة.
+ */
 export const FatalDeadlinesSection = React.memo(function FatalDeadlinesSection({
     fatalTasks,
-    renderTaskCard,
 }: FatalDeadlinesSectionProps) {
-    const hasTasks = fatalTasks.length > 0;
+    if (fatalTasks.length === 0) return null;
 
     return (
         <section
-            className={
-                hasTasks
-                    ? `${TASKS_GLASS_PANEL} border-[#A67C52]/35 px-5 py-6 shadow-[0_0_28px_rgba(166,124,82,0.1)]`
-                    : `${TASKS_GLASS_PANEL} border-[#A67C52]/20 px-5 py-4`
-            }
+            className={`${TASKS_GLASS_PANEL} border-[#A67C52]/22 px-4 py-3.5`}
             aria-labelledby="fatal-deadlines-heading"
             data-testid="tasks-fatal-section"
         >
-            <div className="h-px bg-gradient-to-r from-transparent via-[#A67C52]/30 to-transparent mb-3" />
             <h2
                 id="fatal-deadlines-heading"
-                className={`font-extrabold flex flex-row-reverse items-center gap-2 mb-3 ${
-                    hasTasks ? 'text-lg text-[#E8F5F0]' : 'text-sm text-[#D4B896]/85'
-                }`}
+                className="font-extrabold flex flex-row-reverse items-center gap-2 mb-1 text-sm text-[#E8F5F0]"
             >
-                <ShieldAlert
-                    className={`shrink-0 ${hasTasks ? 'size-6 text-[#A67C52]' : 'size-4 text-[#A67C52]/70'}`}
-                    aria-hidden
-                />
-                مواعيد حتمية قاطعة
-            </h2>
-            {hasTasks ? (
-                <ul className="space-y-4 mt-2">
-                    {fatalTasks.map((t, i) =>
-                        renderTaskCard(t, true, { index: i, total: fatalTasks.length }),
-                    )}
-                </ul>
-            ) : (
-                <span
-                    className="text-[#6BC4A8]/50 text-sm font-medium block text-center py-2"
-                    data-testid="tasks-fatal-empty"
-                >
-                    لا توجد مواعيد حتمية قريبة.
+                مواعيد قريبة
+                <span className="text-[11px] font-bold text-[#A67C52]/75 tabular-nums">
+                    {fatalTasks.length}
                 </span>
-            )}
+            </h2>
+            <ul className="divide-y divide-[#A67C52]/14" role="list">
+                {fatalTasks.map((task) => (
+                    <li
+                        key={task.id}
+                        data-testid={`tasks-fatal-summary-${task.id}`}
+                        className="py-2.5 first:pt-2 last:pb-0 text-right"
+                    >
+                        <div className="flex flex-row-reverse items-start gap-2.5">
+                            <span
+                                className="mt-0.5 size-2 shrink-0 rounded-full bg-rose-400/80 shadow-[0_0_8px_rgba(251,113,133,0.45)]"
+                                aria-hidden
+                            />
+                            <div className="min-w-0 flex-1 space-y-1">
+                                <p className="text-sm font-extrabold text-[#E8F5F0] leading-snug truncate" title={task.title}>
+                                    {task.title}
+                                </p>
+                                <div className="flex flex-row-reverse flex-wrap items-center gap-x-3 gap-y-0.5 justify-end text-[11px] font-semibold">
+                                    {task.parsedDate ? (
+                                        <span className="inline-flex flex-row-reverse items-center gap-1 text-[#E6C673]">
+                                            <CalendarDays className="size-3 shrink-0 opacity-80" aria-hidden />
+                                            {formatShortDate(task.parsedDate)}
+                                        </span>
+                                    ) : null}
+                                    {task.location ? (
+                                        <span className="inline-flex flex-row-reverse items-center gap-1 text-[#A8D4C4] min-w-0">
+                                            <MapPin className="size-3 shrink-0 opacity-80" aria-hidden />
+                                            <span className="truncate max-w-[14rem]">{task.location}</span>
+                                        </span>
+                                    ) : null}
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                ))}
+            </ul>
         </section>
     );
 });

@@ -10,7 +10,7 @@
  * @author Hami Legal System - Testing Suite
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PerformanceMonitor, measureFetch, measureStorage } from '../performanceMonitor';
 
 describe('PerformanceMonitor', () => {

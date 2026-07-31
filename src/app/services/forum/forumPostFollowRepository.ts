@@ -1,4 +1,4 @@
-import { getForumSupabaseAdmin } from './supabaseAdmin';
+import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 
 const LOCAL_KEY = 'hami:forum:post-sub:v1';
 
@@ -32,7 +32,7 @@ async function saveLocal(rows: PostSubscription[]): Promise<void> {
 export const ForumPostFollowRepository = {
     async subscribe(userId: string, postId: string): Promise<PostSubscription> {
         const createdAt = new Date().toISOString();
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const rows = await loadLocal();
             const next = rows.filter((r) => !(r.userId === userId && r.postId === postId));
@@ -49,7 +49,7 @@ export const ForumPostFollowRepository = {
     },
 
     async unsubscribe(userId: string, postId: string): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const rows = await loadLocal();
             await saveLocal(rows.filter((r) => !(r.userId === userId && r.postId === postId)));
@@ -64,7 +64,7 @@ export const ForumPostFollowRepository = {
     },
 
     async isSubscribed(userId: string, postId: string): Promise<boolean> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const rows = await loadLocal();
             return rows.some((r) => r.userId === userId && r.postId === postId);
@@ -79,7 +79,7 @@ export const ForumPostFollowRepository = {
     },
 
     async listPostIdsForUser(userId: string): Promise<string[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return (await loadLocal()).filter((r) => r.userId === userId).map((r) => r.postId);
         }
@@ -93,7 +93,7 @@ export const ForumPostFollowRepository = {
     },
 
     async getSubscribers(postId: string): Promise<PostSubscription[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return (await loadLocal()).filter((r) => r.postId === postId);
         }

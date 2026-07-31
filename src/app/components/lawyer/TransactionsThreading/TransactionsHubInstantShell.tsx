@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Search } from 'lucide-react';
+import { HomeSearchIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     TX_OVERLAY,
@@ -12,7 +12,9 @@ type TransactionsHubInstantShellProps = {
     onBack: () => void;
 };
 
-/** هيكل المعاملات فوراً أثناء تحميل الـ chunk — زر الرجوع يعمل مباشرة */
+/**
+ * قشرة طارئة فقط إن تأخّر System — هيكل ثابت بلا نبض تحميل.
+ */
 export function TransactionsHubInstantShell({ onBack }: TransactionsHubInstantShellProps): React.ReactElement {
     useBodyScrollLock(true);
 
@@ -35,20 +37,19 @@ export function TransactionsHubInstantShell({ onBack }: TransactionsHubInstantSh
             role="dialog"
             aria-modal="true"
             aria-label="معاملات"
-            aria-busy="true"
         >
             <TxGlassPage>
                 <TxGlassHeader>
                     <TxHeaderRow title="إدارة المعاملات" onBack={onBack} backTestId="transactions-back" />
 
                     <div className="mt-4 relative pointer-events-none" aria-hidden>
-                        <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680]/60" />
-                        <div className="h-11 rounded-sm border border-[#2A4550]/80 bg-[#152A32] animate-pulse" />
+                        <HomeSearchIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680]/60" />
+                        <div className="h-11 rounded-sm border border-[#2A4550]/80 bg-[#152A32]" />
                     </div>
 
                     <div className="mt-3 flex gap-1.5 overflow-hidden pb-0.5" aria-hidden>
                         {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="h-11 w-[4.5rem] shrink-0 rounded-[3px] bg-[#152A32] animate-pulse" />
+                            <div key={i} className="h-11 w-[4.5rem] shrink-0 rounded-[3px] bg-[#152A32]" />
                         ))}
                     </div>
                 </TxGlassHeader>
@@ -57,7 +58,7 @@ export function TransactionsHubInstantShell({ onBack }: TransactionsHubInstantSh
                     {Array.from({ length: 3 }).map((_, i) => (
                         <div
                             key={i}
-                            className="relative overflow-hidden rounded-sm border border-[#2A4550]/90 bg-[#152A32] p-4 space-y-3 animate-pulse"
+                            className="relative overflow-hidden rounded-sm border border-[#2A4550]/90 bg-[#152A32] p-4 space-y-3"
                         >
                             <div className="h-4 w-2/3 rounded-sm bg-[#1A3340]" />
                             <div className="h-3 w-1/2 rounded-sm bg-[#1A3340]/80" />

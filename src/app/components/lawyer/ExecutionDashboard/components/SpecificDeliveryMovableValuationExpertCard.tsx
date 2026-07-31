@@ -34,7 +34,7 @@ import {
     readSpecificDeliveryItems,
     type SpecificDeliveryItem,
 } from '@/app/utils/specificDeliveryItemsUtils';
-import { formatNumberInput, parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput, parseAmount } from '@/app/utils/execution/amountInput';
 import {
     expertCommitteeSizeLabelAr,
     readExpertCommitteeSize,

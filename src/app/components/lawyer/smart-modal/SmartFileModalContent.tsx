@@ -24,6 +24,9 @@ import {
     resetSmartFileInlineOverlayRegistry,
 } from './smartFile/smartFileInlineOverlayRegistry';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { useSmartFileDossierHeaderNavigation } from './hooks/useSmartFileDossierHeaderNavigation';
+import { rejectLawsuitFileMutation } from '@/app/domain/lawsuit/lawsuitFileMutationGuard';
 export type { SmartFileModalProps } from './smartFile/smartFileModalTypes';
 
 function prefetchSmartFileHotModals(): void {
@@ -33,10 +36,15 @@ function prefetchSmartFileHotModals(): void {
     void import('./parts/LegalActionsMenu').catch(() => undefined);
     void import('./parts/QuickActions').catch(() => undefined);
     void import('./parts/TimelineFeed').catch(() => undefined);
+    // Stage-transition modals — avoid first-click jank from lazy chunk load.
+    void import('./SmartJudgmentModal').catch(() => undefined);
+    void import('./AppealTransitionModal').catch(() => undefined);
+    void import('./modals/appealObjectionModals').catch(() => undefined);
+    void import('./FastTrackModal').catch(() => undefined);
 }
 
 export const SmartFileModalContent = (props: import('./smartFile/smartFileModalTypes').SmartFileModalProps) => {
-    const { onClose } = props;
+    const { onClose, onExitToProfile } = props;
     const { layout, consolidationNavActive, caseLinkNavActive } = useSmartFileModalOrchestrator(props);
     const isPersonalDossier = isPersonalStatusFile(props.file);
 
@@ -54,18 +62,56 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         };
     }, []);
 
+    const exitToProfile = useMemo(
+        () =>
+            onExitToProfile
+                ? () => {
+                      onClose();
+                      onExitToProfile();
+                  }
+                : undefined,
+        [onClose, onExitToProfile],
+    );
+
+    const { handleDossierBack, handleDossierExit } = useSmartFileDossierHeaderNavigation({
+        onClose,
+        onExitToProfile: exitToProfile,
+        isTrashOpen: layout?.chrome.isTrashOpen ?? false,
+        setIsTrashOpen: layout?.chrome.setIsTrashOpen ?? (() => undefined),
+        modalsPortal: layout?.modalsPortal,
+    });
+
     useEffect(() => {
         if (!layout) return;
+        const tryClose = (): boolean => {
+            if (
+                isSmartFileNestedOverlayOpen(layout.modalsPortal) ||
+                isSmartFileInlineOverlayOpen()
+            ) {
+                return false;
+            }
+            handleDossierBack();
+            return true;
+        };
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
-            if (isSmartFileNestedOverlayOpen(layout.modalsPortal) || isSmartFileInlineOverlayOpen()) return;
+            if (
+                isSmartFileNestedOverlayOpen(layout.modalsPortal) ||
+                isSmartFileInlineOverlayOpen()
+            ) {
+                return;
+            }
             event.preventDefault();
             event.stopPropagation();
-            onClose();
+            handleDossierBack();
         };
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [layout, onClose]);
+        const unregisterNativeBack = registerNativeBackHandler(tryClose);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
+    }, [layout, handleDossierBack]);
 
     const shareSource = useMemo(() => {
         const file = props.file as unknown as FileData;
@@ -77,6 +123,21 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
     if (!layout) {
         return null;
     }
+
+    const fileLevelReadOnly =
+        rejectLawsuitFileMutation(props.file as { status?: string }) !== null;
+
+    const chromeProps = {
+        ...layout.chrome,
+        isViewingArchived: layout.chrome.isViewingArchived || fileLevelReadOnly,
+        onDossierBack: handleDossierBack,
+        onDossierExit: handleDossierExit,
+    };
+
+    const mainPanelProps = {
+        ...layout.mainPanel,
+        isViewingArchived: layout.mainPanel.isViewingArchived || fileLevelReadOnly,
+    };
 
     const themeVariant = layout.modalsPortal.modalVisualVariant ?? (isPersonalDossier ? 'personal-pearl' : 'civil');
 
@@ -111,12 +172,20 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
                 >
                     <div className={panelClass}>
                         <div className={innerClass}>
+                            {fileLevelReadOnly ? (
+                                <div
+                                    className="shrink-0 px-3 py-2 text-center text-[11px] font-bold text-amber-200/90 bg-amber-500/10 border-b border-amber-500/20"
+                                    role="status"
+                                >
+                                    الإضبارة مؤرشفة — للقراءة فقط
+                                </div>
+                            ) : null}
                             {isPersonalDossier ? (
-                                <PersonalStatusSmartFileChrome {...layout.chrome} />
+                                <PersonalStatusSmartFileChrome {...chromeProps} />
                             ) : (
-                                <SmartFileChrome {...layout.chrome} />
+                                <SmartFileChrome {...chromeProps} />
                             )}
-                            <SmartFileMainPanel {...layout.mainPanel} />
+                            <SmartFileMainPanel {...mainPanelProps} />
                         </div>
                     </div>
                 </div>

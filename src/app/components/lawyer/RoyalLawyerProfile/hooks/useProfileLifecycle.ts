@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { resolveProfileShellReady } from '@/app/services/profile/profileShellLogic';
 import {
     markProfilePerfPhase,
@@ -22,6 +22,7 @@ export function useProfileLifecycle({
     perfOpenEpoch = 0,
 }: UseProfileLifecycleParams) {
     const [hadWarmCache, setHadWarmCache] = useState(false);
+    const reportedRef = useRef(false);
 
     useEffect(() => {
         if (!profileUserId) {
@@ -38,7 +39,12 @@ export function useProfileLifecycle({
     });
 
     useEffect(() => {
-        if (!isShellReady) return;
+        reportedRef.current = false;
+    }, [perfOpenEpoch]);
+
+    useEffect(() => {
+        if (!isShellReady || reportedRef.current) return;
+        reportedRef.current = true;
         markProfilePerfPhase('first-paint');
         markProfilePerfPhase('interactive');
         reportProfilePerf({
@@ -47,6 +53,26 @@ export function useProfileLifecycle({
             isOwnProfile,
         });
     }, [hadWarmCache, isOwnProfile, isShellReady, perfOpenEpoch, profileUserId]);
+
+    /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (P1/P9) */
+    useEffect(() => {
+        if (reportedRef.current) return;
+
+        const markInteractiveFallback = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            markProfilePerfPhase('first-paint');
+            markProfilePerfPhase('interactive');
+            reportProfilePerf({
+                userId: profileUserId,
+                hadWarmCache,
+                isOwnProfile,
+            });
+        };
+
+        const fallback = window.setTimeout(markInteractiveFallback, 1_200);
+        return () => window.clearTimeout(fallback);
+    }, [hadWarmCache, isOwnProfile, perfOpenEpoch, profileUserId]);
 
     return { isShellReady, hadWarmCache };
 }

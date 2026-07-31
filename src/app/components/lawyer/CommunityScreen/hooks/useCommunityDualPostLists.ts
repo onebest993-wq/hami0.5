@@ -1,10 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
 
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
+import { peekForumPostsCache } from '@/app/services/forum/forumPostsWarmCache';
 
 /** قوائم المنشورات العامة والمجموعات + مساعدات التحديث المشتركة */
 export function useCommunityDualPostLists() {
-    const [posts, setPosts] = useState<CommunityPost[]>([]);
+    const [posts, setPosts] = useState<CommunityPost[]>(() => peekForumPostsCache() ?? []);
     const [groupPosts, setGroupPosts] = useState<CommunityPost[]>([]);
     const postsRef = useRef(posts);
     postsRef.current = posts;

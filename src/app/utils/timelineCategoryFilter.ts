@@ -94,19 +94,50 @@ export function normalizeExecutionTimelineFilter(
     return 'الكل';
 }
 
-/** أنواع الأحداث لكل تبويب — appeal و settlement مُدرجان ضمن التصنيف المنطقي */
+/**
+ * أنواع الأحداث لكل تبويب — كل نوع يُنتجه أي مسار في لوحة التنفيذ يجب أن
+ * يملك تبويباً، وإلا اختفى الحدث من كل التصنيفات وبقي في «الكل» فقط:
+ * - summons: تكليف بالحضور/تبليغات الموظف والمدين → تبليغات وإخبار
+ * - action: حركات المركز المالي (فتح وعاء المطالبة…) → حركة الأموال والرسوم
+ * - eviction: مهلة سكنية/استعانة بالشرطة (تخلية) → محجوزات وتنفيذ جبري
+ * - communication/procedure: مخاطبات جهات ومحاضر إجرائية → قرارات ومحاضر
+ */
 export const EXECUTION_TIMELINE_FILTER_MAP: Record<
     Exclude<ExecutionTimelineFilterLabel, 'الكل'>,
     string[]
 > = {
-    'تبليغات وإخبار': ['notification'],
+    'تبليغات وإخبار': ['notification', 'summons'],
     مواعيد: ['appointment'],
-    'حركة الأموال والرسوم': ['payment', 'settlement'],
-    'محجوزات وتنفيذ جبري': ['coercive'],
-    'قرارات ومحاضر': ['decision', 'appeal'],
+    'حركة الأموال والرسوم': ['payment', 'settlement', 'action'],
+    'محجوزات وتنفيذ جبري': ['coercive', 'eviction'],
+    'قرارات ومحاضر': ['decision', 'appeal', 'communication', 'procedure'],
     'تحركات الطرف الآخر': ['other_party'],
     'مستندات وملاحظات': ['other'],
 };
+
+const TYPE_TO_FILTER_LABEL: Record<string, ExecutionTimelineFilterLabel> = (() => {
+    const map: Record<string, ExecutionTimelineFilterLabel> = {};
+    for (const [label, types] of Object.entries(EXECUTION_TIMELINE_FILTER_MAP)) {
+        for (const t of types) map[t] = label as ExecutionTimelineFilterLabel;
+    }
+    return map;
+})();
+
+/** عدّاد التبويبات بمسح واحد للأحداث — بدل إعادة الفلترة الكاملة لكل تصنيف */
+export function countExecutionTimelineEventsByFilter(
+    events: TimelineEvent[],
+    visibleOptions: readonly ExecutionTimelineFilterLabel[]
+): Record<string, number> {
+    const counts: Record<string, number> = {};
+    for (const label of visibleOptions) counts[label] = 0;
+    const countAll = 'الكل' in counts;
+    for (const e of events) {
+        if (countAll) counts['الكل'] += 1;
+        const label = TYPE_TO_FILTER_LABEL[String(e.type ?? '').trim()];
+        if (label !== undefined && label in counts) counts[label] += 1;
+    }
+    return counts;
+}
 
 export function matchesExecutionTimelineFilter(
     event: TimelineEvent,

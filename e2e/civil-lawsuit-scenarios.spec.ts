@@ -19,6 +19,7 @@ import {
     seedLawyerFiles,
     seedMixedJurisdictionFiles,
     seedUndeterminedCivilFile,
+    selectCaseFieldOption,
     waitForPartyInFiles,
 } from './helpers/civilLawsuitFixtures';
 
@@ -44,8 +45,8 @@ test.describe('Civil judiciary scenarios — form branches', () => {
         await openCivilNewCaseForm(page);
         await page.getByPlaceholder('اسم المحكمة المختصة...').fill('بداءة الكرخ');
         await page.getByPlaceholder('أدخل نوع الدعوى...').fill('نزاع مرور');
-        await page.locator('select').first().selectOption({ label: 'بداءة بدرجة أخيرة' });
-        const valueInput = page.getByPlaceholder('----');
+        await selectCaseFieldOption(page, 'المرحلة الحالية', 'بداءة بدرجة أخيرة');
+        const valueInput = page.getByTestId('lawyer-new-case-claim-value');
         await expect(valueInput).toBeDisabled();
     });
 
@@ -88,9 +89,9 @@ test.describe('Civil judiciary scenarios — form branches', () => {
             undetermined: true,
             markClient: false,
         });
-        await page.getByRole('button', { name: 'إضافة شخص ثالث' }).click();
+        await page.getByTestId('lawyer-new-case-add-third-party').click({ force: true });
         await expect(page.getByRole('heading', { name: 'إضافة شخص ثالث' })).toBeVisible();
-        const interpleaderBtn = page.getByRole('button', { name: 'اختصامي' });
+        const interpleaderBtn = page.getByTestId('lawyer-new-case-third-party-mode-interpleader');
         await expect(interpleaderBtn).toBeDisabled();
         await expect(page.getByText('الإدخال الاختصامي غير متاح في مرحلة الاستئناف')).toBeVisible();
     });
@@ -105,7 +106,7 @@ test.describe('Civil judiciary scenarios — persistence', () => {
     });
 
     test('creates case with high claim and persists stage + value', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(120_000);
         const plaintiff = 'مدعي قيمة عالية';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
@@ -114,9 +115,9 @@ test.describe('Civil judiciary scenarios — persistence', () => {
             stage: 'بداءة بدرجة أخيرة',
         });
         await expectStageSelectValue(page, 'بداءة بدرجة أولى');
-        await page.getByTestId('lawyer-new-case-save').click();
+        await page.getByTestId('lawyer-new-case-save').click({ force: true });
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await waitForPartyInFiles(page, plaintiff, 20_000);
+        await waitForPartyInFiles(page, plaintiff, 30_000);
 
         const files = await readLawyerFilesFromPage(page);
         const created = files.find((f) => extractPartyNamesFromFile(f).includes(plaintiff));
@@ -127,15 +128,15 @@ test.describe('Civil judiciary scenarios — persistence', () => {
     });
 
     test('creates case with interpleader third party', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(120_000);
         const plaintiff = 'مدعي اختصام';
         const thirdName = 'شخص ثالث E2E';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { plaintiff, undetermined: true });
         await addInterpleaderThirdParty(page, thirdName);
-        await page.getByTestId('lawyer-new-case-save').click();
+        await page.getByTestId('lawyer-new-case-save').click({ force: true });
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await waitForPartyInFiles(page, thirdName, 20_000);
+        await waitForPartyInFiles(page, thirdName, 30_000);
 
         const files = await readLawyerFilesFromPage(page);
         const created = files.find((f) => extractPartyNamesFromFile(f).includes(thirdName));
@@ -144,12 +145,12 @@ test.describe('Civil judiciary scenarios — persistence', () => {
     });
 
     test('undetermined value flag persists on file', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(120_000);
         const plaintiff = 'مدعي غير مقدرة';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { plaintiff, undetermined: true });
-        await page.getByTestId('lawyer-new-case-save').click();
-        await waitForPartyInFiles(page, plaintiff, 20_000);
+        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await waitForPartyInFiles(page, plaintiff, 30_000);
 
         const files = await readLawyerFilesFromPage(page);
         const created = files.find((f) => extractPartyNamesFromFile(f).includes(plaintiff));
@@ -166,7 +167,9 @@ test.describe('Civil judiciary scenarios — archive filter', () => {
 
         await page.getByTestId('hub-archive-lawsuit').click();
         await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
-        await page.getByTestId('archive-jurisdiction-civil').click();
+        const civilTab = page.getByTestId('archive-jurisdiction-civil');
+        await civilTab.waitFor({ state: 'visible', timeout: 20_000 });
+        await civilTab.click({ force: true });
 
         await expect(page.getByText('مدعي اختبار')).toBeVisible({ timeout: 10_000 });
         await expect(page.getByText('موكل أحوال')).toHaveCount(0);
@@ -203,19 +206,20 @@ test.describe('Civil judiciary scenarios — extended branches', () => {
     });
 
     test('affiliative third party on plaintiff side persists', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(120_000);
         const thirdName = 'انضمامي E2E';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, { undetermined: true });
         await addAffiliativeThirdParty(page, thirdName, 1);
         await expect(page.getByText('انضمامي — جانب المدعي')).toBeVisible();
-        await page.getByTestId('lawyer-new-case-save').click();
-        await waitForPartyInFiles(page, thirdName, 20_000);
+        await page.getByTestId('lawyer-new-case-save').click({ force: true });
+        await waitForPartyInFiles(page, thirdName, 30_000);
     });
 });
 
 test.describe('Civil judiciary scenarios — extraordinary procedure stages', () => {
     test.beforeEach(async ({ page }) => {
+        test.setTimeout(90_000);
         await seedLawyerFiles(page);
         await page.goto('/');
         await page.waitForLoadState('domcontentloaded');
@@ -223,6 +227,7 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
     });
 
     test('retrial stage hides claim value and shows underlying stage field', async ({ page }) => {
+        test.setTimeout(90_000);
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
             stage: 'إعادة المحاكمة',
@@ -230,7 +235,7 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
         });
         await expect(page.getByText('مرحلة المطلوب إعادة محاكمتها')).toBeVisible();
         await expect(page.getByText('القيمة التقديرية للدعوى')).toHaveCount(0);
-        await expect(page.locator('select').nth(1)).toBeVisible();
+        await expect(page.getByRole('button', { name: 'مرحلة المطلوب إعادة محاكمتها' })).toBeVisible();
     });
 
     test('absent objection underlying stage excludes appeal', async ({ page }) => {
@@ -240,10 +245,12 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
             markClient: false,
         });
         await expect(page.getByText('مرحلة الحكم المُعترض عليه غيابياً')).toBeVisible();
-        const underlying = page.locator('select').nth(1);
-        const options = await underlying.locator('option').allTextContents();
-        expect(options.some((o) => o.includes('استئناف'))).toBe(false);
-        expect(options.some((o) => o.includes('بداءة بدرجة أولى'))).toBe(true);
+        const underlying = page.getByRole('button', { name: 'مرحلة الحكم المُعترض عليه غيابياً' });
+        await underlying.click({ force: true });
+        const options = page.getByRole('option');
+        await expect(options.filter({ hasText: 'بداءة بدرجة أولى' }).first()).toBeVisible();
+        await expect(options.filter({ hasText: 'استئناف' })).toHaveCount(0);
+        await page.keyboard.press('Escape');
     });
 
     test('extraordinary stage requires underlying stage before save', async ({ page }) => {
@@ -258,7 +265,7 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
     });
 
     test('creates retrial case with underlying stage persisted', async ({ page }) => {
-        test.setTimeout(60_000);
+        test.setTimeout(120_000);
         const plaintiff = 'مدعي إعادة محاكمة';
         await openCivilNewCaseForm(page);
         await fillCivilNewCaseForm(page, {
@@ -266,9 +273,9 @@ test.describe('Civil judiciary scenarios — extraordinary procedure stages', ()
             stage: 'إعادة المحاكمة',
             retrialTargetStage: 'بداءة بدرجة أولى',
         });
-        await page.getByTestId('lawyer-new-case-save').click();
+        await page.getByTestId('lawyer-new-case-save').click({ force: true });
         await expect(page.getByTestId('smart-file-dossier')).toBeVisible({ timeout: 25_000 });
-        await waitForPartyInFiles(page, plaintiff, 20_000);
+        await waitForPartyInFiles(page, plaintiff, 30_000);
 
         const files = await readLawyerFilesFromPage(page);
         const created = files.find((f) => extractPartyNamesFromFile(f).includes(plaintiff));

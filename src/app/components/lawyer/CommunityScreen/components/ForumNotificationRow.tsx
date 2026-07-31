@@ -7,14 +7,14 @@ const TYPE_META: Record<
     NotificationType,
     { icon: React.ElementType; accent: string; label: string }
 > = {
-    new_post: { icon: FileText, accent: 'text-[#F0B896]', label: 'منشور' },
-    new_document: { icon: FileText, accent: 'text-[#F0B896]', label: 'مستند' },
+    new_post: { icon: FileText, accent: 'text-[#C9A86C]', label: 'منشور' },
+    new_document: { icon: FileText, accent: 'text-[#C9A86C]', label: 'مستند' },
     comment: { icon: MessageCircle, accent: 'text-sky-300', label: 'تعليق' },
     reply: { icon: Reply, accent: 'text-violet-300', label: 'رد' },
     upvote: { icon: ThumbsUp, accent: 'text-emerald-300', label: 'تصويت' },
     best_answer: { icon: Award, accent: 'text-amber-300', label: 'أفضل إجابة' },
-    follow: { icon: UserPlus, accent: 'text-[#F0B896]', label: 'متابعة' },
-    mention: { icon: AtSign, accent: 'text-[#F0B896]', label: 'إشارة' },
+    follow: { icon: UserPlus, accent: 'text-[#C9A86C]', label: 'متابعة' },
+    mention: { icon: AtSign, accent: 'text-[#C9A86C]', label: 'إشارة' },
     report_update: { icon: Bell, accent: 'text-orange-300', label: 'بلاغ' },
     system: { icon: Bell, accent: 'text-white/50', label: 'نظام' },
 };
@@ -44,13 +44,13 @@ export const ForumNotificationRow = memo(function ForumNotificationRow({
     const Icon = meta.icon;
     return (
         <div
-            className={`w-full text-right px-4 py-3 border-b border-[#4A3D52]/30 last:border-0 transition hover:bg-[#342C3E] ${
-                !notification.read ? 'bg-[#F0B896]/6' : ''
+            className={`w-full text-right px-4 py-3 border-b border-[#2A3344]/30 last:border-0 transition hover:bg-[#1A2333] ${
+                !notification.read ? 'bg-[#C9A86C]/6' : ''
             }`}
         >
             <div className="flex items-start gap-2.5">
                 <span
-                    className={`w-8 h-8 rounded-lg bg-[#342C3A] border border-[#4A3D52]/45 flex items-center justify-center shrink-0 ${meta.accent}`}
+                    className={`w-8 h-8 rounded-lg bg-[#161E2C] border border-[#2A3344]/45 flex items-center justify-center shrink-0 ${meta.accent}`}
                 >
                     <Icon size={15} aria-hidden />
                 </span>

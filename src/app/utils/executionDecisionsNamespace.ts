@@ -17,8 +17,17 @@ import {
     executionDecisionsStorageKey,
     executionStorageKey,
     normalizeExecutionStorageId,
-} from '@/app/utils/executionStorageKeys';
+} from '@/app/utils/executionStorageKeysLite';
+import {
+    readScopedDeviceStorageItem,
+    scopeExecutionDeviceStorageKey,
+    stripExecutionDeviceStorageUserScope,
+} from '@/app/utils/executionDeviceStorageScope';
 import { collectDecisionsStorageCandidateIds } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import {
+    inferExecutorApprovalDecisionType,
+    type EvictionExecutorWorkflowKey,
+} from '@/app/utils/executorApprovalWorkflow';
 
 export const DECISIONS_NAMESPACE_INDEX_VERSION = 1;
 
@@ -36,6 +45,37 @@ function parseStoredDecisionsArray(raw: string | null): Record<string, unknown>[
         return Array.isArray(v) ? (v as Record<string, unknown>[]) : [];
     } catch {
         return [];
+    }
+}
+
+/** قراءة قرارات: المفتاح المقيّد بالمالك أولاً ثم المنطقي */
+function readDecisionsStoreRaw(logicalKey: string): string | null {
+    return readScopedDeviceStorageItem(
+        (k) => SecureStoreService.getItemSync(k),
+        stripExecutionDeviceStorageUserScope(logicalKey),
+    );
+}
+
+/** كتابة قرارات على المفتاح المقيّد عند وجود جلسة — يُزال التوأم غير المقيّد لتقليل تسرّب عبر الحسابات */
+function writeDecisionsStoreRaw(logicalKey: string, value: string): void {
+    const base = stripExecutionDeviceStorageUserScope(logicalKey);
+    const writeKey = scopeExecutionDeviceStorageKey(base);
+    SecureStoreService.setItemSync(writeKey, value);
+    if (writeKey !== base) {
+        try {
+            SecureStoreService.deleteItemSync(base);
+        } catch {
+            /* best effort */
+        }
+    }
+}
+
+function deleteDecisionsStoreRaw(logicalKey: string): void {
+    const base = stripExecutionDeviceStorageUserScope(logicalKey);
+    const scoped = scopeExecutionDeviceStorageKey(base);
+    SecureStoreService.deleteItemSync(scoped);
+    if (scoped !== base) {
+        SecureStoreService.deleteItemSync(base);
     }
 }
 
@@ -76,7 +116,7 @@ export function executionDecisionsLegacyArchiveKey(executionId: string | undefin
 }
 
 export function isExecutorDecisionsStorageKey(key: string): boolean {
-    const k = String(key || '').trim();
+    const k = stripExecutionDeviceStorageUserScope(String(key || '').trim());
     if (!k.startsWith('execution_')) return false;
     if (k.endsWith('_decisions_ns_index')) return false;
     if (k.endsWith('_decisions_legacy_archive')) return false;
@@ -90,7 +130,7 @@ export function readDecisionsNamespaceIndex(
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return null;
     try {
-        const raw = SecureStoreService.getItemSync(executionDecisionsNamespaceIndexKey(id));
+        const raw = readDecisionsStoreRaw(executionDecisionsNamespaceIndexKey(id));
         if (!raw) return null;
         const parsed = JSON.parse(raw) as DecisionsNamespaceIndex;
         if (!parsed || typeof parsed !== 'object') return null;
@@ -105,7 +145,7 @@ function writeDecisionsNamespaceIndex(
     executionId: string,
     index: DecisionsNamespaceIndex
 ): void {
-    SecureStoreService.setItemSync(
+    writeDecisionsStoreRaw(
         executionDecisionsNamespaceIndexKey(executionId),
         JSON.stringify(index)
     );
@@ -177,7 +217,21 @@ function inferLegacyRowNamespaceSlug(
     ) {
         module = 'financial_debt';
     } else if (kind === 'eviction_procedure') {
-        module = 'eviction';
+        const branch = inferExecutorApprovalDecisionType({
+            title: String(row.title || ''),
+            requestKind: 'eviction_procedure',
+            evictionWorkflowKey: (row as { evictionWorkflowKey?: EvictionExecutorWorkflowKey })
+                .evictionWorkflowKey,
+        });
+        if (branch === 'Marital Furniture Delivery') {
+            module = 'marital_furniture';
+        } else if (ctx.claimModules.includes('specific_delivery')) {
+            module = 'specific_delivery';
+        } else if (ctx.claimModules.includes('encroachment')) {
+            module = 'encroachment';
+        } else {
+            module = 'eviction';
+        }
     } else if (kind === 'personal_coercive') {
         module = ctx.flags.hidePersonalCoerciveFollowupTab
             ? ctx.primaryClaimModule
@@ -229,7 +283,7 @@ export function ensureDecisionsNamespaceMigrated(
     const ctx = resolveExecutionDomainContext(executionData ?? readExecutionDataForDomainGate(id), id);
     const activeSlug = buildDecisionsNamespaceSlugFromContext(ctx);
     const legacyKey = executionDecisionsStorageKey(id);
-    const legacyRows = parseStoredDecisionsArray(SecureStoreService.getItemSync(legacyKey));
+    const legacyRows = parseStoredDecisionsArray(readDecisionsStoreRaw(legacyKey));
 
     if (legacyRows.length === 0) {
         writeDecisionsNamespaceIndex(id, {
@@ -251,17 +305,16 @@ export function ensureDecisionsNamespaceMigrated(
 
     for (const [slug, rows] of buckets) {
         const nsKey = executionDecisionsNamespaceStorageKey(id, slug);
-        const prev = parseStoredDecisionsArray(SecureStoreService.getItemSync(nsKey));
         const merged = stampDecisionRowsWithNamespace(rows, slug);
-        SecureStoreService.setItemSync(nsKey, JSON.stringify(merged));
+        writeDecisionsStoreRaw(nsKey, JSON.stringify(merged));
     }
 
     try {
-        SecureStoreService.setItemSync(
+        writeDecisionsStoreRaw(
             executionDecisionsLegacyArchiveKey(id),
             JSON.stringify(legacyRows)
         );
-        SecureStoreService.setItemSync(legacyKey, JSON.stringify([]));
+        writeDecisionsStoreRaw(legacyKey, JSON.stringify([]));
     } catch {
         /* ignore */
     }
@@ -288,7 +341,7 @@ export function readExecutorDecisionsFromActiveNamespace(
     const slug = resolveActiveDecisionsNamespaceSlug(id, executionData);
     const key = executionDecisionsNamespaceStorageKey(id, slug);
     try {
-        return parseStoredDecisionsArray(SecureStoreService.getItemSync(key));
+        return parseStoredDecisionsArray(readDecisionsStoreRaw(key));
     } catch {
         return [];
     }
@@ -297,11 +350,18 @@ export function readExecutorDecisionsFromActiveNamespace(
 function listDecisionsNamespaceStorageKeys(executionId: string): string[] {
     const id = normalizeExecutionStorageId(executionId);
     const prefix = `${executionStorageKey(id)}_decisions_ns_`;
+    const logicalKeys = new Set<string>();
     try {
-        return SecureStoreService.listKeysSync().filter((k) => k.startsWith(prefix));
+        for (const raw of SecureStoreService.listKeysSync()) {
+            const logical = stripExecutionDeviceStorageUserScope(String(raw || '').trim());
+            if (!logical.startsWith(prefix)) continue;
+            if (logical.endsWith('_index')) continue;
+            logicalKeys.add(logical);
+        }
     } catch {
         return [];
     }
+    return [...logicalKeys];
 }
 
 function mergeDecisionRowsById(
@@ -345,7 +405,7 @@ export function readExecutorDecisionsUnionForExecution(
     try {
         mergeDecisionRowsById(
             byId,
-            parseStoredDecisionsArray(SecureStoreService.getItemSync(executionDecisionsStorageKey(id)))
+            parseStoredDecisionsArray(readDecisionsStoreRaw(executionDecisionsStorageKey(id)))
         );
     } catch {
         /* ignore */
@@ -355,7 +415,7 @@ export function readExecutorDecisionsUnionForExecution(
         try {
             mergeDecisionRowsById(
                 byId,
-                parseStoredDecisionsArray(SecureStoreService.getItemSync(key))
+                parseStoredDecisionsArray(readDecisionsStoreRaw(key))
             );
         } catch {
             /* ignore */
@@ -431,14 +491,16 @@ export function pruneRedundantDecisionsStorageAliases(
         if (!subset) continue;
 
         try {
-            SecureStoreService.deleteItemSync(executionDecisionsNamespaceIndexKey(cid));
-            SecureStoreService.deleteItemSync(executionDecisionsLegacyArchiveKey(cid));
-            SecureStoreService.deleteItemSync(executionDecisionsStorageKey(cid));
+            deleteDecisionsStoreRaw(executionDecisionsNamespaceIndexKey(cid));
+            deleteDecisionsStoreRaw(executionDecisionsLegacyArchiveKey(cid));
+            deleteDecisionsStoreRaw(executionDecisionsStorageKey(cid));
             const keys = SecureStoreService.listKeysSync();
             for (const k of keys) {
                 const key = String(k || '').trim();
-                if (key.startsWith(`${executionStorageKey(cid)}_decisions_ns_`)) {
+                const logical = stripExecutionDeviceStorageUserScope(key);
+                if (logical.startsWith(`${executionStorageKey(cid)}_decisions_ns_`)) {
                     SecureStoreService.deleteItemSync(key);
+                    if (logical !== key) SecureStoreService.deleteItemSync(logical);
                 }
             }
             prunedDossierIds.push(cid);
@@ -534,14 +596,14 @@ export function writeExecutorDecisionsUnionForExecution(
         /** استبدال محتوى السلّة بصفوف الاتحاد الوارد — لا دمج بالمعرّف يُبقي نسخ طعن محذوفة */
         const merged = stampDecisionRowsWithNamespace(incoming, slug);
         try {
-            SecureStoreService.setItemSync(key, JSON.stringify(merged));
+            writeDecisionsStoreRaw(key, JSON.stringify(merged));
         } catch {
             /* ignore */
         }
     }
 
     try {
-        SecureStoreService.setItemSync(executionDecisionsStorageKey(id), JSON.stringify([]));
+        writeDecisionsStoreRaw(executionDecisionsStorageKey(id), JSON.stringify([]));
     } catch {
         /* ignore */
     }
@@ -586,7 +648,7 @@ export function seedFreshDecisionsNamespace(
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return;
     const slug = resolveActiveDecisionsNamespaceSlug(id, executionData);
-    SecureStoreService.setItemSync(executionDecisionsNamespaceStorageKey(id, slug), JSON.stringify([]));
+    writeDecisionsStoreRaw(executionDecisionsNamespaceStorageKey(id, slug), JSON.stringify([]));
     writeDecisionsNamespaceIndex(id, {
         v: DECISIONS_NAMESPACE_INDEX_VERSION,
         active: slug,
@@ -594,7 +656,7 @@ export function seedFreshDecisionsNamespace(
         migratedAt: new Date().toISOString(),
     });
     try {
-        SecureStoreService.setItemSync(executionDecisionsStorageKey(id), JSON.stringify([]));
+        writeDecisionsStoreRaw(executionDecisionsStorageKey(id), JSON.stringify([]));
     } catch {
         /* ignore */
     }
@@ -604,14 +666,16 @@ export function clearDecisionsNamespaceForTests(executionId: string | undefined)
     const id = normalizeExecutionStorageId(executionId);
     if (!id || id === 'default') return;
     try {
-        SecureStoreService.deleteItemSync(executionDecisionsNamespaceIndexKey(id));
-        SecureStoreService.deleteItemSync(executionDecisionsLegacyArchiveKey(id));
-        SecureStoreService.deleteItemSync(executionDecisionsStorageKey(id));
+        deleteDecisionsStoreRaw(executionDecisionsNamespaceIndexKey(id));
+        deleteDecisionsStoreRaw(executionDecisionsLegacyArchiveKey(id));
+        deleteDecisionsStoreRaw(executionDecisionsStorageKey(id));
         const keys = SecureStoreService.listKeysSync();
         for (const k of keys) {
             const key = String(k || '').trim();
-            if (key.startsWith(`${executionStorageKey(id)}_decisions_ns_`)) {
+            const logical = stripExecutionDeviceStorageUserScope(key);
+            if (logical.startsWith(`${executionStorageKey(id)}_decisions_ns_`)) {
                 SecureStoreService.deleteItemSync(key);
+                if (logical !== key) SecureStoreService.deleteItemSync(logical);
             }
         }
     } catch {

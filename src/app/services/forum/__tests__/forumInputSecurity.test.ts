@@ -19,4 +19,9 @@ describe('forumInputSecurity', () => {
             FORUM_TAGS_MAX_LENGTH,
         );
     });
+
+    it('يزيل null bytes ومحارف C0 من نص المنشور', () => {
+        expect(sanitizeForumPostContent('مرحبا\u0000عالم\u0007')).toBe('مرحباعالم');
+        expect(sanitizeForumPostContent('سطر\nثاني')).toBe('سطر\nثاني');
+    });
 });

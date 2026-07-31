@@ -2,26 +2,18 @@ import type { KeyboardEvent, RefObject } from 'react';
 import type { GroupedSearchResults, GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
 import type { ClusterScanRecord } from '@/app/workspace/types';
-
-type MotionPreset =
-    | { initial: false; animate: Record<string, unknown>; exit: Record<string, unknown> }
-    | {
-          initial: Record<string, unknown>;
-          animate: Record<string, unknown>;
-          exit: Record<string, unknown>;
-          transition: Record<string, unknown>;
-      };
+import type { GlobalSearchScopeId } from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
 
 export type GlobalSearchOverlayShellProps = {
     open: boolean;
+    /** إبقاء DOM مخفياً للتسخين — فتح فوري بلا إعادة تركيب */
+    keepWarm?: boolean;
     onExitComplete?: () => void;
     onClose: () => void;
     overlayRef: RefObject<HTMLDivElement>;
     inputRef: RefObject<HTMLInputElement>;
     onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
     keyboardInset: number;
-    sheetMotion?: MotionPreset;
-    backdropMotion?: MotionPreset;
     resultsMaxHeight: string;
     query: string;
     setQuery: (value: string) => void;
@@ -39,4 +31,6 @@ export type GlobalSearchOverlayShellProps = {
     scanIndexForPreview: ClusterScanRecord[];
     activeIndex: number;
     setActiveIndex: (index: number) => void;
+    searchScope?: GlobalSearchScopeId;
+    onSearchScopeChange?: (scope: GlobalSearchScopeId) => void;
 };

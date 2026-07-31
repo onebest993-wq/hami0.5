@@ -8,7 +8,9 @@ import { hasActiveFinancialGuarantorFollowup, shouldShowGuarantorExternalHub } f
 export type GuarantorExternalHubProps = Omit<
     GuarantorFollowupStandaloneCardProps,
     'expanded' | 'onExpandedChange' | 'embedded' | 'hideChrome'
->;
+> & {
+    onOpenUnifiedSummonsHub?: (options?: { initialMainTab?: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' }) => void;
+};
 
 export const GuarantorExternalHub: React.FC<GuarantorExternalHubProps> = ({
     executionData,

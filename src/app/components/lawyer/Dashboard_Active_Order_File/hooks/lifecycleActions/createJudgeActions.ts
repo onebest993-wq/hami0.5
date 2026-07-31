@@ -130,7 +130,7 @@ export function createJudgeActions(
         setJudgeError(null);
         if (preDecisionTerminateExists) {
             const ok = await requestConfirm(
-                '⚠️ تنبيه قانوني: تم تسجيل جلسة (إبطال الطلب). هل أنت متأكد من حفظ المرحلة وإغلاق الإضبارة نهائياً؟',
+                'تم تسجيل جلسة إبطال الطلب. هل أنت متأكد من حفظ المرحلة وإغلاق الإضبارة نهائياً؟',
             );
             if (!ok) return;
 
@@ -247,7 +247,7 @@ export function createJudgeActions(
             return;
         }
         const ok = await requestConfirm(
-            '⚠️ تنبيه قانوني: هل أنت متأكد من حفظ القرار؟ بمجرد الحفظ لا يمكن تعديل هذه الخطوة وسيتم بناء المدد القانونية عليها.',
+            'هل أنت متأكد من حفظ القرار؟ بمجرد الحفظ لا يمكن تعديل هذه الخطوة وسيتم بناء المدد القانونية عليها.',
         );
         if (!ok) return;
 
@@ -402,7 +402,7 @@ const clearJudgeDecision = async (e?: React.SyntheticEvent) => {
         e.preventDefault();
         e.stopPropagation();
     }
-    const ok = await requestConfirm('⚠️ تحذير: سيتم مسح بيانات القرار بالكامل. هل أنت متأكد؟');
+    const ok = await requestConfirm('سيتم مسح بيانات القرار بالكامل. هل أنت متأكد؟');
     if (!ok) return;
     setJudgeDecision({ decision: null, decisionDate: '', requiresGuarantee: false });
     setExecutionData((prev) => ({ ...prev, executionDate: '', notificationDate: '', authority: '', notes: '', deadlineDays: defaultDeadlineDays }));

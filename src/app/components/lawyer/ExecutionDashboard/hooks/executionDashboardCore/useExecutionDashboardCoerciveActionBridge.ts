@@ -7,6 +7,7 @@ import {
     createSaveCoerciveAction,
     type SaveCoerciveActionDeps,
 } from './executionDashboardCoerciveAction';
+import { guardCreditorAgentMutation } from '@/app/components/lawyer/ExecutionDashboard/helpers/executionAgentPrivilege';
 
 export type UseExecutionDashboardCoerciveActionBridgeParams = Omit<
     SaveCoerciveActionDeps,
@@ -14,6 +15,7 @@ export type UseExecutionDashboardCoerciveActionBridgeParams = Omit<
 > & {
     saveCoerciveActionRef: MutableRefObject<(actionType: string, details: Record<string, string>) => void>;
     setUnifiedLedgerRevision: React.Dispatch<React.SetStateAction<number>>;
+    isRepresentingDebtor?: boolean;
 };
 
 export function useExecutionDashboardCoerciveActionBridge(
@@ -28,18 +30,43 @@ export function useExecutionDashboardCoerciveActionBridge(
         setSeizedAssets,
         persistExecutionMerge,
         showToast,
+        isRepresentingDebtor = false,
         ...saveDeps
     } = params;
 
     const clearSettlementFromLedger = useCallback(() => {
+        if (
+            !guardCreditorAgentMutation({
+                isRepresentingDebtor,
+                showToast,
+                actionLabel: 'إلغاء التسوية من السجل',
+            })
+        ) {
+            return;
+        }
         clearSettlementFromLedgerStorage(
             decisionsStorageExecutionId,
             executionId,
             setUnifiedLedgerRevision,
         );
-    }, [decisionsStorageExecutionId, executionId, setUnifiedLedgerRevision]);
+    }, [
+        decisionsStorageExecutionId,
+        executionId,
+        isRepresentingDebtor,
+        setUnifiedLedgerRevision,
+        showToast,
+    ]);
 
     const clearActiveSalarySeizurePath = useCallback(() => {
+        if (
+            !guardCreditorAgentMutation({
+                isRepresentingDebtor,
+                showToast,
+                actionLabel: 'إلغاء مسار حجز الراتب',
+            })
+        ) {
+            return;
+        }
         clearActiveSalarySeizurePathStorage({
             decisionsStorageExecutionId,
             executionId,
@@ -52,6 +79,7 @@ export function useExecutionDashboardCoerciveActionBridge(
     }, [
         decisionsStorageExecutionId,
         executionId,
+        isRepresentingDebtor,
         persistExecutionMerge,
         seizedAssets,
         setSeizedAssets,
@@ -59,7 +87,7 @@ export function useExecutionDashboardCoerciveActionBridge(
         showToast,
     ]);
 
-    const saveCoerciveAction = createSaveCoerciveAction({
+    const saveCoerciveActionRaw = createSaveCoerciveAction({
         ...saveDeps,
         decisionsStorageExecutionId,
         executionId,
@@ -69,6 +97,26 @@ export function useExecutionDashboardCoerciveActionBridge(
         showToast,
         clearSettlementFromLedger,
     });
+
+    const saveCoerciveAction = useCallback(
+        (
+            actionType: string,
+            details: Record<string, string>,
+            opts?: { skipSettlementConflictCheck?: boolean },
+        ) => {
+            if (
+                !guardCreditorAgentMutation({
+                    isRepresentingDebtor,
+                    showToast,
+                    actionLabel: 'إجراءات الحجز/الإكراه',
+                })
+            ) {
+                return;
+            }
+            return saveCoerciveActionRaw(actionType, details, opts);
+        },
+        [isRepresentingDebtor, saveCoerciveActionRaw, showToast],
+    );
 
     saveCoerciveActionRef.current = saveCoerciveAction;
 

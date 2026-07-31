@@ -3,7 +3,7 @@
 import type { MutableRefObject } from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { promptSettlementSalaryConflictChoice } from '@/app/components/lawyer/FinancialOperationsCenter/settlementSalaryExclusion';
+import { promptSettlementSalaryConflictChoice } from '@/app/slices/financial/specialtyPublic';
 import {
     buildSalarySeizureDescriptionText,
     resolveSalarySeizureSubject,

@@ -29,6 +29,14 @@ describe('smartFile core utilities', () => {
         expect(parent.originalParties).toHaveLength(1);
     });
 
+    it('buildInitialParentDataFromFile preserves file status for mutation guard', () => {
+        const parent = buildInitialParentDataFromFile({
+            id: 1,
+            status: 'archived',
+        });
+        expect(parent.status).toBe('archived');
+    });
+
     it('buildCloudSavePayload mirrors active stage fields', () => {
         const stages = [
             {

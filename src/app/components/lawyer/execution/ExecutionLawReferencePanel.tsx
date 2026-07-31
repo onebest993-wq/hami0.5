@@ -99,10 +99,6 @@ const ExecutionLawArticleCard = memo(function ExecutionLawArticleCard({
 }) {
     return (
         <li className={ARTICLE_CARD_CLASS}>
-            <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[10px] font-bold text-purple-300/85">{art.leafLabel}</span>
-                <span className="text-[10px] text-white/35">{art.number}</span>
-            </div>
             <h3 className="text-base font-black leading-snug text-slate-100 sm:text-lg">
                 <span className="text-[#E6C673]/90">المادة ({art.number})</span>
                 {art.title.trim() ? (

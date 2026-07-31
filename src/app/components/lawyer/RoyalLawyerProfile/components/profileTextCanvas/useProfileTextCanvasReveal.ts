@@ -101,7 +101,11 @@ export function useProfileTextCanvasReveal({
             if (!canInteract || revealed || interaction !== 'stardust') return;
             e.preventDefault();
             e.stopPropagation();
-            e.currentTarget.setPointerCapture(e.pointerId);
+            try {
+                e.currentTarget.setPointerCapture(e.pointerId);
+            } catch {
+                /* بعض WebViews ترفض capture */
+            }
             scatterPetals(e.clientX, e.clientY);
         },
         [canInteract, interaction, revealed, scatterPetals],
@@ -116,13 +120,17 @@ export function useProfileTextCanvasReveal({
     );
 
     const onPetalPointerEnd = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
+        try {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+        } catch {
+            /* ignore */
         }
     }, []);
 
-    const maskActive = needsReveal && !revealed;
-    const showHint = canInteract && maskActive && hintVisible;
+    const maskActive = needsReveal && !revealed && canInteract;
+    const showHint = maskActive && hintVisible;
 
     return {
         needsReveal,

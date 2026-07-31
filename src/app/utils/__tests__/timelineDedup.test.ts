@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TimelineEvent } from '@/app/types/execution';
-import { dedupeTimelineEventsForDisplay } from '@/app/utils/timelineDedup';
+import { dedupeTimelineEventsForDisplay, insertTimelineEventWithThreadReplace } from '@/app/utils/timelineDedup';
 
 describe('timelineDedup', () => {
     it('merges legacy and new judge detention events', () => {
@@ -35,5 +35,28 @@ describe('timelineDedup', () => {
 
     it('returns empty array when events is undefined', () => {
         expect(dedupeTimelineEventsForDisplay(undefined as unknown as TimelineEvent[])).toEqual([]);
+    });
+
+    it('replaces custody ward appointment by timelineThreadKey instead of duplicating', () => {
+        const prev: TimelineEvent[] = [
+            {
+                id: 'tl-old',
+                type: 'appointment',
+                title: '📅 موعد تسليم المحضون: أحمد',
+                date: '2026-07-31T12:00:00',
+                metadata: { timelineThreadKey: 'custody_ward_appt:ward-0' },
+            } as TimelineEvent,
+        ];
+        const incoming: TimelineEvent = {
+            id: 'tl-new',
+            type: 'appointment',
+            title: '📅 موعد تسليم المحضون: أحمد',
+            date: '2026-08-05T12:00:00',
+            metadata: { timelineThreadKey: 'custody_ward_appt:ward-0' },
+        } as TimelineEvent;
+        const next = insertTimelineEventWithThreadReplace(prev, incoming);
+        expect(next).toHaveLength(1);
+        expect(next[0]?.id).toBe('tl-old');
+        expect(String(next[0]?.date)).toContain('2026-08-05');
     });
 });

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const removeMock = vi.fn();
+const { requireWifeUserMock } = vi.hoisted(() => ({
+  requireWifeUserMock: vi.fn(),
+}));
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -12,36 +15,15 @@ vi.mock('@supabase/supabase-js', () => ({
   }),
 }));
 
-vi.mock('../../security/wifeValidator.ts', () => ({
-  extractUserTokenFromRequest: vi.fn(),
-  getVerifiedTokenSubject: vi.fn(),
-  isTokenAuthorized: vi.fn(),
-  verifyWifeSignature: vi.fn(),
-  assertWifeSignatureRequest: vi.fn(async () => null),
-  wifeForbiddenResponse: () =>
-    new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    }),
-  wifeSignatureFailedResponse: () =>
-    new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    }),
-  wifeUnauthorizedResponse: () =>
-    new Response(JSON.stringify({ ok: false, error: 'Unauthorized user' }), {
-      status: 401,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    }),
-}));
+vi.mock('../../security/bffAuth.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../security/bffAuth.ts')>();
+  return {
+    ...actual,
+    requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+  };
+});
 
 import { POST } from './route';
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  verifyWifeSignature,
-} from '../../security/wifeValidator.ts';
 
 function buildRemoveRequest(paths: string[]): Request {
   return new Request('http://127.0.0.1/api/upload/remove', {
@@ -56,10 +38,7 @@ describe('upload remove route', () => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-    (extractUserTokenFromRequest as ReturnType<typeof vi.fn>).mockReturnValue('token');
-    (isTokenAuthorized as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (verifyWifeSignature as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (getVerifiedTokenSubject as ReturnType<typeof vi.fn>).mockResolvedValue('user-1');
+    requireWifeUserMock.mockResolvedValue({ ok: true, userId: 'user-1' });
     removeMock.mockResolvedValue({ error: null });
   });
 

@@ -21,16 +21,15 @@ export const PartySidePane = ({
     const orderedParties = splitSideParties(parties as Party[]);
 
     return (
-        <section className="min-w-0 rounded-[18px] border border-white/[0.06] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.015))] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div className="mb-2 flex items-center justify-between gap-2">
+        <section
+            className={`min-w-0 ${openPartyKey?.startsWith(keyPrefix) ? 'overflow-visible relative z-20' : 'overflow-hidden'}`}
+        >
+            <div className="mb-2">
                 <span className={`text-[10px] font-black tracking-wide truncate uppercase ${labelClassName}`} title={label}>
                     {label}
                 </span>
-                <span className="rounded-full border border-white/[0.06] bg-white/[0.04] px-1.5 py-0.5 text-[9px] font-bold text-white/45">
-                    {orderedParties.length}
-                </span>
             </div>
-            <div className="flex flex-col gap-1.5 min-w-0">
+            <div className={`flex flex-col gap-1.5 min-w-0 ${openPartyKey?.startsWith(keyPrefix) ? 'overflow-visible' : ''}`}>
                 {orderedParties.map((party, idx) => {
                     const role = String(party.role ?? '');
                     const affiliative = isAffiliativeThirdPartyRole(role);

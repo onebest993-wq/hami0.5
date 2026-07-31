@@ -121,3 +121,26 @@ export function collectDecisionsStorageCandidateIds(
 
     return [...out];
 }
+
+export type DecisionsModalOpenMatchContext = {
+    executionDataId?: string | null;
+    executionId?: string | null;
+    decisionsStorageExecutionId?: string | null;
+    executionData?: Record<string, unknown> | null;
+};
+
+/** هل حدث فتح مركز القرارات يخص هذه الإضبارة (أب/فرع/تخزين موحّد)؟ */
+export function matchesDecisionsModalOpenTarget(
+    eventExecutionId: string | undefined,
+    ctx: DecisionsModalOpenMatchContext
+): boolean {
+    const target = String(eventExecutionId ?? '').trim();
+    if (!target) return false;
+    const seed =
+        String(ctx.decisionsStorageExecutionId ?? '').trim() ||
+        String(ctx.executionDataId ?? '').trim() ||
+        String(ctx.executionId ?? '').trim();
+    if (!seed) return false;
+    const candidates = collectDecisionsStorageCandidateIds(seed, ctx.executionData ?? undefined);
+    return candidates.includes(target);
+}

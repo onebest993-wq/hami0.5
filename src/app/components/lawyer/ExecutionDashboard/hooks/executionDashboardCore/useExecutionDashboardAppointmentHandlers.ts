@@ -1,6 +1,6 @@
 // @ts-nocheck
 /** Phase C — حفظ/تعديل مواعيد الإضبارة + مزامنة التقويم */
-import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { useCallback, useMemo, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { CalendarBridge, normalizeDateToYmd } from '@/app/services/calendarBridge';
 
@@ -41,36 +41,56 @@ export function useExecutionDashboardAppointmentHandlers({
     setAppointmentTimeOptional,
     setEditingAppointmentId,
 }: UseExecutionDashboardAppointmentHandlersParams) {
+    const draftRef = useRef({
+        appointmentPurpose,
+        appointmentDateOnly,
+        appointmentTimeOptional,
+        editingAppointmentId,
+    });
+    draftRef.current = {
+        appointmentPurpose,
+        appointmentDateOnly,
+        appointmentTimeOptional,
+        editingAppointmentId,
+    };
+
     const handleSaveAppointment = useCallback(() => {
-        if (!appointmentPurpose.trim() || !appointmentDateOnly) {
+        const {
+            appointmentPurpose: purpose,
+            appointmentDateOnly: dateOnly,
+            appointmentTimeOptional: timeOptional,
+            editingAppointmentId: editingId,
+        } = draftRef.current;
+
+        if (!purpose.trim() || !dateOnly) {
             showToast('يرجى إدخال الغرض وتاريخ الموعد', 'warning');
             return;
         }
 
         const recorded = new Date().toISOString();
-        const eventIso = appointmentTimeOptional
-            ? `${appointmentDateOnly}T${appointmentTimeOptional}:00`
-            : `${appointmentDateOnly}T12:00:00`;
+        const eventIso = timeOptional
+            ? `${dateOnly}T${timeOptional}:00`
+            : `${dateOnly}T12:00:00`;
 
-        const eventDateLabel = new Date(appointmentDateOnly).toLocaleDateString('ar-EG', {
+        const eventDateLabel = new Date(dateOnly).toLocaleDateString('ar-EG', {
             weekday: 'long',
             year: 'numeric',
             month: 'long',
             day: 'numeric',
         });
-        const timePart = appointmentTimeOptional
+        const timePart = timeOptional
             ? new Date(eventIso).toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })
             : null;
 
-        const title = `📅 ${appointmentPurpose.trim()}`;
+        const title = `📅 ${purpose.trim()}`;
         const description = timePart
             ? `موعد في ${eventDateLabel} — الساعة ${timePart}`
             : `موعد بتاريخ ${eventDateLabel} (بدون وقت محدد)`;
 
-        const syncedTimelineId = editingAppointmentId ? String(editingAppointmentId) : nextTimelineId();
-        if (editingAppointmentId) {
+        const syncedTimelineId = editingId ? String(editingId) : nextTimelineId();
+        if (editingId) {
             const nextTimeline = (timelineEventsRef.current || []).map((ev: TimelineEvent) =>
-                String(ev?.id) === String(editingAppointmentId)
+                String(ev?.id) === String(editingId)
                     ? {
                           ...ev,
                           type: 'appointment',
@@ -101,13 +121,13 @@ export function useExecutionDashboardAppointmentHandlers({
             showToast('تم حفظ الموعد بنجاح', 'success');
         }
 
-        const execYmd = normalizeDateToYmd(appointmentDateOnly) ?? appointmentDateOnly;
+        const execYmd = normalizeDateToYmd(dateOnly) ?? dateOnly;
         CalendarBridge.syncExecutionAppointment({
             executionId: currentFileId,
             timelineEventId: syncedTimelineId,
             date: execYmd,
-            time: appointmentTimeOptional || undefined,
-            purpose: appointmentPurpose.trim(),
+            time: timeOptional || undefined,
+            purpose: purpose.trim(),
             description,
             caseNo:
                 String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
@@ -125,10 +145,6 @@ export function useExecutionDashboardAppointmentHandlers({
         setAppointmentTimeOptional('');
         setEditingAppointmentId(null);
     }, [
-        appointmentPurpose,
-        appointmentDateOnly,
-        appointmentTimeOptional,
-        editingAppointmentId,
         timelineEventsRef,
         showToast,
         nextTimelineId,
@@ -143,5 +159,5 @@ export function useExecutionDashboardAppointmentHandlers({
         setEditingAppointmentId,
     ]);
 
-    return { handleSaveAppointment };
+    return useMemo(() => ({ handleSaveAppointment }), [handleSaveAppointment]);
 }

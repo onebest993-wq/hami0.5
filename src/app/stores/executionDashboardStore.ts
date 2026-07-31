@@ -4,14 +4,10 @@ import { persist } from 'zustand/middleware';
 import {
     type AdditionalExecutionCreditor,
     type AdditionalExecutionDebtor,
-    type Debtor,
-    type DossierLifecycleStatus,
     type ExecutionFile,
     type TimelineEvent,
-    normalizeDossierLifecycleStatus,
 } from '@/app/types/execution';
-import { formatDateToLocalYmd, getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import SecureStoreService from '@/app/services/SecureStoreService';
+import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { storageCache } from '@/app/utils/storageCache';
@@ -57,7 +53,7 @@ export function inabaSubMetaStorageKey(parentId: string, subFileId: string): str
 export const DOSSIER_SCOPE_INABA = 'inaba';
 export const DOSSIER_SCOPE_PARENT = 'parent';
 
-/** حدث يخص إضبارة الإنابة فقط — يجب أن يحمل معرّف الإضبارة الفرعية */
+/** حدث يخص إضبارة الإنابة — يشمل الأحداث القديمة بدون metadata داخل blob الإنابة */
 export function timelineEventBelongsToInabaDossier(
     event: TimelineEvent | null | undefined,
     subFileId: string
@@ -68,7 +64,13 @@ export function timelineEventBelongsToInabaDossier(
     const meta = ((event as { metadata?: Record<string, unknown> }).metadata || {}) as Record<string, unknown>;
     const scope = String(meta.dossierScope || '');
     const taggedSub = String(meta.inabaSubFileId || meta.executionDossierId || '').trim();
-    return scope === DOSSIER_SCOPE_INABA && taggedSub === subId;
+
+    if (scope === DOSSIER_SCOPE_PARENT) return false;
+    if (scope === DOSSIER_SCOPE_INABA) {
+        return !taggedSub || taggedSub === subId;
+    }
+    if (taggedSub) return taggedSub === subId;
+    return true;
 }
 
 /** حدث يخص الإضبارة الأم — يستبعد كل ما يُوسَم لإضبارة الإنابة */
@@ -82,7 +84,10 @@ export function timelineEventBelongsToParentDossier(
     if (String(meta.inabaSubFileId || '').trim()) return false;
     const pid = String(parentId || '').trim();
     const taggedParent = String(meta.parentExecutionId || '').trim();
-    if (taggedParent && pid && taggedParent !== pid) return false;
+    if (taggedParent && pid && taggedParent !== pid) {
+        if (String(meta.dossierScope || '') === DOSSIER_SCOPE_PARENT) return false;
+        return true;
+    }
     return true;
 }
 

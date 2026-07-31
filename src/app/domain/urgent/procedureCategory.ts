@@ -3,39 +3,58 @@
  */
 export type ProcedureCategory = 'petition_orders' | 'urgent_judiciary';
 
+/** أوامر ولائية — مسار التظلم (3 أيام) ثم التمييز */
 export const PETITION_ORDERS_DROPDOWN_OPTIONS = [
     'وضع إشارة عدم التصرف',
+    'الحجز الاحتياطي',
+    'منع السفر',
     'أمر ولائي آخر (تحديد يدوي)',
 ] as const;
 
+/** دعاوى مستعجلة — تمييز مباشر (7 أيام) */
 export const URGENT_JUDICIARY_DROPDOWN_OPTIONS = [
-    'الحجز الاحتياطي',
-    'منع السفر',
-    'إعادة المرافق المقطوعة تعسفاً (ماء/كهرباء/هاتف)',
     'الكشف المستعجل وتثبيت الحالة',
-    'استكتاب السندات العادية والإقرار بالبصمة أو التوقيع',
-    'سماع شاهد يخشى فوات فرصة الاستشهاد به',
-    'وضع الأموال تحت الحراسة القضائية',
-    'الاستئذان بالتنفيذ أو العمل على نفقة الخصم',
+    'سماع شاهد (خطر الفوات)',
+    'الحراسة القضائية',
+    'إعادة المرافق المقطوعة',
+    'الاستئذان بالتنفيذ على نفقة الخصم',
+    'استكتاب وإقرار بالسندات',
 ] as const;
 
-export const PETITION_ORDER_MANUAL_OPTION = PETITION_ORDERS_DROPDOWN_OPTIONS[1];
+export const PROCEDURE_CATEGORY_GROUP_LABELS: Record<ProcedureCategory, string> = {
+    petition_orders: 'أوامر ولائية',
+    urgent_judiciary: 'دعاوى مستعجلة',
+};
 
-const URGENT_JUDICIARY_LOOKUP = new Set<string>([
-    ...URGENT_JUDICIARY_DROPDOWN_OPTIONS,
+export const PETITION_ORDER_MANUAL_OPTION = PETITION_ORDERS_DROPDOWN_OPTIONS[3];
+
+const URGENT_JUDICIARY_LEGACY_ALIASES = [
+    'سماع شاهد يخشى فوات فرصة الاستشهاد به',
+    'وضع الأموال تحت الحراسة القضائية',
+    'إعادة المرافق المقطوعة تعسفاً (ماء/كهرباء/هاتف)',
+    'الاستئذان بالتنفيذ أو العمل على نفقة الخصم',
+    'استكتاب السندات العادية والإقرار بالبصمة أو التوقيع',
     'الكشف العقاري',
     'تثبيت حالة',
     'رفع التجاوز',
     'طرد الغاصب المستعجل',
-    'الحراسة القضائية',
+] as const;
+
+const URGENT_JUDICIARY_LOOKUP = new Set<string>([
+    ...URGENT_JUDICIARY_DROPDOWN_OPTIONS,
+    ...URGENT_JUDICIARY_LEGACY_ALIASES,
 ]);
 
-const PETITION_ORDERS_LOOKUP = new Set<string>([
-    ...PETITION_ORDERS_DROPDOWN_OPTIONS,
+const PETITION_ORDERS_LEGACY_ALIASES = [
     'وضع إشارة عدم تصرف/إشارة دعوى',
     'إيقاف الإجراءات التنفيذية/المزايدة',
     'إيقاف صرف مبالغ/خطاب ضمان',
     'الاستئخار المؤقت',
+] as const;
+
+const PETITION_ORDERS_LOOKUP = new Set<string>([
+    ...PETITION_ORDERS_DROPDOWN_OPTIONS,
+    ...PETITION_ORDERS_LEGACY_ALIASES,
 ]);
 
 export function getUnifiedActionTypeOptions(): string[] {
@@ -73,9 +92,6 @@ export function resolveProcedureCategory(
     if (PETITION_ORDERS_LOOKUP.has(t) || t.includes('إشارة')) return 'petition_orders';
 
     const urgentKeywords = [
-        'حجز',
-        'منع سفر',
-        'المرافق',
         'كشف',
         'تثبيت',
         'شاهد',
@@ -84,15 +100,19 @@ export function resolveProcedureCategory(
         'نفقة الخصم',
         'استكتاب',
         'البصمة',
+        'المرافق',
     ];
     if (urgentKeywords.some((k) => t.includes(k))) return 'urgent_judiciary';
+
+    const petitionKeywords = ['حجز', 'منع سفر', 'منع السفر', 'ولائي'];
+    if (petitionKeywords.some((k) => t.includes(k))) return 'petition_orders';
 
     return 'petition_orders';
 }
 
 export function cassationAdvisoryHint(category: ProcedureCategory): string {
     if (category === 'urgent_judiciary') {
-        return '⚠️ القرار قابل للطعن تمييزاً مباشراً أمام محكمة الاستئناف بصفتها التمييزية خلال 7 أيام من اليوم التالي للتبليغ';
+        return 'القرار قابل للطعن تمييزاً مباشراً أمام محكمة الاستئناف بصفتها التمييزية خلال 7 أيام من اليوم التالي للتبليغ';
     }
-    return '⚠️ قرار التظلم قابل للطعن تمييزاً أمام محكمة الاستئناف بصفتها التمييزية خلال 7 أيام من اليوم التالي للتبليغ';
+    return 'قرار التظلم قابل للطعن تمييزاً أمام محكمة الاستئناف بصفتها التمييزية خلال 7 أيام من اليوم التالي للتبليغ';
 }

@@ -21,7 +21,7 @@ export const DirectorateSection: React.FC<DirectorateSectionProps> = ({
                 <label className={ecg.labelGold}>اسم المديرية</label>
                 <input
                     type="text"
-                    placeholder="اسم المديرية"
+                    aria-label="اسم المديرية"
                     value={directorate}
                     onChange={(e) => onDirectorateChange(e.target.value)}
                     className={ecg.field}
@@ -31,7 +31,7 @@ export const DirectorateSection: React.FC<DirectorateSectionProps> = ({
                 <label className={ecg.labelGold}>رقم الإضبارة</label>
                 <input
                     type="text"
-                    placeholder="رقم الإضبارة"
+                    aria-label="رقم الإضبارة"
                     value={fileNumber}
                     onChange={(e) => onFileNumberChange(e.target.value)}
                     className={`${ecg.field} font-mono`}

@@ -6,6 +6,7 @@ export type ConfirmPayload = {
     title?: string;
     confirmText?: string;
     cancelText?: string;
+    confirmDelayMs?: number;
 };
 
 export type PromptPayload = {

@@ -6,6 +6,8 @@ import { debug } from '@/app/utils/debug';
 export type ExecutionDashboardPersistSnapshot = {
     executionId: string | undefined;
     executionData: ExecutionFile | null | undefined;
+    /** مرجع حيّ اختياري — بعض مسارات الحفظ تفضّل القراءة من ref */
+    executionDataRef?: { current: ExecutionFile | null | undefined };
     debtorNotificationDate: string | null | undefined;
     debtorSummonsMarkerLocal: unknown;
     lastActionDate: string | null | undefined;

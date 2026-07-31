@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import type { ThemeKey, ThemeMode } from '@/app/types/common';
-import { resolveThemeMode } from './apply';
+import { resolveThemeMode } from './resolveThemeMode';
 import { LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
 import {
     BACKGROUND_PRESET_MAP,
@@ -50,13 +50,6 @@ function svgDataUrl(svg: string): string {
     return `url("data:image/svg+xml,${encodeURIComponent(svg.trim())}")`;
 }
 
-function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-    const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
-    if (!m) return null;
-    const n = parseInt(m[1], 16);
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
-}
-
 function resolvePatternAccent(theme: ThemeKey, themeMode: ThemeMode): string {
     const token = LAWYER_THEME_TOKENS[theme] ?? LAWYER_THEME_TOKENS.gold;
     if (resolveThemeMode(themeMode) === 'light') {
@@ -69,6 +62,19 @@ function buildPresetSvg(presetId: BackgroundPresetId, accent: string): string | 
     const preset = BACKGROUND_PRESET_MAP[presetId];
     if (!preset?.svg) return null;
     return preset.svg.replace(/\{\{ACCENT\}\}/g, accent);
+}
+
+/**
+ * شفافية طبقة الزخرفة — لا تُضاعف مع شفافية مسارات SVG الداخلية بقوة مفرطة.
+ * الحد الأدنى يمنع «خلفية بلا أثر» عند قيم منخفضة محفوظة.
+ */
+export function resolvePatternLayerOpacity(rawOpacity: unknown, themeMode: ThemeMode): number {
+    let opacity = normalizeBackgroundPatternOpacity(rawOpacity);
+    if (resolveThemeMode(themeMode) === 'light') {
+        opacity = opacity * 0.88;
+    }
+    // SVGs already carry ~0.2–0.4 stroke opacity — lift the layer so the preset is perceptible
+    return Math.min(1, Math.max(0.42, opacity * 1.35));
 }
 
 export function resolveLawyerSurfaceBaseColor(
@@ -100,14 +106,43 @@ export function resolvePatternOverlayStyle(
     if (!preset) return null;
 
     const accent = resolvePatternAccent(appearance.theme, appearance.themeMode);
-    let opacity = normalizeBackgroundPatternOpacity(appearance.backgroundPatternOpacity);
-    if (resolveThemeMode(appearance.themeMode) === 'light') {
-        opacity = opacity * 0.88;
-    }
+    const opacity = resolvePatternLayerOpacity(
+        appearance.backgroundPatternOpacity,
+        appearance.themeMode,
+    );
 
     const svg = buildPresetSvg(presetId, accent);
     if (!svg) return null;
 
+    return {
+        backgroundImage: svgDataUrl(svg),
+        backgroundSize: preset.backgroundSize,
+        backgroundRepeat: preset.backgroundSize.includes('100%') ? 'no-repeat' : 'repeat',
+        backgroundPosition: 'center',
+        opacity,
+    };
+}
+
+/**
+ * زخرفة بطاقة رئيسية حيّة — شريط التخصيص يُترجم بوضوح على البطاقة
+ * (معاينة الإعدادات أقوى؛ الحيّة تبقى تحت سقف يمنع طمس المحتوى).
+ */
+export function resolveHomeBlockPatternStyle(
+    presetId: BackgroundPresetId,
+    accent: string,
+    patternOpacity = 0.32,
+    themeMode: ThemeMode = 'dark',
+): CSSProperties | null {
+    if (presetId === 'none') return null;
+    const preset = BACKGROUND_PRESET_MAP[presetId];
+    if (!preset?.svg) return null;
+    const svg = preset.svg.replace(/\{\{ACCENT\}\}/g, accent);
+    const isLight = resolveThemeMode(themeMode) === 'light';
+    const normalized = normalizeBackgroundPatternOpacity(patternOpacity);
+    /* خطي واضح: 0→弱 / 1→مرئي — كان *0.45+clamp(0.18) يخفي حركة الشريط */
+    const floor = isLight ? 0.06 : 0.05;
+    const span = isLight ? 0.34 : 0.4;
+    const opacity = floor + normalized * span;
     return {
         backgroundImage: svgDataUrl(svg),
         backgroundSize: preset.backgroundSize,
@@ -143,6 +178,6 @@ export function resolvePatternPreviewStyle(
                   backgroundPosition: 'center',
               }
             : {}),
-        opacity,
+        opacity: Math.min(1, Math.max(0.55, opacity * 1.2)),
     };
 }

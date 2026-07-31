@@ -1,38 +1,34 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useLawyerDashboardOverlays } from '@/app/hooks/useLawyerDashboardOverlays';
 import { useLawyerDashboardAppAlerts } from '@/app/hooks/useLawyerDashboardAppAlerts';
 import { useLawyerDashboardNavigation } from '@/app/hooks/useLawyerDashboardNavigation';
-import { useLawyerDashboardGlobalSearchNav } from '@/app/hooks/useLawyerDashboardGlobalSearchNav';
 import { useLawyerDashboardAuth } from '@/app/hooks/lawyerDashboard/useLawyerDashboardAuth';
-import { useLawyerDashboardRuntimeEffects } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRuntimeEffects';
 import { useLawyerDashboardWorkspace } from '@/app/hooks/lawyerDashboard/useLawyerDashboardWorkspace';
 import { useLawyerDashboardNotifications } from '@/app/hooks/lawyerDashboard/useLawyerDashboardNotifications';
-import { useLawyerDashboardProfileTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab';
-import { useLawyerDashboardSettings } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
-import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
-import { useLawyerDashboardCommunity } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCommunity';
 import { useLawyerDashboardHomeTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardHomeTab';
-import { useLawyerDashboardRepository } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
-import { useLawyerDashboardFieldTasks } from '@/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks';
-import { useLawyerDashboardScheduleTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
-import { useLawyerDashboardCalendarCluster } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCalendarCluster';
+import { useLawyerDashboardCalendarClusterLite } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCalendarClusterLite';
 import { useLawyerDashboardArchiveAndSyncRefs } from '@/app/hooks/lawyerDashboard/useLawyerDashboardArchiveAndSyncRefs';
+import { useLawyerDashboardSettings } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
+import { useLawyerDashboardCommunity } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCommunity';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import { useCaseStore } from '@/app/stores/caseStore';
-import { useThemeStyles } from '@/app/components/lawyer/LawyerShared';
+import { useThemeStyles } from '@/app/components/lawyer/lawyerThemeStyles';
 import { useCriminalDashboardBridge } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import {
     useLawyerSettingsAppearance,
     useLawyerSettingsData,
-    useLawyerSettingsFromSlices,
+    useLawyerSettingsPerformance,
     useLawyerSettingsPushAllowed,
     useLawyerSettingsSecurity,
 } from '@/app/context/LawyerSettingsContext';
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
 import { useAppLock } from '@/app/hooks/useAppLock';
-import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import { useLawyerDashboardGlobalSearch } from '@/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch';
+import { SETTINGS_SCHEMA_VERSION } from '@/app/services/settings/types';
+import { LAWYER_SETTINGS_V2_DEFAULTS } from '@/app/services/settings/defaults';
+import type { AppSettingsState } from '@/app/services/settings/types';
+import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { closeOverlaysBeforeNotificationsOpen } from '@/app/services/notifications/notificationShellOrchestration';
+import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { closeOverlaysBeforeForumOpen } from '@/app/services/forum/forumShellOrchestration';
 import { closeOverlaysBeforeTransactionsOpen } from '@/app/services/transactions/transactionsShellOrchestration';
 import { closeOverlaysBeforeSettingsOpen } from '@/app/services/settings/settingsShellOrchestration';
@@ -41,21 +37,81 @@ import { closeOverlaysBeforeProfileOpen } from '@/app/services/profile/profileSh
 import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import type { ExecutionFile as DashboardExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { UseLawyerDashboardCoreParams } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore.types';
+import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
+import type {
+    DeferredFeatureBag,
+    DeferredPendingOp,
+    LawyerDashboardDeferredFeatureSurfacesProps,
+} from '@/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.types';
+import {
+    createDeferredFeatureStubs,
+    runDeferredPendingOp,
+} from '@/app/components/lawyer/dashboard/createDeferredFeatureStubs';
+import {
+    readInitialCommunityOpen,
+    readInitialFieldTasksSession,
+    readInitialGlobalSearchSession,
+    readInitialLawyerTab,
+    readInitialRepositorySession,
+    readInitialTransactionsSession,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+
+const EMPTY_CRIMINAL_CASES_FOR_CLUSTER: unknown[] = [];
+
+function clusterScanSourcesSame(a: ClusterScanSources, b: ClusterScanSources): boolean {
+    return (
+        a.ready === b.ready &&
+        a.lawsuitFiles === b.lawsuitFiles &&
+        a.executionFiles === b.executionFiles &&
+        a.criminalCases === b.criminalCases &&
+        a.urgentCases === b.urgentCases &&
+        a.threadingTransactions === b.threadingTransactions &&
+        a.notes === b.notes &&
+        a.fieldTasks === b.fieldTasks
+    );
+}
+
+function readDeferredEarlyArm(): boolean {
+    if (typeof window === 'undefined') return false;
+    if (readInitialCommunityOpen()) return true;
+    if (readInitialTransactionsSession().open) return true;
+    if (readInitialFieldTasksSession().open) return true;
+    if (readInitialGlobalSearchSession().open) return true;
+    if (readInitialRepositorySession().open) return true;
+    const tab = readInitialLawyerTab();
+    return tab === 'schedule';
+}
 
 export function useLawyerDashboardCoreOrchestration({
+    authUser: _authUserOverride,
     onNavigateToCase,
     pendingFieldTasksCount,
     quantumTasksFingerprint,
     backgroundRuntimeEnabled,
 }: Pick<
     UseLawyerDashboardCoreParams,
-    'onNavigateToCase' | 'pendingFieldTasksCount' | 'quantumTasksFingerprint' | 'backgroundRuntimeEnabled'
+    | 'authUser'
+    | 'onNavigateToCase'
+    | 'pendingFieldTasksCount'
+    | 'quantumTasksFingerprint'
+    | 'backgroundRuntimeEnabled'
 >) {
     const criminalBridge = useCriminalDashboardBridge();
     const appearance = useLawyerSettingsAppearance();
     const dataSettings = useLawyerSettingsData();
     const securitySettings = useLawyerSettingsSecurity();
-    const settings = useLawyerSettingsFromSlices();
+    const performance = useLawyerSettingsPerformance();
+    /** بدون homeLayout — HomeTab يقرأ الشريحة مباشرة؛ يمنع إعادة رسم LD عند تعديل الرصيف */
+    const settings = useMemo((): AppSettingsState => {
+        return {
+            version: SETTINGS_SCHEMA_VERSION,
+            appearance,
+            security: securitySettings,
+            data: dataSettings,
+            performance,
+            homeLayout: LAWYER_SETTINGS_V2_DEFAULTS.homeLayout,
+        };
+    }, [appearance, securitySettings, dataSettings, performance]);
     const currentTheme = appearance.theme;
     const pushAllowed = useLawyerSettingsPushAllowed();
     const appLock = useAppLock(securitySettings);
@@ -76,74 +132,73 @@ export function useLawyerDashboardCoreOrchestration({
     const notifications = useLawyerDashboardNotifications(shellAuthUserId, {
         backgroundRuntimeEnabled,
     });
+    /** حي دائماً — ليس داخل الجزيرة المؤجّلة (كان requestArm يُسبّب تأخير الدخول) */
+    const settingsFeature = useLawyerDashboardSettings(shellAuthUserId);
     const appAlerts = useLawyerDashboardAppAlerts(user?.id);
     const archiveAndSync = useLawyerDashboardArchiveAndSyncRefs();
 
-    const closeCommunityRef = useRef<() => void>(() => undefined);
-
     const overlays = useLawyerDashboardOverlays({
         setArchiveType: archiveAndSync.setArchiveType,
+        executionArchiveOpen: archiveAndSync.archiveType === 'execution',
     });
-    const dashboardCommunity = useLawyerDashboardCommunity({
+
+    /** حي دائماً — مثل الإعدادات؛ إلغاء انتظار أول فتح للمنتدى بسبب stubs/deferred */
+    const communityFeature = useLawyerDashboardCommunity({
         userId: shellAuthUserId,
         activeTab: overlays.activeTab,
     });
-    closeCommunityRef.current = dashboardCommunity.closeCommunity;
 
     const dashboardHome = useLawyerDashboardHomeTab({
         activeTab: overlays.activeTab,
         setActiveTab: overlays.setActiveTab,
     });
 
-    const profileTab = useLawyerDashboardProfileTab({
-        userId: shellAuthUserId,
-        activeTab: overlays.activeTab,
-        setActiveTab: overlays.setActiveTab,
-        setShowCommunity: dashboardCommunity.setShowCommunity,
-    });
-    const dashboardSettings = useLawyerDashboardSettings(shellAuthUserId);
-
-    const dashboardTransactions = useLawyerDashboardTransactions({
-        userId: shellAuthUserId,
-        setArchiveType: archiveAndSync.setArchiveType,
-        setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
-    });
-
-    const dashboardGlobalSearch = useLawyerDashboardGlobalSearch({
-        userId: shellAuthUserId,
-    });
-
-    const dashboardRepository = useLawyerDashboardRepository({ userId: shellAuthUserId });
-    const dashboardFieldTasks = useLawyerDashboardFieldTasks({
-        userId: shellAuthUserId,
-        setActiveTab: overlays.setActiveTab,
-        closeCommunity: () => closeCommunityRef.current(),
-    });
-    const dashboardSchedule = useLawyerDashboardScheduleTab({
-        userId: shellAuthUserId,
-        activeTab: overlays.activeTab,
-        setActiveTab: overlays.setActiveTab,
-    });
     const { theme, shapeClass } = useThemeStyles(currentTheme, appearance.shape);
+
+    const [earlyArm] = useState(readDeferredEarlyArm);
+    const [forceArm, setForceArm] = useState(false);
+    const pendingOpRef = useRef<DeferredPendingOp>(null);
+    const [liveBag, setLiveBag] = useState<DeferredFeatureBag | null>(null);
+
+    const requestArm = useCallback((op: DeferredPendingOp) => {
+        pendingOpRef.current = op;
+        setForceArm(true);
+    }, []);
+
+    const stubs = useMemo(() => createDeferredFeatureStubs(requestArm), [requestArm]);
+    const bag = liveBag ?? stubs;
+
+    const bumpSearchIndexRef = useRef(() => undefined);
+    const closeNotepadRef = useRef(() => undefined);
+    bumpSearchIndexRef.current = () => bag.globalSearch.bumpSearchIndex();
+    closeNotepadRef.current = () => bag.repository.closeRepository();
+
+    const onDeferredFeaturesReady = useCallback((next: DeferredFeatureBag) => {
+        bumpSearchIndexRef.current = () => next.globalSearch.bumpSearchIndex();
+        closeNotepadRef.current = () => next.repository.closeRepository();
+        setLiveBag((prev) => {
+            if (prev === null) {
+                const op = pendingOpRef.current;
+                pendingOpRef.current = null;
+                if (op) {
+                    queueMicrotask(() => runDeferredPendingOp(next, op));
+                }
+            }
+            return next;
+        });
+    }, []);
 
     const productivityOverlayClosers = useMemo(
         () => ({
-            closeGlobalSearch: () => dashboardGlobalSearch.closeGlobalSearch(),
-            closeSettings: () => dashboardSettings.closeSettings(),
-            closeVault: () => dashboardRepository.closeRepository(),
-            closeNotepad: () => dashboardRepository.closeRepository(),
-            closeTransactionsHub: () => dashboardTransactions.closeTransactionsHub(),
+            closeGlobalSearch: () => bag.globalSearch.closeGlobalSearch(),
+            closeSettings: () => settingsFeature.closeSettings(),
+            closeVault: () => bag.repository.closeRepository(),
+            closeNotepad: () => bag.repository.closeRepository(),
+            closeTransactionsHub: () => bag.transactions.closeTransactionsHub(),
             closeNotifications: () => notifications.closeNotifications(),
-            closeCommunity: () => dashboardCommunity.closeCommunity(),
+            closeCommunity: () => communityFeature.closeCommunity(),
         }),
-        [
-            dashboardCommunity,
-            dashboardGlobalSearch,
-            dashboardRepository,
-            dashboardSettings,
-            dashboardTransactions,
-            notifications,
-        ],
+        [bag, communityFeature, notifications, settingsFeature],
     );
 
     const openNotificationsInnerRef = useRef(notifications.openNotifications);
@@ -154,29 +209,34 @@ export function useLawyerDashboardCoreOrchestration({
         openNotificationsInnerRef.current();
     }, [productivityOverlayClosers]);
 
-    const openCommunityTabInnerRef = useRef(dashboardCommunity.openCommunityTab);
-    openCommunityTabInnerRef.current = dashboardCommunity.openCommunityTab;
+    const openCommunityTabInnerRef = useRef(communityFeature.openCommunityTab);
+    openCommunityTabInnerRef.current = communityFeature.openCommunityTab;
 
     const openCommunityTab = useCallback(() => {
         closeOverlaysBeforeForumOpen(productivityOverlayClosers);
         openCommunityTabInnerRef.current();
     }, [productivityOverlayClosers]);
 
-    const openTransactionsHubInnerRef = useRef(dashboardTransactions.openTransactionsHub);
-    openTransactionsHubInnerRef.current = dashboardTransactions.openTransactionsHub;
+    const openTransactionsHubInnerRef = useRef(bag.transactions.openTransactionsHub);
+    openTransactionsHubInnerRef.current = bag.transactions.openTransactionsHub;
 
     const openTransactionsHub = useCallback((focusId?: string) => {
         closeOverlaysBeforeTransactionsOpen(productivityOverlayClosers);
         openTransactionsHubInnerRef.current(focusId);
     }, [productivityOverlayClosers]);
 
-    const openSettingsInnerRef = useRef(dashboardSettings.openSettings);
-    openSettingsInnerRef.current = dashboardSettings.openSettings;
+    const openSettingsInnerRef = useRef(settingsFeature.openSettings);
+    openSettingsInnerRef.current = settingsFeature.openSettings;
 
     const openSettings = useCallback(() => {
-        closeOverlaysBeforeSettingsOpen(productivityOverlayClosers);
-        overlays.setActiveTab('home');
+        // افتح أولاً — لا تؤخّر القشرة خلف إغلاق overlays / setActiveTab
         openSettingsInnerRef.current();
+        if (overlays.activeTab !== 'home') {
+            overlays.setActiveTab('home');
+        }
+        queueMicrotask(() => {
+            closeOverlaysBeforeSettingsOpen(productivityOverlayClosers);
+        });
     }, [overlays, productivityOverlayClosers]);
 
     const hydrateCasesFromLawsuitFiles = useCaseStore((s) => s.hydrateCasesFromLawsuitFiles);
@@ -199,53 +259,68 @@ export function useLawyerDashboardCoreOrchestration({
         setArchiveType: archiveAndSync.setArchiveType,
         criminalBridge,
         onOpenCriminalDashboard: overlays.openCriminalCase,
-        bumpSearchIndex: dashboardGlobalSearch.bumpSearchIndex,
+        bumpSearchIndex: () => bumpSearchIndexRef.current(),
         selectCase,
-        closeNotepad: dashboardRepository.closeRepository,
+        closeNotepad: () => closeNotepadRef.current(),
     });
 
     const dashboardExecutionFiles = useMemo<DashboardExecutionFile[]>(
-        () => workspace.executionFiles.map((file) => coerceExecutionFilePreserveId(file)),
+        () =>
+            (Array.isArray(workspace.executionFiles) ? workspace.executionFiles : []).map((file) =>
+                coerceExecutionFilePreserveId(file),
+            ),
         [workspace.executionFiles],
     );
 
     const navigation = useLawyerDashboardNavigation({
+        userId: shellAuthUserId,
         files: workspace.files,
         executionFiles: dashboardExecutionFiles,
         setActiveTab: overlays.setActiveTab,
-        setShowCommunity: dashboardCommunity.setShowCommunity,
-        setCommunityDeepLink: dashboardCommunity.setCommunityDeepLink,
+        setShowCommunity: communityFeature.setShowCommunity,
+        setCommunityDeepLink: communityFeature.setCommunityDeepLink,
         setArchiveType: archiveAndSync.setArchiveType,
         setActiveFile: workspace.setActiveFile,
         setShowNotifications: notifications.closeNotifications,
-        openNotepad: dashboardRepository.openNotepad,
-        setTransactionsFocusId: dashboardTransactions.setTransactionsFocusId,
+        openNotepad: bag.repository.openNotepad,
+        setTransactionsFocusId: bag.transactions.setTransactionsFocusId,
         openUrgentInLawsuitsWorkspace: overlays.openUrgentInLawsuitsWorkspace,
-        openVaultModal: dashboardRepository.openVaultModal,
+        openVaultModal: bag.repository.openVaultModal,
         openTransactionsHub: openTransactionsHub,
         openCommunityTab,
-        openFieldTasksSheet: dashboardFieldTasks.openFieldTasksSheet,
+        openFieldTasksSheet: bag.fieldTasks.openFieldTasksSheet,
         openCriminalCase: overlays.openCriminalCase,
-        openTasksManager: dashboardFieldTasks.openTasksManager,
-        openScheduleTab: dashboardSchedule.openScheduleTab,
+        openTasksManager: bag.fieldTasks.openTasksManager,
+        openScheduleTab: bag.schedule.openScheduleTab,
     });
 
-    const criminalCasesForCluster = criminalBridge.ready ? criminalBridge.criminalCases : [];
-    const { calendarUserId, clusterScanSources } = useLawyerDashboardCalendarCluster({
-        enabled: backgroundRuntimeEnabled,
-        userId: user?.id,
-        authUserId: authUser?.id,
-        files: workspace.files,
-        executionFiles: dashboardExecutionFiles,
-        globalNotes: workspace.globalNotes,
-        quantumTasks,
-        criminalCasesForCluster,
-    });
+    const criminalCasesForCluster = criminalBridge.ready
+        ? criminalBridge.criminalCases
+        : EMPTY_CRIMINAL_CASES_FOR_CLUSTER;
+    const { calendarUserId, clusterScanSources: liteClusterScanSources } =
+        useLawyerDashboardCalendarClusterLite({
+            enabled: backgroundRuntimeEnabled,
+            userId: user?.id,
+            authUserId: authUser?.id,
+            files: workspace.files,
+            executionFiles: dashboardExecutionFiles,
+            globalNotes: workspace.globalNotes,
+            quantumTasks,
+            criminalCasesForCluster,
+        });
+    const [hydratedClusterScanSources, setHydratedClusterScanSources] =
+        useState<ClusterScanSources | null>(null);
+    const onClusterScanSources = useCallback((sources: ClusterScanSources) => {
+        setHydratedClusterScanSources((prev) =>
+            prev && clusterScanSourcesSame(prev, sources) ? prev : sources,
+        );
+    }, []);
+    const clusterScanSources = hydratedClusterScanSources ?? liteClusterScanSources;
 
     const pendingFieldTasksCountResolved = pendingFieldTasksCount;
 
-    const openGlobalSearchInnerRef = useRef(dashboardGlobalSearch.openGlobalSearch);
-    openGlobalSearchInnerRef.current = dashboardGlobalSearch.openGlobalSearch;
+    const openGlobalSearchInnerRef = useRef(bag.globalSearch.openGlobalSearch);
+    openGlobalSearchInnerRef.current = bag.globalSearch.openGlobalSearch;
 
     const openGlobalSearch = useCallback(
         (seed = '') => {
@@ -256,68 +331,92 @@ export function useLawyerDashboardCoreOrchestration({
         [productivityOverlayClosers],
     );
 
-    const openProfileTabInnerRef = useRef(profileTab.openProfileTab);
-    openProfileTabInnerRef.current = profileTab.openProfileTab;
+    const openProfileTabInnerRef = useRef(bag.profile.openProfileTab);
+    openProfileTabInnerRef.current = bag.profile.openProfileTab;
 
     const openProfileTab = useCallback(() => {
-        closeOverlaysBeforeProfileOpen(productivityOverlayClosers);
+        // افتح أولاً — لا تؤخّر التبويب خلف إغلاق overlays (نفس معيار الإعدادات)
         openProfileTabInnerRef.current();
+        queueMicrotask(() => {
+            closeOverlaysBeforeProfileOpen(productivityOverlayClosers);
+        });
     }, [productivityOverlayClosers]);
-
-    const globalSearchNav = useLawyerDashboardGlobalSearchNav({
-        files: workspace.files,
-        executionFiles: dashboardExecutionFiles,
-        setShowGlobalSearch: dashboardGlobalSearch.setShowGlobalSearch,
-        setGlobalSearchInitialQuery: dashboardGlobalSearch.setGlobalSearchInitialQuery,
-        openNotifications,
-        openProfileTab,
-        openScheduleTab: dashboardSchedule.openScheduleTab,
-        setActiveTab: overlays.setActiveTab,
-        openCommunityTab,
-        setCommunityDeepLink: dashboardCommunity.setCommunityDeepLink,
-        openUrgentInLawsuitsWorkspace: overlays.openUrgentInLawsuitsWorkspace,
-        openCriminalCase: overlays.openCriminalCase,
-        openTransactionsHub: openTransactionsHub,
-        openTasksManager: dashboardFieldTasks.openTasksManager,
-        openNotepad: dashboardRepository.openNotepad,
-        openVaultModal: dashboardRepository.openVaultModal,
-        setActiveFile: workspace.setActiveFile,
-        selectCase,
-        onNavigateToCase,
-    });
-
-    useLawyerDashboardRuntimeEffects({
-        backgroundRuntimeEnabled,
-        user,
-        authUser,
-        files: workspace.files,
-        executionFiles: dashboardExecutionFiles,
-        globalNotes: workspace.globalNotes,
-        searchNotifications: notifications.searchNotifications,
-        criminalCasesForCluster,
-        quantumTasks,
-        searchIndexVersion: dashboardGlobalSearch.searchIndexVersion,
-        showLawsuitsWorkspace: overlays.showLawsuitsWorkspace,
-        lawsuitsDossierSection: overlays.lawsuitsDossierSection,
-        storeCases,
-        hydrateCasesFromLawsuitFiles,
-        refreshAppAlerts: appAlerts.refreshAppAlerts,
-        reloadLawsuitFiles: workspace.reloadLawsuitFiles,
-        reloadExecutionFiles: workspace.reloadExecutionFiles,
-        setGlobalNotes: workspace.setGlobalNotes,
-        setActiveFile: workspace.setActiveFile,
-        setArchiveType: archiveAndSync.setArchiveType,
-        setLawsuitsDossierSection: overlays.setLawsuitsDossierSection,
-        setLawsuitsWorkspaceTab: overlays.setLawsuitsWorkspaceTab,
-        setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
-    });
 
     const closeHubShellOverlays = useCallback(() => {
         overlays.closeHubShellOverlays();
-        dashboardTransactions.closeTransactionsHub();
-        dashboardRepository.closeRepository();
-        dashboardGlobalSearch.closeGlobalSearch();
-    }, [dashboardGlobalSearch, dashboardRepository, dashboardTransactions, overlays]);
+        bag.transactions.closeTransactionsHub();
+        bag.repository.closeRepository();
+        bag.globalSearch.closeGlobalSearch();
+    }, [bag.globalSearch, bag.repository, bag.transactions, overlays]);
+
+    const exitToHomeDashboard = useCallback(() => {
+        overlays.exitCriminalDossierToHome();
+        closeHubShellOverlays();
+        overlays.setActiveTab('home');
+        queueMicrotask(() => dismissTransientOverlays());
+    }, [closeHubShellOverlays, overlays]);
+
+    const deferredFeatureSurfacesProps = useMemo((): LawyerDashboardDeferredFeatureSurfacesProps => {
+        return {
+            earlyArm,
+            forceArm,
+            params: {
+                userId: shellAuthUserId,
+                activeTab: overlays.activeTab,
+                setActiveTab: overlays.setActiveTab,
+                setArchiveType: archiveAndSync.setArchiveType,
+                setShowLawsuitsWorkspace: overlays.setShowLawsuitsWorkspace,
+                files: workspace.files,
+                executionFiles: dashboardExecutionFiles,
+                openNotifications,
+                openCommunityTab,
+                setShowCommunity: communityFeature.setShowCommunity,
+                closeCommunity: communityFeature.closeCommunity,
+                setCommunityDeepLink: communityFeature.setCommunityDeepLink,
+                openTransactionsHub,
+                openProfileTab,
+                openUrgentInLawsuitsWorkspace: overlays.openUrgentInLawsuitsWorkspace,
+                openCriminalCase: overlays.openCriminalCase,
+                setActiveFile: workspace.setActiveFile,
+                selectCase,
+                onNavigateToCase,
+            },
+            onReady: onDeferredFeaturesReady,
+        };
+    }, [
+        archiveAndSync.setArchiveType,
+        communityFeature.closeCommunity,
+        communityFeature.setCommunityDeepLink,
+        communityFeature.setShowCommunity,
+        dashboardExecutionFiles,
+        earlyArm,
+        forceArm,
+        onDeferredFeaturesReady,
+        onNavigateToCase,
+        openCommunityTab,
+        openNotifications,
+        openProfileTab,
+        openTransactionsHub,
+        overlays.activeTab,
+        overlays.openCriminalCase,
+        overlays.openUrgentInLawsuitsWorkspace,
+        overlays.setActiveTab,
+        overlays.setShowLawsuitsWorkspace,
+        selectCase,
+        shellAuthUserId,
+        workspace.files,
+        workspace.setActiveFile,
+    ]);
+
+    const dashboardCommunity = { ...communityFeature, openCommunityTab };
+    const dashboardSettings = { ...settingsFeature, openSettings };
+    const dashboardTransactions = { ...bag.transactions, openTransactionsHub };
+    const dashboardRepository = bag.repository;
+    const dashboardGlobalSearch = bag.globalSearch;
+    const dashboardFieldTasks = bag.fieldTasks;
+    const dashboardSchedule = bag.schedule;
+    const profileTab = bag.profile;
+    const globalSearchNav = bag.globalSearchNav;
 
     return {
         authGate,
@@ -333,13 +432,13 @@ export function useLawyerDashboardCoreOrchestration({
         appLock,
         notifications: { ...notifications, openNotifications },
         profileTab,
-        dashboardSettings: { ...dashboardSettings, openSettings },
-        dashboardTransactions: { ...dashboardTransactions, openTransactionsHub },
+        dashboardSettings,
+        dashboardTransactions,
         dashboardRepository,
         dashboardGlobalSearch,
         dashboardFieldTasks,
         dashboardSchedule,
-        dashboardCommunity: { ...dashboardCommunity, openCommunityTab },
+        dashboardCommunity,
         dashboardHome,
         appAlerts,
         archiveAndSync,
@@ -359,15 +458,21 @@ export function useLawyerDashboardCoreOrchestration({
             openSettings,
             openProfileTab,
             closeHubShellOverlays,
+            exitToHomeDashboard,
         },
         workspace,
         navigation,
         calendarUserId,
         clusterScanSources,
+        onClusterScanSources,
         criminalCasesForCluster,
         criminalBridge,
         globalSearchNav,
         quantumPendingForField,
         pendingFieldTasksCount: pendingFieldTasksCountResolved,
+        storeCases,
+        hydrateCasesFromLawsuitFiles,
+        dashboardExecutionFiles,
+        deferredFeatureSurfacesProps,
     };
 }

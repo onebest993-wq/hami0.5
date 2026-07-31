@@ -109,7 +109,7 @@ import { shouldRejectDossierWipe } from '@/app/services/dossierPersistence/dossi
 import {
   isExecutionDossierMainBlobKey,
   shouldRejectExecutionDossierBlobWipe,
-} from '@/app/utils/executionDossierBlobPersistence';
+} from '@/app/utils/executionDossierBlobKeyLite';
 import {
   BOOT_SHELL_WARM_KEYS,
   PROTECTED_WARM_KEYS,

@@ -1,6 +1,5 @@
 import type { CaseStage } from '../../../../LawyerShared';
 import type { JudgmentPayload } from '../../../smartFile/judgmentTypes';
-import type { SmartFileParentData } from '../../../smartFile/parentDataInit';
 import type { UseSmartFileJudgmentActionsOptions } from '../judgmentHookTypes';
 
 export type JudgmentConfirmScope = Pick<
@@ -25,4 +24,5 @@ export type JudgmentConfirmRuntime = {
     openAppealModalAfterSave: boolean;
     openObjectionModalAfterSave: boolean;
     remandNewActiveIndex: number | null;
+    nextCaseStatus?: string;
 };

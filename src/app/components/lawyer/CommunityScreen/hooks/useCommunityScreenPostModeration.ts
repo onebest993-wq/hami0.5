@@ -207,71 +207,13 @@ export function useCommunityScreenPostModeration({
                     persistedUser?.email ||
                     'محامي';
                 try {
-                    //#region debug-point save-to-vault-click
-                    fetch('http://127.0.0.1:7777/event', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            sessionId: 'save-to-vault',
-                            runId: 'post-fix',
-                            hypothesisId: 'A',
-                            location: 'useCommunityScreenPostModeration.ts:handleSavePostToVault:start',
-                            msg: '[DEBUG] save-to-vault clicked',
-                            data: {
-                                postId,
-                                currentUserId,
-                                targetUserId,
-                                attachmentType: post.attachment.type,
-                                attachmentName: post.attachment.name ?? null,
-                                storagePath: post.attachment.storagePath ?? null,
-                                attachmentUrl: post.attachment.url ?? null,
-                            },
-                            ts: Date.now(),
-                        }),
-                    }).catch(() => undefined);
-                    //#endregion debug-point save-to-vault-click
                     await saveForumAttachmentToVault(
                         post,
                         targetUserId,
                         String(authorName),
                     );
-                    //#region debug-point save-to-vault-success
-                    fetch('http://127.0.0.1:7777/event', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            sessionId: 'save-to-vault',
-                            runId: 'post-fix',
-                            hypothesisId: 'D',
-                            location: 'useCommunityScreenPostModeration.ts:handleSavePostToVault:success',
-                            msg: '[DEBUG] save-to-vault completed without throwing',
-                            data: { postId, currentUserId, targetUserId },
-                            ts: Date.now(),
-                        }),
-                    }).catch(() => undefined);
-                    //#endregion debug-point save-to-vault-success
                     SmartToast.success('تم حفظ المرفق في المستودع الذكي');
-                } catch (error) {
-                    //#region debug-point save-to-vault-failed
-                    fetch('http://127.0.0.1:7777/event', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            sessionId: 'save-to-vault',
-                            runId: 'post-fix',
-                            hypothesisId: 'D',
-                            location: 'useCommunityScreenPostModeration.ts:handleSavePostToVault:failed',
-                            msg: '[DEBUG] save-to-vault failed in UI handler',
-                            data: {
-                                postId,
-                                currentUserId,
-                                targetUserId,
-                                errorMessage: error instanceof Error ? error.message : null,
-                            },
-                            ts: Date.now(),
-                        }),
-                    }).catch(() => undefined);
-                    //#endregion debug-point save-to-vault-failed
+                } catch {
                     SmartToast.error('تعذّر حفظ المرفق في المستودع الذكي');
                 }
             });

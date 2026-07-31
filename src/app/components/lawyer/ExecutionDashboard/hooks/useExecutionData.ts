@@ -10,6 +10,7 @@ import {
     filterTimelineEventsForInabaDossier,
 } from '@/app/stores/executionDashboardStore';
 import type { ExecutionFile } from '@/app/types/execution';
+import { maritalFurnitureFinancialContentSignature } from '@/app/utils/maritalFurniture';
 
 function parseUpdatedAt(file: { updatedAt?: unknown; createdAt?: unknown } | null): number {
     if (!file) return 0;
@@ -34,6 +35,7 @@ export function executionFileContentSignature(file: ExecutionFile | null | undef
         const seized = Array.isArray((file as ExecutionFile).seizedAssets)
             ? (file as ExecutionFile).seizedAssets!
             : [];
+        const timelineActive = (file.timelineEvents ?? []).filter((e) => !e.trashedAt);
         return JSON.stringify({
             id: file.id,
             creditors: (file.creditors ?? []).map((p) => ({
@@ -50,10 +52,13 @@ export function executionFileContentSignature(file: ExecutionFile | null | undef
             fileNumber: file.fileNumber,
             fileYear: file.fileYear,
             updatedAt: file.updatedAt,
+            timelineEventCount: timelineActive.length,
+            timelineEventIds: timelineActive.map((e) => String(e.id || '')).join(','),
             seizedPropertyIds: seizedProps.map((p) => String((p as { id?: string }).id || '')).join(','),
             seizedMovableIds: seizedMov.map((m) => String((m as { id?: string }).id || '')).join(','),
             thirdPartySeizureIds: thirdParty.map((t) => String((t as { id?: string }).id || '')).join(','),
             seizedAssetIds: seized.map((a) => String((a as { id?: string }).id || '')).join(','),
+            maritalFurnitureFin: maritalFurnitureFinancialContentSignature(file),
         });
     } catch {
         return String(file.id ?? '');
@@ -211,8 +216,12 @@ export function useExecutionData(
                         [resolved.thirdPartySeizures ?? null, stored.thirdPartySeizures ?? null],
                         [resolved.seizedAssets ?? null, stored.seizedAssets ?? null],
                         [resolved.realEstateSeizureAssets ?? null, stored.realEstateSeizureAssets ?? null],
+                        [resolved.timelineEvents ?? null, stored.timelineEvents ?? null],
                         [resolved.other_party_request_tracks ?? null, stored.other_party_request_tracks ?? null],
                         [resolved.other_party_actions_log ?? null, stored.other_party_actions_log ?? null],
+                        [resolved.maritalFurnitureItems ?? null, stored.maritalFurnitureItems ?? null],
+                        [resolved.debtAmount ?? null, stored.debtAmount ?? null],
+                        [resolved.totalAmount ?? null, stored.totalAmount ?? null],
                     ];
                     for (const [fp, sp] of pairs) {
                         if (JSON.stringify(fp) !== JSON.stringify(sp)) {

@@ -19,6 +19,7 @@ export type SmartFileParentData = {
     status?: string;
     caseLinks?: CaseLinkRecord[];
     consolidationSecondaryRefs?: ConsolidationSecondaryRef[];
+    retrialTargetStage?: string;
 };
 
 function resolveRepresentedParty(file: Record<string, unknown>): string | null {
@@ -48,6 +49,7 @@ export function buildInitialParentDataFromFile(
         docType: String(file?.docType ?? file?.type ?? ''),
         createdDate: typeof file?.date === 'string' ? file.date : getLocalTodayYmd(),
         representedParty: resolveRepresentedParty(file ?? {}),
+        status: typeof file?.status === 'string' ? file.status : 'active',
         caseLinks: readCaseLinks(file),
         consolidationSecondaryRefs: readConsolidationSecondaryRefs(file),
     };

@@ -8,7 +8,7 @@ export const SecuritySection = memo(function SecuritySection() {
     const vm = useSecuritySection();
 
     return (
-        <div data-testid="settings-section-security">
+        <div data-testid="settings-section-security" data-settings-interactive="true">
 
             {vm.security.localOnlyMode ? (
                 <div
@@ -46,8 +46,13 @@ export const SecuritySection = memo(function SecuritySection() {
                 <SettingRow
                     icon={Fingerprint}
                     label="قفل بيومتري"
+                    subLabel={vm.biometricSubLabel}
                     action={
-                        <Toggle checked={vm.security.biometricLock} onChange={vm.toggleBiometric} />
+                        <Toggle
+                            testId="settings-toggle-security-biometricLock"
+                            checked={vm.security.biometricLock}
+                            onChange={vm.toggleBiometric}
+                        />
                     }
                 />
                 <SelectRow

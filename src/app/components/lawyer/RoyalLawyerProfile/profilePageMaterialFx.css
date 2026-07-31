@@ -73,11 +73,18 @@
 [data-lawyer-profile-root] .hami-profile-panel-shell {
     background: color-mix(in srgb, var(--profile-accent) 4%, rgba(255, 255, 255, 0.03));
     border: 1px solid color-mix(in srgb, var(--profile-accent) 20%, rgba(255, 255, 255, 0.08));
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    border-radius: 1.35rem;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     box-shadow:
         0 12px 48px rgba(0, 0, 0, 0.4),
         inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+[data-lawyer-profile-root] .hami-profile-section-panel {
+    padding: 1.15rem 1.1rem 1.25rem;
+    border-radius: 1.35rem;
+    overflow: hidden;
 }
 
 [data-lawyer-profile-root] .hami-profile-panel-sheen {
@@ -184,11 +191,13 @@
 }
 
 [data-lawyer-profile-root][data-profile-settings-open='true'] .hami-profile-hero-aurora {
-    filter: blur(10px);
+    filter: none;
+    opacity: 0.35;
 }
 
 [data-lawyer-profile-root][data-profile-settings-open='true'] [data-profile-portrait-float] {
-    animation: none !important;
+    /* أوقف الحركة دون قتل الإطار فجأة — يقلل وميض فتح الاستوديو */
+    animation-play-state: paused !important;
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -241,9 +250,8 @@
     transform: none !important;
 }
 
-[data-lawyer-profile-root][data-profile-reduce-motion='true'] .hami-profile-panel-shell,
-[data-lawyer-profile-root][data-profile-page-hidden='true'] .hami-profile-panel-shell {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+[data-lawyer-profile-root][data-profile-page-hidden='true'] [data-testid='lawyer-profile-back'] {
+    visibility: hidden;
+    pointer-events: none !important;
 }
 

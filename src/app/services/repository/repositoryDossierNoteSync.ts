@@ -175,6 +175,23 @@ export function globalNoteToDossierPayload(note: GlobalNote): {
     };
 }
 
+export function encodeBoundDossierId(kind: DossierKind, dossierId: string): string {
+    return `${kind}:${dossierId}`;
+}
+
+export function vaultDocToDossierPayload(doc: {
+    title?: string;
+    lawyerNote?: string | null;
+    aiSummary?: string | null;
+}): { title: string; body: string; isPinned: boolean } {
+    const body = (doc.lawyerNote || doc.aiSummary || '').trim();
+    return {
+        title: doc.title?.trim() || 'ملف من المستودع',
+        body,
+        isPinned: false,
+    };
+}
+
 export function deleteLawsuitDossierNote(file: FileData, noteId: string): FileData {
     const notes = Array.isArray(file.notes) ? file.notes : [];
     if (notes.some((n) => String(n.id) === noteId)) {

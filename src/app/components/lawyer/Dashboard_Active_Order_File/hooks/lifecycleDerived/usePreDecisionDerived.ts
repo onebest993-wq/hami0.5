@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { getPreDecisionHearingOutcome, getPreDecisionSessionOutcome } from '../../utils/hearingRules';
 import {
     PRE_DECISION_OUTCOME_ADJOURN,

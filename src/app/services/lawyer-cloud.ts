@@ -2,11 +2,10 @@ import { SecureAPIClient } from './SecureAPIClient';
 import { UserRole } from '../types/admin-types';
 import SecureStoreService from './SecureStoreService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
-import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
+import { lawyerCloudKv as kv } from '@/app/services/cloud/lawyerCloudKv';
 export { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 export { LawyerDB } from '@/app/services/lawyerDbRuntime';
-export { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
-import { isVaultIdbStoragePath } from '@/app/services/vaultBlobStore';
+import { isVaultIdbStoragePath } from '@/app/services/vault/vaultBlobPathLite';
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import {
     BanDB as CommunityBanDB,
@@ -56,8 +55,7 @@ export type {
 /** واجهة توافق — موصولة مباشرة بمخزن المجتمع المحلي. */
 export const CommunityDB = CommunityRuntimeDB;
 
-// --- NOTIFICATION SYSTEM (unified blob — see notificationForumStorage.ts) ---
-export { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
+// NotificationDB: استورد من notificationForumStorage مباشرة — لا إعادة تصدير هنا (دورة SAC↔store)
 export { LawyerStorage };
 
 // --- FORUM STATS ---
@@ -445,6 +443,7 @@ export type {
     ProfileAction,
     LawyerProfileSection,
     LawyerProfileData,
+    ProfileGalleryItem,
 } from '@/app/services/cloud/lawyerProfileTypes';
 
 /** واجهة توافق — dynamic import لتفادي circular chunk مع monolith */

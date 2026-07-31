@@ -21,6 +21,10 @@ vi.mock('@/app/services/settings/applicationWipe', () => ({
 }));
 
 vi.mock('@/app/services/settings/verifySensitiveSettingsAction', () => ({
+    mintSensitiveConfirmChallenge: (base: string) => ({
+        confirmPhrase: `${base}-TEST`,
+        promptMessage: `اكتب «${base}-TEST» حرفياً للمتابعة:`,
+    }),
     verifySensitiveSettingsAction: vi.fn(() => Promise.resolve(false)),
 }));
 

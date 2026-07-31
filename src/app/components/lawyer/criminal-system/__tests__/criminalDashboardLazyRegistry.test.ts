@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 import {
     prefetchCriminalDashboardTab,
     prefetchCriminalDashboardDefaultTab,
@@ -21,5 +23,15 @@ describe('criminalDashboardLazyRegistry', () => {
             prefetchCriminalDashboardDefaultTab();
             await new Promise((r) => setTimeout(r, 0));
         }).not.toThrow();
+    });
+
+    it('نية تبويب الطلبات تُسخّن المحركات الثقيلة (وليس idle الـ store)', () => {
+        const registryPath = path.join(
+            process.cwd(),
+            'src/app/components/lawyer/criminal-system/criminalDashboardLazyRegistry.ts',
+        );
+        const source = fs.readFileSync(registryPath, 'utf8');
+        expect(source).toContain('prefetchCriminalHeavyEnginesOnTabIntent');
+        expect(source).toMatch(/requests:\s*\(\)\s*=>\s*\{[\s\S]*prefetchCriminalHeavyEnginesOnTabIntent/);
     });
 });

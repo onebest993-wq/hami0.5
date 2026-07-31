@@ -5,7 +5,7 @@ import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChu
 import {
     findApprovedBreakInventoryNeedingLedger,
     findApprovedCustodianNeedingDetails,
-} from '@/app/utils/executorSeizureDecisionQueue';
+} from '@/app/utils/executorDecisionReadQueries';
 
 export type UseExecutionDashboardPendingExecutorDecisionOpenersParams = {
     executionId: string | undefined;

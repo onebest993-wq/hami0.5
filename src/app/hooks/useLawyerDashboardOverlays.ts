@@ -1,25 +1,35 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
-import {
-    prefetchCriminalDashboard,
-} from '@/app/utils/lazyComponents';
-import { CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT } from '@/app/components/lawyer/criminal-system/criminalDashboardBridge';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
+import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import {
     readInitialLawyerTab,
     type LawyerDashboardTab,
     type OpenCriminalCaseOptions,
 } from './lawyerDashboard/lawyerDashboardNav';
+import { openCriminalDossierWithContract } from '@/app/runtime/criminalOpenContract';
+import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
+import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { LAWSUITS_PRIME_HOST_EVENT } from '@/app/runtime/lawsuitWorkspaceWarm';
+import { EXECUTION_ARCHIVE_PRIME_HOST_EVENT } from '@/app/runtime/executionArchivePrimeHost';
+import { prefetchExecutionArchiveOpen } from '@/app/runtime/executionArchiveOpenSession';
 
 export type UseLawyerDashboardOverlaysParams = {
     setArchiveType: Dispatch<SetStateAction<LawyerArchiveOverlay>>;
+    /** لـ keep-alive: هل مخزن التنفيذ ظاهر الآن */
+    executionArchiveOpen?: boolean;
 };
 
 export function useLawyerDashboardOverlays({
     setArchiveType,
+    executionArchiveOpen = false,
 }: UseLawyerDashboardOverlaysParams) {
     const [activeTab, setActiveTab] = useState<LawyerDashboardTab>(readInitialLawyerTab);
     const [showLawsuitsWorkspace, setShowLawsuitsWorkspace] = useState(false);
+    const [lawsuitsHostMounted, setLawsuitsHostMounted] = useState(false);
+    const [executionArchiveHostMounted, setExecutionArchiveHostMounted] = useState(false);
     const [lawsuitsWorkspaceTab, setLawsuitsWorkspaceTab] = useState<'civil' | 'urgent'>('civil');
     const [lawsuitsDossierSection, setLawsuitsDossierSection] = useState<
         'all' | 'civil' | 'personal' | 'criminal'
@@ -30,7 +40,16 @@ export function useLawyerDashboardOverlays({
 
     const isCriminalDossierOpen = Boolean(criminalDashboardCaseId);
 
+    const armLawsuitsHost = useCallback(() => {
+        setLawsuitsHostMounted(true);
+    }, []);
+
+    const armExecutionArchiveHost = useCallback(() => {
+        setExecutionArchiveHostMounted(true);
+    }, []);
+
     const openUrgentInLawsuitsWorkspace = useCallback((caseId?: string) => {
+        setLawsuitsHostMounted(true);
         setUrgentFocusCaseId(caseId?.trim() ? caseId.trim() : undefined);
         setLawsuitsWorkspaceTab('urgent');
         setShowLawsuitsWorkspace(true);
@@ -47,11 +66,15 @@ export function useLawyerDashboardOverlays({
         (caseId: string, options?: OpenCriminalCaseOptions) => {
             const trimmed = String(caseId ?? '').trim();
             if (!trimmed) return;
-            window.dispatchEvent(new Event(CRIMINAL_DASHBOARD_BRIDGE_ACTIVATE_EVENT));
-            prefetchCriminalDashboard();
+
+            const persisted = readPersistedSupabaseAuth();
+            const sessionUid = resolveShellAuthUserId(persisted.user?.id, persisted.user?.id);
+            if (!isRealSignedIn(sessionUid)) return;
 
             if (options?.keepReturnTarget) {
-                setCriminalDashboardCaseId(trimmed);
+                openCriminalDossierWithContract(trimmed, (id) => {
+                    setCriminalDashboardCaseId(id);
+                });
                 return;
             }
 
@@ -63,7 +86,10 @@ export function useLawyerDashboardOverlays({
                 setArchiveType(null);
             }
 
-            setCriminalDashboardCaseId(trimmed);
+            setLawsuitsHostMounted(true);
+            openCriminalDossierWithContract(trimmed, (id) => {
+                setCriminalDashboardCaseId(id);
+            });
         },
         [setArchiveType],
     );
@@ -78,11 +104,72 @@ export function useLawyerDashboardOverlays({
         }
     }, []);
 
+    const exitCriminalDossierToHome = useCallback(() => {
+        criminalReturnTargetRef.current = 'main';
+        setCriminalDashboardCaseId(null);
+        closeHubShellOverlays();
+    }, [closeHubShellOverlays]);
+
+    useKeepAliveIdleRelease(showLawsuitsWorkspace, () => setLawsuitsHostMounted(false));
+
+    // أرشيف التنفيذ: بعد الإغلاق أبقِ Host دافئاً ثم حرّره بعد idle
+    useKeepAliveIdleRelease(Boolean(executionArchiveOpen), () => {
+        setExecutionArchiveHostMounted(false);
+    });
+
+    const setShowLawsuitsWorkspaceMounted = useCallback((open: boolean) => {
+        if (open) setLawsuitsHostMounted(true);
+        setShowLawsuitsWorkspace(open);
+    }, []);
+
+    /**
+     * بعد interactive: ركّب Hosts مخفية + سخّن chunks — يزيل سباق «دفء/برد» عند أول نقرة.
+     */
+    useLayoutEffect(() => {
+        if (isLitePerformanceActive()) return;
+        return onDashboardInteractive(() => {
+            armLawsuitsHost();
+            armExecutionArchiveHost();
+            void import('@/app/runtime/lawsuitWorkspaceWarm')
+                .then((m) => m.warmLawsuitWorkspace({ includeSecondary: false }))
+                .catch(() => undefined);
+            prefetchExecutionArchiveOpen();
+            void import('@/app/runtime/executionWorkspaceWarm')
+                .then((m) =>
+                    m.warmExecutionWorkspace({ includeSecondary: false }),
+                )
+                .catch(() => undefined);
+        });
+    }, [armLawsuitsHost, armExecutionArchiveHost]);
+
+    /** hover / warm — يعيد تركيب Host بعد idle-release أو قبل النقر */
+    useEffect(() => {
+        const onPrimeLawsuits = () => {
+            if (isLitePerformanceActive()) return;
+            armLawsuitsHost();
+        };
+        const onPrimeExecution = () => {
+            if (isLitePerformanceActive()) return;
+            armExecutionArchiveHost();
+            prefetchExecutionArchiveOpen();
+        };
+        window.addEventListener(LAWSUITS_PRIME_HOST_EVENT, onPrimeLawsuits);
+        window.addEventListener(EXECUTION_ARCHIVE_PRIME_HOST_EVENT, onPrimeExecution);
+        return () => {
+            window.removeEventListener(LAWSUITS_PRIME_HOST_EVENT, onPrimeLawsuits);
+            window.removeEventListener(EXECUTION_ARCHIVE_PRIME_HOST_EVENT, onPrimeExecution);
+        };
+    }, [armLawsuitsHost, armExecutionArchiveHost]);
+
     return {
         activeTab,
         setActiveTab,
         showLawsuitsWorkspace,
-        setShowLawsuitsWorkspace,
+        setShowLawsuitsWorkspace: setShowLawsuitsWorkspaceMounted,
+        lawsuitsHostMounted,
+        armLawsuitsHost,
+        executionArchiveHostMounted,
+        armExecutionArchiveHost,
         lawsuitsWorkspaceTab,
         setLawsuitsWorkspaceTab,
         lawsuitsDossierSection,
@@ -96,5 +183,6 @@ export function useLawyerDashboardOverlays({
         closeHubShellOverlays,
         openCriminalCase,
         closeCriminalCase,
+        exitCriminalDossierToHome,
     };
 }

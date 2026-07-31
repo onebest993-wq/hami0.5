@@ -12,8 +12,10 @@ export function tryClaimProfileCanvasSlot(blockId: string): boolean {
     const id = blockId.trim();
     if (!id) return false;
     if (!activeBlockId || activeBlockId === id) {
+        const changed = activeBlockId !== id;
         activeBlockId = id;
-        notify();
+        /* لا notify عند إعادة المطالبة — يمنع حلقات sync→claim→notify */
+        if (changed) notify();
         return true;
     }
     return false;

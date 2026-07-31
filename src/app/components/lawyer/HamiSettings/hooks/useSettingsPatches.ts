@@ -36,10 +36,13 @@ export function useSettingsPatches() {
 
     const patchHomeLayout = useCallback(
         (patch: Partial<AppSettingsState['homeLayout']> | ((prev: AppSettingsState['homeLayout']) => AppSettingsState['homeLayout'])) => {
-            setSettings((prev) => ({
-                ...prev,
-                homeLayout: typeof patch === 'function' ? patch(prev.homeLayout) : { ...prev.homeLayout, ...patch },
-            }));
+            setSettings((prev) => {
+                invalidateLawyerSettingsCache();
+                return {
+                    ...prev,
+                    homeLayout: typeof patch === 'function' ? patch(prev.homeLayout) : { ...prev.homeLayout, ...patch },
+                };
+            });
         },
         [setSettings],
     );

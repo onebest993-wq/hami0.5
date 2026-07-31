@@ -61,3 +61,30 @@ export function canUpvotePost(post: CommunityPost, currentUserId: string | null)
     if (!currentUserId) return false;
     return getPostAuthorId(post) !== currentUserId;
 }
+
+/** متابعة النقاش للتنبيهات — للمشاهدين فقط، لا لصاحب المنشور */
+export function canFollowThread(post: CommunityPost, currentUserId: string | null): boolean {
+    if (!currentUserId) return false;
+    return getPostAuthorId(post) !== currentUserId;
+}
+
+/** كتم مستخدم — ليس لنفسك ولا لمؤلف مجهول الهوية على البطاقة */
+export function canMutePostAuthor(
+    post: CommunityPost,
+    currentUserId: string | null,
+): boolean {
+    if (!currentUserId) return false;
+    if (post.isAnonymous === true) return false;
+    return getPostAuthorId(post) !== currentUserId;
+}
+
+/** متابعة مؤلف المنشور — ليس لنفسك ولا للمجهول */
+export function canFollowPostAuthor(
+    post: CommunityPost,
+    currentUserId: string | null,
+): boolean {
+    if (!currentUserId) return false;
+    if (post.isAnonymous === true) return false;
+    return getPostAuthorId(post) !== currentUserId;
+}
+

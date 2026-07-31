@@ -6,6 +6,7 @@ import type { DossierPickerOption } from '@/app/services/repository/repositoryDo
 import type { RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
 import type { RepositoryFeedLayoutId } from '../repositoryFeedLayout';
 import type { ViewMode } from '@/app/components/lawyer/hooks/useSmartVault';
+import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
 
 export type UniversalEntryCardProps = {
     item: RepositoryFeedItem;
@@ -16,6 +17,9 @@ export type UniversalEntryCardProps = {
     feedLayout?: RepositoryFeedLayoutId;
     /** @deprecated — استخدم feedLayout */
     viewMode?: ViewMode;
+    rooms?: RepositoryRoom[];
+    onMoveGlobalToRoom?: (note: GlobalNote, roomId: string | null) => void | Promise<void>;
+    onMoveVaultDocToRoom?: (doc: SmartVaultDoc, roomId: string | null) => void | Promise<void>;
     onSaveGlobal: (note: GlobalNote) => void;
     onDeleteGlobal: (id: string | number) => void;
     onUpdateLawsuit: (file: FileData) => void;

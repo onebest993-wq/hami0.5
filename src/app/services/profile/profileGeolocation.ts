@@ -65,7 +65,7 @@ export function requestCurrentLocationLabel(): Promise<GeolocationPickResult> {
 export async function pickCurrentLocationForProfile(): Promise<string | null> {
     try {
         const picked = await requestCurrentLocationLabel();
-        SmartToast.success('تم تحديد موقعك الحالي');
+        /* لا toast هنا — المستدعي يتحقق من gen/القناة قبل الإعلان عن النجاح */
         return picked.label;
     } catch (err) {
         if (err instanceof Error && err.message === 'unsupported') {

@@ -1,7 +1,5 @@
-import type { ComponentType } from 'react';
+import { ensureRejectClearingPromise } from '@/app/runtime/ensureRejectClearingPromise';
 
-type PrivacyTabModule =
-    typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsPrivacyTab');
 type AppearanceTabModule =
     typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab');
 type ContainersTabModule =
@@ -11,31 +9,19 @@ type TextEditorModule =
 type ImageEditorModule =
     typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/ImageBlockStudioEditor');
 
-export type ProfileSettingsPrivacyTabComponent = PrivacyTabModule['ProfileSettingsPrivacyTab'];
 export type ProfileSettingsAppearanceTabComponent = AppearanceTabModule['ProfileSettingsAppearanceTab'];
 export type ProfileSettingsContainersTabComponent = ContainersTabModule['ProfileSettingsContainersTab'];
 export type TextBlockStudioEditorComponent = TextEditorModule['TextBlockStudioEditor'];
 export type ImageBlockStudioEditorComponent = ImageEditorModule['ImageBlockStudioEditor'];
 
 let tabsPromise: Promise<void> | null = null;
-let cachedPrivacyTab: ProfileSettingsPrivacyTabComponent | null = null;
 let cachedAppearanceTab: ProfileSettingsAppearanceTabComponent | null = null;
 let cachedContainersTab: ProfileSettingsContainersTabComponent | null = null;
 let cachedTextEditor: TextBlockStudioEditorComponent | null = null;
 let cachedImageEditor: ImageBlockStudioEditorComponent | null = null;
 
 export function isProfileSettingsStudioTabsResolved(): boolean {
-    return Boolean(
-        cachedPrivacyTab &&
-            cachedAppearanceTab &&
-            cachedContainersTab &&
-            cachedTextEditor &&
-            cachedImageEditor,
-    );
-}
-
-export function getCachedProfileSettingsPrivacyTab(): ProfileSettingsPrivacyTabComponent | null {
-    return cachedPrivacyTab;
+    return Boolean(cachedAppearanceTab && cachedContainersTab && cachedTextEditor && cachedImageEditor);
 }
 
 export function getCachedProfileSettingsAppearanceTab(): ProfileSettingsAppearanceTabComponent | null {
@@ -56,7 +42,6 @@ export function getCachedImageBlockStudioEditor(): ImageBlockStudioEditorCompone
 
 export function resetProfileSettingsStudioTabsLoaderForTests(): void {
     tabsPromise = null;
-    cachedPrivacyTab = null;
     cachedAppearanceTab = null;
     cachedContainersTab = null;
     cachedTextEditor = null;
@@ -65,11 +50,10 @@ export function resetProfileSettingsStudioTabsLoaderForTests(): void {
 
 export function loadProfileSettingsStudioTabs(): Promise<void> {
     if (isProfileSettingsStudioTabsResolved()) return Promise.resolve();
-    if (!tabsPromise) {
-        tabsPromise = Promise.all([
-            import(
-                '@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsPrivacyTab'
-            ),
+    return ensureRejectClearingPromise(tabsPromise, (next) => {
+        tabsPromise = next;
+    }, () =>
+        Promise.all([
             import(
                 '@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab'
             ),
@@ -78,30 +62,21 @@ export function loadProfileSettingsStudioTabs(): Promise<void> {
             ),
             import('@/app/components/lawyer/RoyalLawyerProfile/components/TextBlockStudioEditor'),
             import('@/app/components/lawyer/RoyalLawyerProfile/components/ImageBlockStudioEditor'),
-        ])
-            .then(([privacy, appearance, containers, textEditor, imageEditor]) => {
-                if (privacy?.ProfileSettingsPrivacyTab) {
-                    cachedPrivacyTab = privacy.ProfileSettingsPrivacyTab;
-                }
-                if (appearance?.ProfileSettingsAppearanceTab) {
-                    cachedAppearanceTab = appearance.ProfileSettingsAppearanceTab;
-                }
-                if (containers?.ProfileSettingsContainersTab) {
-                    cachedContainersTab = containers.ProfileSettingsContainersTab;
-                }
-                if (textEditor?.TextBlockStudioEditor) {
-                    cachedTextEditor = textEditor.TextBlockStudioEditor;
-                }
-                if (imageEditor?.ImageBlockStudioEditor) {
-                    cachedImageEditor = imageEditor.ImageBlockStudioEditor;
-                }
-            })
-            .catch((err) => {
-                tabsPromise = null;
-                throw err;
-            });
-    }
-    return tabsPromise;
+        ]).then(([appearance, containers, textEditor, imageEditor]) => {
+            if (appearance?.ProfileSettingsAppearanceTab) {
+                cachedAppearanceTab = appearance.ProfileSettingsAppearanceTab;
+            }
+            if (containers?.ProfileSettingsContainersTab) {
+                cachedContainersTab = containers.ProfileSettingsContainersTab;
+            }
+            if (textEditor?.TextBlockStudioEditor) {
+                cachedTextEditor = textEditor.TextBlockStudioEditor;
+            }
+            if (imageEditor?.ImageBlockStudioEditor) {
+                cachedImageEditor = imageEditor.ImageBlockStudioEditor;
+            }
+        }),
+    );
 }
 
 export function prefetchProfileSettingsStudioTabsModule(): void {

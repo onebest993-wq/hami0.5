@@ -90,7 +90,7 @@ if (!newDynamic.includes('coerciveScopeBag')) {
 }
 
 for (const key of coerciveKeys) {
-    newDynamic = newDynamic.replace(new RegExp(`\\n\\s+${key}: input\\.${key},`, 'g'), '');
+    newDynamic = newDynamic.replace(new RegExp(`\n\\s+${key}: input\\.${key},`, 'g'), '');
 }
 
 // Patch core: insert coercive bag build before executionModalFlags
@@ -109,10 +109,10 @@ if (!core.includes('buildExecutionDashboardCoerciveScopeBag')) {
     // Remove coercive keys from dynamic scope call
     let scopeBody = scopeExtract.body;
     for (const key of coerciveKeys) {
-        scopeBody = scopeBody.replace(new RegExp(`\\s+${key},\\n`, 'g'), '\n');
+        scopeBody = scopeBody.replace(new RegExp(`\\s+${key},\n`, 'g'), '\n');
     }
 
-    const newScopeCall = `${scopeMarker}
+    const _newScopeCall = `${scopeMarker}
                     executionModalFlags,
                     executionModalSetters,
                     followupScopeBag,

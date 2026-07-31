@@ -1,10 +1,10 @@
 import {
+    formatCriminalStageLabel,
     formatInvestigationDepositLocation,
     formatTrialCourtHeaderPrimary,
     hasJuvenileAccused,
-    resolveCaseStageFromRecord,
-    resolveStageListLabel,
-} from '@/app/components/lawyer/criminal-system/criminalStageUtils';
+} from '@/app/components/lawyer/criminal-system/criminalStagePresentationCore';
+import { resolveCaseStageFromRecord } from '@/app/components/lawyer/criminal-system/criminalStageRuntimeCore';
 
 export function criminalCaseReference(c: Record<string, unknown>): { primary: string; secondary: string } {
     const stage = String((c.basics as { stage?: string } | undefined)?.stage ?? '');
@@ -36,7 +36,7 @@ export function criminalCaseReference(c: Record<string, unknown>): { primary: st
     return {
         primary:
             String(location.courtName ?? '').trim() ||
-            resolveStageListLabel(stage, hasJuvenileAccused(defs)) ||
+            formatCriminalStageLabel(stage, hasJuvenileAccused(defs)) ||
             '—',
         secondary: String(location.caseNumber ?? '').trim() || '—',
     };
@@ -52,7 +52,7 @@ export function criminalStageBadgeClass(stage: string): string {
 
 export function criminalStageLabel(stage: string, c: Record<string, unknown>): string {
     const defs = Array.isArray(c.defendants) ? c.defendants : [];
-    return resolveStageListLabel(stage, hasJuvenileAccused(defs));
+    return formatCriminalStageLabel(stage, hasJuvenileAccused(defs));
 }
 
 export function criminalSearchHaystack(c: Record<string, unknown>): string {

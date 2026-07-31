@@ -1,6 +1,11 @@
 import React from 'react';
 import { Database } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
+import {
+    mintSensitiveConfirmChallenge,
+    verifySensitiveSettingsAction,
+} from '@/app/services/settings/verifySensitiveSettingsAction';
+import { markSettingsFilePickerOpening } from '../settingsFilePickerGrace';
 import { SettingRow } from '../settings-ui';
 import type { useBusinessBackup } from '../hooks/useBusinessBackup';
 import { BusinessBackupExportPanel } from './BusinessBackupExportPanel';
@@ -15,8 +20,22 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
             { title: 'تأكيد استيراد النسخة؟', confirmText: 'استيراد', cancelText: 'إلغاء' },
         );
         if (!ok) return;
-        backup.setPendingBusinessImport(null);
-        await backup.importBusinessBackup(entries);
+        const challenge = mintSensitiveConfirmChallenge('استيراد نسخة');
+        const verified = await verifySensitiveSettingsAction({
+            confirmPhrase: challenge.confirmPhrase,
+            title: 'تحقق قبل الاستيراد',
+            promptMessage: challenge.promptMessage,
+        });
+        if (!verified) return;
+        const imported = await backup.importBusinessBackup(entries);
+        if (imported) {
+            backup.setPendingBusinessImport(null);
+        }
+    };
+
+    const openImportPicker = () => {
+        markSettingsFilePickerOpening();
+        backup.importBusinessInputRef.current?.click();
     };
 
     return (
@@ -31,6 +50,7 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
                             type="file"
                             accept="application/json,.json"
                             className="hidden"
+                            onClick={() => markSettingsFilePickerOpening()}
                             onChange={(e) => void backup.prepareBusinessImport(e.target.files?.[0])}
                         />
                         <div className="flex gap-2">
@@ -43,7 +63,7 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
                             </button>
                             <button
                                 type="button"
-                                onClick={() => backup.importBusinessInputRef.current?.click()}
+                                onClick={openImportPicker}
                                 className="text-white/50 text-xs hover:text-white"
                             >
                                 استيراد

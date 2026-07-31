@@ -6,7 +6,6 @@ import type {
     GrievanceData,
     GrievanceDecision,
     JudgeDecision,
-    HearingStage,
 } from '../../types';
 
 export type UseOrderFileLifecycleDerivedArgs = {
@@ -47,4 +46,5 @@ export type UseOrderFileLifecycleDerivedArgs = {
     computedGrievanceFiledBy: 'client' | 'opponent' | null;
     computedCassationFiledBy: 'client' | 'opponent' | null;
     showPreDecisionHearings: boolean;
+    fileStatus: import('../../types').FileStatus;
 };

@@ -25,4 +25,5 @@ export type LawyerDashboardMergedOverlaysState = ReturnType<typeof useLawyerDash
         openSettings: () => void;
         openProfileTab: () => void;
         closeHubShellOverlays: () => void;
+        exitToHomeDashboard: () => void;
     };

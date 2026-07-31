@@ -17,16 +17,17 @@ import {
 import {
     isExecutorDecisionsStorageKey,
     readExecutorDecisionsFromActiveNamespace,
+    readExecutorDecisionsUnionAcrossCandidateIds,
     readExecutorDecisionsUnionForExecution,
     resolveDecisionRowNamespaceSlug,
     writeExecutorDecisionsArray,
-    writeExecutorDecisionsUnionForExecution,
     executionDecisionsNamespaceStorageKey,
 } from '@/app/utils/executionDecisionsNamespace';
 import {
     dispatchDomainIsolationBlocked,
     gateExecutorRequestPersist,
     readExecutionDataForDomainGate,
+    resolveExecutionDataForDomainGate,
 } from '@/app/utils/executionDomainIsolation';
 import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
@@ -69,19 +70,21 @@ export function dispatchDecisionsReload(): void {
 }
 
 function readActiveExecutorDecisionsForMutate(
-    executionId: string | undefined
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null
 ): Record<string, unknown>[] {
     return readExecutorDecisionsFromActiveNamespace(
         executionId,
-        readExecutionDataForDomainGate(executionId)
+        resolveExecutionDataForDomainGate(executionId, executionData)
     );
 }
 
 function persistExecutorDecisionsArray(
     executionId: string | undefined,
-    arr: Record<string, unknown>[]
+    arr: Record<string, unknown>[],
+    executionData?: Record<string, unknown> | null
 ): void {
-    const data = readExecutionDataForDomainGate(executionId);
+    const data = resolveExecutionDataForDomainGate(executionId, executionData);
     const persistId = resolveDecisionsStorageExecutionId(executionId, data);
     writeExecutorDecisionsArray(persistId !== 'default' ? persistId : executionId, arr, data);
     dispatchDecisionsReload();
@@ -268,7 +271,7 @@ export function closeSeizureSubtypeDecisionCycle(input: {
 function assertDomainGate(
     executionId: string | undefined,
     requestKind: string,
-    meta?: { personalCoerciveSubtype?: string }
+    meta?: { personalCoerciveSubtype?: string; executionData?: Record<string, unknown> | null }
 ): boolean {
     const gate = gateExecutorRequestPersist(executionId, requestKind, meta);
     if (!gate.allowed) {
@@ -2093,15 +2096,23 @@ export function getNewestEvictionProcedureRowForBranch(
     return sortEvictionProcedureRowsNewestFirst(matching)[0] ?? null;
 }
 
+function evictionHubRowsEligibleForGoverning(
+    all: Record<string, unknown>[],
+    rows: Record<string, unknown>[]
+): Record<string, unknown>[] {
+    return rows.filter(
+        (row) =>
+            !isExecutorHubRowSuperseded(row) && !isExecutorHubRowInactiveForGoverning(row, all)
+    );
+}
+
 /** صف يحكم واجهة الفرع: نشط أولاً، وإلا أحدث صف hub للعرض (مثل الرفض النهائي). */
 export function getGoverningEvictionProcedureRowForBranch(
     all: Record<string, unknown>[],
     branch: string
 ): Record<string, unknown> | null {
     const sorted = sortEvictionProcedureRowsNewestFirst(
-        evictionProcedureHubRowsForBranch(all, branch).filter(
-            (row) => !isExecutorHubRowSuperseded(row)
-        )
+        evictionHubRowsEligibleForGoverning(all, evictionProcedureHubRowsForBranch(all, branch))
     );
     const active = sorted.find((row) => isEvictionProcedureRowActive(row, all));
     if (active) return active;
@@ -2118,10 +2129,40 @@ export function getGoverningEvictionProcedureRowForMatch(
             isEvictionProcedureHubRow(row) &&
             evictionProcedureRowsMatch(row, input)
     );
-    const sorted = sortEvictionProcedureRowsNewestFirst(matching);
+    const sorted = sortEvictionProcedureRowsNewestFirst(
+        evictionHubRowsEligibleForGoverning(all, matching)
+    );
     const active = sorted.find((row) => isEvictionProcedureRowActive(row, all));
     if (active) return active;
     return sorted[0] ?? null;
+}
+
+/** هل يوجد طلب إخلاء/تسليم ميداني فعّال يمنع إرسالاً جديداً لنفس الفرع؟ */
+export function hasBlockingEvictionProcedureDuplicate(
+    executionId: string | undefined,
+    input: { evictionWorkflowKey?: string; title?: string },
+    executionData?: Record<string, unknown> | null
+): boolean {
+    const data = resolveExecutionDataForDomainGate(executionId, executionData);
+    const canonical = resolveDecisionsStorageExecutionId(executionId, data);
+    const allRows =
+        canonical !== 'default'
+            ? readExecutorDecisionsUnionAcrossCandidateIds(canonical, data)
+            : readExecutorDecisionsArray(executionId, data);
+    const gateInput = evictionBranchGateInput(input);
+    const governing = getGoverningEvictionProcedureRowForNewRequest(allRows, input);
+    if (
+        governing?.id &&
+        !isExecutorHubRowInactiveForGoverning(governing, allRows) &&
+        isEvictionProcedureRowPending(governing) &&
+        isEvictionProcedureRowActive(governing, allRows)
+    ) {
+        return true;
+    }
+    if (isEvictionBranchBlockingNewRequest(allRows, gateInput)) {
+        return true;
+    }
+    return isEvictionBranchResendBlocked(allRows, gateInput);
 }
 
 /** صف hub الحاكم لطلبات إزالة التجاوز (انتداب مساح / إذن آليات) */
@@ -2180,7 +2221,7 @@ export function isEvictionBranchBlockingNewRequest(
         input.branch != null && String(input.branch).trim()
             ? getNewestEvictionProcedureRowForBranch(all, String(input.branch).trim())
             : getNewestEvictionProcedureRowForMatch(all, input);
-    if (!newest) return false;
+    if (!newest || isExecutorHubRowInactiveForGoverning(newest, all)) return false;
     return isEvictionProcedureRowActive(newest, all);
 }
 
@@ -2213,7 +2254,7 @@ export function isEvictionBranchResendBlocked(
         input.branch != null && String(input.branch).trim()
             ? getGoverningEvictionProcedureRowForBranch(all, String(input.branch).trim())
             : getGoverningEvictionProcedureRowForMatch(all, input);
-    if (!governing?.id) return false;
+    if (!governing?.id || isExecutorHubRowInactiveForGoverning(governing, all)) return false;
     if (isExecutorRequestAppealCycleSupersededFromRecord(governing, all)) return false;
     return isEvictionProcedureRowActive(governing, all);
 }
@@ -2316,12 +2357,17 @@ export function appendEvictionExecutorRequest(input: {
     evictionWorkflowKey?: EvictionExecutorWorkflowKey;
     /** بعد اكتمال مسار سابق — أرشفة الصف الحاكم وتقديم طلب hub جديد */
     supersedeCompletedHub?: boolean;
+    /** لقطة الإضبارة الفعلية (مهمة عند تخزين القرارات تحت معرّف الأب) */
+    executionData?: Record<string, unknown> | null;
 }): boolean {
-    if (!assertDomainGate(input.executionId, input.requestKind)) {
+    if (!assertDomainGate(input.executionId, input.requestKind, { executionData: input.executionData })) {
         return false;
     }
     try {
-        let arr: Record<string, unknown>[] = readActiveExecutorDecisionsForMutate(input.executionId);
+        let arr: Record<string, unknown>[] = readActiveExecutorDecisionsForMutate(
+            input.executionId,
+            input.executionData
+        );
 
         const isPending = (x: Record<string, unknown>) =>
             x.executorOutcome === 'pending' || x.executorOutcome === undefined;
@@ -2381,6 +2427,7 @@ export function appendEvictionExecutorRequest(input: {
             const governing = getGoverningEvictionProcedureRowForNewRequest(allRows, matchInput);
             const governingPending =
                 governing?.id &&
+                !isExecutorHubRowInactiveForGoverning(governing, allRows) &&
                 isEvictionProcedureRowPending(governing) &&
                 isEvictionProcedureRowActive(governing, allRows);
             if (governingPending) {
@@ -2432,7 +2479,7 @@ export function appendEvictionExecutorRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        persistExecutorDecisionsArray(input.executionId, arr);
+        persistExecutorDecisionsArray(input.executionId, arr, input.executionData);
         return true;
     } catch {
         return false;

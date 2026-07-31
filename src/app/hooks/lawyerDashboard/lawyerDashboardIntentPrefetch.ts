@@ -1,39 +1,30 @@
 import { scheduleLawyerShellPrefetch } from '@/app/runtime/deferredShellPrefetch';
-import { hubArchiveIdFromWidget } from '@/app/services/hub/hubShellNavigation';
-import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
-import {
-    prefetchArchivePortal,
-    prefetchCommunityScreen,
-    prefetchLawyerHomeHubCard,
-    prefetchNotificationPanel,
-    prefetchVoiceRecorderModal,
-    warmExecutionDossier,
-    warmExecutionWorkspace,
-    warmLawsuitWorkspace,
-    warmNotepadAndProfile,
-    warmSettingsShell,
-    warmTasksWorkspace,
-} from '@/app/utils/lazyComponents';
-import { warmForumOnHover } from '@/app/hooks/lawyerDashboard/forumIntentWarm';
-import { warmHomeOnHover } from '@/app/hooks/lawyerDashboard/homeIntentWarm';
-import { warmNotepadOnHover } from '@/app/hooks/lawyerDashboard/notepadIntentWarm';
-import { warmFieldTasksOnHover } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
-import { warmScheduleOnHover, warmScheduleOnOpen } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
-import { warmTransactionsOnHover, warmTransactionsOnOpen } from '@/app/hooks/lawyerDashboard/transactionsIntentWarm';
-import { warmVaultOnHover } from '@/app/hooks/lawyerDashboard/vaultIntentWarm';
-import {
-    warmRepositoryHubOnHover,
-    warmRepositoryOnOpen,
-} from '@/app/hooks/lawyerDashboard/repositoryIntentWarm';
+import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import { hubArchiveIdFromWidget } from '@/app/services/hub/hubShellNavigation';import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 
 export type DockWidgetPrefetchPhase = 'hover' | 'open';
 
 /** تحميل مسبق مؤجَّل لـ shell الرئيسي — بحث + بطاقات الواجهة */
 export function prefetchLawyerDashboardCriticalShell(): void {
-    scheduleLawyerShellPrefetch();
+    onDashboardInteractive(() => scheduleLawyerShellPrefetch());
+}
+export type HubArchivePrefetchPhase = 'hover' | 'open';
+
+function loadLazyComponentsIntent() {
+    return import('@/app/utils/lazyComponentsIntent');
 }
 
-export type HubArchivePrefetchPhase = 'hover' | 'open';
+function loadNotepadIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/notepadIntentWarm');
+}
+
+function loadScheduleIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/scheduleIntentWarm');
+}
+
+function loadRepositoryIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/repositoryIntentWarm');
+}
 
 /** prefetch عند hover/لمس — قبل النقر */
 export function prefetchHubArchiveIntent(
@@ -43,16 +34,31 @@ export function prefetchHubArchiveIntent(
 ): void {
     if (typeof window === 'undefined') return;
     switch (archiveId) {
-        case 'execution':
-            if (phase === 'open') warmExecutionWorkspace();
-            else warmExecutionDossier();
+        case 'execution': {
+            void import('@/app/runtime/executionArchivePrimeHost').then((m) =>
+                m.dispatchExecutionArchivePrimeHost(),
+            );
+            void import('@/app/runtime/executionArchiveOpenSession').then((m) =>
+                m.prefetchExecutionArchiveOpen(),
+            );
+            void import('@/app/runtime/executionWorkspaceWarm').then((m) =>
+                m.warmExecutionWorkspace({
+                    includeSecondary: false,
+                    secondaryDelayMs: 1_200,
+                }),
+            );
             break;
+        }
         case 'lawsuit':
-            warmLawsuitWorkspace();
+            void loadLazyComponentsIntent().then((m) =>
+                m.warmLawsuitWorkspace({ includeSecondary: false }),
+            );
             break;
         case 'transaction':
-            if (phase === 'open') warmTransactionsOnOpen(userId);
-            else warmTransactionsOnHover();
+            void import('@/app/hooks/lawyerDashboard/transactionsIntentWarm').then((m) => {
+                if (phase === 'open') m.warmTransactionsOnOpen(userId);
+                else m.warmTransactionsOnHover(userId);
+            });
             break;
         default:
             break;
@@ -71,34 +77,52 @@ export function prefetchDockWidgetIntent(
 
     switch (widgetId) {
         case 'dockRepository':
-            if (phase === 'open') warmRepositoryOnOpen();
-            else warmRepositoryHubOnHover();
+            void loadRepositoryIntentWarm().then((m) => {
+                if (phase === 'open') m.warmRepositoryOnOpen();
+                else m.warmRepositoryHubOnHover();
+            });
             break;
         case 'dockNotepad':
-            if (phase === 'open') warmRepositoryOnOpen();
-            else warmRepositoryHubOnHover();
+            void loadRepositoryIntentWarm().then((m) => {
+                if (phase === 'open') m.warmRepositoryOnOpen();
+                else m.warmRepositoryHubOnHover();
+            });
             break;
         case 'dockQuickNote':
-            warmNotepadOnHover();
-            if (phase === 'open') prefetchVoiceRecorderModal();
+            void loadNotepadIntentWarm().then((m) => m.warmNotepadOnHover());
+            if (phase === 'open') {
+                void loadLazyComponentsIntent().then((m) => m.prefetchVoiceRecorderModal());
+            }
             break;
         case 'dockCalendar':
-            if (phase === 'open') warmScheduleOnOpen();
-            else warmScheduleOnHover();
+            void loadScheduleIntentWarm().then((m) => {
+                if (phase === 'open') m.warmScheduleOnOpen();
+                else m.warmScheduleOnHover();
+            });
             break;
         case 'dockVault':
-            if (phase === 'open') warmRepositoryOnOpen();
-            else warmRepositoryHubOnHover();
+            void loadRepositoryIntentWarm().then((m) => {
+                if (phase === 'open') m.warmRepositoryOnOpen();
+                else m.warmRepositoryHubOnHover();
+            });
             break;
         case 'dockTasks':
-            warmFieldTasksOnHover();
+            void import('@/app/hooks/lawyerDashboard/fieldTasksIntentWarm').then((m) => {
+                if (phase === 'open') m.warmFieldTasksOnOpen();
+                else m.warmFieldTasksOnHover();
+            });
             break;
         case 'alerts':
-            prefetchLawyerHomeHubCard();
-            prefetchNotificationPanel();
+            void loadLazyComponentsIntent().then((m) => {
+                m.prefetchLawyerHomeHubCard();
+                m.prefetchNotificationPanel();
+            });
             break;
         case 'forum':
-            warmForumOnHover();
+            void import('@/app/hooks/lawyerDashboard/forumIntentWarm').then((m) => {
+                if (phase === 'open') m.warmForumOnOpen();
+                else m.warmForumOnHover();
+            });
             break;
         case 'hubExecution':
         case 'hubLawsuit':
@@ -108,14 +132,16 @@ export function prefetchDockWidgetIntent(
             break;
         }
         default:
-            prefetchArchivePortal();
+            void loadLazyComponentsIntent().then((m) => m.prefetchArchivePortal());
             break;
     }
 }
 
 /** prefetch خفيف عند دخول منطقة الإنتاجية (settings drawer…) */
 export function prefetchProductivityIntent(): void {
-    warmSettingsShell();
-    warmNotepadAndProfile();
-    warmTasksWorkspace();
+    void loadLazyComponentsIntent().then((m) => {
+        m.warmSettingsShell();
+        m.warmNotepadAndProfile();
+        m.warmTasksWorkspace();
+    });
 }

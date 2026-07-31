@@ -20,7 +20,7 @@ const sampleProfile = (): LawyerProfileData => ({
                     id: 'a1',
                     type: 'call',
                     label: 'L'.repeat(80),
-                    value: 'V'.repeat(400),
+                    value: '07501234567',
                 },
             ],
         },
@@ -73,5 +73,32 @@ describe('profileWarmCache', () => {
         const visitorView = peekProfileWarmCache('lawyer-1', { viewerId: 'viewer-2' });
         expect(ownerView?.header.phone).toBe('07501234567');
         expect(visitorView?.header.phone).toBe('');
+    });
+
+    it('يفرض redact عند تمرير options بمشاهد فارغ (fail-closed)', () => {
+        setProfileWarmCache('lawyer-1', {
+            ...sampleProfile(),
+            header: {
+                ...sampleProfile().header,
+                phone: '07501234567',
+            },
+            customization: {
+                privacy: {
+                    showPhoneMeta: false,
+                    showCityMeta: true,
+                    showSyndicate: true,
+                    showContactChannels: true,
+                    showGallery: true,
+                    showCustomBlocks: true,
+                    hiddenContactIds: [],
+                },
+                appearance: { accentColor: 'gold', material: 'glass' },
+                customBlocks: [],
+            },
+        });
+        const emptyViewer = peekProfileWarmCache('lawyer-1', { viewerId: '' });
+        expect(emptyViewer?.header.phone).toBe('');
+        /* بلا options يبقى مسار المالك الداخلي كاملاً */
+        expect(peekProfileWarmCache('lawyer-1')?.header.phone).toBe('07501234567');
     });
 });

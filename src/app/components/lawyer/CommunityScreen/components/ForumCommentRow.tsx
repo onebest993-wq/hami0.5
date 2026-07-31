@@ -99,7 +99,7 @@ export function ForumCommentRow({
                     event.stopPropagation();
                     onOpenProfile(commentAuthorId, c.authorName);
                 }}
-                className="hover:text-[#F0B896] transition-colors"
+                className="hover:text-[#C9A86C] transition-colors"
             >
                 {c.authorName}
             </button>
@@ -129,7 +129,7 @@ export function ForumCommentRow({
 
     if (isEditing) {
         return (
-            <div className={`${indentClass} ${threadClass} ${FORUM_COMMENT_CARD} border-[#F0B896]/30`}>
+            <div className={`${indentClass} ${threadClass} ${FORUM_COMMENT_CARD} border-[#C9A86C]/30`}>
                 <div className="flex items-center gap-2 mb-2">
                     <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-white/50">
                         <User size={14} />

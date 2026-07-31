@@ -33,12 +33,12 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
     if (!showPreDecisionHearings) return null;
 
     return (
-                                                <div className="border border-white/10 bg-white/5 rounded-xl p-4">
-                                                    <div className="flex items-center justify-between gap-3">
-                                                        <div className="text-white font-extrabold text-sm flex items-center gap-2">
-                                                            <Calendar size={16} className="text-blue-200" />
-                                                            سجل الجلسات
-                                                        </div>
+        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2.5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+                <div className="text-white font-bold text-xs flex items-center gap-1.5">
+                    <Calendar size={14} className="text-white/40" />
+                    سجل الجلسات
+                </div>
                                                         {!isFinalized && (
                                                             <button
                                                                 type="button"
@@ -90,8 +90,8 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                         ) : null}
                                                         {hasSessions && isAdjourned ? (
                                                             <div className="border border-amber-500/25 bg-amber-500/10 rounded-lg px-3 py-2 text-amber-100 text-xs font-bold">
-                                                                ⚠️ لإدخال قرار القاضي، يجب إضافة جلسة جديدة واختيار (ختام المرافعة)
-                                                            </div>
+                                لإدخال قرار القاضي، أضف جلسة واختر ختام المرافعة
+                            </div>
                                                         ) : null}
                                                     </div>
 
@@ -236,7 +236,7 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                                         )}
                                                                     </div>
                                                                 ) : null}
-                                                            </div>
+                                                                </div>
 
                                                             {hearingDraft.outcome === 'adjourn' ? (
                                                                 <div>
@@ -287,7 +287,7 @@ export function JudgePreDecisionHearingsPanel(props: JudgeDecisionLifecyclePanel
                                                                     حفظ الجلسة
                                                                 </button>
                                                             </div>
-                                                        </div>
+                                                            </div>
                                                         </div>
                                                     )}
                                                 </div>

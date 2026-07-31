@@ -5,8 +5,14 @@ const NATIVE_BIOMETRIC_ENROLLED_KEY = 'hami:native-biometric-enrolled';
 
 const BIOMETRIC_MODULE = '@aparajita/capacitor-biometric-auth';
 
+type CheckBiometryResult = {
+    isAvailable: boolean;
+    strongBiometryIsAvailable?: boolean;
+    biometryType?: number;
+};
+
 type BiometricAuthApi = {
-    checkBiometry(): Promise<{ isAvailable: boolean }>;
+    checkBiometry(): Promise<CheckBiometryResult>;
     authenticate(options?: {
         reason?: string;
         cancelTitle?: string;
@@ -14,6 +20,7 @@ type BiometricAuthApi = {
         iosFallbackTitle?: string;
         androidTitle?: string;
         androidSubtitle?: string;
+        androidBiometryStrength?: number;
     }): Promise<void>;
 };
 
@@ -35,6 +42,15 @@ const AUTH_PROMPT = {
     androidTitle: 'قفل حامي',
     androidSubtitle: 'تحقق ببصمتك أو Face ID',
 } as const;
+
+export type NativeBiometricProbe = {
+    /** داخل غلاف Capacitor أصلي */
+    nativeShell: boolean;
+    /** نجح تحميل plugin */
+    pluginLoaded: boolean;
+    /** الجهاز يوفّر بصمة/Face ID */
+    hardwareAvailable: boolean;
+};
 
 export function isNativeBiometricPluginAvailable(): boolean {
     return isCapacitorNativePlatform();
@@ -62,6 +78,28 @@ function markNativeBiometricEnrolled(enrolled: boolean): void {
         else localStorage.removeItem(NATIVE_BIOMETRIC_ENROLLED_KEY);
     } catch {
         /* private mode */
+    }
+}
+
+/** فحص جاهزية البيومتري الأصلي دون نافذة مصادقة */
+export async function probeNativeBiometricAvailability(): Promise<NativeBiometricProbe> {
+    const nativeShell = isCapacitorNativePlatform();
+    if (!nativeShell) {
+        return { nativeShell: false, pluginLoaded: false, hardwareAvailable: false };
+    }
+    const plugin = await loadBiometricPlugin();
+    if (!plugin) {
+        return { nativeShell: true, pluginLoaded: false, hardwareAvailable: false };
+    }
+    try {
+        const result = await plugin.checkBiometry();
+        return {
+            nativeShell: true,
+            pluginLoaded: true,
+            hardwareAvailable: Boolean(result.isAvailable),
+        };
+    } catch {
+        return { nativeShell: true, pluginLoaded: true, hardwareAvailable: false };
     }
 }
 

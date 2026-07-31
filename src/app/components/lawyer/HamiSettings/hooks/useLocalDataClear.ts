@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { wipeAllApplicationData } from '@/app/services/settings/applicationWipe';
-import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
+import {
+    mintSensitiveConfirmChallenge,
+    verifySensitiveSettingsAction,
+} from '@/app/services/settings/verifySensitiveSettingsAction';
+import { registerSettingsWipeCountdownGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
 
 const COUNTDOWN_SECONDS = 10;
 const WIPE_CONFIRM_PHRASE = 'مسح نهائي';
@@ -13,22 +17,32 @@ export function useLocalDataClear(resetToDefaults: () => void) {
     const [wipePhase, setWipePhase] = useState<'idle' | 'countdown' | 'wiping'>('idle');
     const [countdown, setCountdown] = useState(0);
 
-    useEffect(() => {
-        return () => {
-            if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
-        };
-    }, []);
-
     const cancelCountdown = useCallback(() => {
         cancelledRef.current = true;
         if (countdownTimerRef.current) {
             window.clearInterval(countdownTimerRef.current);
             countdownTimerRef.current = null;
         }
+        registerSettingsWipeCountdownGuard(false);
         setWipePhase('idle');
         setCountdown(0);
         SmartToast.info('تم إلغاء المسح');
     }, []);
+
+    useEffect(() => {
+        return () => {
+            if (countdownTimerRef.current) window.clearInterval(countdownTimerRef.current);
+            registerSettingsWipeCountdownGuard(false);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (wipePhase === 'countdown') {
+            registerSettingsWipeCountdownGuard(true, cancelCountdown);
+            return;
+        }
+        registerSettingsWipeCountdownGuard(false);
+    }, [wipePhase, cancelCountdown]);
 
     const waitCountdown = useCallback((): Promise<boolean> => {
         cancelledRef.current = false;
@@ -66,10 +80,11 @@ export function useLocalDataClear(resetToDefaults: () => void) {
         );
         if (!okFirst) return;
 
+        const challenge = mintSensitiveConfirmChallenge(WIPE_CONFIRM_PHRASE);
         const verified = await verifySensitiveSettingsAction({
-            confirmPhrase: WIPE_CONFIRM_PHRASE,
+            confirmPhrase: challenge.confirmPhrase,
             title: 'تحقق قبل المسح',
-            promptMessage: `اكتب «${WIPE_CONFIRM_PHRASE}» للمتابعة:`,
+            promptMessage: challenge.promptMessage,
         });
         if (!verified) return;
 

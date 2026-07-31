@@ -9,6 +9,9 @@ import {
     readDevMockAccessToken,
 } from '@/app/utils/authStorage';
 import { isBffAuthEnabled, fetchBffWifeSignedHeaders } from '@/app/utils/bffAuthClient';
+import { SecureFetchError } from '@/app/services/SecureFetchError';
+
+export { SecureFetchError } from '@/app/services/SecureFetchError';
 
 type NativeFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 
@@ -146,19 +149,6 @@ function tryParseJson(text: string): unknown {
         return JSON.parse(text) as unknown;
     } catch {
         return text;
-    }
-}
-
-export class SecureFetchError extends Error {
-    public readonly status: number;
-    public readonly bodyText: string;
-    public readonly url: string;
-    constructor(message: string, status: number, bodyText: string, url: string) {
-        super(message);
-        this.name = 'SecureFetchError';
-        this.status = status;
-        this.bodyText = bodyText;
-        this.url = url;
     }
 }
 

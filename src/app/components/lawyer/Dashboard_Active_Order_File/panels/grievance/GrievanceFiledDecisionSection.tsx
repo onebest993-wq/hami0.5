@@ -1,6 +1,21 @@
 import React from 'react';
 import { DatePickerField } from '../../components/DatePickerField';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
+import {
+    URGENT_DOSSIER_INPUT,
+    URGENT_DOSSIER_PILL_BASE,
+    URGENT_DOSSIER_PILL_IDLE,
+} from '../../layout/urgentDossierUi';
+
+const DECISION_OPTIONS: Array<{
+    value: 'confirmed' | 'canceled' | 'modified';
+    label: string;
+    active: string;
+}> = [
+    { value: 'confirmed', label: 'تأييد الأمر الولائي', active: 'border-emerald-500/45 bg-emerald-500/15 text-emerald-100' },
+    { value: 'canceled', label: 'إلغاء الأمر الولائي', active: 'border-rose-500/45 bg-rose-500/15 text-rose-100' },
+    { value: 'modified', label: 'تعديل الأمر الولائي', active: 'border-amber-500/45 bg-amber-500/15 text-amber-100' },
+];
 
 export function GrievanceFiledDecisionSection(props: GrievanceLifecyclePanelProps) {
     const {
@@ -16,71 +31,43 @@ export function GrievanceFiledDecisionSection(props: GrievanceLifecyclePanelProp
     if (!showGrievanceDecisionForm) return null;
 
     return (
-                                                                    <div ref={grievanceFinalGateRef} className="mt-5 border border-white/10 bg-white/5 rounded-xl p-4 space-y-4">
-                                                                        <div className="text-white font-extrabold text-sm">4️⃣ ⚖️ قرار قاضي التظلم (نهاية المرحلة)</div>
-                                                                        <div className="space-y-3">
-                                                                            <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
-                                                                                <input
-                                                                                    type="radio"
-                                                                                    name="grievanceDecision"
-                                                                                    value="confirmed"
-                                                                                    checked={grievanceDecision.decision === 'confirmed'}
-                                                                                    onChange={() => setGrievanceDecision({ ...grievanceDecision, decision: 'confirmed' })}
-                                                                                    disabled={grievanceWizardInputsLocked}
-                                                                                    className="accent-emerald-500"
-                                                                                />
-                                                                                <div className="flex-1">
-                                                                                    <p className="text-white font-bold">تأييد الأمر الولائي</p>
-                                                                                </div>
-                                                                            </label>
-                                                                            <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
-                                                                                <input
-                                                                                    type="radio"
-                                                                                    name="grievanceDecision"
-                                                                                    value="canceled"
-                                                                                    checked={grievanceDecision.decision === 'canceled'}
-                                                                                    onChange={() => setGrievanceDecision({ ...grievanceDecision, decision: 'canceled' })}
-                                                                                    disabled={grievanceWizardInputsLocked}
-                                                                                    className="accent-red-500"
-                                                                                />
-                                                                                <div className="flex-1">
-                                                                                    <p className="text-white font-bold">إلغاء الأمر الولائي</p>
-                                                                                </div>
-                                                                            </label>
-                                                                            <label className="flex items-center gap-3 p-4 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg cursor-pointer transition-all">
-                                                                                <input
-                                                                                    type="radio"
-                                                                                    name="grievanceDecision"
-                                                                                    value="modified"
-                                                                                    checked={grievanceDecision.decision === 'modified'}
-                                                                                    onChange={() => setGrievanceDecision({ ...grievanceDecision, decision: 'modified' })}
-                                                                                    disabled={grievanceWizardInputsLocked}
-                                                                                    className="accent-amber-500"
-                                                                                />
-                                                                                <div className="flex-1">
-                                                                                    <p className="text-white font-bold">تعديل الأمر الولائي</p>
-                                                                                </div>
-                                                                            </label>
-                                                                        </div>
+        <div ref={grievanceFinalGateRef} className="mt-5 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-3 space-y-3">
+            <div className="text-xs font-bold text-white/80">قرار قاضي التظلم (نهاية المرحلة)</div>
 
-                                                                        <div>
-                                                                            <label className="block text-white/70 text-sm mb-2">
-                                                                                تاريخ صدور قرار التظلم <span className="text-red-400">*</span>
-                                                                            </label>
-                                                                            <DatePickerField
-                                                                                value={grievanceDecision.decisionDate || ''}
-                                                                                onValueChange={(v) => setGrievanceDecision({ ...grievanceDecision, decisionDate: v })}
-                                                                                min={grievanceDecisionMinYmd || undefined}
-                                                                                disabled={grievanceWizardInputsLocked || !grievanceDecision.decision}
-                                                                                inputClassName="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white focus:border-purple-500/50 focus:outline-none"
-                                                                            />
-                                                                            {!!grievanceDecisionDateChronologyError && (
-                                                                                <div className="mt-1 text-red-200 text-xs font-bold">
-                                                                                    {grievanceDecisionDateChronologyError}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {DECISION_OPTIONS.map((opt) => {
+                    const selected = grievanceDecision.decision === opt.value;
+                    return (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            disabled={grievanceWizardInputsLocked}
+                            onClick={() => setGrievanceDecision({ ...grievanceDecision, decision: opt.value })}
+                            className={`${URGENT_DOSSIER_PILL_BASE} ${
+                                selected ? opt.active : URGENT_DOSSIER_PILL_IDLE
+                            }`}
+                        >
+                            {opt.label}
+                        </button>
+                    );
+                })}
+            </div>
 
-                                                                    </div>
+            <div>
+                <label className="block text-[10px] font-bold text-white/40 uppercase tracking-wide mb-1">
+                    تاريخ صدور قرار التظلم <span className="text-red-400">*</span>
+                </label>
+                <DatePickerField
+                    value={grievanceDecision.decisionDate || ''}
+                    onValueChange={(v) => setGrievanceDecision({ ...grievanceDecision, decisionDate: v })}
+                    min={grievanceDecisionMinYmd || undefined}
+                    disabled={grievanceWizardInputsLocked || !grievanceDecision.decision}
+                    inputClassName={URGENT_DOSSIER_INPUT}
+                />
+                {!!grievanceDecisionDateChronologyError && (
+                    <div className="mt-1 text-red-200 text-[11px] font-bold">{grievanceDecisionDateChronologyError}</div>
+                )}
+            </div>
+        </div>
     );
 }

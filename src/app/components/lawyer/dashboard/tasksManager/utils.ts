@@ -1,9 +1,20 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { WORK_WEEK_LAST_OFFSET } from './constants';
+import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from './constants';
 import { addDays, startOfLocalDay } from '@/app/utils/nlpParser';
-import { removeTaskVoiceAttachment } from '@/app/services/tasks/taskVoiceAttachment';
+import {
+    isTaskDayOverdueIncomplete,
+    isTaskInCurrentAgendaWeek,
+    isTaskMarkedDone,
+} from '@/app/services/tasks/taskAgendaStatusLite';
 
+export { isTaskDayOverdueIncomplete, isTaskInCurrentAgendaWeek, isTaskMarkedDone };
 export const COMPLETED_TASK_RETENTION_DAYS = 30;
+
+function scheduleVoiceAttachmentCleanup(voiceRef: string): void {
+    void import('@/app/services/tasks/taskVoiceAttachment')
+        .then(({ removeTaskVoiceAttachment }) => removeTaskVoiceAttachment(voiceRef))
+        .catch(() => undefined);
+}
 
 export function getSaturdayOfWeekContaining(ref: Date): Date {
     const d = startOfLocalDay(ref);
@@ -16,10 +27,6 @@ export function getSaturdayOfWeekContaining(ref: Date): Date {
 
 export function taskCompletedAt(task: LegalTask): Date | null {
     return task.completedAt ?? null;
-}
-
-export function isTaskMarkedDone(task: LegalTask): boolean {
-    return task.completedAt != null;
 }
 
 /** يوم المهمة في الأجندة — تاريخ المهمة أو يوم الإنجاز للمهام بلا تاريخ */
@@ -36,27 +43,11 @@ export function isTaskAgendaReadOnly(task: LegalTask, now = new Date()): boolean
     return startOfLocalDay(taskDay).getTime() < startOfLocalDay(now).getTime();
 }
 
-export function isTaskInCurrentAgendaWeek(task: LegalTask, now = new Date()): boolean {
-    if (!task.parsedDate) return true;
-    const taskWeek = getSaturdayOfWeekContaining(task.parsedDate).getTime();
-    const thisWeek = getSaturdayOfWeekContaining(now).getTime();
-    return taskWeek === thisWeek;
-}
-
 export function isTaskArchivedToHistory(task: LegalTask, now = new Date()): boolean {
     if (!task.parsedDate || task.isFatalDeadline) return false;
     const taskWeek = getSaturdayOfWeekContaining(task.parsedDate).getTime();
     const thisWeek = getSaturdayOfWeekContaining(now).getTime();
     return taskWeek < thisWeek;
-}
-
-/** يوم المهمة انتهى ولم يُضغط «إنهاء المهمة» */
-export function isTaskDayOverdueIncomplete(task: LegalTask, now = new Date()): boolean {
-    if (isTaskMarkedDone(task)) return false;
-    if (!task.parsedDate) return false;
-    const day = startOfLocalDay(task.parsedDate).getTime();
-    const today = startOfLocalDay(now).getTime();
-    return day < today && isTaskInCurrentAgendaWeek(task, now);
 }
 
 /** عند بداية أسبوع جديد: نقل مهام الأسبوع السابق إلى أرشيف المهام المنتهية */
@@ -78,11 +69,11 @@ export function purgeExpiredCompletedTasks(tasks: LegalTask[], now = new Date())
         if (!isTaskArchivedToHistory(t, now)) return true;
         const ref = t.parsedDate ?? t.completedAt;
         if (!ref) {
-            if (t.voiceRef) void removeTaskVoiceAttachment(t.voiceRef);
+            if (t.voiceRef) scheduleVoiceAttachmentCleanup(t.voiceRef);
             return false;
         }
         const keep = startOfLocalDay(ref).getTime() >= cutoff;
-        if (!keep && t.voiceRef) void removeTaskVoiceAttachment(t.voiceRef);
+        if (!keep && t.voiceRef) scheduleVoiceAttachmentCleanup(t.voiceRef);
         return keep;
     });
 }
@@ -131,6 +122,85 @@ export function isDeferredSnoozedTask(task: LegalTask, now = new Date()): boolea
     if (!taskWeek) return false;
     const thisWeek = getSaturdayOfWeekContaining(now).getTime();
     return taskWeek.getTime() > thisWeek;
+}
+
+export type AgendaWeeklyDayBlock = {
+    key: (typeof WORK_WEEK)[number]['key'];
+    label: string;
+    offset: number;
+    dayDate: Date;
+    tasks: LegalTask[];
+};
+
+export type AgendaPendingPartition = {
+    weeklyDayBlocks: AgendaWeeklyDayBlock[];
+    distantTasks: LegalTask[];
+    fatalTasks: LegalTask[];
+};
+
+/**
+ * مرور واحد على pendingTasks → أسبوع + بعيدة + حتمية.
+ * يستبدل 6–8 مرّات filter لكل تحديث.
+ */
+export function partitionAgendaPendingTasks(
+    pendingTasks: LegalTask[],
+    now: Date,
+): AgendaPendingPartition {
+    const weekStart = getSaturdayOfWeekContaining(now);
+    const wsT = weekStart.getTime();
+    const weT = addDays(weekStart, WORK_WEEK_LAST_OFFSET).getTime();
+    const todayT = startOfLocalDay(now).getTime();
+    const dayMs = 86_400_000;
+
+    const dayBuckets: LegalTask[][] = WORK_WEEK.map(() => []);
+    const distant: LegalTask[] = [];
+    const fatal: LegalTask[] = [];
+
+    for (const t of pendingTasks) {
+        if (
+            t.isFatalDeadline &&
+            !t.completedAt &&
+            !(t.parsedDate && startOfLocalDay(t.parsedDate).getTime() < todayT)
+        ) {
+            fatal.push(t);
+        }
+
+        if (isDeferredSnoozedTask(t, now)) {
+            distant.push(t);
+            continue;
+        }
+
+        if (t.parsedDate === null) continue;
+
+        if (!isTaskInCurrentAgendaWeek(t, now)) {
+            const taskWeek = getSaturdayOfWeekContaining(t.parsedDate).getTime();
+            if (taskWeek > wsT) distant.push(t);
+            continue;
+        }
+
+        const dayT = startOfLocalDay(t.parsedDate).getTime();
+        const offset = Math.round((dayT - wsT) / dayMs);
+        if (offset >= 0 && offset < WORK_WEEK.length) {
+            dayBuckets[offset]!.push(t);
+        } else if (dayT < wsT || dayT > weT) {
+            distant.push(t);
+        }
+    }
+
+    fatal.sort((a, b) => {
+        const aT = a.parsedDate?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bT = b.parsedDate?.getTime() ?? Number.POSITIVE_INFINITY;
+        if (aT !== bT) return aT - bT;
+        return a.title.localeCompare(b.title, 'ar');
+    });
+
+    const weeklyDayBlocks: AgendaWeeklyDayBlock[] = WORK_WEEK.map((d, i) => ({
+        ...d,
+        dayDate: addDays(weekStart, d.offset),
+        tasks: dayBuckets[i] ?? [],
+    }));
+
+    return { weeklyDayBlocks, distantTasks: distant, fatalTasks: fatal };
 }
 
 /** مهمة مؤجلة — حان أسبوعها؛ تُرقّى إلى الأجندة الأساسية بيوم الموعد */

@@ -1,5 +1,5 @@
 import { isExecutorRequestAppealCycleSupersededFromRecord } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
-import type { OtherPartyRequestTrackEntry, OtherPartyTrackedExecutorOutcome } from '@/app/types/execution';
+import type { OtherPartyRequestTrackEntry } from '@/app/types/execution';
 import {
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,

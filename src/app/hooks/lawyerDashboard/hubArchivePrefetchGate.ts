@@ -3,7 +3,6 @@ import {
     type HubArchivePrefetchPhase,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardIntentPrefetch';
 import { prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
-import { prefetchTransactionsHub } from '@/app/utils/lazyComponents';
 
 const HUB_ARCHIVE_PREFETCH_COOLDOWN_MS = 300;
 const lastPrefetchAt = new Map<string, number>();
@@ -40,7 +39,10 @@ export function scheduleTransactionHubTileIdlePrefetch(): void {
 
     const run = () => {
         prefetchHubArchiveIntentDebounced('transaction');
-        prefetchTransactionsHub();
+        // dynamic — يمنع دورة CommandHubTiles → lazyComponents → SAC → LawyerDashboard (TDZ)
+        void import('@/app/utils/lazyComponents')
+            .then((m) => m.prefetchTransactionsHub())
+            .catch(() => undefined);
         prefetchTransactionsHubModule();
     };
 

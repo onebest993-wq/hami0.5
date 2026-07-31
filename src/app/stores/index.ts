@@ -13,21 +13,7 @@
 // STORES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export {
-    useAppStore,
-    selectIsAuthenticated,
-    selectCurrentUser,
-    selectCurrentScreen,
-    selectExecutionFiles,
-    selectSelectedExecution,
-    selectIsLoading,
-    selectSettings,
-    selectToasts,
-    selectIsSidebarOpen,
-    selectExecutionFileById,
-    selectExecutionFilesCount,
-    selectUnpaidExecutions,
-} from './appStore';
+// appStore.ts deleted (Wave 7) — AuthContext + AppRuntimeShell own nav/auth.
 
 export {
     useExecutionDashboardStore,

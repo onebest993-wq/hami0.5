@@ -1,8 +1,0 @@
-﻿=== PAGE ERRORS ===
-
-=== INTERESTING CONSOLE ===
-
-=== ALL BY TYPE ===
-{}
-total messages: 0
-No warnings captured in headless run

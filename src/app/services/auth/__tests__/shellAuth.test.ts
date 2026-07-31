@@ -36,13 +36,22 @@ describe('shellAuth', () => {
         expect(resolveShellAuthUserId(null, GUEST_LAWYER_ID)).toBe(GUEST_LAWYER_ID);
     });
 
-    it('isShellAuthBypassed is true on static production without BFF', () => {
+    it('isShellAuthBypassed is false on production when BFF auth is enabled', () => {
         vi.stubEnv('MODE', 'production');
         vi.stubEnv('PROD', 'true');
         vi.stubEnv('DEV', 'false');
         vi.stubEnv('VITE_SHELL_AUTH_OPEN', '');
+        vi.stubEnv('VITE_BFF_AUTH', 'true');
+        expect(isShellAuthBypassed()).toBe(false);
+    });
+
+    it('isShellAuthBypassed respects VITE_SHELL_AUTH_OPEN=false even in static SPA prod', () => {
+        vi.stubEnv('MODE', 'production');
+        vi.stubEnv('PROD', 'true');
+        vi.stubEnv('DEV', 'false');
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
         vi.stubEnv('VITE_BFF_AUTH', '');
-        expect(isShellAuthBypassed()).toBe(true);
+        expect(isShellAuthBypassed()).toBe(false);
     });
 
     it('isShellAuthBypassed respects VITE_SHELL_AUTH_OPEN=true', () => {

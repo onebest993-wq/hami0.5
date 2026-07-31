@@ -1,9 +1,12 @@
 import { useCallback, useMemo, useRef } from 'react';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { SecretaryOrchestrator } from '@/app/services/SecretaryOrchestrator';
 import { secretaryAlertToSmartAlert } from '@/app/services/alertMappers';
 import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
-import { alertsForHorizon, horizonCounts } from '@/app/services/alertTimeClassification';
+import {
+    alertsForHorizon,
+    classifySecretaryAlertsByHorizon,
+    horizonCounts,
+} from '@/app/services/alertTimeClassification';
 import { PRIORITY_ORDER } from './constants';
 import type { SmartAlert } from './types';
 
@@ -22,7 +25,7 @@ function mapAndSort(alerts: SecretaryAlert[]): SmartAlert[] {
  */
 export function useNeuralAlertsFromSecretary(secretaryAlerts: SecretaryAlert[]) {
     const classified = useMemo(
-        () => SecretaryOrchestrator.classifyAlertsByHorizon(secretaryAlerts),
+        () => classifySecretaryAlertsByHorizon(secretaryAlerts),
         [secretaryAlerts],
     );
 

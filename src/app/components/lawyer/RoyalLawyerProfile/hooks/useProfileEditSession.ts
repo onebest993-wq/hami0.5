@@ -6,13 +6,17 @@ import {
     type ProfilePageCustomization,
 } from '@/app/services/profile/profilePageCustomization';
 import { createProfileSaveQueue } from '@/app/services/profile/profileSaveQueue';
-import { withProfileSaveTimeout } from '@/app/services/profile/profileSaveTimeout';
 import { setProfileWarmCache } from '@/app/services/profile/profileWarmCache';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import {
     clampProfileDisplayName,
-    sanitizeProfileActions,
+    clampProfileContactLabel,
+    clampProfileContactValue,
+    sanitizeProfileActionsForPersist,
+    sanitizeProfileHeaderPhone,
+    ProfileContactValidationError,
 } from '@/app/services/profile/profileContactInputSecurity';
+import { discardEditDraftOrphanMedia, discardUnsavedMediaPath } from '@/app/services/profile/editDraftMediaPaths';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import { buildSections, getActions, getGallery } from '@/app/components/lawyer/RoyalLawyerProfile/utils/profileSections';
@@ -23,6 +27,8 @@ type UseProfileEditSessionArgs = {
     profile: LawyerProfileData | null;
     setProfile: (profile: LawyerProfileData) => void;
     profileRef: React.MutableRefObject<LawyerProfileData | null>;
+    /** يُستدعى بعد اجتياز التحقق وقبل مغادرة التحرير — لإبطال رفع وسائط قيد التنفيذ */
+    onEditPersistStart?: () => void;
 };
 
 export function useProfileEditSession({
@@ -31,11 +37,22 @@ export function useProfileEditSession({
     profile,
     setProfile,
     profileRef,
+    onEditPersistStart,
 }: UseProfileEditSessionArgs) {
     const [isEditing, setIsEditing] = useState(false);
     const [draft, setDraft] = useState<EditDraft | null>(null);
     const [saving, setSaving] = useState(false);
     const editInFlightRef = useRef(false);
+    const editLoadGenRef = useRef(0);
+    const saveEpochRef = useRef(0);
+    /** منفصل عن saveEpoch — لا يُبطَل بـ startEdit/cancelEdit حتى لا يعلق زر الحفظ */
+    const savingAttemptRef = useRef(0);
+    const draftRef = useRef<EditDraft | null>(null);
+    const userIdRef = useRef(userId);
+    const isOwnProfileRef = useRef(isOwnProfile);
+    draftRef.current = draft;
+    userIdRef.current = userId;
+    isOwnProfileRef.current = isOwnProfile;
     const enqueueProfileSave = useRef(createProfileSaveQueue()).current;
 
     const buildEditDraft = useCallback((): EditDraft | null => {
@@ -50,56 +67,23 @@ export function useProfileEditSession({
     const startEdit = useCallback(() => {
         if (!isOwnProfile) return;
         if (editInFlightRef.current) return;
+        /* إبطال استرجاع مسودة من حفظ فاشل سابق إن بدأت جلسة أحدث */
+        saveEpochRef.current += 1;
         const base = buildEditDraft();
         if (base) {
-            //#region debug-point profile-edit-start-base
-            fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'profile-edit-persist',
-                    runId: 'post-fix',
-                    hypothesisId: 'A',
-                    location: 'useProfileEditSession.ts:startEdit:base',
-                    msg: '[DEBUG] startEdit used existing profile draft',
-                    data: {
-                        userId,
-                        name: base.header.name ?? null,
-                        actionsCount: base.actions.length,
-                        imagePath: base.header.profileImagePath ?? null,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => undefined);
-            //#endregion debug-point profile-edit-start-base
             setDraft(base);
             setIsEditing(true);
             return;
         }
         editInFlightRef.current = true;
+        const requestUserId = userId;
+        const loadGen = ++editLoadGenRef.current;
         SmartToast.info('جاري تحميل الملف للتعديل...');
-        void ProfileDB.getProfile(userId)
+        void ProfileDB.getProfile(requestUserId)
             .then((p) => {
-                if (!isOwnProfile) return;
-                //#region debug-point profile-edit-start-async
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessionId: 'profile-edit-persist',
-                        runId: 'post-fix',
-                        hypothesisId: 'A',
-                        location: 'useProfileEditSession.ts:startEdit:loaded',
-                        msg: '[DEBUG] startEdit loaded profile for editing',
-                        data: {
-                            userId,
-                            name: p.header?.name ?? null,
-                            imagePath: p.header?.profileImagePath ?? null,
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => undefined);
-                //#endregion debug-point profile-edit-start-async
+                if (loadGen !== editLoadGenRef.current) return;
+                if (requestUserId !== userIdRef.current) return;
+                if (!isOwnProfileRef.current) return;
                 setProfile(p);
                 setDraft({
                     header: { ...p.header },
@@ -109,124 +93,213 @@ export function useProfileEditSession({
                 setIsEditing(true);
             })
             .catch(() => {
+                if (loadGen !== editLoadGenRef.current) return;
                 SmartToast.error('تعذر تحميل الملف للتعديل');
             })
             .finally(() => {
-                editInFlightRef.current = false;
+                if (loadGen === editLoadGenRef.current) {
+                    editInFlightRef.current = false;
+                }
             });
     }, [buildEditDraft, userId, isOwnProfile, setProfile]);
 
     const cancelEdit = useCallback(() => {
+        editLoadGenRef.current += 1;
+        saveEpochRef.current += 1;
+        editInFlightRef.current = false;
+        discardEditDraftOrphanMedia(draftRef.current, profileRef.current);
         setDraft(null);
         setIsEditing(false);
-    }, []);
+    }, [profileRef]);
 
     const saveProfile = useCallback(
-        async (customizationOverride?: ProfilePageCustomization) => {
-            if (!userId || !draft || !isOwnProfile) return;
+        async (customizationOverride?: ProfilePageCustomization): Promise<boolean> => {
+            if (!userId || !draft || !isOwnProfile) return false;
             const editDraft = draft;
             const current = profileRef.current;
-            if (!current) return;
-            const payload: LawyerProfileData = {
-                header: {
-                    ...editDraft.header,
-                    name: clampProfileDisplayName(editDraft.header.name ?? ''),
-                },
-                sections: buildSections({
-                    ...editDraft,
-                    actions: sanitizeProfileActions(editDraft.actions),
-                }),
-                customization: normalizeProfilePageCustomization(
-                    customizationOverride ?? current.customization,
-                ),
+            if (!current) return false;
+            const previousProfile: LawyerProfileData = {
+                ...current,
+                header: { ...current.header },
+                sections: current.sections.map((section) => ({ ...section })),
+                customization: current.customization,
             };
-            //#region debug-point profile-edit-save-start
-            fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'profile-edit-persist',
-                    runId: 'post-fix',
-                    hypothesisId: 'B',
-                    location: 'useProfileEditSession.ts:saveProfile:start',
-                    msg: '[DEBUG] saveProfile prepared payload',
-                    data: {
-                        userId,
-                        draftName: editDraft.header.name ?? null,
-                        payloadName: payload.header.name ?? null,
-                        actionsCount: editDraft.actions.length,
-                        payloadSectionsCount: payload.sections.length,
-                        imagePath: payload.header.profileImagePath ?? null,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => undefined);
-            //#endregion debug-point profile-edit-save-start
+            const previousAvatarPath = current.header.profileImagePath?.trim() || undefined;
+            let persistActions;
+            try {
+                persistActions = sanitizeProfileActionsForPersist(editDraft.actions);
+            } catch (error) {
+                const message =
+                    error instanceof ProfileContactValidationError
+                        ? error.message
+                        : 'بيانات التواصل غير صالحة';
+                SmartToast.error(message);
+                return false;
+            }
+            const name = clampProfileDisplayName(editDraft.header.name ?? '');
+            if (!name) {
+                SmartToast.error('الاسم مطلوب قبل الحفظ');
+                return false;
+            }
+            const actionIds = new Set(persistActions.map((a) => a.id));
+            const header = {
+                ...editDraft.header,
+                name,
+                title: clampProfileContactLabel(editDraft.header.title ?? ''),
+                phone: sanitizeProfileHeaderPhone(editDraft.header.phone),
+                city: clampProfileContactLabel(editDraft.header.city ?? ''),
+                syndicateId: clampProfileContactValue(editDraft.header.syndicateId ?? ''),
+            };
+            const sections = buildSections({
+                ...editDraft,
+                actions: persistActions,
+            });
+            const baseCustomization = normalizeProfilePageCustomization(
+                customizationOverride ?? current.customization,
+            );
+            const customization = {
+                ...baseCustomization,
+                privacy: {
+                    ...baseCustomization.privacy,
+                    hiddenContactIds: baseCustomization.privacy.hiddenContactIds.filter((id) =>
+                        actionIds.has(id),
+                    ),
+                },
+            };
+            const optimistic: LawyerProfileData = { header, sections, customization };
+            const saveEpoch = ++saveEpochRef.current;
+            const savingAttempt = ++savingAttemptRef.current;
+            /* أبطل رفعاً معلّقاً قبل مسح المسودة — وإلا يُعيد فتح التحرير بصورة يتيمة */
+            onEditPersistStart?.();
             setSaving(true);
             try {
-                await withProfileSaveTimeout(
-                    enqueueProfileSave(async () => {
-                        await ProfileDB.saveProfile(userId, payload, userId);
-                    }),
-                    12_000,
-                );
-                setProfile(payload);
-                setProfileWarmCache(userId, payload);
+                /* خروج فوري من التحرير — الحفظ السحابي لا يحجب الواجهة */
+                setProfile(optimistic);
+                setProfileWarmCache(userId, optimistic);
+                flushSync(() => {
+                    setIsEditing(false);
+                    setDraft(null);
+                });
+                const saveResult = await enqueueProfileSave(async () => {
+                        /* دمج تخصيص أحدث من الاستوديو إن حُفظ بالتوازي */
+                        const latest = profileRef.current;
+                        const latestCustomization = normalizeProfilePageCustomization(
+                            customizationOverride ?? latest?.customization ?? customization,
+                        );
+                        const toSave: LawyerProfileData = {
+                            header,
+                            sections,
+                            customization: {
+                                ...latestCustomization,
+                                privacy: {
+                                    ...latestCustomization.privacy,
+                                    hiddenContactIds: latestCustomization.privacy.hiddenContactIds.filter(
+                                        (id) => actionIds.has(id),
+                                    ),
+                                },
+                            },
+                        };
+                        const result = await ProfileDB.saveProfile(userId, toSave, userId);
+                        const cloudSynced = result?.cloudSynced !== false;
+                        /*
+                         * GC بعد كتابة ناجحة دائماً — لا تربطه بـ userIdRef
+                         * (تبديل الملف أثناء الحفظ كان يترك وسائط يتيمة).
+                         */
+                        if (cloudSynced) {
+                            const nextAvatarPath = toSave.header.profileImagePath?.trim() || undefined;
+                            if (previousAvatarPath && previousAvatarPath !== nextAvatarPath) {
+                                void import('@/app/services/profileMediaService')
+                                    .then((m) => m.removeProfileMediaPaths([previousAvatarPath]))
+                                    .catch(() => undefined);
+                            }
+                            const prevGalleryPaths = new Set(
+                                getGallery(previousProfile.sections)
+                                    .map((g) => g.storagePath?.trim())
+                                    .filter((p): p is string => Boolean(p)),
+                            );
+                            const nextGalleryPaths = new Set(
+                                getGallery(toSave.sections)
+                                    .map((g) => g.storagePath?.trim())
+                                    .filter((p): p is string => Boolean(p)),
+                            );
+                            const orphanedGallery = [...prevGalleryPaths].filter(
+                                (p) => !nextGalleryPaths.has(p),
+                            );
+                            if (orphanedGallery.length > 0) {
+                                void import('@/app/services/profileMediaService')
+                                    .then((m) => m.removeProfileMediaPaths(orphanedGallery))
+                                    .catch(() => undefined);
+                            }
+                        }
+                        /* لا تكتب الواجهة إن بدأت جلسة أحدث أو تغيّر الملف */
+                        if (
+                            saveEpoch === saveEpochRef.current &&
+                            userId === userIdRef.current &&
+                            isOwnProfileRef.current
+                        ) {
+                            setProfile(toSave);
+                            setProfileWarmCache(userId, toSave);
+                        }
+                        return { toSave, cloudSynced };
+                    });
+                /* الحفظ نجح في التخزين — حتى لو بُطلت جلسة الواجهة بعد التبديل */
+                if (saveEpoch !== saveEpochRef.current || userId !== userIdRef.current) {
+                    return true;
+                }
                 if (typeof window !== 'undefined') {
                     window.dispatchEvent(
                         new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }),
                     );
                 }
-                //#region debug-point profile-edit-save-success
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessionId: 'profile-edit-persist',
-                        runId: 'post-fix',
-                        hypothesisId: 'A',
-                        location: 'useProfileEditSession.ts:saveProfile:success',
-                        msg: '[DEBUG] saveProfile completed successfully',
-                        data: {
-                            userId,
-                            payloadName: payload.header.name ?? null,
-                            imagePath: payload.header.profileImagePath ?? null,
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => undefined);
-                //#endregion debug-point profile-edit-save-success
-                flushSync(() => {
-                    setIsEditing(false);
-                    setDraft(null);
-                });
-                SmartToast.success('تم حفظ الملف الشخصي');
+                if (!saveResult.cloudSynced) {
+                    const { isKvProxyNetworkEnabled } = await import('@/app/services/kvProxyConfig');
+                    if (isKvProxyNetworkEnabled()) {
+                        SmartToast.warning('حُفظ على الجهاز — تعذر المزامنة السحابية. أعد المحاولة لاحقاً');
+                    } else {
+                        SmartToast.success('تم حفظ الملف الشخصي');
+                    }
+                } else {
+                    SmartToast.success('تم حفظ الملف الشخصي');
+                }
+                return true;
             } catch (error) {
-                //#region debug-point profile-edit-save-failed
-                fetch('http://127.0.0.1:7777/event', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sessionId: 'profile-edit-persist',
-                        runId: 'post-fix',
-                        hypothesisId: 'A',
-                        location: 'useProfileEditSession.ts:saveProfile:failed',
-                        msg: '[DEBUG] saveProfile failed',
-                        data: {
-                            userId,
-                            errorMessage: error instanceof Error ? error.message : null,
-                        },
-                        ts: Date.now(),
-                    }),
-                }).catch(() => undefined);
-                //#endregion debug-point profile-edit-save-failed
+                const timedOut =
+                    error instanceof Error && error.message === 'profile-save-timeout';
+                /*
+                 * المهلة لا تلغي الحفظ الجاري (محلي أولاً ثم سحابة).
+                 * التراجع هنا كان يُظهر ملفاً قديماً بينما التخزين يكتب النسخة الجديدة.
+                 */
+                if (timedOut) {
+                    if (saveEpoch === saveEpochRef.current) {
+                        SmartToast.warning(
+                            'الحفظ يستغرق وقتاً أطول من المتوقع — قد يكون اكتمل على الجهاز',
+                        );
+                    }
+                    return true;
+                }
+                /* لا تُبطل جلسة تحرير أحدث بدأت بعد هذا الحفظ */
+                if (saveEpoch === saveEpochRef.current) {
+                    setProfile(previousProfile);
+                    setProfileWarmCache(userId, previousProfile);
+                    flushSync(() => {
+                        setDraft(editDraft);
+                        setIsEditing(true);
+                    });
+                    if (typeof window !== 'undefined') {
+                        window.dispatchEvent(
+                            new CustomEvent(LAWYER_PROFILE_UPDATED, { detail: { userId } }),
+                        );
+                    }
+                }
                 SmartToast.error('فشل حفظ الملف الشخصي');
-                throw error;
+                return false;
             } finally {
-                setSaving(false);
+                if (savingAttempt === savingAttemptRef.current) {
+                    setSaving(false);
+                }
             }
         },
-        [userId, draft, isOwnProfile, enqueueProfileSave, profileRef, setProfile],
+        [userId, draft, isOwnProfile, enqueueProfileSave, profileRef, setProfile, onEditPersistStart],
     );
 
     const ensureEditDraft = useCallback((): EditDraft | null => {
@@ -244,6 +317,11 @@ export function useProfileEditSession({
             setDraft((current) => {
                 const base = current ?? buildEditDraft();
                 if (!base) return current;
+                const previousPath = base.header.profileImagePath?.trim();
+                const committedPath = profileRef.current?.header.profileImagePath?.trim();
+                if (previousPath && previousPath !== storagePath?.trim()) {
+                    discardUnsavedMediaPath(previousPath, committedPath);
+                }
                 return {
                     ...base,
                     header: {
@@ -255,7 +333,7 @@ export function useProfileEditSession({
             });
             setIsEditing(true);
         },
-        [isOwnProfile, buildEditDraft],
+        [isOwnProfile, buildEditDraft, profileRef],
     );
 
     const addContactChannel = useCallback(
@@ -264,8 +342,8 @@ export function useProfileEditSession({
                 whatsapp: 'واتساب',
                 call: 'هاتف',
                 email: 'بريد',
-                website: 'موقع',
-                location: 'موقع',
+                website: 'موقع ويب',
+                location: 'الموقع',
             };
             setDraft((current) => {
                 const base = current ?? buildEditDraft();
@@ -287,24 +365,6 @@ export function useProfileEditSession({
                     ],
                 };
             });
-            //#region debug-point profile-edit-add-channel
-            fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    sessionId: 'profile-edit-persist',
-                    runId: 'post-fix',
-                    hypothesisId: 'B',
-                    location: 'useProfileEditSession.ts:addContactChannel',
-                    msg: '[DEBUG] addContactChannel invoked',
-                    data: {
-                        userId,
-                        type,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => undefined);
-            //#endregion debug-point profile-edit-add-channel
             setIsEditing(true);
         },
         [buildEditDraft],

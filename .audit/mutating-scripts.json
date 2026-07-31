@@ -1,0 +1,858 @@
+[
+  {
+    "file": "scripts/restore-execution-dashboard-core.mjs",
+    "lines": 187,
+    "injectsNocheck": true,
+    "deletes": true,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-slice27-extraction.mjs",
+    "lines": 542,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-calendar-dossier-sync.mjs",
+    "lines": 388,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/rebuild-heavy-modals.mjs",
+    "lines": 304,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-handler-cluster-phase-b.mjs",
+    "lines": 280,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/refactor-seizure-tab.mjs",
+    "lines": 250,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-phase-b-timeline-dossier-scope.mjs",
+    "lines": 218,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-scope-bag-merge.mjs",
+    "lines": 209,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-phase-b-financial-scope.mjs",
+    "lines": 205,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-phase-b-coercive-scope.mjs",
+    "lines": 197,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-core-dynamic-scope.mjs",
+    "lines": 168,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-execution-dashboard-state.mjs",
+    "lines": 163,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-handler-cluster.mjs",
+    "lines": 147,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/trim-useExecutionDashboardCore-imports.mjs",
+    "lines": 147,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-execution-static-chunk-scope.mjs",
+    "lines": 132,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/restore-execution-dashboard-state.mjs",
+    "lines": 125,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-scope-bag-fragments.mjs",
+    "lines": 124,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-execution-dashboard-core.mjs",
+    "lines": 123,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-seized-portals.mjs",
+    "lines": 111,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-criminal-persist-migrate.mjs",
+    "lines": 108,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-phase-c-scope-assembly.mjs",
+    "lines": 100,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-shell-overlay-props.mjs",
+    "lines": 70,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-pipelines-chain.mjs",
+    "lines": 67,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/phase-c-split-view.mjs",
+    "lines": 60,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-collect-handler-cluster-context.mjs",
+    "lines": 50,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/inspect-criminal-ops.mjs",
+    "lines": 44,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": false
+  },
+  {
+    "file": "scripts/generate-scope-bag-assembly.mjs",
+    "lines": 39,
+    "injectsNocheck": true,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/batch-processor.ts",
+    "lines": 541,
+    "injectsNocheck": false,
+    "deletes": true,
+    "regexPatch": false,
+    "writesSrc": false
+  },
+  {
+    "file": "scripts/patch-slice27.mjs",
+    "lines": 662,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-execution-dashboard-core.mjs",
+    "lines": 549,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice18-core.mjs",
+    "lines": 434,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice21-large.mjs",
+    "lines": 407,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice24-fix-and-extract.mjs",
+    "lines": 385,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-execution-orchestrators.mjs",
+    "lines": 384,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice23-mega.mjs",
+    "lines": 310,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-shell-overlays.mjs",
+    "lines": 287,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice17-core.mjs",
+    "lines": 274,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/discover-abandoned-surfaces.mjs",
+    "lines": 264,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-shell-overlays-final.mjs",
+    "lines": 258,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/measure-execution-open.mjs",
+    "lines": 257,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice14-core.mjs",
+    "lines": 255,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice16-core.mjs",
+    "lines": 252,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-phase-b-slice4-scope.mjs",
+    "lines": 217,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/verify-w5-mobile-proof.mjs",
+    "lines": 216,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice15-core.mjs",
+    "lines": 214,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice13-core.mjs",
+    "lines": 207,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice25.mjs",
+    "lines": 202,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice20-core.mjs",
+    "lines": 190,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice24-scope-extract.mjs",
+    "lines": 182,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-shell-overlays-v2.mjs",
+    "lines": 168,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice26.mjs",
+    "lines": 167,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-phone-body.mjs",
+    "lines": 167,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice11-core.mjs",
+    "lines": 157,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice25b.mjs",
+    "lines": 148,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice28.mjs",
+    "lines": 146,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/clean-mojibake.mjs",
+    "lines": 144,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-phaseB-slice12.mjs",
+    "lines": 136,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/strip-phantom-scope-keys.mjs",
+    "lines": 136,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/merge-chunk-scope.mjs",
+    "lines": 130,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-execution-domain-orchestrators.mjs",
+    "lines": 123,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/sync-execution-shell-overlay-props.mjs",
+    "lines": 117,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/slim-execution-dashboard-render.mjs",
+    "lines": 115,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice19-core.mjs",
+    "lines": 112,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/sync-execution-chunk-scope.mjs",
+    "lines": 112,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-execution-dashboard-core-chunks.mjs",
+    "lines": 110,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-heavy-modals-props.mjs",
+    "lines": 109,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/restore-from-transcript.mjs",
+    "lines": 109,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-calendar-bridge-persistence.mjs",
+    "lines": 109,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/strip-overlays-only.mjs",
+    "lines": 106,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice22-scope-from-parts.mjs",
+    "lines": 105,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-phase-b-dynamic-scope.mjs",
+    "lines": 103,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-calendar-bridge.mjs",
+    "lines": 103,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/complete-phase6-wire.mjs",
+    "lines": 98,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/rebuild-core-from-monolith.mjs",
+    "lines": 94,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/replay-criminal-storage.mjs",
+    "lines": 94,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-slice26b.mjs",
+    "lines": 93,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-scope-bag-rest.mjs",
+    "lines": 90,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/refactor-shell-overlay-scope.mjs",
+    "lines": 87,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/verify-world-class-mobile.mjs",
+    "lines": 86,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-lawyer-cloud-community.mjs",
+    "lines": 85,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/wire-shell-overlays-v3.mjs",
+    "lines": 85,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/dedupe-modal-scope-keys.mjs",
+    "lines": 82,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-phone-body-wire.mjs",
+    "lines": 80,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/replace-seized-portals.mjs",
+    "lines": 78,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-lawyer-community.mjs",
+    "lines": 75,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/repair-phone-body.mjs",
+    "lines": 74,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/replay-lazy-registry.mjs",
+    "lines": 64,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/dedupe-execution-dashboard-core-hooks.mjs",
+    "lines": 61,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-vercel-api.mjs",
+    "lines": 61,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/extract-shim-sources.mjs",
+    "lines": 58,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/split-profile-canvas-fx.mjs",
+    "lines": 56,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-js-tslib-aliases.mjs",
+    "lines": 54,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/analyze-handler-cluster-free-vars.mjs",
+    "lines": 53,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/sync-phone-body-missing-keys.mjs",
+    "lines": 53,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/strip-criminal-lazy-modal-shells.mjs",
+    "lines": 52,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/refactor-pipelines-chain.mjs",
+    "lines": 46,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-shell-overlay-infra.mjs",
+    "lines": 45,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/compute-handler-cluster-core-keys.mjs",
+    "lines": 44,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-android-biometric-permissions.mjs",
+    "lines": 43,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-core-encoding.mjs",
+    "lines": 42,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-hooks-order.mjs",
+    "lines": 32,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-phase6-hooks-order.mjs",
+    "lines": 32,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/patch-criminal-store-migrate.mjs",
+    "lines": 19,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/sync-kv-ownership.mjs",
+    "lines": 18,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-dynamic-scope-shorthand.mjs",
+    "lines": 14,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/generate-phone-body-infra.mjs",
+    "lines": 10,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": false,
+    "writesSrc": true
+  },
+  {
+    "file": "scripts/fix-heavy-modals-jsx.mjs",
+    "lines": 9,
+    "injectsNocheck": false,
+    "deletes": false,
+    "regexPatch": true,
+    "writesSrc": true
+  }
+]

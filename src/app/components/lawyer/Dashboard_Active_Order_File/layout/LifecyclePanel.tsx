@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'motion/react';
 import { PRE_DECISION_OUTCOME_NULLIFY } from '../constants/hearingOutcomes';
 import type { LifecyclePanelProps } from './LifecyclePanelProps';
 import { GrievanceLifecyclePanel } from '../panels/GrievanceLifecyclePanel';
@@ -10,10 +9,13 @@ import {
     pickGrievanceLifecyclePanelProps,
     pickJudgeDecisionLifecyclePanelProps,
 } from '../panels/pickLifecyclePanelProps';
+import { URGENT_DOSSIER_CARD, URGENT_DOSSIER_SECTION_TITLE } from './urgentDossierUi';
 
 export type { LifecyclePanelProps } from './LifecyclePanelProps';
 
-export function LifecyclePanel(props: LifecyclePanelProps) {
+type LifecyclePanelComponentProps = LifecyclePanelProps & { embedded?: boolean };
+
+export function LifecyclePanel({ embedded = false, ...props }: LifecyclePanelComponentProps) {
     const {
         guaranteeGateActive,
         isFinalityTerminatedRequest,
@@ -23,49 +25,57 @@ export function LifecyclePanel(props: LifecyclePanelProps) {
         showGrievanceLifecycle,
     } = props;
 
-    return (
+    const inner = (
         <>
             {guaranteeGateActive ? (
-                <motion.div className="border border-amber-500/25 bg-amber-500/15 rounded-xl px-4 py-3">
-                                <div className="text-white text-sm font-bold">
-                                    💡 قرار القاضي معلق: يرجى إيداع الكفالة الضامنة لفتح إجراءات التنفيذ والتبليغ
-                                </div>
-                </motion.div>
+                <div className="border border-amber-500/25 bg-amber-500/10 rounded-lg px-3 py-2 mb-3">
+                    <div className="text-amber-100 text-xs font-bold leading-relaxed">
+                        قرار القاضي معلق: يرجى إيداع الكفالة الضامنة لفتح إجراءات التنفيذ والتبليغ
+                    </div>
+                </div>
             ) : null}
 
-                        <motion.div
-                            initial={{ opacity: 0, y: 12 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 border border-white/10 rounded-2xl p-5 shadow-2xl"
-                        >
-                            <h3 className="text-white font-bold text-sm mb-5 text-center">سير الإجراءات القضائية</h3>
+            <div className="space-y-2">
+                <JudgeDecisionLifecyclePanel {...pickJudgeDecisionLifecyclePanelProps(props)} />
 
-                            <div className="space-y-4">
-                    <JudgeDecisionLifecyclePanel {...pickJudgeDecisionLifecyclePanelProps(props)} />
+                {showGrievanceLifecycle ? (
+                    <GrievanceLifecyclePanel {...pickGrievanceLifecyclePanelProps(props)} />
+                ) : null}
 
-                    {showGrievanceLifecycle ? (
-                        <GrievanceLifecyclePanel {...pickGrievanceLifecyclePanelProps(props)} />
-                                                            ) : null}
+                {showCassationLifecycle ? (
+                    <CassationLifecyclePanel {...pickCassationLifecyclePanelProps(props)} />
+                ) : null}
 
-                    {showCassationLifecycle ? (
-                        <CassationLifecyclePanel {...pickCassationLifecyclePanelProps(props)} />
-                                                                                    ) : null}
-
-                    {isFinalized ? (
-                                                            <div className="space-y-3">
-                            {isFinalityTerminatedRequest || latestOutcome === PRE_DECISION_OUTCOME_NULLIFY ? (
-                                        <div className="bg-red-900/50 text-red-200 p-4 rounded-md font-bold text-center border border-red-700">
-                                            🚫 تم إبطال الطلب وغلق الإضبارة نهائياً
-                                        </div>
-                                    ) : (
-                                        <div className="border border-emerald-500/25 bg-emerald-500/10 rounded-xl px-4 py-4 text-emerald-100 font-extrabold text-center">
-                                            ⚖️ اكتسب القرار الدرجة القطعية - تم إنهاء الإضبارة
-                                        </div>
-                                    )}
-                                </div>
-                    ) : null}
-                        </div>
-                        </motion.div>
+                {isFinalized ? (
+                    <div className="pt-1">
+                        {isFinalityTerminatedRequest || latestOutcome === PRE_DECISION_OUTCOME_NULLIFY ? (
+                            <div className="bg-red-900/40 text-red-200 px-3 py-2.5 rounded-lg font-bold text-center text-sm border border-red-700/50">
+                                تم إبطال الطلب وغلق الإضبارة نهائياً
+                            </div>
+                        ) : (
+                            <div className="border border-emerald-500/25 bg-emerald-500/10 rounded-lg px-3 py-2.5 text-emerald-100 font-bold text-center text-sm">
+                                اكتسب القرار الدرجة القطعية — تم إنهاء الإضبارة
+                            </div>
+                        )}
+                    </div>
+                ) : null}
+            </div>
         </>
+    );
+
+    if (embedded) {
+        return (
+            <section aria-label="سير الإجراءات القضائية">
+                <h2 className={URGENT_DOSSIER_SECTION_TITLE}>سير الإجراءات القضائية</h2>
+                <div className="mt-3">{inner}</div>
+            </section>
+        );
+    }
+
+    return (
+        <div className={`${URGENT_DOSSIER_CARD} p-4`}>
+            <h3 className={URGENT_DOSSIER_SECTION_TITLE}>سير الإجراءات القضائية</h3>
+            <div className="mt-3">{inner}</div>
+        </div>
     );
 }

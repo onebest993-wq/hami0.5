@@ -6,7 +6,7 @@ import {
     useLawyerSettingsHomeLayout,
     useLawyerSettingsPerformance,
 } from '@/app/context/LawyerSettingsContext';
-import { compressWallpaperToDataUrl } from '@/app/services/profileMediaService';
+import { compressWallpaperToDataUrl } from '@/app/services/profileMediaCompress';
 import {
     evacuateDockShellIconsToMain,
     repopulateDockShellFromHidden,
@@ -96,14 +96,19 @@ export function useAppearanceSection() {
 
     const selectShape = (shape: AppSettingsState['appearance']['shape']) => setCurrentShape(shape);
 
-    const uploadWallpaper = async (file: File) => {
-        if (!file.type.startsWith('image/')) {
-            SmartToast.error('يرجى اختيار ملف صورة');
-            return;
+    const uploadWallpaper = async (file: File): Promise<boolean> => {
+        const mime = String(file.type || '').toLowerCase();
+        const name = String(file.name || '').toLowerCase();
+        const looksLikeImage =
+            mime.startsWith('image/') ||
+            /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(name);
+        if (!looksLikeImage) {
+            SmartToast.error('يرجى اختيار ملف صورة (JPG / PNG / WebP)');
+            return false;
         }
         if (file.size > 8_000_000) {
             SmartToast.error('الصورة كبيرة جداً — الحد 8 ميغابايت');
-            return;
+            return false;
         }
         let previewUrl: string | undefined;
         try {
@@ -113,24 +118,31 @@ export function useAppearanceSection() {
             if (!persistWallpaper(dataUrl)) {
                 setWallpaperPreview(undefined);
                 SmartToast.error('تعذر حفظ الصورة — مساحة التخزين ممتلئة');
-                return;
+                return false;
             }
             setWallpaperPreview(dataUrl);
             patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
             SmartToast.success('تم تطبيق خلفية اللوحة');
+            return true;
         } catch {
             setWallpaperPreview(undefined);
-            SmartToast.error('تعذر رفع الصورة — جرّب صورة أصغر');
+            SmartToast.error('تعذر رفع الصورة — جرّب صورة JPG/PNG أصغر');
+            return false;
         } finally {
             if (previewUrl) URL.revokeObjectURL(previewUrl);
         }
     };
 
-    const removeWallpaper = () => {
+    const removeWallpaper = (): boolean => {
         setWallpaperPreview(undefined);
-        persistWallpaper(undefined);
+        const cleared = persistWallpaper(undefined);
+        if (!cleared) {
+            SmartToast.error('تعذر إزالة الخلفية من التخزين');
+            return false;
+        }
         patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
         SmartToast.info('تمت إزالة الخلفية');
+        return true;
     };
 
     const toggleDockVisible = (next: boolean) => {

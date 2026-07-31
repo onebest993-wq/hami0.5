@@ -4,8 +4,6 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { resolveAlertNavigation } from '@/app/services/alertNavigation';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { prefetchArchivePortal, warmExecutionDossier, warmExecutionWorkspace } from '@/app/utils/lazyComponents';
-import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
@@ -17,12 +15,28 @@ import {
     isFileData,
     isRecord,
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
+import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
+import { openLawsuitDossierWithContract } from '@/app/runtime/lawsuitOpenContract';
+import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
 
 import type { OpenNotepadOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 
+function prefetchArchivePortalIntent() {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.prefetchArchivePortal())
+        .catch(() => undefined);
+}
+
+function warmExecutionWorkspaceIntent() {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.warmExecutionWorkspace())
+        .catch(() => undefined);
+}
+
 export type UseLawyerDashboardNavigationParams = {
+    userId: string | null;
     files: FileData[];
     executionFiles: ExecutionFile[];
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
@@ -46,6 +60,7 @@ export type UseLawyerDashboardNavigationParams = {
 };
 
 export function useLawyerDashboardNavigation({
+    userId,
     files,
     executionFiles,
     setActiveTab,
@@ -74,12 +89,18 @@ export function useLawyerDashboardNavigation({
             if (path === 'case_details') {
                 const caseId = payload && typeof payload.caseId === 'string' ? payload.caseId : null;
                 if (caseId) {
+                    if (!isRealSignedIn(userId)) return;
                     const lawsuitTarget = files.find((f) => String(f.id) === caseId);
                     const executionTarget = executionFiles.find((f) => String(f.id) === caseId);
-                    const target = lawsuitTarget || executionTarget;
-                    if (target) {
-                        if (isRecord(target) && target.type === 'execution') warmExecutionDossier('urgent');
-                        setActiveFile(coerceActiveFileTarget(target));
+                    if (executionTarget) {
+                        openExecutionDossierWithContract(() => {
+                            setActiveFile(coerceExecutionFilePreserveId(executionTarget));
+                        });
+                        SmartToast.info(`جاري فتح القضية...`);
+                    } else if (lawsuitTarget) {
+                        openLawsuitDossierWithContract(() => {
+                            setActiveFile(coerceActiveFileTarget(lawsuitTarget));
+                        });
                         SmartToast.info(`جاري فتح القضية...`);
                     }
                 } else {
@@ -105,12 +126,15 @@ export function useLawyerDashboardNavigation({
             setArchiveType,
             setCommunityDeepLink,
             setShowCommunity,
+            userId,
         ],
     );
 
     const openSecretaryAlert = useCallback(
         (a: SecretaryAlert) => {
-            markAlertSeenForPush(a.id);
+            void import('@/app/services/appAlertPushSync')
+                .then((m) => m.markAlertSeenForPush(a.id))
+                .catch(() => undefined);
             setShowNotifications(false);
             const nav = resolveAlertNavigation(a, {
                 lawsuitFiles: files,
@@ -145,8 +169,8 @@ export function useLawyerDashboardNavigation({
                         const txFile = files.find(
                             (file) => String(file.id) === String(txId) && file.type === 'transaction',
                         );
-                        if (txFile && isFileData(txFile)) {
-                            setActiveFile(txFile);
+                        if (txFile && isFileData(txFile) && isRealSignedIn(userId)) {
+                            openLawsuitDossierWithContract(() => setActiveFile(txFile));
                             return;
                         }
                         setTransactionsFocusId(String(txId));
@@ -164,19 +188,22 @@ export function useLawyerDashboardNavigation({
                     return;
                 }
                 case 'open_lawsuit': {
+                    if (!isRealSignedIn(userId)) return;
                     const f = files.find((file) => String(file.id) === nav.entityId);
                     if (f && isFileData(f)) {
-                        setActiveFile(f);
+                        openLawsuitDossierWithContract(() => setActiveFile(f));
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة الدعوى — ربما نُقلت للأرشيف أو السلة');
                     return;
                 }
                 case 'open_execution': {
+                    if (!isRealSignedIn(userId)) return;
                     const ex = executionFiles.find((file) => String(file.id ?? '') === nav.entityId);
                     if (ex) {
-                        warmExecutionDossier('urgent');
-                        setActiveFile(coerceExecutionFilePreserveId(ex));
+                        openExecutionDossierWithContract(() => {
+                            setActiveFile(coerceExecutionFilePreserveId(ex));
+                        });
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة التنفيذ');
@@ -209,6 +236,7 @@ export function useLawyerDashboardNavigation({
             setShowNotifications,
             setTransactionsFocusId,
             openUrgentInLawsuitsWorkspace,
+            userId,
         ],
     );
 
@@ -223,27 +251,34 @@ export function useLawyerDashboardNavigation({
             switch (parsed.type) {
                 case 'hub': {
                     const section = parsed.id as 'lawsuit' | 'execution' | 'transaction';
-                    if (section === 'execution' || section === 'lawsuit' || section === 'transaction') {
-                        prefetchArchivePortal();
-                        if (section === 'execution') warmExecutionWorkspace();
+                    if (section === 'transaction') {
+                        openTransactionsHub();
+                        return;
+                    }
+                    if (section === 'execution' || section === 'lawsuit') {
+                        prefetchArchivePortalIntent();
+                        if (section === 'execution') warmExecutionWorkspaceIntent();
                         setArchiveType(section);
                     }
                     return;
                 }
                 case 'lawsuit': {
+                    if (!isRealSignedIn(userId)) return;
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
-                        setActiveFile(f);
+                        openLawsuitDossierWithContract(() => setActiveFile(f));
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة الدعوى');
                     return;
                 }
                 case 'execution': {
+                    if (!isRealSignedIn(userId)) return;
                     const ex = executionFiles.find((file) => String(file.id ?? '') === parsed.id);
                     if (ex) {
-                        warmExecutionDossier('urgent');
-                        setActiveFile(coerceExecutionFilePreserveId(ex));
+                        openExecutionDossierWithContract(() => {
+                            setActiveFile(coerceExecutionFilePreserveId(ex));
+                        });
                         return;
                     }
                     SmartToast.info('لم يُعثر على إضبارة التنفيذ');
@@ -256,9 +291,10 @@ export function useLawyerDashboardNavigation({
                     openUrgentInLawsuitsWorkspace(parsed.id);
                     return;
                 case 'transaction': {
+                    if (!isRealSignedIn(userId)) return;
                     const f = files.find((file) => String(file.id) === parsed.id);
                     if (f && isFileData(f)) {
-                        setActiveFile(f);
+                        openLawsuitDossierWithContract(() => setActiveFile(f));
                         return;
                     }
                     SmartToast.info('لم يُعثر على ملف المعاملة');
@@ -286,8 +322,10 @@ export function useLawyerDashboardNavigation({
             openTransactionsHub,
             setActiveFile,
             setActiveTab,
+            setArchiveType,
             openNotepad,
             openUrgentInLawsuitsWorkspace,
+            userId,
         ],
     );
 

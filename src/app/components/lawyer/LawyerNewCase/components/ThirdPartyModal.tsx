@@ -128,6 +128,7 @@ export const ThirdPartyModal = ({ isOpen, onClose, onSave, currentStage, context
                                         key={opt.id}
                                         type="button"
                                         disabled={disabled}
+                                        data-testid={`lawyer-new-case-third-party-mode-${opt.id}`}
                                         onClick={() => setEntryMode(opt.id)}
                                         className={[
                                             optionBaseClass,
@@ -219,6 +220,7 @@ export const ThirdPartyModal = ({ isOpen, onClose, onSave, currentStage, context
                     </button>
                     <button
                         type="button"
+                        data-testid="lawyer-new-case-third-party-confirm"
                         onClick={handleSave}
                         disabled={!name.trim()}
                         className="px-6 py-2.5 rounded-2xl bg-[#E6C673] text-[#0B1021] text-sm font-extrabold shadow-[0_14px_34px_rgba(230,198,115,0.18)] hover:bg-[#d4b45f] transition-all disabled:opacity-40"

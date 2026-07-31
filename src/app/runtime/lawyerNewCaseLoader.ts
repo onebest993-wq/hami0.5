@@ -1,10 +1,10 @@
-import type { ComponentType } from 'react';
+import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/constants';
 
 type LawyerNewCaseModule = typeof import('@/app/components/lawyer/LawyerNewCase');
 
 export type LawyerNewCaseComponent = LawyerNewCaseModule['LawyerNewCase'];
 
-const LOAD_TIMEOUT_MS = 18_000;
+const LOAD_TIMEOUT_MS = 45_000;
 
 let lawyerNewCasePromise: Promise<LawyerNewCaseModule> | null = null;
 let cachedLawyerNewCase: LawyerNewCaseComponent | null = null;
@@ -26,9 +26,29 @@ export function getCachedLawyerNewCase(): LawyerNewCaseComponent | null {
     return cachedLawyerNewCase;
 }
 
+export type LawyerNewCaseJurisdictionId = JurisdictionId;
+
+let pendingJurisdiction: JurisdictionId | null = null;
+
+export function setPendingLawyerNewCaseJurisdiction(id: JurisdictionId | null): void {
+    pendingJurisdiction = id;
+    notifyLawyerNewCaseListeners();
+}
+
+export function getPendingLawyerNewCaseJurisdiction(): JurisdictionId | null {
+    return pendingJurisdiction;
+}
+
+export function consumePendingLawyerNewCaseJurisdiction(): JurisdictionId | null {
+    const value = pendingJurisdiction;
+    pendingJurisdiction = null;
+    return value;
+}
+
 export function resetLawyerNewCaseModuleCacheForTests(): void {
     lawyerNewCasePromise = null;
     cachedLawyerNewCase = null;
+    pendingJurisdiction = null;
     notifyLawyerNewCaseListeners();
 }
 

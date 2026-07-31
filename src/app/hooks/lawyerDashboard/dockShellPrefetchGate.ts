@@ -6,8 +6,8 @@ import {
 
 const DOCK_PREFETCH_COOLDOWN_MS = 300;
 const DOCK_IDLE_STAGGER_MS = 120;
+/** المنتدى خارج القائمة — يُسخَّن idle حتى يختفي انتظار أول فتح بارد */
 const HEAVY_IDLE_PREFETCH_WIDGETS = new Set<HomeWidgetId>([
-    'forum',
     'dockRepository',
     'dockNotepad',
     'dockVault',
@@ -58,10 +58,13 @@ export function prefetchDockWidgetIntentDebounced(widgetId: HomeWidgetId): void 
     runPrefetch(widgetId, 'hover');
 }
 
-/** prefetch فوري عند النقر — يتجاوز cooldown ويحمّل مسار الفتح الكامل */
-export function prefetchDockWidgetIntentImmediate(widgetId: HomeWidgetId): void {
+/** prefetch فوري — يتجاوز cooldown؛ phase افتراضي open (مسار النقر الكامل) */
+export function prefetchDockWidgetIntentImmediate(
+    widgetId: HomeWidgetId,
+    phase: DockWidgetPrefetchPhase = 'open',
+): void {
     lastPrefetchAt.set(widgetId, Date.now());
-    runPrefetch(widgetId, 'open');
+    runPrefetch(widgetId, phase);
 }
 
 /** prefetch تدريجي عند الخمول لأيقونات الدوك المرئية — cold open أخف */

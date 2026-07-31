@@ -124,6 +124,6 @@ export const RequestQuickFinalizeModal = ({
                         </button>
                     </div>
                 </div>
-            </div>
+        </div>
     );
 };

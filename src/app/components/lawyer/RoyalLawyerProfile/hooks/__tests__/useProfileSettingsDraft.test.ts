@@ -7,7 +7,10 @@ describe('useProfileSettingsDraft', () => {
     it('يعيد بناء المسودة عند فتح الورقة', () => {
         const customization = {
             ...defaultProfilePageCustomization(),
-            accentColor: 'gold' as const,
+            appearance: {
+                ...defaultProfilePageCustomization().appearance,
+                accentColor: 'gold' as const,
+            },
         };
 
         const { result, rerender } = renderHook(
@@ -16,7 +19,7 @@ describe('useProfileSettingsDraft', () => {
         );
 
         rerender({ open: true });
-        expect(result.current.draft.accentColor).toBe('gold');
+        expect(result.current.draft.appearance.accentColor).toBe('gold');
     });
 
     it('يُخفي ويُظهر قناة تواصل في المسودة', () => {
@@ -31,17 +34,17 @@ describe('useProfileSettingsDraft', () => {
         rerender({ open: true });
 
         act(() => {
-            result.current.toggleContactVisibility('contact-1', false);
+            result.current.toggleContactVisibility('contact-1', true);
         });
         expect(result.current.draft.privacy.hiddenContactIds).toContain('contact-1');
 
         act(() => {
-            result.current.toggleContactVisibility('contact-1', true);
+            result.current.toggleContactVisibility('contact-1', false);
         });
         expect(result.current.draft.privacy.hiddenContactIds).not.toContain('contact-1');
     });
 
-    it('يطبّق patchDraft', () => {
+    it('يطبّق patchDraft على المظهر', () => {
         const customization = defaultProfilePageCustomization();
 
         const { result, rerender } = renderHook(
@@ -52,9 +55,12 @@ describe('useProfileSettingsDraft', () => {
         rerender({ open: true });
 
         act(() => {
-            result.current.patchDraft((prev) => ({ ...prev, material: 'metal' }));
+            result.current.patchDraft((prev) => ({
+                ...prev,
+                appearance: { ...prev.appearance, material: 'metallic' },
+            }));
         });
 
-        expect(result.current.draft.material).toBe('metal');
+        expect(result.current.draft.appearance.material).toBe('metallic');
     });
 });

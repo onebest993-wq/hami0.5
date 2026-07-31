@@ -1,6 +1,5 @@
 // @ts-nocheck
 import React from 'react';
-import { QuantumTasksProvider } from '@/app/context/QuantumTasksProvider';
 import { LawyerDashboardInner } from './LawyerDashboardInner';
 
 export type LawyerDashboardShellProps = {
@@ -10,13 +9,12 @@ export type LawyerDashboardShellProps = {
     onAppNavigate?: (target: 'privacy' | 'support' | 'settings') => void;
 };
 
-/** غلاف اللوحة — مهام الحقل تُحمَّل async عبر QuantumTasksProvider (لا JSON.parse متزامن على المسار الحرج). */
+/**
+ * غلاف اللوحة الرقيق — بلا QuantumTasksProvider هنا.
+ * الـ Provider داخل InnerRuntime بعد markDashboardInteractiveOnce (لا يمنع TTFI).
+ */
 function LawyerDashboardQuantumShell(props: LawyerDashboardShellProps) {
-    return (
-        <QuantumTasksProvider>
-            <LawyerDashboardInner {...props} />
-        </QuantumTasksProvider>
-    );
+    return <LawyerDashboardInner {...props} />;
 }
 
 export { LawyerDashboardQuantumShell };

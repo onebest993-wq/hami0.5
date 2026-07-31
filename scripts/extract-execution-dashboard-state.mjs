@@ -1,5 +1,4 @@
 import fs from 'fs';
-import path from 'path';
 
 const dashPath = 'src/app/components/lawyer/ExecutionDashboard.tsx';
 const hookPath = 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardState.ts';

@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
     applyReferralClassificationOverride,
     isSummaryProcedurePath,
-    resolveCaseClassification,
     resolveCaseSovereignContext,
     resolveMisdemeanorType,
 } from './caseClassificationEngine';

@@ -30,7 +30,7 @@ export function useDecisionsAppealsEngineController({
     });
 
     const { resolveDecision } = useDecisionDispatcher({
-        executionId,
+        executionId: storage.resolvedExecutionId || executionId,
         executionData: dispatcherHub?.executionData ?? null,
         seizedAssets: dispatcherHub?.seizedAssets ?? [],
         seizureDraftsByDecisionId: dispatcherHub?.seizureDraftsByDecisionId,

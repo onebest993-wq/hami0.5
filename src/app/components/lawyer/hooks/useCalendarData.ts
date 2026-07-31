@@ -42,6 +42,10 @@ export type UnifiedEvent = {
     source: 'deadline' | 'hearing' | 'calendar';
     isBridged?: boolean;
     bridge?: UnifiedEventBridge;
+    /** حقول عرض مشتقة — من notes أو جسر التقويم */
+    court?: string;
+    partiesSummary?: string;
+    sourceLabel?: string;
 };
 
 const CALENDAR_UPDATE_DEBOUNCE_MS = 300;

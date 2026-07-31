@@ -49,10 +49,8 @@ import {
     persistForumNotificationRead,
 } from '@/app/services/notifications/forumNotificationRead';
 import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
-import {
-    emitForumUnreadCount,
-    syncForumNotificationsToAppStore,
-} from '@/app/services/forum/forumNotificationBridge';
+import { emitForumUnreadCount } from '@/app/services/forum/forumNotificationEvents';
+import { syncForumNotificationsToAppStore } from '@/app/services/forum/forumNotificationBridge';
 import { ForumGroupLocalStore } from '@/app/services/forum/forumGroupLocalStore';
 
 type ApiOk<T> = ForumApiOk<T>;

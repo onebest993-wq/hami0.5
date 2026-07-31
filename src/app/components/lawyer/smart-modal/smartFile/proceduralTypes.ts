@@ -12,6 +12,8 @@ import type { SmartFileAttachment } from './judgmentTypes';
 export type SaveToCloudFn = (
     updatedStages: CaseStage[],
     updatedParent?: SmartFileParentData,
+    activeStageIndex?: number,
+    statusOverride?: string,
 ) => void;
 
 export type FastTrackRecord = {
@@ -28,6 +30,8 @@ export type UseSmartFileProceduralActionsOptions = {
     setStages: Dispatch<SetStateAction<CaseStage[]>>;
     activeStageIndex: number;
     viewingStageIndex: number;
+    setActiveStageIndex?: Dispatch<SetStateAction<number>>;
+    setViewingStageIndex?: Dispatch<SetStateAction<number>>;
     currentStage: CaseStage;
     parentData: SmartFileParentData;
     setParentData: Dispatch<SetStateAction<SmartFileParentData>>;

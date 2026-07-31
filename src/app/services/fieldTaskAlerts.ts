@@ -7,12 +7,12 @@ import {
     isEventDateOnOrAfterToday,
     localTodayYmd,
 } from '@/app/services/alertFutureGate';
-import { normalizeDateToYmd } from '@/app/services/calendarBridge';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 import {
     isTaskDayOverdueIncomplete,
     isTaskMarkedDone,
-} from '@/app/components/lawyer/dashboard/tasksManager/utils';
+} from '@/app/services/tasks/taskAgendaStatusLite';
 
 export const FIELD_TASK_ALERT_ID_PREFIX = 'field-task:';
 

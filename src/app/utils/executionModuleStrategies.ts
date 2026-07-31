@@ -5,6 +5,14 @@
 
 import type { TimelineEvent } from '@/app/types/execution';
 import { calculateGracePeriodEndDate } from '@/app/utils/executionStateMachine';
+export {
+    EVICTION_TIMELINE_ACTION_IDS,
+    type EvictionTimelineActionId,
+} from '@/app/utils/executionEvictionActionIds';
+import {
+    EVICTION_TIMELINE_ACTION_IDS,
+    type EvictionTimelineActionId,
+} from '@/app/utils/executionEvictionActionIds';
 
 export type ExecutionModuleId = 'financial_standard' | 'eviction_hybrid';
 
@@ -15,24 +23,6 @@ export interface ExecutionModuleStrategy {
     /** إخفاء أدوات الحجز المالي (راتب، منع سفر، إلخ) للمطالبة الأساسية */
     hideStandardFinancialSeizureInTools: boolean;
 }
-
-/** معرّفات ثابتة في metadata السجل الزمني */
-export const EVICTION_TIMELINE_ACTION_IDS = {
-    FIELD_VISIT: 'eviction_field_visit',
-    POLICE_FORCE: 'eviction_police_force',
-    BREAK_INVENTORY: 'eviction_break_inventory',
-    CUSTODIAN: 'eviction_judicial_custodian',
-    HANDOVER_FINAL: 'eviction_handover_final',
-    /** تسليم أثاث زوجية — موعد + جرد في طلب منفذ واحد */
-    MARITAL_FURNITURE_DELIVERY: 'marital_furniture_delivery',
-    /** إنهاء مهلة تخلية سكنية بموافقة المنفذ — يعيد دورة المهلة */
-    RESIDENTIAL_GRACE_EARLY_END: 'eviction_residential_grace_early_end_executor',
-    /** مذكرة إخبار بالتنفيذ لورثة المدين الشاغلين (تخلية) */
-    HEIRS_EXECUTION_NOTICE_MEMO: 'eviction_heirs_execution_notice_memo',
-} as const;
-
-export type EvictionTimelineActionId =
-    (typeof EVICTION_TIMELINE_ACTION_IDS)[keyof typeof EVICTION_TIMELINE_ACTION_IDS];
 
 export function isEvictionClaim(claimType: string | undefined | null): boolean {
     const c = (claimType || '').trim();

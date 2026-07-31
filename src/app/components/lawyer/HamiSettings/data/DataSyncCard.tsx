@@ -24,15 +24,23 @@ export function DataSyncCard() {
             return;
         }
 
+        if (partial.cloudSync === false) {
+            patchData({
+                cloudSync: false,
+                syncNotes: false,
+                syncFiles: false,
+                syncExecution: false,
+            });
+            SmartToast.info('تم إيقاف المزامنة السحابية');
+            return;
+        }
+
         patchData(partial);
 
         if (partial.autoSave === false) {
             SmartToast.info('تم إيقاف الحفظ التلقائي — التغييرات لن تُحفظ محلياً');
         } else if (partial.autoSave === true) {
             SmartToast.success('الحفظ التلقائي مفعّل');
-        }
-        if (partial.cloudSync === false) {
-            SmartToast.info('تم إيقاف المزامنة السحابية');
         }
     };
 

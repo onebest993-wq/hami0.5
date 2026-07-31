@@ -19,7 +19,11 @@ export function useProfileCanvasInteractionSlot(blockId: string, wantsSlot: bool
 
         const sync = () => {
             const active = getActiveProfileCanvasSlot();
-            if (!active || active === blockId) {
+            if (active === blockId) {
+                setAllowed(true);
+                return;
+            }
+            if (!active) {
                 setAllowed(tryClaimProfileCanvasSlot(blockId));
                 return;
             }

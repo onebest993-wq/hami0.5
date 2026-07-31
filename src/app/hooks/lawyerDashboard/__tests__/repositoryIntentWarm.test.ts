@@ -2,7 +2,6 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import {
     warmRepositoryHubOnHover,
     warmRepositoryOnOpen,
-    scheduleRepositoryDockIdlePrefetch,
     resetRepositoryIdlePrefetchForTests,
 } from '@/app/hooks/lawyerDashboard/repositoryIntentWarm';
 

@@ -1,9 +1,6 @@
 import type { ForumNotification } from '@/app/services/forum/forumTypes';
-import {
-    deriveNotificationCategory,
-    peekLocalNotifications,
-} from '@/app/infrastructure/NotificationRepository';
-import { ForumApiService } from '@/app/services/forumApiService';
+import { deriveNotificationCategory } from '@/app/infrastructure/notificationModel';
+import { peekLocalNotifications } from '@/app/infrastructure/notificationPeekLite';
 import { mapModelToForumNotification } from '@/app/services/notifications/forumNotificationMapper';
 import { withForumAsyncTimeout } from '@/app/components/lawyer/CommunityScreen/forumAsync';
 
@@ -11,6 +8,10 @@ let warmedNotifications: ForumNotification[] | null = null;
 let warmedUnread = 0;
 let warmedUserId: string | null = null;
 let warmPromise: Promise<{ notifications: ForumNotification[]; unreadCount: number }> | null = null;
+
+function loadForumApiService() {
+    return import('@/app/services/forumApiService');
+}
 
 export function peekForumNotificationsFromLocal(userId: string): ForumNotification[] {
     return peekLocalNotifications(userId)
@@ -48,22 +49,26 @@ export function warmForumNotificationsCache(userId: string): void {
     }
 
     warmedUserId = userId;
-    warmPromise = withForumAsyncTimeout(
-        ForumApiService.listForumNotifications(userId).then(({ notifications, unreadCount }) => {
-            const slice = notifications.slice(0, 25);
-            warmedNotifications = slice;
-            warmedUnread = unreadCount;
-            return { notifications: slice, unreadCount };
-        }),
-        5_000,
-        {
+    warmPromise = loadForumApiService()
+        .then(({ ForumApiService }) =>
+            withForumAsyncTimeout(
+                ForumApiService.listForumNotifications(userId).then(({ notifications, unreadCount }) => {
+                    const slice = notifications.slice(0, 25);
+                    warmedNotifications = slice;
+                    warmedUnread = unreadCount;
+                    return { notifications: slice, unreadCount };
+                }),
+                5_000,
+                {
+                    notifications: warmedNotifications ?? local,
+                    unreadCount: warmedUnread || local.filter((n) => !n.read).length,
+                },
+            ),
+        )
+        .catch(() => ({
             notifications: warmedNotifications ?? local,
             unreadCount: warmedUnread || local.filter((n) => !n.read).length,
-        },
-    ).catch(() => ({
-        notifications: warmedNotifications ?? local,
-        unreadCount: warmedUnread || local.filter((n) => !n.read).length,
-    }));
+        }));
 }
 
 export async function readForumNotificationsCache(

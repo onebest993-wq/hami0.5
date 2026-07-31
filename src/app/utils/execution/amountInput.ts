@@ -1,8 +1,12 @@
+/**
+ * مبالغ التنفيذ — نواة مشتركة بلا deep-import إلى FOC.
+ * `@/app/slices/financial/public` يعيد تصدير نفس النواة.
+ */
 import {
     formatNumberInput,
     parseAmount,
     formatIqdDisplay,
-} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+} from '@/app/utils/execution/amountInputCore';
 
 export { formatNumberInput, parseAmount, formatIqdDisplay };
 

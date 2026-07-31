@@ -112,4 +112,39 @@ describe('executionDossierStorageReconcile', () => {
         ) as Array<{ id?: string }>;
         expect(index.some((r) => r.id === EXEC_ID)).toBe(false);
     });
+
+    it('heals index from owner-scoped blob key when legacy is empty', () => {
+        const scopedKey = `${executionStorageKey(EXEC_ID)}:u:e2e-owner-1`;
+        SecureStoreService.setItemSync(
+            EXECUTION_FILES_STORAGE_KEY,
+            JSON.stringify([
+                {
+                    id: EXEC_ID,
+                    fileNumber: '300',
+                    directorate: 'فهرس قديم',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+            ]),
+        );
+        SecureStoreService.setItemSync(
+            scopedKey,
+            JSON.stringify({
+                id: EXEC_ID,
+                fileNumber: '300',
+                directorate: 'بلوب مقيّد بالمالك',
+                timelineEvents: [{ id: 'ev-scoped', title: 'حدث scoped' }],
+                updatedAt: '2026-06-25T12:00:00.000Z',
+            }),
+        );
+
+        const result = reconcileExecutionDossierStorage();
+        expect(result.indexRowsHealed).toBe(1);
+
+        const index = JSON.parse(
+            SecureStoreService.getItemSync(EXECUTION_FILES_STORAGE_KEY) || '[]',
+        ) as Array<{ directorate?: string; timelineEvents?: unknown[] }>;
+        const row = index.find((r) => (r as { id?: string }).id === EXEC_ID);
+        expect(row?.directorate).toBe('بلوب مقيّد بالمالك');
+        expect(row?.timelineEvents).toHaveLength(1);
+    });
 });

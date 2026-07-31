@@ -1,55 +1,76 @@
-import React, { useLayoutEffect, useState } from 'react';
-import type { HamiSettingsProps } from '@/app/components/lawyer/HamiSettings/index';
-import { SettingsScreenLoadingFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
-import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+import React, { useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
+import { HamiSettings, type HamiSettingsProps } from '@/app/components/lawyer/HamiSettings/index';
+import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { inertProps } from '@/app/utils/inertProps';
 import {
-    SETTINGS_SHELL_HYDRATED_EVENT,
-    hydrateSettingsShellForInstantOpen,
-} from '@/app/runtime/settingsBootHydrator';
+    disarmSettingsOverlayInteraction,
+    removeSettingsInstantBridge,
+    scheduleSettingsOverlayInteractionArm,
+} from '@/app/runtime/settingsInstantPaint';
+import './settingsChrome.css';
 
-type HamiSettingsComponent = React.ComponentType<HamiSettingsProps>;
+export type HamiSettingsHostProps = HamiSettingsProps & {
+    /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار CSS فقط */
+    keepAlive?: boolean;
+};
 
-/** يحمّل الإعدادات مرة واحدة — لا يشغّل الشاشة إلا عند open */
-export function HamiSettingsHost(props: HamiSettingsProps): React.ReactElement | null {
-    const { open, onClose } = props;
-    const [Component, setComponent] = useState<HamiSettingsComponent | null>(() => {
-        return null;
-    });
+function settingsHostLayerClass(open: boolean, keepAlive: boolean): string {
+    return [
+        'fixed inset-0 z-[200] flex flex-col overflow-hidden font-sans',
+        'hami-settings-overlay-layer',
+        'hami-settings-overlay-host',
+        keepAlive ? 'hami-settings-overlay-layer--snap' : '',
+        open ? 'hami-settings-overlay-layer--visible' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+}
 
-    useLayoutEffect(() => {
-        let cancelled = false;
-
-        const adoptModule = () => {
-            void loadHamiSettingsModule().then((mod) => {
-                if (!cancelled && mod?.HamiSettings) {
-                    setComponent(() => mod.HamiSettings);
-                }
-            });
-        };
-
-        adoptModule();
-
-        const onHydrated = () => adoptModule();
-        window.addEventListener(SETTINGS_SHELL_HYDRATED_EVENT, onHydrated);
-
-        return () => {
-            cancelled = true;
-            window.removeEventListener(SETTINGS_SHELL_HYDRATED_EVENT, onHydrated);
-        };
-    }, []);
+/**
+ * Host — نفس معيار المستودع/المنتدى:
+ * createPortal(document.body) + keepAlive + visibility + useOpaqueFeatureSurface.
+ */
+export function HamiSettingsHost({
+    keepAlive = false,
+    ...props
+}: HamiSettingsHostProps): React.ReactElement | null {
+    const { open = true } = props;
 
     useLayoutEffect(() => {
-        if (!open) return;
-        void hydrateSettingsShellForInstantOpen(true);
-    }, [open]);
+        if (!open && !keepAlive) return;
+        if (open) {
+            removeSettingsInstantBridge();
+            scheduleSettingsOverlayInteractionArm();
+            return () => disarmSettingsOverlayInteraction();
+        }
+        /* إغلاق: لا hydrate/warm هنا — كان ينافس إعادة الفتح السريع */
+        disarmSettingsOverlayInteraction();
+        return undefined;
+    }, [keepAlive, open]);
 
-    if (!open) {
+    useBodyScrollLock(open);
+    useOpaqueFeatureSurface(open);
+
+    if (!open && !keepAlive) {
         return null;
     }
 
-    if (!Component) {
-        return <SettingsScreenLoadingFallback onClose={onClose} />;
+    if (typeof document === 'undefined') {
+        return null;
     }
 
-    return <Component {...props} />;
+    return createPortal(
+        <div
+            className={settingsHostLayerClass(open, keepAlive)}
+            style={{ backgroundColor: 'var(--hami-surface-bg, #0B1021)' }}
+            data-testid="hami-settings-overlay-host"
+            aria-hidden={!open}
+            {...inertProps(!open)}
+        >
+            <HamiSettings {...props} />
+        </div>,
+        document.body,
+    );
 }

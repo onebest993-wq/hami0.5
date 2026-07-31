@@ -152,6 +152,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         EVICTION_WORKFLOW_BY_ACTION_ID,
         appendEvictionExecutorRequest,
         showToast,
+        executionData as Record<string, unknown> | null | undefined,
     );
 
     const { appendEvictionProcedure } = evictionProceduresHandlers;

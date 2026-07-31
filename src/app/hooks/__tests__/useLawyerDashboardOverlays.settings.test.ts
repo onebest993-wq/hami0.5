@@ -16,6 +16,8 @@ vi.mock('@/app/runtime/settingsBootHydrator', () => ({
     SETTINGS_SHELL_HYDRATED_EVENT: 'hami:settings-shell-hydrated',
     hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
     isSettingsShellFullyHydrated: vi.fn(() => false),
+    bindSettingsBootHydrator: vi.fn(() => () => undefined),
+    dispatchSettingsPrimeHost: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({

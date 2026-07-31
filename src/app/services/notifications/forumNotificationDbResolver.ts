@@ -20,8 +20,10 @@ let serverDbPromise: Promise<ForumNotificationDb> | null = null;
 export async function resolveForumNotificationDb(): Promise<ForumNotificationDb> {
     if (typeof window === 'undefined') {
         if (!serverDbPromise) {
-            serverDbPromise = import('@/app/services/notifications/notificationForumStorage.server').then(
-                (m) => m.ServerNotificationDB,
+            // @vite-ignore — لا تُدرَج وحدة الخادم/kvStoreAdmin في حزم العميل
+            const spec = '@/app/services/notifications/notificationForumStorage.server.ts';
+            serverDbPromise = import(/* @vite-ignore */ spec).then(
+                (m: { ServerNotificationDB: ForumNotificationDb }) => m.ServerNotificationDB,
             );
         }
         return serverDbPromise;

@@ -1,6 +1,4 @@
-import React from 'react';
-import { resolvePatternOverlayStyle } from '@/app/services/settings/surfaceAppearance';
-import { shouldRenderDecorativeLayers } from '@/app/runtime/mobileRuntimePolicy';
+import React, { useEffect, useState } from 'react';
 import type { AppearanceSettings } from '@/app/services/settings/types';
 
 type DashboardPatternOverlayProps = {
@@ -11,10 +9,25 @@ type DashboardPatternOverlayProps = {
     enabled: boolean;
 };
 
-/** طبقة زخرفة — شفافية + ضبابية قابلة للضبط */
+/** طبقة زخرفة — شفافية قابلة للضبط؛ SVG خفيف يبقى حتى في الوضع الخفيف */
 export function DashboardPatternOverlay({ appearance, enabled }: DashboardPatternOverlayProps) {
-    if (!shouldRenderDecorativeLayers()) return null;
-    const style = resolvePatternOverlayStyle(appearance, enabled);
+    const [style, setStyle] = useState<React.CSSProperties | null>(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        void import('@/app/services/settings/surfaceAppearance')
+            .then((m) => {
+                if (cancelled) return;
+                setStyle(m.resolvePatternOverlayStyle(appearance, enabled));
+            })
+            .catch(() => {
+                if (!cancelled) setStyle(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [appearance, enabled]);
+
     if (!style) return null;
 
     return (

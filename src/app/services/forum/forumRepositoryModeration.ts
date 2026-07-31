@@ -6,7 +6,7 @@ import {
     getCommunityReports,
     reportCommunityPost,
 } from '@/app/services/forum/forumCommunityRuntime';
-import { getForumSupabaseAdmin } from './supabaseAdmin';
+import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 import { createForumRepositoryId, loadCommentUpvotes } from './forumRepositoryHydration';
 
 export const forumRepositoryModeration = {
@@ -15,7 +15,7 @@ export const forumRepositoryModeration = {
         reason: string,
         reporterId: string,
     ): Promise<{ ok: boolean; duplicate?: boolean }> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return reportCommunityPost(postId, reason, reporterId);
         }
@@ -44,7 +44,7 @@ export const forumRepositoryModeration = {
     },
 
     async listReports(): Promise<CommunityReport[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return getCommunityReports();
         }
@@ -70,7 +70,7 @@ export const forumRepositoryModeration = {
         reviewerId: string,
         notifyOutcome: 'dismissed' | 'removed' | false = 'dismissed',
     ): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await dismissCommunityReport(reportId, reviewerId);
             return;
@@ -101,7 +101,7 @@ export const forumRepositoryModeration = {
     },
 
     async isBanned(userId: string): Promise<BanRecord | null> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return BanDB.isBanned(userId);
         }
@@ -123,7 +123,7 @@ export const forumRepositoryModeration = {
     },
 
     async banUser(record: BanRecord): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await BanDB.banUser(record);
             return;
@@ -139,7 +139,7 @@ export const forumRepositoryModeration = {
     },
 
     async unbanUser(userId: string): Promise<void> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             await BanDB.unbanUser(userId);
             return;
@@ -148,7 +148,7 @@ export const forumRepositoryModeration = {
     },
 
     async listBannedUsers(): Promise<BanRecord[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return BanDB.listBannedUsers();
         }
@@ -165,7 +165,7 @@ export const forumRepositoryModeration = {
     },
 
     async toggleBookmark(postId: string, userId: string): Promise<{ bookmarked: boolean }> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             const bookmarked = await ForumBookmarkDB.toggle(userId, postId);
             return { bookmarked };
@@ -188,7 +188,7 @@ export const forumRepositoryModeration = {
     },
 
     async listBookmarkedPostIds(userId: string): Promise<string[]> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) {
             return ForumBookmarkDB.listPostIds(userId);
         }
@@ -205,7 +205,7 @@ export const forumRepositoryModeration = {
         commentId: string,
         userId: string,
     ): Promise<{ upvoted: boolean; upvoterIds: string[] }> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) return { upvoted: false, upvoterIds: [] };
         const { data: comment } = await admin
             .from('forum_comments')
@@ -244,7 +244,7 @@ export const forumRepositoryModeration = {
         reason: string,
         reporterId: string,
     ): Promise<{ ok: boolean; duplicate?: boolean }> {
-        const admin = getForumSupabaseAdmin();
+        const admin = await loadForumSupabaseAdmin();
         if (!admin) return { ok: false };
 
         const { data: existing } = await admin

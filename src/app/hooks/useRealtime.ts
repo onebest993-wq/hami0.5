@@ -85,7 +85,7 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
       else if (payload.eventType === 'DELETE') SmartToast.warning('🗑️ تم حذف ملف تنفيذ');
     }
     cb?.(payload);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const wrappedLawsuitCallback = useCallback<RealtimeCallback>((payload) => {
@@ -97,7 +97,7 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
       else if (payload.eventType === 'DELETE') SmartToast.warning('🗑️ تم حذف ملف دعوى');
     }
     cb?.(payload);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   const wrappedNoteCallback = useCallback<RealtimeCallback>((payload) => {
@@ -109,7 +109,7 @@ export function useRealtime(options: UseRealtimeOptions): UseRealtimeState {
       else if (payload.eventType === 'DELETE') SmartToast.warning('🗑️ تم حذف ملاحظة');
     }
     cb?.(payload);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, []);
 
   // =====================================================

@@ -43,6 +43,17 @@ describe('appeal entry paths — من له حق الطعن', () => {
         expect(resolveHarmedPartyAppealActor(row, 'creditor_agent')).toBeNull();
     });
 
+    it('تنفيذ جبري بقرار المنفذ — المدين هو الطاعن', () => {
+        const row = base({
+            requestKind: 'personal_coercive',
+            appealRequestOrigin: 'executor_side',
+            executorOutcome: 'approved',
+            activatedByExecutorOrder: true,
+        });
+        expect(isSettledExecutorQueueRequest(row)).toBe(true);
+        expect(resolveHarmedPartyAppealActor(row, 'creditor_agent')).toBe('debtor');
+    });
+
     it('executor_side patch لا يُستخدم لطلبات queue', () => {
         expect(EXECUTOR_QUEUE_REQUEST_KINDS).toContain('personal_coercive');
         const patch = buildExecutorSideAppealCommitPatch('grievance', ['lawyer']);

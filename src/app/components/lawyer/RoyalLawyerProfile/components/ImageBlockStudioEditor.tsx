@@ -1,91 +1,90 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
-import {
-    PROFILE_IMAGE_INTERACTIONS,
-} from '@/app/services/profile/profilePageCustomization';
-import { ensureProfileCanvasFxLoadedSync } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
-import { patchImageFrameStyle } from './profileImageFrameUtils';
 import { ImageBlockFramePanel } from './imageStudio/ImageBlockFramePanel';
 import { ImageBlockFocusPanel } from './imageStudio/ImageBlockFocusPanel';
-import { ImageBlockFxPanel } from './imageStudio/ImageBlockFxPanel';
-import '@/app/components/lawyer/RoyalLawyerProfile/profileImageFx.css';
 
-type ImageStudioPanel = 'frame' | 'focus' | 'fx';
+type ImageStudioPanel = 'frame' | 'focus';
 
 type ImageBlockStudioEditorProps = {
     block: ProfileCustomBlock;
     uploading: boolean;
+    saving?: boolean;
     onChange: (patch: Partial<ProfileCustomBlock>) => void;
     onPickImage: () => void;
+    onClearImage?: () => void;
 };
 
 const PANELS: { id: ImageStudioPanel; label: string; testId: string }[] = [
-    { id: 'frame', label: 'الإطار', testId: 'image-studio-tab-frame' },
     { id: 'focus', label: 'الصورة', testId: 'image-studio-tab-focus' },
-    { id: 'fx', label: 'التفاعل', testId: 'image-studio-tab-fx' },
+    { id: 'frame', label: 'الإطار', testId: 'image-studio-tab-frame' },
 ];
 
+/**
+ * محرر صور خفيف: رفع + إطار فقط.
+ * حركات Ken Burns / tilt / … أُزيلت من الاستوديو لأنها كانت تثقل المعاينة والجهاز.
+ */
 export const ImageBlockStudioEditor = React.memo(function ImageBlockStudioEditor({
     block,
     uploading,
+    saving = false,
     onChange,
     onPickImage,
+    onClearImage,
 }: ImageBlockStudioEditorProps) {
-    const [panel, setPanel] = useState<ImageStudioPanel>('frame');
-    const [fxPreviewKey, setFxPreviewKey] = useState(0);
+    const [panel, setPanel] = useState<ImageStudioPanel>('focus');
+    const armedPanelRef = useRef<ImageStudioPanel | null>(null);
 
-    useEffect(() => {
-        ensureProfileCanvasFxLoadedSync({ includeStudio: true });
+    const activatePanel = useCallback((next: ImageStudioPanel) => {
+        setPanel((curr) => (curr === next ? curr : next));
     }, []);
-
-    const bumpFxPreview = useCallback(() => setFxPreviewKey((k) => k + 1), []);
-
-    const selectInteraction = useCallback(
-        (interaction: (typeof PROFILE_IMAGE_INTERACTIONS)[number]['id']) => {
-            patchImageFrameStyle(block, { interaction }, onChange);
-            bumpFxPreview();
-        },
-        [block, bumpFxPreview, onChange],
-    );
 
     return (
         <div className="space-y-3" data-testid="image-block-studio-editor">
-            <div className="profile-studio-panel-tabs">
+            <div className="profile-studio-panel-tabs" role="tablist" aria-label="أقسام تحرير الصورة">
                 {PANELS.map((p) => (
                     <button
                         key={p.id}
                         type="button"
+                        role="tab"
+                        aria-selected={panel === p.id}
                         data-active={panel === p.id ? 'true' : 'false'}
                         data-testid={p.testId}
-                        className="profile-studio-panel-tab min-h-[44px]"
-                        onClick={() => setPanel(p.id)}
+                        className="profile-studio-panel-tab min-h-[44px] touch-manipulation"
+                        style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                        onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            event.stopPropagation();
+                            /* لا preventDefault — على Android يمرّر click لاحقاً ويغلق الورقة */
+                            if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+                                armedPanelRef.current = p.id;
+                                activatePanel(p.id);
+                            }
+                        }}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (armedPanelRef.current === p.id) {
+                                armedPanelRef.current = null;
+                                return;
+                            }
+                            activatePanel(p.id);
+                        }}
                     >
                         {p.label}
                     </button>
                 ))}
             </div>
 
-            {panel === 'frame' ? (
-                <ImageBlockFramePanel block={block} onChange={onChange} />
-            ) : null}
-
             {panel === 'focus' ? (
                 <ImageBlockFocusPanel
                     block={block}
-                    uploading={uploading}
+                    uploading={uploading || saving}
                     onChange={onChange}
                     onPickImage={onPickImage}
+                    onClearImage={onClearImage}
                 />
             ) : null}
 
-            {panel === 'fx' ? (
-                <ImageBlockFxPanel
-                    block={block}
-                    fxPreviewKey={fxPreviewKey}
-                    onSelectInteraction={selectInteraction}
-                    onResetPreview={bumpFxPreview}
-                />
-            ) : null}
+            {panel === 'frame' ? <ImageBlockFramePanel block={block} onChange={onChange} /> : null}
         </div>
     );
 });

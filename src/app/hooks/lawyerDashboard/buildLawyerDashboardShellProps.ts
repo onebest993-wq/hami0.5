@@ -1,4 +1,4 @@
-import type { ComponentProps, CSSProperties, MutableRefObject, ReactNode } from 'react';
+import type { ComponentProps, CSSProperties, MutableRefObject } from 'react';
 import type { User } from '@supabase/supabase-js';
 import type { LawyerDashboardShell } from '@/app/components/lawyer/dashboard/LawyerDashboardShell';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';

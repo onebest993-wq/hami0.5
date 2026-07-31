@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { recoverPlaintextAfterDecryptFailure, clearDecryptRecoveryAttempt } from '@/app/services/secureStoreRecovery';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { recoverPlaintextAfterDecryptFailure, clearDecryptRecoveryAttempt, isPlaintextRecoveryEnabled } from '@/app/services/secureStoreRecovery';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
 describe('secureStoreRecovery', () => {
@@ -11,9 +11,21 @@ describe('secureStoreRecovery', () => {
         } catch {
             /* ignore */
         }
+        vi.unstubAllEnvs();
     });
 
-    it('recovers lawsuit files from legacy localStorage plaintext', async () => {
+    it('defaults to disabled (no silent recovery)', () => {
+        expect(isPlaintextRecoveryEnabled()).toBe(false);
+    });
+
+    it('kill switch / default-off returns null even when legacy plaintext exists', async () => {
+        localStorage.setItem('lawyer_files', JSON.stringify([{ id: '1' }]));
+        const recovered = await recoverPlaintextAfterDecryptFailure('lawyer_files');
+        expect(recovered).toBeNull();
+    });
+
+    it('recovers lawsuit files when explicitly enabled', async () => {
+        vi.stubEnv('VITE_SECURE_STORE_PLAINTEXT_RECOVERY', 'true');
         const payload = [{ id: '1', caseNo: '2026/1' }];
         localStorage.setItem('lawyer_files', JSON.stringify(payload));
 
@@ -21,7 +33,8 @@ describe('secureStoreRecovery', () => {
         expect(JSON.parse(String(recovered))).toEqual(payload);
     });
 
-    it('returns null when no recovery source exists', async () => {
+    it('returns null when no recovery source exists (even if enabled)', async () => {
+        vi.stubEnv('VITE_SECURE_STORE_PLAINTEXT_RECOVERY', 'true');
         const recovered = await recoverPlaintextAfterDecryptFailure('lawyer_settings');
         expect(recovered).toBeNull();
     });

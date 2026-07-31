@@ -1,5 +1,6 @@
 import { sanitizePayload } from '../../../security/sanitizer.ts';
 import { ForumGroupRepository } from '../../../../services/forum/forumGroupRepository.ts';
+import { checkForumActionRateLimit } from '../../../../services/forum/forumRateLimitServer.ts';
 import { requireForumAuthAndUnbanned, jsonResponse } from '../../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -10,6 +11,10 @@ export async function POST(request: Request): Promise<Response> {
     try {
         const auth = await requireForumAuthAndUnbanned(request);
         if ('response' in auth) return auth.response;
+
+        if (!(await checkForumActionRateLimit(auth.userId, 'group_join'))) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد الانضمام للمجموعات' });
+        }
 
         let payload: unknown = null;
         try {

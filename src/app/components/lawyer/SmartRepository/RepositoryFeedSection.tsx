@@ -1,12 +1,14 @@
 import React, { memo } from 'react';
-import { Loader2 } from 'lucide-react';
+import type { RefObject } from 'react';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import type { RepositoryFeedFilter, RepositoryFeedItem } from '@/app/services/repository/repositoryUnifiedFeed';
+import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
 import type { RepositoryFeedLayoutId } from './repositoryFeedLayout';
+import { getRepositoryFeedContainerClass } from './repositoryFeedLayout';
 import { RepositoryFeedPanel } from './RepositoryFeedPanel';
 
 type RepositoryFeedSectionProps = {
@@ -16,11 +18,15 @@ type RepositoryFeedSectionProps = {
     feedLayout: RepositoryFeedLayoutId;
     layoutClass: string;
     itemLayoutClass: string;
+    scrollParentRef?: RefObject<HTMLElement | null>;
     searchQuery: string;
     lawsuitFiles: FileData[];
     executionFiles: ExecutionFile[];
     dossiers: DossierPickerOption[];
     vaultDocsById: Map<string, SmartVaultDoc>;
+    rooms?: RepositoryRoom[];
+    onMoveGlobalToRoom?: (note: GlobalNote, roomId: string | null) => void | Promise<void>;
+    onMoveVaultDocToRoom?: (doc: SmartVaultDoc, roomId: string | null) => void | Promise<void>;
     viewingVaultDocId?: string | null;
     onSaveGlobal: (note: GlobalNote) => void | Promise<void>;
     onDeleteGlobal: (id: string | number) => void;
@@ -31,6 +37,7 @@ type RepositoryFeedSectionProps = {
     onDeleteVaultDoc: (doc: SmartVaultDoc) => void | Promise<void>;
     onEditVaultDoc: (doc: SmartVaultDoc) => void;
     onViewVaultDoc: (doc: SmartVaultDoc) => void | Promise<void>;
+    onCreateNote?: () => void;
 };
 
 export const RepositoryFeedSection = memo(function RepositoryFeedSection({
@@ -40,11 +47,15 @@ export const RepositoryFeedSection = memo(function RepositoryFeedSection({
     feedLayout,
     layoutClass,
     itemLayoutClass,
+    scrollParentRef,
     searchQuery,
     lawsuitFiles,
     executionFiles,
     dossiers,
     vaultDocsById,
+    rooms,
+    onMoveGlobalToRoom,
+    onMoveVaultDocToRoom,
     viewingVaultDocId,
     onSaveGlobal,
     onDeleteGlobal,
@@ -55,15 +66,31 @@ export const RepositoryFeedSection = memo(function RepositoryFeedSection({
     onDeleteVaultDoc,
     onEditVaultDoc,
     onViewVaultDoc,
+    onCreateNote,
 }: RepositoryFeedSectionProps) {
     if (feedLoading) {
+        const pulseLayout = layoutClass || getRepositoryFeedContainerClass(feedLayout);
         return (
             <div
-                className="flex items-center justify-center py-12"
+                className={pulseLayout}
                 data-testid="repository-feed-loading"
+                data-repository-view={feedLayout}
                 aria-busy="true"
             >
-                <Loader2 size={32} className="text-[#E6C673] animate-spin" />
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <div
+                        key={i}
+                        className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-3 space-y-2 animate-pulse"
+                    >
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="h-2.5 w-16 rounded bg-white/[0.06]" />
+                            <div className="h-5 w-14 rounded-full bg-white/[0.05]" />
+                        </div>
+                        <div className="h-3 w-[72%] rounded bg-white/[0.07]" />
+                        <div className="h-2.5 w-[48%] rounded bg-white/[0.05]" />
+                    </div>
+                ))}
+                <span className="sr-only">جاري تحميل البطاقات</span>
             </div>
         );
     }
@@ -76,11 +103,15 @@ export const RepositoryFeedSection = memo(function RepositoryFeedSection({
             feedLayout={feedLayout}
             layoutClass={layoutClass}
             itemLayoutClass={itemLayoutClass}
+            scrollParentRef={scrollParentRef}
             searchQuery={searchQuery}
             lawsuitFiles={lawsuitFiles}
             executionFiles={executionFiles}
             dossiers={dossiers}
             vaultDocsById={vaultDocsById}
+            rooms={rooms}
+            onMoveGlobalToRoom={onMoveGlobalToRoom}
+            onMoveVaultDocToRoom={onMoveVaultDocToRoom}
             onSaveGlobal={onSaveGlobal}
             onDeleteGlobal={onDeleteGlobal}
             onUpdateLawsuit={onUpdateLawsuit}
@@ -91,6 +122,7 @@ export const RepositoryFeedSection = memo(function RepositoryFeedSection({
             onEditVaultDoc={onEditVaultDoc}
             onViewVaultDoc={onViewVaultDoc}
             viewingVaultDocId={viewingVaultDocId}
+            onCreateNote={onCreateNote}
         />
     );
 });

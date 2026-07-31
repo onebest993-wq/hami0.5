@@ -1,12 +1,14 @@
 import React, { Suspense } from 'react';
 import { AlertCircle, CheckCircle, ClipboardList } from 'lucide-react';
 import { EvictionProceduresSection } from './EvictionProceduresSection';
-import { CoerciveToolsGrid } from './CoerciveToolsGrid';
-import type { CoerciveToolsGridProps } from './CoerciveToolsGrid';
+import { CoerciveSeizureToolsSection } from './CoerciveSeizureToolsSection';
+import type { CoerciveSeizureToolsSectionProps } from './CoerciveSeizureToolsSection';
 import type { EvictionProceduresSectionProps } from './EvictionProceduresSection';
 import type { EvictionTimelineActionId } from '@/app/utils/executionModuleStrategies';
 import { EncroachmentRemovalRequestCards } from './EncroachmentRemovalRequestCards';
 import type { EncroachmentCaseExpenseRow } from '@/app/utils/encroachmentRemovalRequests';
+import type { InlineActionGateKey } from '../types';
+import type { ExecutionFile } from '@/app/types/execution';
 
 export interface CoerciveTabProps {
     coerciveUiLocked: boolean;
@@ -53,6 +55,7 @@ export interface CoerciveTabProps {
     isMaritalFurnitureClaim?: boolean;
     maritalFurnitureItems?: EvictionProceduresSectionProps['maritalFurnitureItems'];
     saveMaritalFurnitureDeliveryInventory?: EvictionProceduresSectionProps['saveMaritalFurnitureDeliveryInventory'];
+    onOpenDecisionsModal?: EvictionProceduresSectionProps['onOpenDecisionsModal'];
     expandProcedureKey?: EvictionProceduresSectionProps['expandProcedureKey'];
     onExpandProcedureConsumed?: EvictionProceduresSectionProps['onExpandProcedureConsumed'];
     followupEmployeeFinancialSalaryOnlyCoercive: boolean;
@@ -83,8 +86,8 @@ export interface CoerciveTabProps {
         row: import('@/app/utils/specificDeliveryPropertyExpertRequest').SpecificDeliveryCaseExpenseRow
     ) => void;
     executionCoerciveButtonDisabled: boolean;
-    inlineActionGateKey: CoerciveToolsGridProps['inlineActionGateKey'];
-    setInlineActionGateKey: CoerciveToolsGridProps['setInlineActionGateKey'];
+    inlineActionGateKey: InlineActionGateKey | null;
+    setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
     handleCoerciveAction: (type: string) => void;
     handleEndGracePeriod: () => void;
     appendEvictionExecutorRequest: EvictionProceduresSectionProps['appendEvictionExecutorRequest'];
@@ -92,10 +95,16 @@ export interface CoerciveTabProps {
     showToast: EvictionProceduresSectionProps['showToast'];
     EVICTION_TIMELINE_ACTION_IDS: EvictionProceduresSectionProps['EVICTION_TIMELINE_ACTION_IDS'];
     activeDebtorIsEmployee: boolean;
-    activeCoerciveActions: CoerciveToolsGridProps['activeCoerciveActions'];
-    followupSalarySeizureLabel: CoerciveToolsGridProps['followupSalarySeizureLabel'];
-    followupGarnishmentAmountPreview: CoerciveToolsGridProps['followupGarnishmentAmountPreview'];
+    activeDebtorIsDeceased?: boolean;
+    activeCoerciveActions: string[];
+    followupSalarySeizureLabel: string;
+    followupGarnishmentAmountPreview: string | number | null | undefined;
     hideFollowupCoerciveTab?: boolean;
+    isHistoricalMode?: boolean;
+    saveCoerciveAction?: CoerciveSeizureToolsSectionProps['saveCoerciveAction'];
+    pushTimelineEvent?: CoerciveSeizureToolsSectionProps['pushTimelineEvent'];
+    nextTimelineId?: () => string;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
 }
 
 export const CoerciveTab: React.FC<CoerciveTabProps> = ({
@@ -134,6 +143,7 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     isMaritalFurnitureClaim = false,
     maritalFurnitureItems = [],
     saveMaritalFurnitureDeliveryInventory,
+    onOpenDecisionsModal,
     expandProcedureKey,
     onExpandProcedureConsumed,
     followupEmployeeFinancialSalaryOnlyCoercive,
@@ -171,10 +181,16 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
     showToast,
     EVICTION_TIMELINE_ACTION_IDS,
     activeDebtorIsEmployee,
+    activeDebtorIsDeceased = false,
     activeCoerciveActions,
     followupSalarySeizureLabel,
     followupGarnishmentAmountPreview,
     hideFollowupCoerciveTab = false,
+    isHistoricalMode = false,
+    saveCoerciveAction,
+    pushTimelineEvent,
+    nextTimelineId,
+    persistExecutionMerge,
 }) => (
     <>
         {coerciveUiLocked && isEvictionExecutionModule && (
@@ -332,6 +348,7 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                 appendEvictionProcedure={appendEvictionProcedure}
                 appendEvictionExecutorRequest={appendEvictionExecutorRequest}
                 decisionsStorageExecutionId={decisionsStorageExecutionId}
+                executionData={executionData}
                 showToast={showToast}
                 EVICTION_TIMELINE_ACTION_IDS={EVICTION_TIMELINE_ACTION_IDS}
                 hideEncroachmentEvictionProcedureItems={hideEncroachmentEvictionProcedureItems}
@@ -357,6 +374,10 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
                 isMaritalFurnitureClaim={isMaritalFurnitureClaim}
                 maritalFurnitureItems={maritalFurnitureItems}
                 saveMaritalFurnitureDeliveryInventory={saveMaritalFurnitureDeliveryInventory}
+                persistExecutionMerge={persistExecutionMerge}
+                pushTimelineEvent={pushTimelineEvent}
+                nextTimelineId={nextTimelineId}
+                onOpenDecisionsModal={onOpenDecisionsModal}
                 expandProcedureKey={expandProcedureKey}
                 onExpandProcedureConsumed={onExpandProcedureConsumed}
             />
@@ -364,21 +385,31 @@ export const CoerciveTab: React.FC<CoerciveTabProps> = ({
             </div>
         )}
 
-        <CoerciveToolsGrid
-            isEvictionExecutionModule={isEvictionExecutionModule}
-            activeDebtorIsEmployee={activeDebtorIsEmployee}
-            executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
-            activeCoerciveActions={activeCoerciveActions}
-            inlineActionGateKey={inlineActionGateKey}
-            followupSalarySeizureLabel={followupSalarySeizureLabel}
-            followupGarnishmentAmountPreview={followupGarnishmentAmountPreview}
-            followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
-            followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
-            hideCoerciveSeizureSalaryAndProperty={
-                hideCoerciveSeizureSalaryAndProperty || hideFollowupCoerciveTab
-            }
-            setInlineActionGateKey={setInlineActionGateKey}
-            handleCoerciveAction={handleCoerciveAction}
-        />
+        {typeof saveCoerciveAction === 'function' &&
+        typeof pushTimelineEvent === 'function' &&
+        typeof nextTimelineId === 'function' ? (
+            <CoerciveSeizureToolsSection
+                isEvictionExecutionModule={isEvictionExecutionModule}
+                activeDebtorIsEmployee={activeDebtorIsEmployee}
+                activeDebtorIsDeceased={activeDebtorIsDeceased}
+                executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
+                coerciveUiLocked={coerciveUiLocked}
+                isHistoricalMode={isHistoricalMode}
+                executionId={decisionsStorageExecutionId}
+                executionData={(executionData as ExecutionFile | null | undefined) ?? null}
+                followupSalarySeizureLabel={followupSalarySeizureLabel}
+                followupEmployeeFinancialSalaryOnlyCoercive={followupEmployeeFinancialSalaryOnlyCoercive}
+                followupMonetaryCoerciveLimitedOnly={followupMonetaryCoerciveLimitedOnly}
+                hideCoerciveSeizureSalaryAndProperty={
+                    hideCoerciveSeizureSalaryAndProperty || hideFollowupCoerciveTab
+                }
+                inlineActionGateKey={inlineActionGateKey}
+                setInlineActionGateKey={setInlineActionGateKey}
+                saveCoerciveAction={saveCoerciveAction}
+                pushTimelineEvent={pushTimelineEvent}
+                nextTimelineId={nextTimelineId}
+                showToast={showToast as CoerciveSeizureToolsSectionProps['showToast']}
+            />
+        ) : null}
     </>
 );

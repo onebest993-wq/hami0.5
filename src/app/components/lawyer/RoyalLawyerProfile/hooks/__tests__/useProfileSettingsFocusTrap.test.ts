@@ -29,4 +29,32 @@ describe('useProfileSettingsFocusTrap', () => {
 
         expect(onClose).not.toHaveBeenCalled();
     });
+
+    it('يعيد Tab من خارج الورقة إلى أول عنصر داخلها', () => {
+        const onClose = vi.fn();
+        const sheet = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.textContent = 'داخل';
+        sheet.appendChild(btn);
+        document.body.appendChild(sheet);
+
+        const outside = document.createElement('button');
+        outside.textContent = 'خارج';
+        document.body.appendChild(outside);
+        outside.focus();
+
+        const sheetRef = { current: sheet };
+        renderHook(() => useProfileSettingsFocusTrap(true, sheetRef, onClose));
+
+        act(() => {
+            window.dispatchEvent(
+                new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
+            );
+        });
+
+        expect(document.activeElement).toBe(btn);
+
+        sheet.remove();
+        outside.remove();
+    });
 });

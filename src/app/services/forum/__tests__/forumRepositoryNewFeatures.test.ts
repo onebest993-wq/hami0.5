@@ -7,7 +7,7 @@
  * الاستراتيجية: نُحاكي supabase admin client بـ chain شامل، ونتحقق
  * من الـ inserts/deletes/queries المرسلة + من رمي الأخطاء المتوقعة.
  */
-import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // ============== Supabase chain mock ==============
 type QueryRecorder = {
@@ -78,8 +78,8 @@ function buildChain() {
 }
 
 // ============== Mocks ==============
-vi.mock('../supabaseAdmin', () => ({
-    getForumSupabaseAdmin: vi.fn(() => ({
+vi.mock('../loadForumSupabaseAdmin', () => ({
+    loadForumSupabaseAdmin: vi.fn(async () => ({
         from: (table: string) => {
             recorder.table = table;
             return buildChain();

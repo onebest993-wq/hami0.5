@@ -1,38 +1,20 @@
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { getForumStats } from '../../../services/lawyer-cloud.ts';
 import { canManageForumAdmin } from '../adminAuth.ts';
+import { jsonResponse } from '../_auth.ts';
 
 export async function GET(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const requesterId = await getVerifiedTokenSubject(userToken);
-    if (!requesterId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: requesterId } = authGate;
     if (!(await canManageForumAdmin(requesterId))) {
-      return new Response(JSON.stringify({ ok: false, error: 'غير مصرح لك' }), {
-        status: 403,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      });
+      return jsonResponse(403, { ok: false, error: 'غير مصرح لك' });
     }
 
     const stats = await getForumStats();
-
-    return new Response(JSON.stringify({ ok: true, stats }), {
-      status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    });
+    return jsonResponse(200, { ok: true, stats });
   } catch {
-    return new Response(JSON.stringify({ ok: false, error: 'Internal server error' }), {
-      status: 500, headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    });
+    return jsonResponse(500, { ok: false, error: 'Internal server error' });
   }
 }

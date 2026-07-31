@@ -3,6 +3,8 @@
     width: 100%;
     display: block;
     isolation: isolate;
+    /* لا تقطع الحافة/التوهج — كان overflow من shell يخفي الإطار */
+    overflow: visible !important;
     transition: filter 0.35s ease, transform 0.35s ease;
 }
 
@@ -11,6 +13,32 @@
     width: 100%;
     height: 100%;
     isolation: isolate;
+    box-sizing: border-box;
+    display: block;
+}
+
+/* ألغِ absolute inset القديمة التي كانت تغطي حافة الـ padding */
+.profile-image-frame-wrap [data-profile-media-frame].profile-image-frame__media,
+.profile-image-frame__media[data-profile-media-frame] {
+    position: relative !important;
+    inset: auto !important;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #0a0f1c;
+    display: block;
+}
+
+.profile-image-frame-wrap--rim-neon {
+    filter: drop-shadow(0 0 10px color-mix(in srgb, var(--img-accent, #e6c673) 45%, transparent));
+}
+
+.profile-image-frame-wrap--rim-gold {
+    filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35));
+}
+
+.profile-image-frame-wrap--rim-ornate {
+    filter: drop-shadow(0 6px 18px rgba(0, 0, 0, 0.4));
 }
 
 .profile-image-frame-wrap--glow-soft {
@@ -43,30 +71,7 @@
         drop-shadow(0 0 calc(34px * var(--img-glow, 0.6)) color-mix(in srgb, var(--img-accent, #e6c673) 38%, transparent));
 }
 
-.profile-image-frame__rim {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-}
-
-.profile-image-frame--rim-minimal .profile-image-frame__media {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-}
-
-.profile-image-frame--rim-gold .profile-image-frame__media {
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--img-accent, #e6c673) 55%, transparent),
-        inset 0 2px 12px rgba(255, 255, 255, 0.06);
-}
-
-.profile-image-frame--rim-ornate .profile-image-frame__media {
-    box-shadow:
-        inset 0 0 0 2px color-mix(in srgb, var(--img-accent, #e6c673) 70%, transparent),
-        inset 0 0 0 5px rgba(0, 0, 0, 0.35),
-        0 0 0 1px rgba(255, 255, 255, 0.06);
-}
-
+/* لا outlines/inset على __media — clipPath يقصّها؛ الحافة من padding الإطار الأب */
 .profile-image-frame--rim-ornate {
     position: relative;
 }
@@ -76,17 +81,11 @@
 .profile-image-frame-wrap--template-vault .profile-image-frame--rim-ornate::before {
     content: '';
     position: absolute;
-    inset: 6px;
+    inset: 10px;
     border-radius: inherit;
-    border: 1px dashed color-mix(in srgb, var(--img-accent, #e6c673) 35%, transparent);
+    border: 1px dashed color-mix(in srgb, var(--img-accent, #e6c673) 55%, transparent);
     pointer-events: none;
     z-index: 4;
-}
-
-.profile-image-frame--rim-neon .profile-image-frame__media {
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--img-accent, #e6c673) 80%, white),
-        0 0 18px color-mix(in srgb, var(--img-accent, #e6c673) 35%, transparent);
 }
 
 .profile-image-frame-wrap--template-lens::after {
@@ -94,20 +93,9 @@
     position: absolute;
     inset: 0;
     border-radius: 50%;
-    border: 2px solid color-mix(in srgb, var(--img-accent, #e6c673) 45%, rgba(255, 255, 255, 0.15));
+    border: 2px solid color-mix(in srgb, var(--img-accent, #e6c673) 55%, rgba(255, 255, 255, 0.2));
     pointer-events: none;
     z-index: 3;
-}
-
-.profile-image-frame-wrap--template-vault .profile-image-frame__media {
-    box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--img-accent, #e6c673) 45%, transparent);
-}
-
-.profile-image-frame__media {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
 }
 
 .profile-image-frame__img {
@@ -115,6 +103,11 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.profile-image-frame--ken-burns .profile-image-frame__img,
+.profile-image-frame--parallax .profile-image-frame__img,
+.profile-image-frame--tilt-active .profile-image-frame__img {
     will-change: transform;
 }
 
@@ -170,11 +163,15 @@
 
 .profile-image-focus-picker {
     position: relative;
-    touch-action: none;
+    touch-action: pan-y;
     cursor: crosshair;
     border-radius: 1rem;
     overflow: hidden;
     border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.profile-image-focus-picker[data-dragging='true'] {
+    touch-action: none;
 }
 
 .profile-image-focus-picker__hint {
@@ -411,32 +408,39 @@
 }
 
 .profile-studio-rim-chip__frame {
-    width: 2rem;
-    height: 1.35rem;
-    border-radius: 0.35rem;
-    background: rgba(0, 0, 0, 0.45);
+    width: 2.15rem;
+    height: 1.45rem;
+    border-radius: 0.4rem;
+    background:
+        linear-gradient(#0a0f1c, #0a0f1c) padding-box,
+        linear-gradient(135deg, var(--img-accent, #e6c673), color-mix(in srgb, var(--img-accent, #e6c673) 40%, #000))
+            border-box;
+    border: 2px solid transparent;
 }
 
 .profile-studio-rim-chip[data-rim='minimal'] .profile-studio-rim-chip__frame {
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: #0a0f1c;
 }
 
 .profile-studio-rim-chip[data-rim='gold'] .profile-studio-rim-chip__frame {
-    box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--profile-accent, #e6c673) 65%, transparent),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    border: 3px solid var(--img-accent, #e6c673);
+    background: #0a0f1c;
+    box-shadow: 0 0 8px color-mix(in srgb, var(--img-accent, #e6c673) 35%, transparent);
 }
 
 .profile-studio-rim-chip[data-rim='ornate'] .profile-studio-rim-chip__frame {
-    box-shadow:
-        inset 0 0 0 2px color-mix(in srgb, var(--profile-accent, #e6c673) 55%, transparent),
-        inset 0 0 0 4px rgba(0, 0, 0, 0.35);
+    border: 4px double var(--img-accent, #e6c673);
+    background: #0a0f1c;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.45);
 }
 
 .profile-studio-rim-chip[data-rim='neon'] .profile-studio-rim-chip__frame {
+    border: 2px solid color-mix(in srgb, var(--img-accent, #e6c673) 80%, #fff);
+    background: #0a0f1c;
     box-shadow:
-        inset 0 0 0 1px color-mix(in srgb, var(--profile-accent, #e6c673) 85%, white),
-        0 0 10px color-mix(in srgb, var(--profile-accent, #e6c673) 35%, transparent);
+        0 0 10px color-mix(in srgb, var(--img-accent, #e6c673) 55%, transparent),
+        0 0 2px var(--img-accent, #e6c673);
 }
 
 .profile-studio-rim-chip__label {
@@ -599,6 +603,12 @@
 [data-lawyer-profile-root][data-profile-settings-open='true'] .profile-image-frame-wrap:not([data-preview-interactive='true']) .profile-image-frame--shimmer::before,
 [data-lawyer-profile-root][data-profile-settings-open='true'] .profile-image-frame-wrap:not([data-preview-interactive='true']).profile-image-frame-wrap--pulse,
 [data-lawyer-profile-root][data-profile-settings-open='true'] .profile-image-frame-wrap:not([data-preview-interactive='true']) .profile-image-frame--pulse-inner .profile-image-frame__media,
-[data-lawyer-profile-root][data-profile-settings-open='true'] .profile-image-frame-wrap:not([data-preview-interactive='true']) .profile-image-frame--parallax .profile-image-frame__img {
+[data-lawyer-profile-root][data-profile-settings-open='true'] .profile-image-frame-wrap:not([data-preview-interactive='true']) .profile-image-frame--parallax .profile-image-frame__img,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .profile-image-frame--ken-burns .profile-image-frame__img,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .profile-image-frame--shimmer::before,
+[data-lawyer-profile-root][data-profile-page-hidden='true'].profile-image-frame-wrap--pulse,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .profile-image-frame--pulse-inner .profile-image-frame__media,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .profile-image-frame--parallax .profile-image-frame__img,
+[data-lawyer-profile-root][data-profile-page-hidden='true'] .profile-image-frame-wrap--pulse {
     animation: none !important;
 }

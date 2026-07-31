@@ -1,4 +1,3 @@
-import type { HomeWidgetId } from './homeWidgetPlacements';
 import { dockShellLabel } from './homeBlockLabels';
 
 export type DockShellMetrics = {

@@ -21,7 +21,7 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
     return (
         <div
             data-testid="forum-section-switch"
-            className="grid grid-cols-3 gap-2 rounded-[1.4rem] border border-white/8 bg-[#1A121F]/90 p-2 shadow-[0_10px_28px_rgba(0,0,0,0.22)]"
+            className="hami-forum-section-rail grid grid-cols-3 gap-1 rounded-2xl p-1"
             role="tablist"
             aria-label="تبديل بين أقسام المنتدى"
         >
@@ -38,19 +38,13 @@ export const ForumSectionSwitch = memo(function ForumSectionSwitch({
                         onPointerEnter={() => {
                             if (id === 'repository') prefetchCommunityRepositorySection();
                         }}
-                        className={`relative min-h-[52px] rounded-[1.1rem] px-3 py-3 text-center text-sm font-bold transition-all duration-150 ${
+                        className={`hami-forum-cuneiform-btn relative min-h-[44px] rounded-xl px-3 py-2.5 text-center text-sm font-bold transition-colors duration-150 touch-manipulation ${
                             isActive
-                                ? 'bg-[linear-gradient(135deg,#F0B896_0%,#F7C7A7_100%)] text-[#24131B] shadow-[0_12px_28px_rgba(240,184,150,0.22)]'
-                                : 'bg-[#241A2A]/70 text-[#B4AEB6] border border-transparent hover:border-[#F0B896]/16 hover:bg-[#2B2032] hover:text-[#F6EFEA]'
+                                ? 'hami-forum-section-active'
+                                : 'hami-forum-section-idle hover:bg-white/[0.04]'
                         }`}
                     >
-                        <span className="relative z-10 block truncate">{label}</span>
-                        {isActive ? (
-                            <span
-                                aria-hidden
-                                className="absolute inset-x-4 bottom-1.5 h-[3px] rounded-full bg-[#2A1520]/35"
-                            />
-                        ) : null}
+                        <span className="block truncate">{label}</span>
                     </button>
                 );
             })}

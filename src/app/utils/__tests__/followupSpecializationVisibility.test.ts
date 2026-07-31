@@ -164,7 +164,7 @@ describe('followupSpecializationVisibility', () => {
             docType: 'قرارات وأحكام المحاكم',
             classification: 'شرعي',
         });
-        expect(custodyEarner.hideFollowupCoerciveTab).toBe(false);
+        expect(custodyEarner.hideFollowupCoerciveTab).toBe(true);
         expect(custodyEarner.hidePersonalCoerciveFollowupTab).toBe(false);
         expect(custodyEarner.suppressHiddenPersonalCoerciveRequests).toBe(false);
 
@@ -172,7 +172,7 @@ describe('followupSpecializationVisibility', () => {
             docType: 'قرارات وأحكام المحاكم',
             classification: 'شرعي',
         });
-        expect(custodyEmployee.hideFollowupCoerciveTab).toBe(false);
+        expect(custodyEmployee.hideFollowupCoerciveTab).toBe(true);
         expect(custodyEmployee.hidePersonalCoerciveFollowupTab).toBe(false);
         expect(custodyEmployee.suppressHiddenPersonalCoerciveRequests).toBe(false);
         expect(custodyEmployee.hidePersonalJudgePresentation).toBe(false);
@@ -215,14 +215,15 @@ describe('followupSpecializationVisibility', () => {
         expect(other.hidePersonalCoerciveFollowupTab).toBe(false);
     });
 
-    it('shows coercive followup procedures for marital furniture despite personal status court', () => {
+    it('hides coercive followup tab for marital furniture but keeps seizure requests', () => {
         const flags = resolveFollowupSpecializationVisibility('أثاث زوجية', true, {
             docType: 'قرارات وأحكام المحاكم',
             classification: 'شرعي',
         });
-        expect(flags.hideFollowupCoerciveTab).toBe(false);
-        expect(flags.hidePersonalCoerciveFollowupTab).toBe(false);
-        expect(flags.showSpecificDeliveryFieldProcedures).toBe(true);
+        expect(flags.hideFollowupCoerciveTab).toBe(true);
+        expect(flags.hidePersonalCoerciveFollowupTab).toBe(true);
+        expect(flags.hideFollowupSeizureRequestsTab).toBe(false);
+        expect(flags.showSpecificDeliveryFieldProcedures).toBe(false);
         expect(flags.showHiddenBreakInventoryRequest).toBe(false);
         expect(flags.showSpecificDeliveryBreakInventoryCard).toBe(false);
         expect(flags.hideCoerciveGraceNoticeBanner).toBe(true);
@@ -230,6 +231,7 @@ describe('followupSpecializationVisibility', () => {
         expect(flags.hideCoerciveSeizureSalaryAndProperty).toBe(true);
         expect(flags.hideEvictionCustodianProcedure).toBe(true);
         expect(flags.hideEncroachmentEvictionProcedureItems).toBe(true);
+        expect(flags.suppressHiddenPersonalCoerciveRequests).toBe(true);
 
         const nafqa = resolveFollowupSpecializationVisibility('نفقة', true, {
             docType: 'قرارات وأحكام المحاكم',

@@ -4,6 +4,10 @@ import {
     isCassationStageName,
     isFirstInstanceStageName,
 } from './judgmentTypes';
+import {
+    CASSATION_CORRECTION_TAB_LABEL,
+    shouldShowCassationCorrectionTabLabel,
+} from './extraordinaryAppealGateway';
 
 export type ChromeStageStripItem = {
     key: string;
@@ -23,15 +27,18 @@ function stageNameOf(stage: CaseStage | undefined): string {
 export function resolveStepperStageDisplayName(
     stage: CaseStage,
     _index: number,
-    _stages: CaseStage[],
+    stages: CaseStage[],
+    caseStatus?: string,
 ): string {
     const base = stageNameOf(stage);
     if (!base) return '—';
+    if (shouldShowCassationCorrectionTabLabel(stage, stages, caseStatus)) {
+        return CASSATION_CORRECTION_TAB_LABEL;
+    }
     return base;
 }
 
-export function shouldShowFutureCassationStage(stages: CaseStage[]): boolean {
-    void stages;
+export function shouldShowFutureCassationStage(_stages: CaseStage[]): boolean {
     return false;
 }
 
@@ -40,6 +47,7 @@ export function buildChromeStageStripItems(
     stages: CaseStage[],
     activeStageIndex: number,
     viewingStageIndex: number,
+    caseStatus?: string,
 ): ChromeStageStripItem[] {
     const items: ChromeStageStripItem[] = stages.map((stage, idx) => {
         const isPast = stage.status === 'completed' || stage.status === 'locked';
@@ -48,7 +56,7 @@ export function buildChromeStageStripItems(
 
         return {
             key: `${String(stage.id ?? 'stage')}-${idx}`,
-            displayName: resolveStepperStageDisplayName(stage, idx, stages),
+            displayName: resolveStepperStageDisplayName(stage, idx, stages, caseStatus),
             realIndex: idx,
             isPlaceholder: false,
             isPast,

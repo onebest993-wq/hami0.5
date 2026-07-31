@@ -1,6 +1,12 @@
-﻿import React from 'react';
+import React from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 export type HeirWorkflowRowState = {
     memoDate?: string;
@@ -12,7 +18,8 @@ export type HeirWorkflowRowState = {
 
 export interface ExecutionHeirsNotificationModalContainerProps {
     showHeirsNotificationModal: boolean;
-    setShowHeirsNotificationModal: (show: boolean) => void;
+    setShowHeirsNotificationModal?: (show: boolean) => void;
+    onCloseHeirsNotificationModal?: () => void;
     EXEC_MODAL_BACKDROP_STRONG: string;
     heirsNotificationModalZIndex: number;
     activeDebtorHeirsForNotification: readonly string[];
@@ -34,6 +41,7 @@ export interface ExecutionHeirsNotificationModalContainerProps {
 export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNotificationModalContainerProps> = ({
     showHeirsNotificationModal,
     setShowHeirsNotificationModal,
+    onCloseHeirsNotificationModal,
     EXEC_MODAL_BACKDROP_STRONG,
     heirsNotificationModalZIndex,
     activeDebtorHeirsForNotification,
@@ -51,25 +59,33 @@ export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNo
     markHeirSummonsAttended,
     markHeirSummonsPeriodEnded,
 }) => {
+    const closeHeirsNotificationModal = () => {
+        if (typeof onCloseHeirsNotificationModal === 'function') {
+            onCloseHeirsNotificationModal();
+        } else {
+            setShowHeirsNotificationModal?.(false);
+        }
+    };
+
     if (!showHeirsNotificationModal || typeof document === 'undefined') return null;
 
     return createPortal(
         <div
-            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG}`}
+            className={`fixed inset-0 flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_STRONG} ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             style={{ zIndex: heirsNotificationModalZIndex }}
             role="presentation"
-            onClick={() => setShowHeirsNotificationModal(false)}
+            onClick={() => closeHeirsNotificationModal()}
         >
             <div
                 className="bg-[#0B1120] border-2 border-cyan-500/40 rounded-3xl w-full max-w-md overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >
-                <div className="border-b border-cyan-500/30 p-4 flex items-center justify-between">
+                <div className={`border-b border-cyan-500/30 p-4 flex items-center justify-between ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                     <button
                         type="button"
-                        onClick={() => setShowHeirsNotificationModal(false)}
-                        className="p-2 hover:bg-cyan-500/20 rounded-lg transition-all"
+                        onClick={() => closeHeirsNotificationModal()}
+                        className={`${EXEC_MODAL_CLOSE_BTN_CLASS} hover:bg-cyan-500/20`}
                     >
                         <X size={20} className="text-white" />
                     </button>
@@ -145,7 +161,7 @@ export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNo
                                     <button
                                         type="button"
                                         onClick={() => issueHeirMemoNotice(heir)}
-                                        className="w-full rounded-lg bg-cyan-700/80 py-2 text-[11px] font-bold text-white"
+                                        className={`${EXEC_MODAL_TOUCH_TARGET} w-full rounded-lg bg-cyan-700/80 py-2 text-[11px] font-bold text-white`}
                                     >
                                         إصدار مذكرة الإخبار بالتنفيذ
                                     </button>
@@ -180,7 +196,7 @@ export const ExecutionHeirsNotificationModalContainer: React.FC<ExecutionHeirsNo
                                             }
                                             issueHeirSummons(heir);
                                         }}
-                                        className="w-full rounded-lg bg-indigo-700/80 py-2 text-[11px] font-bold text-white"
+                                        className={`${EXEC_MODAL_TOUCH_TARGET} w-full rounded-lg bg-indigo-700/80 py-2 text-[11px] font-bold text-white`}
                                     >
                                         {summonDatePickerOpen ? 'تأكيد التكليف بالحضور' : 'تكليف بالحضور'}
                                     </button>

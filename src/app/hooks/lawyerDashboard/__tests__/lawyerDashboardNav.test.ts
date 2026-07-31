@@ -1,4 +1,9 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@/app/bootstrap/bootReveal', () => ({
+    isBootRevealDone: () => true,
+}));
+
 import {
     LAWYER_DASHBOARD_TAB_KEY,
     readInitialLawyerTab,
@@ -13,9 +18,10 @@ describe('readInitialLawyerTab', () => {
         expect(readInitialLawyerTab()).toBe('home');
     });
 
-    it('يستعيد profile و schedule', () => {
+    it('يستعيد schedule فقط — الملف لا يُستعاد بعد reload', () => {
         sessionStorage.setItem(LAWYER_DASHBOARD_TAB_KEY, 'profile');
-        expect(readInitialLawyerTab()).toBe('profile');
+        expect(readInitialLawyerTab()).toBe('home');
+        expect(sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY)).toBeNull();
         sessionStorage.setItem(LAWYER_DASHBOARD_TAB_KEY, 'schedule');
         expect(readInitialLawyerTab()).toBe('schedule');
     });

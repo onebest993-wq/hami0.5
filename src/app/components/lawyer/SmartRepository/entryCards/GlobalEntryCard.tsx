@@ -99,6 +99,8 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                     onClick={toggleGlobalPin}
                     className={`${REPO_CARD_ICON_BTN} border ${note.isPinned ? 'border-[#E6C673]/35 text-[#E6C673]' : 'border-white/10 text-white/45'}`}
                     aria-label={note.isPinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                    aria-pressed={note.isPinned}
+                    data-testid={`repository-note-pin-${note.id}`}
                 >
                     <Pin size={13} className={note.isPinned ? 'fill-current' : undefined} />
                 </button>

@@ -6,6 +6,7 @@ import {
     prefetchVaultPdfJsViewer,
     VaultPdfJsViewerLazy,
 } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
+import '../forumPlumChrome.css';
 
 export function formatRepositoryFileSize(bytes: number): string {
     if (bytes === 0) return '0 بايت';
@@ -92,7 +93,7 @@ export function RepositoryPreviewModal({
             <div className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm" onClick={onClose} />
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 pointer-events-none">
                 <div
-                    className={`w-full ${isOpenMode ? 'max-w-6xl h-[92vh]' : 'max-w-lg'} bg-[#1A1D2D] rounded-2xl border border-white/10 shadow-2xl pointer-events-auto overflow-hidden flex flex-col`}
+                    className={`w-full ${isOpenMode ? 'max-w-6xl h-[92vh]' : 'max-w-lg'} hami-forum-modal-glass rounded-2xl pointer-events-auto overflow-hidden flex flex-col`}
                     onClick={(e) => e.stopPropagation()}
                 >
                     <div className="flex items-center justify-between px-5 py-4 border-b border-white/5">

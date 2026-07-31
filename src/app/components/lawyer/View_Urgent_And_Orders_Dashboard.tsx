@@ -1,19 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import {
-    AlertTriangle, Clock, CheckCircle2,
-    Plus, ArrowLeft, FileArchive, Trash2
-} from 'lucide-react';
-import {
-    Component_Urgent_Card,
-    type UrgentCase,
-    type UrgentCaseStatus,
-    computeUrgentCaseStatus,
-} from './Component_Urgent_Card';
+import { ArrowLeft, Plus } from 'lucide-react';
+import { isUrgentCaseClosed } from './Component_Urgent_Card';
 import { Modal_Quick_Log } from './Modal_Quick_Log';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { DashboardControls } from './View_Urgent_And_Orders_Dashboard/DashboardControls';
-import { DashboardSection } from './View_Urgent_And_Orders_Dashboard/DashboardSection';
 import type { ViewMode, FilterStatus, Props } from './View_Urgent_And_Orders_Dashboard/types';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
@@ -25,7 +15,14 @@ import { createCaseFromForm } from '@/app/domain/urgent';
 import { useUrgentCasesStorage } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentCasesStorage';
 import { useUrgentCasesFilter } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentCasesFilter';
 import { useUrgentDossierPanel } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentDossierPanel';
-import { unpinWorkspaceItem } from '@/app/workspace/unpinWorkspaceEntity';
+import { useUrgentLifecycleModals } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentLifecycleModals';
+import { useUrgentQuickLog } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentQuickLog';
+import { UrgentLifecycleModals } from './View_Urgent_And_Orders_Dashboard/UrgentLifecycleModals';
+import { UrgentDashboardSections } from './View_Urgent_And_Orders_Dashboard/UrgentDashboardSections';
+import {
+    DossierPanelErrorFallback,
+    FormModalErrorFallback,
+} from './View_Urgent_And_Orders_Dashboard/UrgentDashboardErrorFallbacks';
 
 const LazyFormUrgentActions = lazyWithRetry(() =>
     import('./Form_Urgent_Actions').then((m) => ({
@@ -33,83 +30,16 @@ const LazyFormUrgentActions = lazyWithRetry(() =>
     })),
 );
 
-function DossierPanelErrorFallback({
-    onClose,
-    onRetry,
-}: {
-    onClose: () => void;
-    onRetry: () => void;
-}) {
-    return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-xl rounded-2xl border border-red-500/30 bg-[#0B1021] p-6 text-center">
-                <p className="text-red-400 font-extrabold text-lg">تعذّر فتح الإضبارة</p>
-                <p className="mt-2 text-white/50 text-sm">حدث خطأ أثناء تحميل الملف. يمكنك إعادة المحاولة أو الإغلاق.</p>
-                <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-xs font-bold rounded-xl px-4 py-2 border border-white/20 text-white/80 hover:bg-white/10"
-                    >
-                        إغلاق
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onRetry}
-                        className="text-xs font-bold rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] hover:bg-[#E6C673]/10"
-                    >
-                        إعادة المحاولة
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-function FormModalErrorFallback({
-    onClose,
-    onRetry,
-}: {
-    onClose: () => void;
-    onRetry: () => void;
-}) {
-    return (
-        <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="w-full max-w-xl rounded-2xl border border-red-500/30 bg-[#0B1021] p-6 text-center">
-                <p className="text-red-400 font-extrabold text-lg">تعذّر فتح نموذج الطلب</p>
-                <p className="mt-2 text-white/50 text-sm">حدث خطأ أثناء تحميل النموذج. يمكنك إعادة المحاولة.</p>
-                <div className="mt-4 flex flex-wrap gap-2 justify-center">
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="text-xs font-bold rounded-xl px-4 py-2 border border-white/20 text-white/80 hover:bg-white/10"
-                    >
-                        إغلاق
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onRetry}
-                        className="text-xs font-bold rounded-xl px-4 py-2 border border-[#E6C673]/40 text-[#E6C673] hover:bg-[#E6C673]/10"
-                    >
-                        إعادة المحاولة
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-}
-
 export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
     onBack,
     onCreateNew,
-    onViewDetails,
     focusCaseId,
     embeddedInWorkspace = false,
 }) => {
     const { user: authUser, isLoading: authLoading } = useAuthSafe();
     const userId = useMemo(() => {
         if (authLoading) return null;
-        return authUser?.id ?? 'dev-user-uuid-1';
+        return authUser?.id ?? null;
     }, [authUser?.id, authLoading]);
 
     const [viewMode, setViewMode] = useState<ViewMode>(() => loadPersistedViewMode());
@@ -121,24 +51,12 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
             document.documentElement.dataset.hamiViewMode = mode;
         }
     }, []);
-    const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+    const [filterStatus] = useState<FilterStatus>('all');
     const [searchQuery, setSearchQuery] = useState<string>('');
 
     const [isCriticalExpanded, setIsCriticalExpanded] = useState(true);
     const [isPendingExpanded, setIsPendingExpanded] = useState(true);
     const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
-
-    const [quickLogModal, setQuickLogModal] = useState<{
-        isOpen: boolean;
-        actionType: 'notification' | 'grievance' | 'cassation';
-        caseId: string;
-        caseName: string;
-    }>({
-        isOpen: false,
-        actionType: 'notification',
-        caseId: '',
-        caseName: ''
-    });
 
     const [showFormModal, setShowFormModal] = useState(false);
     const [formModalRetryKey, setFormModalRetryKey] = useState(0);
@@ -156,6 +74,13 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
         openDossierForCase,
         handleCaseUpdated,
     } = useUrgentDossierPanel({ cases, setCases, pendingCasesPersistRef });
+
+    const lifecycle = useUrgentLifecycleModals({ cases, setCases, pendingCasesPersistRef });
+    const { quickLogModal, handleQuickAction, closeQuickLogModal, handleQuickLogSubmit } = useUrgentQuickLog(
+        cases,
+        setCases,
+        pendingCasesPersistRef,
+    );
 
     const focusAppliedRef = useRef(false);
     useEffect(() => {
@@ -180,25 +105,6 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
 
     const [scope, setScope] = useState<'active' | 'archive' | 'trash'>('active');
 
-    const [archiveModal, setArchiveModal] = useState<{
-        isOpen: boolean;
-        caseId: string;
-        reason: string;
-        mode: 'auto' | 'manual';
-    }>({ isOpen: false, caseId: '', reason: '', mode: 'manual' });
-    const [trashModal, setTrashModal] = useState<{
-        isOpen: boolean;
-        caseId: string;
-        reason: string;
-    }>({ isOpen: false, caseId: '', reason: '' });
-    const [permanentDeleteModal, setPermanentDeleteModal] = useState<{
-        isOpen: boolean;
-        caseId: string;
-        countdown: number;
-    }>({ isOpen: false, caseId: '', countdown: 5 });
-    const permanentDeleteTimerRef = useRef<number | null>(null);
-    const defaultArchiveReason = 'اكتسب القرار الدرجة القطعية وتم إغلاق الإضبارة';
-
     const { criticalCases, pendingCases, completedCases, archivedCases, trashedCases } = useUrgentCasesFilter({
         cases,
         scope,
@@ -206,530 +112,140 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
         searchQuery,
     });
 
-    useEffect(() => {
-        if (!permanentDeleteModal.isOpen) return;
-        if (permanentDeleteTimerRef.current) {
-            window.clearInterval(permanentDeleteTimerRef.current);
-            permanentDeleteTimerRef.current = null;
+    const handleAddNew = useCallback(() => {
+        if (!userId) {
+            SmartToast.error('يلزم تسجيل الدخول لإضافة طلب مستعجل');
+            return;
         }
-        permanentDeleteTimerRef.current = window.setInterval(() => {
-            setPermanentDeleteModal((prev) => {
-                const next = Math.max(0, prev.countdown - 1);
-                if (next === 0 && permanentDeleteTimerRef.current) {
-                    window.clearInterval(permanentDeleteTimerRef.current);
-                    permanentDeleteTimerRef.current = null;
-                }
-                return { ...prev, countdown: next };
-            });
-        }, 1000);
-        return () => {
-            if (permanentDeleteTimerRef.current) {
-                window.clearInterval(permanentDeleteTimerRef.current);
-                permanentDeleteTimerRef.current = null;
-            }
-        };
-    }, [permanentDeleteModal.isOpen]);
+        setShowFormModal(true);
+    }, [userId]);
 
-    const handleQuickAction = useCallback((
-        actionType: 'notification' | 'grievance' | 'cassation',
-        caseId: string
-    ) => {
-        const caseData = cases.find((c) => c.id === caseId);
-        if (!caseData) return;
+    const archivedCount = useMemo(
+        () =>
+            cases.filter((c) => {
+                const finalized =
+                    isUrgentCaseClosed(c) || c.status === 'completed' || c.phase === 'completed';
+                return !c.deleted && (!!c.archived || finalized);
+            }).length,
+        [cases],
+    );
+    const trashedCount = useMemo(() => cases.filter((c) => !!c.deleted).length, [cases]);
 
-        setQuickLogModal({
-            isOpen: true,
-            actionType,
-            caseId,
-            caseName: `${caseData.actionType} - ${caseData.applicantName}`
-        });
-    }, [cases]);
-
-    const handleQuickLogSubmit = (data: any) => {
-        setCases(prev => {
-            const next: UrgentCase[] = prev.map((c): UrgentCase => {
-                if (c.id === quickLogModal.caseId) {
-                    if (quickLogModal.actionType === 'notification') {
-                        const updated: UrgentCase = { ...c, isNotificationConfirmed: true };
-                        return { ...updated, status: computeUrgentCaseStatus(updated) };
-                    } else if (quickLogModal.actionType === 'grievance') {
-                        const updated: UrgentCase = {
-                            ...c,
-                            phase: 'cassation_window',
-                            grievanceResult: data.result as UrgentCase['grievanceResult'],
-                        };
-                        return { ...updated, status: computeUrgentCaseStatus(updated) };
-                    } else if (quickLogModal.actionType === 'cassation') {
-                        return { ...c, phase: 'completed', status: 'completed' as UrgentCaseStatus };
-                    }
-                }
-                return c;
-            });
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-
-        setQuickLogModal({ ...quickLogModal, isOpen: false });
-    };
-
-    const openArchiveModal = (caseId: string, mode: 'auto' | 'manual') => {
-        const target = cases.find((c) => c.id === caseId);
-        const autoText = target?.status === 'completed' ? defaultArchiveReason : '';
-        setArchiveModal({ isOpen: true, caseId, reason: autoText, mode });
-    };
-
-    const confirmArchive = () => {
-        const reason = archiveModal.reason.trim() || defaultArchiveReason;
-        if (!archiveModal.caseId) return;
-        setCases((prev) => {
-            const now = new Date().toISOString();
-            const next = prev.map((c) =>
-                c.id === archiveModal.caseId ? { ...c, archived: true, archivedAt: now, archivedReason: reason } : c,
-            );
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-        setArchiveModal({ isOpen: false, caseId: '', reason: '', mode: 'manual' });
-    };
-
-    const unarchiveCase = (caseId: string) => {
-        setCases((prev) => {
-            const next = prev.map((c) => (c.id === caseId ? { ...c, archived: false, archivedAt: null, archivedReason: null } : c));
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-    };
-
-    const openTrashModal = (caseId: string) => {
-        setTrashModal({ isOpen: true, caseId, reason: '' });
-    };
-
-    const confirmTrash = () => {
-        if (!trashModal.caseId) return;
-        const reason = trashModal.reason.trim();
-        setCases((prev) => {
-            const now = new Date().toISOString();
-            const next = prev.map((c) =>
-                c.id === trashModal.caseId ? { ...c, deleted: true, deletedAt: now, deletedReason: reason || null } : c,
-            );
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-        setTrashModal({ isOpen: false, caseId: '', reason: '' });
-    };
-
-    const restoreFromTrash = (caseId: string) => {
-        setCases((prev) => {
-            const next = prev.map((c) => (c.id === caseId ? { ...c, deleted: false, deletedAt: null, deletedReason: null } : c));
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-    };
-
-    const openPermanentDeleteModal = (caseId: string) => {
-        setPermanentDeleteModal({ isOpen: true, caseId, countdown: 5 });
-    };
-
-    const confirmPermanentDelete = () => {
-        if (!permanentDeleteModal.caseId) return;
-        const removedId = permanentDeleteModal.caseId;
-        setCases((prev) => {
-            const next = prev.filter((c) => c.id !== removedId);
-            pendingCasesPersistRef.current = true;
-            return next;
-        });
-        unpinWorkspaceItem(removedId, 'urgent');
-        setPermanentDeleteModal({ isOpen: false, caseId: '', countdown: 5 });
-    };
+    const openManualArchive = useCallback(
+        (caseId: string) => lifecycle.openArchiveModal(caseId, 'manual'),
+        [lifecycle],
+    );
 
     return (
-        <div className={embeddedInWorkspace ? 'h-full min-h-0 bg-[#0B1021] font-[\'Tajawal\'] px-4 py-4' : 'min-h-screen bg-[#0B1021] font-[\'Tajawal\'] p-6'}>
-            <div className={embeddedInWorkspace ? 'mb-4' : 'mb-8'}>
-                <div className={`flex items-center justify-between ${embeddedInWorkspace ? 'mb-4' : 'mb-6'}`}>
-                    <div className="flex items-center gap-4">
-                        {onBack && (
-                            <button type="button"
-                                onClick={onBack}
-                                className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all"
-                            >
-                                <ArrowLeft className="text-white" size={20} />
-                            </button>
-                        )}
-                        {!embeddedInWorkspace ? (
+        <div
+            className={
+                embeddedInWorkspace
+                    ? 'h-full min-h-0 bg-[#0B1021] font-[\'Tajawal\'] px-4 py-3 pb-24 relative'
+                    : 'min-h-screen bg-[#0B1021] font-[\'Tajawal\'] p-6 pb-24 relative'
+            }
+        >
+            <div className={embeddedInWorkspace ? 'mb-3' : 'mb-8'}>
+                {!embeddedInWorkspace ? (
+                    <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center gap-4">
+                            {onBack ? (
+                                <button
+                                    type="button"
+                                    onClick={onBack}
+                                    className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center transition-all"
+                                >
+                                    <ArrowLeft className="text-white" size={20} />
+                                </button>
+                            ) : null}
                             <div>
-                                <h1 className="text-3xl font-bold text-white mb-2">
-                                    لوحة القضاء المستعجل
-                                </h1>
+                                <h1 className="text-3xl font-bold text-white mb-2">لوحة القضاء المستعجل</h1>
                             </div>
-                        ) : null}
-                    </div>
-
-                    {showWorkspaceControls && (
-                        <div className="flex flex-wrap items-center gap-2 justify-end">
-                            <div className="flex items-center gap-1 rounded-2xl border border-white/10 bg-[#0B1021]/70 p-1">
-                                <button
-                                    type="button"
-                                    onClick={() => setScope('active')}
-                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
-                                        scope === 'active' ? 'bg-[#E6C673] text-[#0B1021]' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
-                                    }`}
-                                >
-                                    الفعّالة
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setScope('archive')}
-                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
-                                        scope === 'archive' ? 'bg-amber-950/45 text-amber-100 border border-amber-500/25' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
-                                    }`}
-                                >
-                                    الأرشيف
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setScope('trash')}
-                                    className={`h-9 px-3 rounded-xl text-xs font-bold transition-all ${
-                                        scope === 'trash' ? 'bg-rose-950/50 text-rose-100 border border-rose-500/25' : 'text-white/65 hover:text-white hover:bg-white/[0.08]'
-                                    }`}
-                                >
-                                    سلة المهملات
-                                </button>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={() => setShowFormModal(true)}
-                                className="flex items-center gap-2 h-9 px-4 rounded-xl bg-gradient-to-r from-[#E6C673] to-[#D4AF37] text-[#0B1021] text-xs font-bold hover:opacity-90 transition-all"
-                            >
-                                <Plus size={16} />
-                                <span>إضافة جديد</span>
-                            </button>
                         </div>
-                    )}
-                </div>
+                    </div>
+                ) : null}
 
                 <DashboardControls
                     searchQuery={searchQuery}
                     onSearchChange={setSearchQuery}
-                    filterStatus={filterStatus}
-                    onFilterChange={setFilterStatus}
                     viewMode={viewMode}
                     onViewModeChange={handleViewModeChange}
+                    scope={scope}
+                    onScopeChange={setScope}
+                    archivedCount={archivedCount}
+                    trashedCount={trashedCount}
                 />
             </div>
 
-            {scope === 'active' && criticalCases.length > 0 && (
-                <DashboardSection
-                    title="🚨 مواعيد حرجة (تنتهي خلال 48 ساعة)"
-                    subtitle="يتطلب تدخل فوري"
-                    icon={AlertTriangle}
-                    iconBgClass="bg-red-500/20"
-                    iconColorClass="text-red-400"
-                    borderClass="border-red-500/50"
-                    gradientClass="bg-gradient-to-r from-red-900/40 to-rose-800/20"
-                    count={criticalCases.length}
-                    isExpanded={isCriticalExpanded}
-                    onToggle={() => setIsCriticalExpanded(!isCriticalExpanded)}
-                    cases={criticalCases}
-                    viewMode={viewMode}
-                    onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClickWithPreload}
-                    onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
-                    onTrash={openTrashModal}
-                    scope="active"
-                />
-            )}
+            <UrgentDashboardSections
+                scope={scope}
+                searchQuery={searchQuery}
+                viewMode={viewMode}
+                criticalCases={criticalCases}
+                pendingCases={pendingCases}
+                completedCases={completedCases}
+                archivedCases={archivedCases}
+                trashedCases={trashedCases}
+                isCriticalExpanded={isCriticalExpanded}
+                isPendingExpanded={isPendingExpanded}
+                isCompletedExpanded={isCompletedExpanded}
+                onToggleCritical={() => setIsCriticalExpanded(!isCriticalExpanded)}
+                onTogglePending={() => setIsPendingExpanded(!isPendingExpanded)}
+                onToggleCompleted={() => setIsCompletedExpanded(!isCompletedExpanded)}
+                onQuickAction={handleQuickAction}
+                onCaseClick={handleCaseClickWithPreload}
+                onArchive={openManualArchive}
+                onTrash={lifecycle.openTrashModal}
+                onUnarchive={lifecycle.unarchiveCase}
+                onRestore={lifecycle.restoreFromTrash}
+                onPermanentDelete={lifecycle.openPermanentDeleteModal}
+            />
 
-            {scope === 'active' && pendingCases.length > 0 && (
-                <DashboardSection
-                    title="⏳ قيد الانتظار / ضمن المدة"
-                    subtitle="نشط"
-                    icon={Clock}
-                    iconBgClass="bg-blue-500/20"
-                    iconColorClass="text-blue-400"
-                    borderClass="border-blue-500/30"
-                    gradientClass="bg-gradient-to-r from-blue-900/30 to-blue-800/10"
-                    count={pendingCases.length}
-                    isExpanded={isPendingExpanded}
-                    onToggle={() => setIsPendingExpanded(!isPendingExpanded)}
-                    cases={pendingCases}
-                    viewMode={viewMode}
-                    onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClickWithPreload}
-                    onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
-                    onTrash={openTrashModal}
-                    scope="active"
-                />
-            )}
-
-            {scope === 'active' && completedCases.length > 0 && (
-                <DashboardSection
-                    title="✅ منجزة ومكتسبة الدرجة القطعية"
-                    subtitle="مكتمل"
-                    icon={CheckCircle2}
-                    iconBgClass="bg-green-500/20"
-                    iconColorClass="text-green-400"
-                    borderClass="border-green-500/20"
-                    gradientClass="bg-gradient-to-r from-green-900/20 to-emerald-800/5"
-                    count={completedCases.length}
-                    isExpanded={isCompletedExpanded}
-                    onToggle={() => setIsCompletedExpanded(!isCompletedExpanded)}
-                    cases={completedCases}
-                    viewMode={viewMode}
-                    onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClickWithPreload}
-                    onArchive={(caseId) => openArchiveModal(caseId, 'manual')}
-                    onTrash={openTrashModal}
-                    scope="active"
-                />
-            )}
-
-            {scope === 'archive' && (
-                <DashboardSection
-                    title="📦 الأرشيف"
-                    subtitle="مؤرشف"
-                    icon={FileArchive}
-                    iconBgClass="bg-white/10"
-                    iconColorClass="text-white/60"
-                    borderClass="border-white/10"
-                    gradientClass="bg-gradient-to-r from-slate-900/30 to-slate-800/10"
-                    count={archivedCases.length}
-                    isExpanded={true}
-                    onToggle={() => {}}
-                    cases={archivedCases}
-                    viewMode={viewMode}
-                    onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClickWithPreload}
-                    onUnarchive={unarchiveCase}
-                    onTrash={openTrashModal}
-                    scope="archive"
-                />
-            )}
-
-            {scope === 'trash' && (
-                <DashboardSection
-                    title="🗑️ سلة المهملات"
-                    subtitle="محذوف"
-                    icon={Trash2}
-                    iconBgClass="bg-red-500/10"
-                    iconColorClass="text-red-200"
-                    borderClass="border-red-500/20"
-                    gradientClass="bg-gradient-to-r from-red-900/20 to-rose-800/10"
-                    count={trashedCases.length}
-                    isExpanded={true}
-                    onToggle={() => {}}
-                    cases={trashedCases}
-                    viewMode={viewMode}
-                    onQuickAction={handleQuickAction}
-                    onCaseClick={handleCaseClickWithPreload}
-                    onRestore={restoreFromTrash}
-                    onPermanentDelete={openPermanentDeleteModal}
-                    scope="trash"
-                />
-            )}
-
-            {scope === 'active' && criticalCases.length === 0 && pendingCases.length === 0 && completedCases.length === 0 && (
-                <div className="text-center py-20">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                        <Clock className="text-white/30" size={40} />
-                    </div>
-                    <h3 className="text-white/60 font-bold text-lg mb-2">لا توجد مواعيد حرجة أو طلبات مستعجلة حالياً</h3>
-                    <p className="text-white/40 text-sm mb-6">
-                        {searchQuery ? 'لم يتم العثور على نتائج للبحث' : 'لم يتم إنشاء أي إجراءات مستعجلة أو أوامر ولائية بعد'}
-                    </p>
-                    {onCreateNew && (
-                        <button type="button"
-                            onClick={onCreateNew}
-                            className="px-6 py-3 rounded-lg bg-[#E6C673] text-[#0B1021] font-bold hover:opacity-90 transition-all"
-                        >
-                            إنشاء إجراء جديد
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {scope === 'archive' && archivedCases.length === 0 && (
-                <div className="text-center py-20">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                        <FileArchive className="text-white/30" size={40} />
-                    </div>
-                    <h3 className="text-white/60 font-bold text-lg mb-2">لا توجد ملفات مؤرشفة</h3>
-                    <p className="text-white/40 text-sm">سيظهر الأرشيف هنا بعد أرشفة الملفات المنجزة</p>
-                </div>
-            )}
-
-            {scope === 'trash' && trashedCases.length === 0 && (
-                <div className="text-center py-20">
-                    <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4">
-                        <Trash2 className="text-white/30" size={40} />
-                    </div>
-                    <h3 className="text-white/60 font-bold text-lg mb-2">سلة المهملات فارغة</h3>
-                    <p className="text-white/40 text-sm">الملفات المحذوفة ستظهر هنا ويمكن استعادتها</p>
-                </div>
-            )}
+            {showWorkspaceControls && !showFormModal ? (
+                <button
+                    type="button"
+                    onClick={handleAddNew}
+                    title="إضافة طلب مستعجل"
+                    aria-label="إضافة طلب مستعجل جديد"
+                    style={{
+                        position: 'fixed',
+                        zIndex: 60,
+                        bottom: 'max(1.25rem, env(safe-area-inset-bottom, 0px))',
+                        right: 'max(1.25rem, env(safe-area-inset-right, 0px))',
+                    }}
+                    className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-rose-300/30 bg-[#7A2E3B]/92 px-4 text-sm font-bold text-[#F8E9EC] shadow-[0_10px_28px_rgba(40,10,18,0.45)] backdrop-blur-md touch-manipulation transition-transform duration-200 hover:scale-[1.03] hover:bg-[#8A3644] active:scale-95"
+                >
+                    <Plus size={18} strokeWidth={3} aria-hidden />
+                    <span className="whitespace-nowrap">طلب مستعجل</span>
+                </button>
+            ) : null}
 
             <Modal_Quick_Log
                 isOpen={quickLogModal.isOpen}
-                onClose={() => setQuickLogModal({ ...quickLogModal, isOpen: false })}
+                onClose={closeQuickLogModal}
                 actionType={quickLogModal.actionType}
                 caseName={quickLogModal.caseName}
                 onSubmit={handleQuickLogSubmit}
             />
 
-            <AnimatePresence>
-                {archiveModal.isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setArchiveModal({ isOpen: false, caseId: '', reason: '', mode: 'manual' })}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.98, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.98, opacity: 0 }}
-                            className="w-full max-w-lg rounded-2xl bg-[#0B1021] border border-white/10 p-5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="text-white font-extrabold text-lg">📦 أرشفة الملف</div>
-                            <div className="text-white/60 text-sm mt-1">
-                                {archiveModal.mode === 'auto'
-                                    ? 'تم إنهاء الإضبارة. هل تريد أرشفتها الآن؟'
-                                    : 'سيتم نقل الملف إلى الأرشيف ويمكن إرجاعه لاحقاً.'}
-                            </div>
-                            <div className="mt-4">
-                                <label className="block text-white/70 text-sm mb-2">سبب الأرشفة</label>
-                                <textarea
-                                    value={archiveModal.reason}
-                                    onChange={(e) => setArchiveModal((s) => ({ ...s, reason: e.target.value }))}
-                                    rows={3}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-[#E6C673] focus:outline-none"
-                                    placeholder="مثال: اكتسب الدرجة القطعية / تم استرداد الحقوق / لا يوجد إجراء متبقٍ..."
-                                />
-                            </div>
-                            <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setArchiveModal({ isOpen: false, caseId: '', reason: '', mode: 'manual' })}
-                                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all"
-                                >
-                                    {archiveModal.mode === 'auto' ? 'لاحقاً' : 'إغلاق'}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={confirmArchive}
-                                    className="px-4 py-2 rounded-lg bg-[#E6C673] text-[#0B1021] text-sm font-extrabold hover:opacity-90 transition-all"
-                                >
-                                    تأكيد الأرشفة
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            <UrgentLifecycleModals
+                archiveModal={lifecycle.archiveModal}
+                onArchiveReasonChange={(reason) =>
+                    lifecycle.setArchiveModal((state) => ({ ...state, reason }))
+                }
+                onCloseArchive={lifecycle.closeArchiveModal}
+                onConfirmArchive={lifecycle.confirmArchive}
+                trashModal={lifecycle.trashModal}
+                onTrashReasonChange={(reason) =>
+                    lifecycle.setTrashModal((state) => ({ ...state, reason }))
+                }
+                onCloseTrash={lifecycle.closeTrashModal}
+                onConfirmTrash={lifecycle.confirmTrash}
+                permanentDeleteModal={lifecycle.permanentDeleteModal}
+                onClosePermanentDelete={lifecycle.closePermanentDeleteModal}
+                onConfirmPermanentDelete={lifecycle.confirmPermanentDelete}
+            />
 
-            <AnimatePresence>
-                {trashModal.isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[120] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setTrashModal({ isOpen: false, caseId: '', reason: '' })}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.98, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.98, opacity: 0 }}
-                            className="w-full max-w-lg rounded-2xl bg-[#0B1021] border border-white/10 p-5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="text-white font-extrabold text-lg">🗑️ نقل إلى سلة المهملات</div>
-                            <div className="text-white/60 text-sm mt-1">لن يتم حذف الملف نهائياً، ويمكن استعادته لاحقاً.</div>
-                            <div className="mt-3 border border-amber-500/25 bg-amber-500/10 rounded-lg px-3 py-2 text-amber-100 text-xs font-bold">
-                                ⚠️ تحذير: النقل إلى سلة المهملات يُستخدم فقط للملفات غير المكتملة. الملفات المنجزة تُؤرشف ولا تُحذف.
-                            </div>
-                            <div className="mt-4">
-                                <label className="block text-white/70 text-sm mb-2">سبب الحذف (اختياري)</label>
-                                <textarea
-                                    value={trashModal.reason}
-                                    onChange={(e) => setTrashModal((s) => ({ ...s, reason: e.target.value }))}
-                                    rows={3}
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-red-500/40 focus:outline-none"
-                                />
-                            </div>
-                            <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setTrashModal({ isOpen: false, caseId: '', reason: '' })}
-                                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all"
-                                >
-                                    إلغاء
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={confirmTrash}
-                                    className="px-4 py-2 rounded-lg bg-red-500 text-white text-sm font-extrabold hover:bg-red-600 transition-all"
-                                >
-                                    نقل إلى سلة المهملات
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            <AnimatePresence>
-                {permanentDeleteModal.isOpen && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-                        onClick={() => setPermanentDeleteModal({ isOpen: false, caseId: '', countdown: 5 })}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.98, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.98, opacity: 0 }}
-                            className="w-full max-w-lg rounded-2xl bg-[#0B1021] border border-white/10 p-5"
-                            onClick={(e) => e.stopPropagation()}
-                        >
-                            <div className="text-white font-extrabold text-lg">🔥 حذف نهائي</div>
-                            <div className="text-white/60 text-sm mt-1">
-                                سيتم حذف الملف نهائياً من سلة المهملات ولا يمكن استعادته بعد ذلك.
-                            </div>
-                            <div className="mt-3 border border-red-500/25 bg-red-500/10 rounded-lg px-3 py-2 text-red-100 text-xs font-bold">
-                                ⚠️ تحذير: هذا إجراء غير قابل للتراجع.
-                            </div>
-                            <div className="mt-4 flex items-center justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setPermanentDeleteModal({ isOpen: false, caseId: '', countdown: 5 })}
-                                    className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-white text-sm font-bold transition-all"
-                                >
-                                    إغلاق
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={confirmPermanentDelete}
-                                    disabled={permanentDeleteModal.countdown > 0}
-                                    className={`px-4 py-2 rounded-lg text-sm font-extrabold transition-all ${
-                                        permanentDeleteModal.countdown > 0
-                                            ? 'bg-red-500/30 text-white/50 cursor-not-allowed'
-                                            : 'bg-red-500 text-white hover:bg-red-600'
-                                    }`}
-                                >
-                                    {permanentDeleteModal.countdown > 0 ? `انتظر ${permanentDeleteModal.countdown} ثواني` : 'حذف نهائي'}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
-            {showFormModal && (
+            {showFormModal ? (
                 <ErrorBoundary
                     key={formModalRetryKey}
                     fallback={
@@ -752,29 +268,35 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                         }
                     >
                         <LazyFormUrgentActions
-                        onClose={() => setShowFormModal(false)}
-                        onSave={(data: Record<string, unknown>) => {
-                        SmartToast.success('✅ تم حفظ الطلب بنجاح');
-                        const newCase = createCaseFromForm(data, { msPerDay });
-                        setCases((prev) => {
-                            const next = [newCase, ...prev];
-                            pendingCasesPersistRef.current = true;
-                            return next;
-                        });
-                        setShowFormModal(false);
-                        openDossierForCase(newCase.id);
-                        }}
-                        initialActionType="state_order"
+                            onClose={() => setShowFormModal(false)}
+                            onSave={(data: Record<string, unknown>) => {
+                                if (!userId) {
+                                    SmartToast.error('يلزم تسجيل الدخول لحفظ طلب مستعجل');
+                                    return;
+                                }
+                                SmartToast.success('تم حفظ الطلب بنجاح');
+                                const newCase = createCaseFromForm(data, { msPerDay });
+                                setCases((prev) => {
+                                    const next = [newCase, ...prev];
+                                    pendingCasesPersistRef.current = true;
+                                    return next;
+                                });
+                                setShowFormModal(false);
+                                openDossierForCase(newCase.id);
+                            }}
+                            initialActionType="state_order"
                         />
                     </Suspense>
                 </ErrorBoundary>
-            )}
+            ) : null}
 
-            {showDetailsModal && selectedCaseForDetails && (
+            {showDetailsModal && selectedCaseForDetails ? (
                 selectedCaseFile ? (
                     <ErrorBoundary
                         key={`${selectedCaseForDetails}-${dossierMountKey}`}
-                        fallback={<DossierPanelErrorFallback onClose={closeDossierPanel} onRetry={retryDossierPanel} />}
+                        fallback={
+                            <DossierPanelErrorFallback onClose={closeDossierPanel} onRetry={retryDossierPanel} />
+                        }
                         onError={(error, info) => {
                             console.error('[UrgentOrders] dossier panel error:', error, info.componentStack);
                         }}
@@ -788,7 +310,7 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                 ) : (
                     <DossierOpeningFallback />
                 )
-            )}
+            ) : null}
         </div>
     );
 };

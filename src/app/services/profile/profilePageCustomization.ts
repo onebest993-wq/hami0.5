@@ -16,6 +16,7 @@ export type {
     ProfileImageInteraction,
     ProfileMediaTemplate,
     ProfilePageCustomization,
+    ProfilePortraitFrame,
     ProfilePrivacySettings,
     ProfileTextEffect,
     ProfileTextFont,
@@ -37,6 +38,7 @@ export {
     PROFILE_IMAGE_RIM_STYLES,
     PROFILE_MATERIALS,
     PROFILE_MEDIA_TEMPLATES,
+    PROFILE_PORTRAIT_FRAMES,
     PROFILE_RANDOM_APPEARANCE_COOLDOWN_MS,
     PROFILE_TEXT_EFFECTS,
     PROFILE_TEXT_FONTS,
@@ -48,6 +50,7 @@ export {
     defaultProfilePageCustomization,
     defaultTextCanvasStyle,
     resolveBlockCanvasStyle,
+    resolveCanvasPaddingPx,
     resolveImageFrameStyle,
 } from './profilePageDefaults';
 
@@ -74,11 +77,25 @@ export {
 } from './profilePageBlockStyle';
 
 export {
+    PROFILE_PAGE_ACCESS_OPTIONS,
+    PROFILE_PAGE_ACCESS_ORDER,
+    canViewProfilePage,
+    getProfilePageAccessMeta,
+    nextProfilePageAccess,
+    resolveProfilePageAccess,
+    type ProfilePageAccessMeta,
+} from './profilePageAccess';
+
+export {
     filterActionsForVisitor,
+    isProfileMetaFieldVisible,
     randomizeProfileAppearance,
     readProfileRandomCooldownUntil,
     resolveProfileAccentHex,
+    resolveProfileAccentInkHex,
+    resolveProfileAccentOnSolidHex,
     resolveProfilePageBackground,
+    shouldApplyVisitorPrivacy,
     writeProfileRandomCooldownUntil,
 } from './profilePageAppearance';
 

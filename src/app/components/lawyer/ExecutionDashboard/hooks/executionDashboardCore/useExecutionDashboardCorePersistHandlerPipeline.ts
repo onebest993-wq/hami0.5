@@ -129,6 +129,7 @@ export function useExecutionDashboardCorePersistHandlerPipeline(
         seizedAssetsSnapshotRef,
         maritalFurnitureItemsForFollowup,
         setActiveCoerciveActions,
+        isRepresentingDebtor,
     } = p;
 
     const debtorSummonsProfileBundle = useDebtorSummonsProfile(
@@ -348,6 +349,8 @@ const {
         executionDataRef,
         seizureDraftsByDecisionIdRef,
         setExecutionStorageTick,
+        isRepresentingDebtor,
+        showToast,
     });
 
     const { persistExecutionMerge } = persistExecutionMergeBinding;

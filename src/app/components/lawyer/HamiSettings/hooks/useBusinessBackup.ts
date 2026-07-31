@@ -11,8 +11,16 @@ import {
     type BusinessBackupPreview,
     type PendingBusinessImport,
 } from '@/app/services/settings/businessBackup';
-import { validateBusinessBackupImport } from '@/app/services/settings/businessBackupSecurity';
-import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
+import {
+    validateBusinessBackupImport,
+    validateBackupPassword,
+    BACKUP_PASSWORD_MIN_LENGTH,
+} from '@/app/services/settings/businessBackupSecurity';
+import {
+    mintSensitiveConfirmChallenge,
+    verifySensitiveSettingsAction,
+} from '@/app/services/settings/verifySensitiveSettingsAction';
+import { registerSettingsBackupUiGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
 
 export function useBusinessBackup() {
     const importBusinessInputRef = useRef<HTMLInputElement>(null);
@@ -106,23 +114,28 @@ export function useBusinessBackup() {
             );
             if (!proceed) return;
 
+            const challenge = mintSensitiveConfirmChallenge('تصدير نسخة');
             const verified = await verifySensitiveSettingsAction({
-                confirmPhrase: 'تصدير نسخة',
+                confirmPhrase: challenge.confirmPhrase,
                 title: 'تحقق قبل التصدير',
+                promptMessage: challenge.promptMessage,
             });
             if (!verified) return;
 
             const password = await SmartDialog.prompt(
-                'أدخل كلمة مرور لحماية النسخة (6 أحرف على الأقل):',
+                `أدخل كلمة مرور لحماية النسخة (${BACKUP_PASSWORD_MIN_LENGTH} أحرف على الأقل):`,
                 '',
             );
             const p = password?.trim() ?? '';
-            if (!p) {
-                SmartToast.warning('كلمة المرور مطلوبة لحماية النسخة');
-                return;
-            }
-            if (p.length < 6) {
-                SmartToast.warning('كلمة المرور قصيرة جداً — الحد الأدنى 6 أحرف');
+            const passwordCheck = validateBackupPassword(p);
+            if (passwordCheck.ok === false) {
+                if (passwordCheck.reason === 'empty') {
+                    SmartToast.warning('كلمة المرور مطلوبة لحماية النسخة');
+                } else {
+                    SmartToast.warning(
+                        `كلمة المرور قصيرة جداً — الحد الأدنى ${BACKUP_PASSWORD_MIN_LENGTH} حرفاً`,
+                    );
+                }
                 return;
             }
 
@@ -143,19 +156,21 @@ export function useBusinessBackup() {
             const date = new Date().toISOString().slice(0, 10);
             a.download = `hami-business-backup-${date}.protected.json`;
             a.click();
-            URL.revokeObjectURL(url);
+            window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
             SmartToast.success('تم تصدير نسخة البيانات');
         } catch {
             SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
         }
     }, [buildSelection]);
 
-    const importBusinessBackup = useCallback(async (entries: Array<[string, string]>) => {
+    const importBusinessBackup = useCallback(async (entries: Array<[string, string]>): Promise<boolean> => {
         try {
             await importBusinessBackupEntries(entries);
             SmartToast.success('تم استيراد البيانات');
+            return true;
         } catch {
             SmartToast.warning('تعذر استيراد البيانات');
+            return false;
         }
     }, []);
 
@@ -210,6 +225,17 @@ export function useBusinessBackup() {
             if (importBusinessInputRef.current) importBusinessInputRef.current.value = '';
         }
     }, []);
+
+    const dismissBackupUi = useCallback(() => {
+        setBackupPanelOpen(false);
+        setPendingBusinessImport(null);
+    }, []);
+
+    useEffect(() => {
+        const open = backupPanelOpen || pendingBusinessImport != null;
+        registerSettingsBackupUiGuard(open, open ? dismissBackupUi : null);
+        return () => registerSettingsBackupUiGuard(false);
+    }, [backupPanelOpen, pendingBusinessImport, dismissBackupUi]);
 
     return {
         importBusinessInputRef,

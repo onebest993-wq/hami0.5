@@ -5,8 +5,6 @@ import {
     buildAppealPerpetualEnforcementPatch,
     buildGrievanceDeadlineLapsePatch,
     buildManualExecutorAppealFilePatch,
-    CASSATION_APPEAL_WINDOW_DAYS,
-    GRIEVANCE_APPEAL_WINDOW_DAYS,
     reconcileAppealDeadlineEnforcement,
     resolveAppealDeadlineExpiryKind,
     resolveAppealLastDeadlineYmd,

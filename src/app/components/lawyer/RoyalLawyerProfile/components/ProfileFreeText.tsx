@@ -88,7 +88,7 @@ function FreeTextLine({
     const parts: { text: string; style: ProfileBlockTextStyle }[] = [];
     let cursor = 0;
     for (const span of lineSpans) {
-        const start = Math.max(0, Math.min(span.start, text.length));
+        const start = Math.max(cursor, Math.max(0, Math.min(span.start, text.length)));
         const end = Math.max(start, Math.min(span.end, text.length));
         if (start > cursor) {
             parts.push({ text: text.slice(cursor, start), style });
@@ -129,8 +129,8 @@ export function ProfileFreeText({ block, className = '' }: ProfileFreeTextProps)
         ...block.bodyStyle,
     };
 
-    const raw = block.body?.trim();
-    if (!raw) return null;
+    const raw = block.body ?? '';
+    if (!raw.trim()) return null;
 
     const lines = raw.split('\n');
 

@@ -1,4 +1,4 @@
-import { memo, useEffect } from 'react';
+import { memo } from 'react';
 import { Building2, ChevronLeft } from 'lucide-react';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
@@ -34,28 +34,6 @@ export const TransactionCard = memo(function TransactionCard({
     onPress: (tx: Transaction) => void;
 }) {
     const clusterPin = buildThreadingWorkspacePin(transaction);
-
-    useEffect(() => {
-        //#region debug-point nested-button-warning-transaction-card
-        fetch('http://127.0.0.1:7777/event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sessionId: 'nested-button-warning',
-                runId: 'post-fix',
-                hypothesisId: 'A',
-                location: 'TransactionCard.tsx:render',
-                msg: '[DEBUG] TransactionCard rendered clickable button with optional pin button',
-                data: {
-                    transactionId: transaction.id,
-                    hasClusterPin: Boolean(clusterPin),
-                    rootInteractiveTag: 'button',
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => undefined);
-        //#endregion debug-point nested-button-warning-transaction-card
-    }, [clusterPin, transaction.id]);
 
     return (
         <TxGlassPanel hover className="w-full text-right">

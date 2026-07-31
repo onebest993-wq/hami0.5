@@ -6,8 +6,9 @@ import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/crimi
 import type { JudicialCassationAppealModalVariant } from '../components/JudicialCassationAppealModal';
 import type { DecisionsPartyScope } from '../juvenileInvestigationRules';
 import type { PartyBailDraft, PartyDetentionDraft } from '../components/concernedPartyDecisionPickerDraft';
-import type { SeizedAssetDraft } from '../components/RequestModalEntryLanes';
+import type { SeizedAssetDraft } from '../components/requestModalEntryLanes.types';
 import type { LawyerRequestModalMode } from '../lawyerRequestStatusMachine';
+import type { PRIVATE_RIGHT_WAIVER_DECISION_VALUE } from '../criminalStageUtils';
 
 export type CriminalJourneyFilterOrchestratorSlice = {
     selectedNodeFilter: string;
@@ -60,6 +61,9 @@ export type CriminalDecisionsOrchestratorSlice = {
         } | null>
     >;
     openAppealModal: (decision: JudicialDecision, variant: JudicialCassationAppealModalVariant) => void;
+    handleInterventionCassation: (decision: JudicialDecision) => void;
+    handleDeclareJudgmentFinal: (decision: JudicialDecision) => void;
+    handleCassationCorrection: (decision: JudicialDecision) => void;
     decisionsPageSize: number;
 };
 
@@ -136,9 +140,55 @@ export type CriminalRequestsOrchestratorSlice = {
     setRequestMarginModalOpen: Dispatch<SetStateAction<boolean>>;
 };
 
+/** نوع قرار الغلق الختامي — يشمل التنازل عن الحق الشخصي كقيمة خاصة */
+export type StageCloserDecisionType =
+    | StageConclusion['decisionType']
+    | typeof PRIVATE_RIGHT_WAIVER_DECISION_VALUE
+    | '';
+
+export type CriminalStageCloserOrchestratorSlice = {
+    isStageCloserOpen: boolean;
+    setIsStageCloserOpen: Dispatch<SetStateAction<boolean>>;
+    stageCloserReferralOnly: boolean;
+    setStageCloserReferralOnly: Dispatch<SetStateAction<boolean>>;
+    stageCloserError: string;
+    setStageCloserError: Dispatch<SetStateAction<string>>;
+    closureDecisionType: StageCloserDecisionType;
+    setClosureDecisionType: Dispatch<SetStateAction<StageCloserDecisionType>>;
+    closureDate: string;
+    setClosureDate: Dispatch<SetStateAction<string>>;
+    closureDetails: string;
+    setClosureDetails: Dispatch<SetStateAction<string>>;
+    closureDefendantStatus: StageConclusion['defendantStatusAtDecision'];
+    setClosureDefendantStatus: Dispatch<SetStateAction<StageConclusion['defendantStatusAtDecision']>>;
+    closureExpirationReason: StageConclusion['expirationReason'] | '';
+    setClosureExpirationReason: Dispatch<SetStateAction<StageConclusion['expirationReason'] | ''>>;
+    closureExpirationCustomDetail: string;
+    setClosureExpirationCustomDetail: Dispatch<SetStateAction<string>>;
+    closureExpirationDefendantIds: string[];
+    setClosureExpirationDefendantIds: Dispatch<SetStateAction<string[]>>;
+    closureReferralStage: 'محكمة الجنح' | 'محكمة الجنايات' | '';
+    setClosureReferralStage: Dispatch<SetStateAction<'محكمة الجنح' | 'محكمة الجنايات' | ''>>;
+    closureReferralCourtName: string;
+    setClosureReferralCourtName: Dispatch<SetStateAction<string>>;
+    closureReferralCaseNumber: string;
+    setClosureReferralCaseNumber: Dispatch<SetStateAction<string>>;
+    closureSuspendedExecution: boolean;
+    setClosureSuspendedExecution: Dispatch<SetStateAction<boolean>>;
+    closurePunishmentType: 'death' | 'life' | 'other';
+    setClosurePunishmentType: Dispatch<SetStateAction<'death' | 'life' | 'other'>>;
+    closureJuvenileSeverDefendantId: string;
+    setClosureJuvenileSeverDefendantId: Dispatch<SetStateAction<string>>;
+    closureScopedDefendantIds: string[];
+    setClosureScopedDefendantIds: Dispatch<SetStateAction<string[]>>;
+    closureSharedObjective269b: boolean;
+    setClosureSharedObjective269b: Dispatch<SetStateAction<boolean>>;
+};
+
 export type CriminalDomainOrchestratorSlice =
     | CriminalBootOrchestratorSlice
     | CriminalJourneyFilterOrchestratorSlice
     | CriminalToastOrchestratorSlice
     | CriminalDecisionsOrchestratorSlice
-    | CriminalRequestsOrchestratorSlice;
+    | CriminalRequestsOrchestratorSlice
+    | CriminalStageCloserOrchestratorSlice;

@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
-import { Clock, AlertCircle, CheckCircle2, Scale, FileText, MapPin, Calendar, Trash2, RotateCcw } from 'lucide-react';
+import { Trash2, RotateCcw } from 'lucide-react';
 import { preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildUrgentWorkspacePin } from '@/app/workspace/workspacePinBuilders';
@@ -284,67 +284,39 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
     const targetLabel = case_data.sessionDate ? 'موعد الجلسة' : 'الموعد النهائي';
     const targetText = targetDate ? targetDate.toLocaleDateString('ar-IQ') : null;
 
-    const daysBadgeText = () => {
-        if (case_data.deleted || case_data.archived || case_data.phase === 'completed' || case_data.status === 'completed') return null;
-        if (!targetDate || isWaitingNotification) return null;
-        const diffDays = Math.ceil((startOfDay(targetDate) - startOfDay(new Date())) / msPerDay);
-        if (diffDays < 0) return 'انتهت المدة القانونية';
-        if (diffDays === 0) return 'اليوم هو الموعد الأخير';
-        if (diffDays === 1) return 'تنتهي غداً';
-        return `متبقي ${diffDays} أيام`;
-    };
-
     const getStatusConfig = () => {
+        const shell =
+            'bg-[#0A0F1C]/50 backdrop-blur-md border border-white/[0.08] hover:border-[#E6C673]/14';
         switch (case_data.status) {
             case 'critical':
                 return {
-                    dot: 'bg-red-500',
-                    dotPulse: 'animate-pulse',
-                    border: 'border-red-500/50',
-                    bg: 'from-red-900/30 to-red-800/10',
-                    timerBg: 'bg-red-500/20',
-                    timerText: 'text-red-300',
-                    icon: '🚨'
+                    shell,
+                    accent: 'bg-gradient-to-b from-rose-300/90 via-rose-400/60 to-rose-500/30',
                 };
             case 'warning':
                 return {
-                    dot: 'bg-amber-500',
-                    dotPulse: 'animate-pulse',
-                    border: 'border-amber-500/50',
-                    bg: 'from-amber-900/30 to-amber-800/10',
-                    timerBg: 'bg-amber-500/20',
-                    timerText: 'text-amber-300',
-                    icon: '⚠️'
+                    shell,
+                    accent: 'bg-gradient-to-b from-amber-300/80 via-amber-400/55 to-amber-600/25',
                 };
             case 'safe':
                 return {
-                    dot: 'bg-blue-500',
-                    dotPulse: '',
-                    border: 'border-blue-500/30',
-                    bg: 'from-blue-900/20 to-blue-800/5',
-                    timerBg: 'bg-blue-500/20',
-                    timerText: 'text-blue-300',
-                    icon: '⏳'
+                    shell,
+                    accent: 'bg-gradient-to-b from-[#E6C673]/90 via-[#E6C673]/55 to-[#B8941F]/25',
                 };
             case 'expired':
                 return {
-                    dot: 'bg-gray-500',
-                    dotPulse: '',
-                    border: 'border-gray-500/30',
-                    bg: 'from-gray-900/20 to-gray-800/5',
-                    timerBg: 'bg-gray-500/20',
-                    timerText: 'text-gray-400',
-                    icon: '⌛'
+                    shell,
+                    accent: 'bg-gradient-to-b from-slate-400/70 via-slate-500/45 to-slate-600/20',
                 };
             case 'completed':
                 return {
-                    dot: 'bg-green-500',
-                    dotPulse: '',
-                    border: 'border-green-500/30',
-                    bg: 'from-green-900/20 to-green-800/5',
-                    timerBg: 'bg-green-500/20',
-                    timerText: 'text-green-300',
-                    icon: '✅'
+                    shell,
+                    accent: 'bg-gradient-to-b from-emerald-300/75 via-emerald-400/50 to-emerald-600/20',
+                };
+            default:
+                return {
+                    shell,
+                    accent: 'bg-gradient-to-b from-white/30 to-white/10',
                 };
         }
     };
@@ -359,9 +331,9 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
                 const target = new Date(base.getTime() + grievanceDays * msPerDay);
                 const remainingDays = Math.ceil((startOfDay(target) - startOfDay(new Date())) / msPerDay);
                 if (remainingDays < 0) return 'مكتسب الدرجة القطعية';
-                if (remainingDays === 0) return '⏳ اليوم آخر يوم للتظلم';
-                if (remainingDays === 1) return '⏳ متبقي يوم واحد للتظلم';
-                return `⏳ متبقي ${remainingDays} أيام للتظلم`;
+                if (remainingDays === 0) return 'اليوم آخر يوم للتظلم';
+                if (remainingDays === 1) return 'متبقي يوم واحد للتظلم';
+                return `متبقي ${remainingDays} أيام للتظلم`;
             }
             return `مدة التظلم (${grievanceDays} أيام)`;
         }
@@ -377,227 +349,105 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
         }
     };
 
-    const getQuickActionButton = () => {
-        if (case_data.status === 'completed') return null;
-
-        // For Urgent Actions
-        if (case_data.type === 'urgent_action' && case_data.phase === 'notification_pending') {
-            return (
-                <button type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAction?.('notification', case_data.id);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white text-xs font-bold transition-all shadow-lg"
-                >
-                    <CheckCircle2 size={14} />
-                    <span>تأكيد التبليغ</span>
-                </button>
-            );
-        }
-
-        // For State Orders - Grievance Phase
-        if (case_data.type === 'state_order' && case_data.phase === 'grievance_window') {
-            if (!case_data.judgeDecision) return null;
-            if (case_data.judgeDecision !== 'accepted' && case_data.judgeDecision !== 'rejected') return null;
-            if (!case_data.notificationDate) return null;
-            return (
-                <button type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAction?.('grievance', case_data.id);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold transition-all shadow-lg"
-                >
-                    <Scale size={14} />
-                    <span>تسجيل التظلم الآن</span>
-                </button>
-            );
-        }
-
-        // For State Orders - Cassation Phase
-        if (case_data.type === 'state_order' && case_data.phase === 'cassation_window') {
-            return (
-                <button type="button"
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onQuickAction?.('cassation', case_data.id);
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white text-xs font-bold transition-all shadow-lg"
-                >
-                    <Scale size={14} />
-                    <span>تسجيل التمييز</span>
-                </button>
-            );
-        }
-
-        return null;
-    };
-
     const phaseLabel = getPhaseLabel();
     const bottomBarStatusText = isWaitingNotification ? 'بانتظار التبليغ الأصولي' : null;
-    const showPhaseBadge = case_data.status !== 'completed' && !!phaseLabel && phaseLabel !== bottomBarStatusText;
-    const quickAction = getQuickActionButton();
+
+    const metaParts: string[] = [];
+    if (case_data.court?.trim()) metaParts.push(case_data.court.trim());
+    if (case_data.status === 'completed') {
+        metaParts.push('مكتسبة الدرجة القطعية');
+    } else if (isWaitingNotification) {
+        metaParts.push('بانتظار التبليغ الأصولي');
+    } else {
+        if (phaseLabel && phaseLabel !== bottomBarStatusText) metaParts.push(phaseLabel);
+        if (targetText) metaParts.push(`${targetLabel} ${targetText}`);
+    }
+    const metaLine = metaParts.join(' · ');
 
     const config = getStatusConfig();
     const workspacePin = buildUrgentWorkspacePin(case_data);
+
+    const actionBtnClass =
+        'shrink-0 w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center transition-colors';
+
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             onPointerEnter={() => preloadActiveOrderFilePanel()}
             onClick={() => onCaseClick?.(case_data.id)}
-            className={`font-['Tajawal'] group relative bg-gradient-to-br ${config.bg} border-2 ${config.border} rounded-2xl p-5 cursor-pointer transition-all hover:shadow-xl hover:shadow-black/20`}
+            className={`font-['Tajawal'] group flex items-stretch gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer transition-colors ${config.shell}`}
         >
-            {/* Status Dot - Top Left */}
-            <div className="absolute top-4 left-4">
-                <div className={`w-3 h-3 rounded-full ${config.dot} ${config.dotPulse}`} />
-            </div>
+            <span
+                className={`w-0.5 shrink-0 rounded-full self-stretch min-h-[2.25rem] ${config.accent}`}
+                aria-hidden
+            />
 
-            <div className="absolute top-3 left-12 flex items-center gap-1 opacity-100 transition-all">
-                {workspacePin ? (
-                    <div onPointerDown={(e) => e.stopPropagation()} role="presentation">
-                        <WorkspacePinButton item={workspacePin} />
+            <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                    <p className="min-w-0 text-[13px] leading-snug line-clamp-2">
+                        <span className="font-bold text-white/90">{case_data.actionType}</span>
+                        {case_data.applicantName ? (
+                            <span className="text-white/42 font-medium"> — {case_data.applicantName}</span>
+                        ) : null}
+                    </p>
+
+                    <div className="flex items-center gap-0.5 shrink-0">
+                        {workspacePin ? (
+                            <div onPointerDown={(e) => e.stopPropagation()} role="presentation">
+                                <WorkspacePinButton item={workspacePin} />
+                            </div>
+                        ) : null}
+                        {scope === 'trash' ? (
+                            <>
+                                <button
+                                    type="button"
+                                    title="استعادة"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onRestore?.(case_data.id);
+                                    }}
+                                    className={`${actionBtnClass} text-white/55 hover:text-white hover:bg-white/10`}
+                                >
+                                    <RotateCcw size={14} />
+                                </button>
+                                <button
+                                    type="button"
+                                    title="حذف نهائي"
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onPermanentDelete?.(case_data.id);
+                                    }}
+                                    className={`${actionBtnClass} text-rose-300/80 hover:text-rose-200 hover:border-rose-400/25`}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </>
+                        ) : (
+                            <button
+                                type="button"
+                                title="نقل إلى سلة المهملات"
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onTrash?.(case_data.id);
+                                }}
+                                className={`${actionBtnClass} text-rose-300/75 hover:text-rose-200 hover:border-rose-400/25 hover:bg-rose-500/10`}
+                            >
+                                <Trash2 size={14} />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {metaLine ? (
+                    <div className="mt-1">
+                        <p className="text-[10px] text-white/38 truncate leading-tight">{metaLine}</p>
                     </div>
                 ) : null}
-                {scope === 'trash' ? (
-                    <>
-                        <button
-                            type="button"
-                            title="استعادة"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRestore?.(case_data.id);
-                            }}
-                            className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-white/70 hover:text-white transition-all"
-                        >
-                            <RotateCcw size={16} />
-                        </button>
-                        <button
-                            type="button"
-                            title="حذف نهائي"
-                            onPointerDown={(e) => e.stopPropagation()}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onPermanentDelete?.(case_data.id);
-                            }}
-                            className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-red-300 hover:text-red-200 transition-all"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    </>
-                ) : (
-                    <button
-                        type="button"
-                        title="نقل إلى سلة المهملات"
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onTrash?.(case_data.id);
-                        }}
-                        className="w-9 h-9 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-red-300 hover:text-red-200 transition-all"
-                    >
-                        <Trash2 size={16} />
-                    </button>
-                )}
             </div>
-
-            {/* Icon Badge - Top Right */}
-            <div className="absolute top-3 right-3 text-2xl">
-                {config.icon}
-            </div>
-
-            {/* Content */}
-            <div className="mt-6 mb-4">
-                {/* Title */}
-                <h3 className="text-white font-bold text-base mb-2 leading-relaxed line-clamp-2">
-                    {case_data.actionType} - {case_data.applicantName}
-                </h3>
-
-                {/* Court Info */}
-                <div className="flex items-center gap-2 text-white/60 text-xs mb-3">
-                    <MapPin size={12} />
-                    <span>المحكمة: {case_data.court}</span>
-                </div>
-
-                {/* Phase Badge */}
-                {showPhaseBadge && (
-                    <div className="flex items-center gap-2 mb-3">
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 border border-white/20">
-                            <FileText size={11} />
-                            <span className="text-white/80 text-[10px] font-bold">{phaseLabel}</span>
-                        </div>
-                    </div>
-                )}
-
-                {/* Session/Deadline Date if exists */}
-                {(case_data.sessionDate || case_data.deadlineDate) && (
-                    <div className="flex items-center gap-2 text-white/50 text-xs mb-3">
-                        <Calendar size={12} />
-                        <span>
-                            {case_data.sessionDate 
-                                ? `موعد الجلسة: ${new Date(case_data.sessionDate).toLocaleDateString('ar-IQ')}`
-                                : `الموعد النهائي: ${new Date(case_data.deadlineDate!).toLocaleDateString('ar-IQ')}`
-                            }
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {/* Quick Action Button */}
-            {quickAction && (
-                <div className="mb-4">
-                    {quickAction}
-                </div>
-            )}
-
-            {/* Timer Strip - Bottom */}
-            {case_data.status !== 'completed' && (
-                <div className={`${config.timerBg} rounded-lg px-3 py-2 border border-white/10`}>
-                    <div className="flex items-center justify-between">
-                        {isWaitingNotification ? (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Clock size={14} className="text-cyan-200" />
-                                <span className="text-cyan-200 text-xs font-bold truncate">
-                                    ⏳ بانتظار التبليغ الأصولي
-                                </span>
-                            </div>
-                        ) : (
-                            <div className="flex items-center gap-2 min-w-0">
-                                <Calendar size={14} className={config.timerText} />
-                                <span className={`${config.timerText} text-xs font-bold truncate`}>
-                                    {targetText ? `${targetLabel}: ${targetText}` : targetLabel}
-                                </span>
-                            </div>
-                        )}
-                        {daysBadgeText() && (
-                            <span
-                                className={`text-[11px] font-extrabold px-2 py-1 rounded-full border ${
-                                    daysBadgeText() === 'انتهت المدة القانونية'
-                                        ? 'bg-red-500/20 text-red-300 border-red-500/30'
-                                        : 'bg-white/10 text-white/80 border-white/20'
-                                }`}
-                            >
-                                {daysBadgeText()}
-                            </span>
-                        )}
-                    </div>
-                </div>
-            )}
-
-            {/* Completed Badge */}
-            {case_data.status === 'completed' && (
-                <div className="bg-green-500/15 rounded-lg px-3 py-2 border border-green-500/25">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <CheckCircle2 size={14} className="text-green-400" />
-                            <span className="text-green-300 text-xs font-bold">منجز ومكتسب الدرجة القطعية</span>
-                        </div>
-                    </div>
-                </div>
-            )}
         </motion.div>
     );
 };

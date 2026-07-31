@@ -4,7 +4,7 @@
  * — المنتدى/النظام ما زال يُنشر.
  */
 import { describe, expect, it, beforeEach } from 'vitest';
-import { AuditLog, _resetAuditLogDedupe } from '../auditLogPublisher';
+import { AuditLog, resetAuditLogDedupe as _resetAuditLogDedupe } from '../auditLogPublisher';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
     deriveNotificationCategory,

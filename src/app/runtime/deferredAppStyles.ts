@@ -1,27 +1,60 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
-
 let scheduled = false;
+let loaded = false;
+let loadPromise: Promise<void> | null = null;
 
-/** يحمّل Tailwind الكامل بعد أول إطار — critical-shell.css يغطي لوحة الرئيسية */
-export function scheduleDeferredAppStyles(): void {
-    if (scheduled) return;
+function startDeferredAppStylesLoad(): Promise<void> {
+    if (typeof window === 'undefined') return Promise.resolve();
+    if (loaded) return Promise.resolve();
+    if (loadPromise) return loadPromise;
+
     scheduled = true;
+    loadPromise = import('@/styles/deferred-app.css')
+        .then(() => {
+            loaded = true;
+            try {
+                document.documentElement.dataset.hamiDeferredApp = '1';
+            } catch {
+                /* ignore */
+            }
+        })
+        .catch(() => {
+            loadPromise = null;
+        });
 
-    const load = () => {
-        void import('@/styles/deferred-app.css');
-    };
+    return loadPromise ?? Promise.resolve();
+}
 
-    /** WebView: تأجيل إضافي idle لتقليل layout thrashing أثناء الإقلاع */
-    if (isCapacitorNativePlatform()) {
-        if (typeof requestIdleCallback !== 'undefined') {
-            requestIdleCallback(load, { timeout: 2_500 });
-        } else {
-            window.setTimeout(load, 400);
+/**
+ * يحمّل Tailwind + lawyerHomeFx الكامل.
+ * يُستدعى بعد content-ready (أو احتياطي بعد الكشف) — لا من أول بايت index.
+ */
+export function scheduleDeferredAppStyles(): void {
+    if (scheduled || loaded || typeof window === 'undefined') return;
+    scheduled = true;
+    void startDeferredAppStylesLoad();
+}
+
+/** ينتظر اكتمال deferred-app (أو يفشل بهدوء) — لكشف الإقلاع بعد استقرار الشكل */
+export function ensureDeferredAppStylesLoaded(): Promise<void> {
+    if (typeof window === 'undefined') return Promise.resolve();
+    if (loaded) return Promise.resolve();
+    scheduled = true;
+    return startDeferredAppStylesLoad();
+}
+
+export function isDeferredAppStylesLoaded(): boolean {
+    return loaded;
+}
+
+export function resetDeferredAppStylesForTests(): void {
+    scheduled = false;
+    loaded = false;
+    loadPromise = null;
+    try {
+        if (typeof document !== 'undefined') {
+            delete document.documentElement.dataset.hamiDeferredApp;
         }
-        return;
+    } catch {
+        /* ignore */
     }
-
-    requestAnimationFrame(() => {
-        requestAnimationFrame(load);
-    });
 }

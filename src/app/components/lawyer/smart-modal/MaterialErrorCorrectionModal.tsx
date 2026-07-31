@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { X, AlertTriangle, Edit3 } from 'lucide-react';
 
 interface MaterialErrorCorrectionModalProps {

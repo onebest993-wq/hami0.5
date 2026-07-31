@@ -1,23 +1,18 @@
-// @ts-nocheck
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {
-    CheckCircle2, X, Plus,
-    Coins, FlaskConical, Zap, Scale
-} from 'lucide-react';
+
+
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HUB_NESTED_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { getLegalRole } from './LawyerShared';
 const LazyCriminalNewCase = React.lazy(() =>
     import('./criminal-system/CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
 );
-import { MAIN_GATEWAY, JURISDICTIONS } from './LawyerNewCase/constants';
+import { MAIN_GATEWAY } from './LawyerNewCase/constants';
 import type { MainCategory, CaseType, Party, ThirdParty } from './LawyerNewCase/types';
 import type { LawyerNewCaseProps } from '@/app/types/components';
 import { GatewayCard } from './LawyerNewCase/components/GatewayCard';
-import { JurisdictionGlassPanel } from './LawyerNewCase/components/JurisdictionGlassPanel';
 import { ThirdPartyModal } from './LawyerNewCase/components/ThirdPartyModal';
 import { CaseHeader } from './LawyerNewCase/components/CaseHeader';
-import { CaseBasicsForm } from './LawyerNewCase/components/CaseBasicsForm';
 import { PersonalStatusNewCaseForm } from './personal-status/PersonalStatusNewCaseForm';
 import {
     validatePersonalStatusForm,
@@ -25,14 +20,8 @@ import {
     getPersonalStatusLabels,
     type PersonalApplicableLaw,
 } from './personal-status/personalStatusValidation';
-import {
-    PERSONAL_STATUS_FORM_GRADIENT,
-    PERSONAL_STATUS_FORM_GRADIENT_2,
-    PERSONAL_STATUS_FORM_SHELL,
-} from './personal-status/personalStatusVisualTheme';
+import { CivilNewCaseForm } from './LawyerNewCase/components/CivilNewCaseForm';
 import { SaveButton } from './LawyerNewCase/components/SaveButton';
-import { PartiesSection } from './LawyerNewCase/components/PartiesSection';
-import { ThirdPartiesSection } from './LawyerNewCase/components/ThirdPartiesSection';
 import {
     hasLawyerClientMark,
 } from './LawyerNewCase/clientRepresentation';
@@ -41,7 +30,6 @@ import {
     getBlockedWordsError,
     getStageCourtMismatchErrors,
     getRetrialTargetCourtMismatchErrors,
-    getUnderlyingStageOptions,
     isAbsentJudgmentObjectionStage,
     isExtraordinaryProcedureStage,
     isEvictionOrSharing,
@@ -52,6 +40,12 @@ import {
     validateForm,
     getLabels,
 } from './LawyerNewCase/validation';
+import { consumePendingLawyerNewCaseJurisdiction, getPendingLawyerNewCaseJurisdiction } from '@/app/runtime/lawyerNewCaseLoader';
+
+function resolveInitialCaseType(preset?: string | null): CaseType {
+    const pending = getPendingLawyerNewCaseJurisdiction();
+    return (preset as CaseType) ?? pending ?? 'civil';
+}
 
 export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     onClose,
@@ -62,16 +56,28 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     consolidationNavActive = false,
 }) => {
     const debug = (window as unknown as Record<string, { log: (...args: unknown[]) => void }>).debug || { log: (...args: unknown[]) => console.log(...args) };
-    // عند وجود `presetSelectedType` (مثلاً عند مسار تفريق الدعوى): تجاوز خطوة الاختيار
-    // وافتح النموذج مباشرة على النوع المطلوب — لا يُغيِّر سلوك الفتح العادي.
-    const [step, setStep] = useState<'gateway' | 'selection' | 'form'>(
-        presetSelectedType ? 'form' : 'selection',
-    );
+    const [step, setStep] = useState<'gateway' | 'form'>('form');
     const [mainCategory, setMainCategory] = useState<MainCategory | null>('lawsuit');
-    const [selectedType, setSelectedType] = useState<CaseType>(
-        (presetSelectedType as CaseType) ?? null,
-    );
+    const [selectedType, setSelectedType] = useState<CaseType>(() => resolveInitialCaseType(presetSelectedType));
     const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+    useEffect(() => {
+        consumePendingLawyerNewCaseJurisdiction();
+    }, []);
+
+    useEffect(() => {
+        if (presetSelectedType) {
+            setSelectedType(presetSelectedType as CaseType);
+            setStep('form');
+        }
+    }, [presetSelectedType]);
+
+    useEffect(() => {
+        if (selectedType !== 'criminal' || criminalSeveranceFormMode) return;
+        void import('@/app/components/lawyer/criminal-system/criminalStore').then(
+            ({ useCriminalStore }) => useCriminalStore.getState().prepareNormalCriminalCaseForm(),
+        );
+    }, [selectedType, criminalSeveranceFormMode]);
 
     const [parties1, setParties1] = useState<Party[]>([{ id: 'p1_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
     const [parties2, setParties2] = useState<Party[]>([{ id: 'p2_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
@@ -89,6 +95,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         court: '',
         type: '',
         judge: '',
+        firstHearingDate: '',
         stage: '',
         claimValue: '',
         totalAgreedFees: '',
@@ -420,7 +427,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             name: '', status: getDefaultStatus(side), isClient: false, phone: '', address: '',
             hasLawyer: false, lawyerName: '', lawyerPhone: '', isMyOffice: false
         };
-        side === 1 ? setParties1([...parties1, newParty]) : setParties2([...parties2, newParty]);
+        if (side === 1) setParties1([...parties1, newParty]);
+        else setParties2([...parties2, newParty]);
     };
 
     const removeParty = (side: 1 | 2, id: string) => {
@@ -513,7 +521,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         if (field === 'isClient' && value === false) {
             const updater = (prev: Party[]) =>
                 prev.map((p) => (p.id === id ? clearClientFromParty(p) : p));
-            side === 1 ? setParties1(updater) : setParties2(updater);
+            if (side === 1) setParties1(updater);
+            else setParties2(updater);
             return;
         }
 
@@ -536,7 +545,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                 }
                 return { ...p, [field]: value };
             });
-        side === 1 ? setParties1(updater) : setParties2(updater);
+        if (side === 1) setParties1(updater);
+        else setParties2(updater);
     };
 
     const handleAddThirdParty = (party: ThirdParty) => setThirdParties([...thirdParties, party]);
@@ -607,23 +617,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     return (
         <div
             ref={topFormRef}
-            className={`${
-                isPersonalCase && step === 'form'
-                    ? PERSONAL_STATUS_FORM_SHELL
-                    : `fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex min-h-0 flex-col bg-[#080c14] font-[\'Tajawal\']`
-            } ${consolidationNavActive ? 'pt-12' : ''}`}
+            className={`fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex min-h-0 flex-col bg-[#080c14] font-['Tajawal'] ${consolidationNavActive ? 'pt-12' : ''}`}
         >
-            {!isPersonalCase ? (
-                <>
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(230,198,115,0.07),transparent_52%)]" aria-hidden />
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_100%_100%,rgba(90,120,180,0.06),transparent_48%)]" aria-hidden />
-                </>
-            ) : (
-                <>
-                    <div className={PERSONAL_STATUS_FORM_GRADIENT} aria-hidden />
-                    <div className={PERSONAL_STATUS_FORM_GRADIENT_2} aria-hidden />
-                </>
-            )}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(230,198,115,0.07),transparent_52%)]" aria-hidden />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_100%_100%,rgba(90,120,180,0.06),transparent_48%)]" aria-hidden />
 
             <ThirdPartyModal
                 isOpen={isThirdPartyModalOpen}
@@ -636,6 +633,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                 <CaseHeader
                     step={step}
                     onClose={onClose}
+                    selectedType={selectedType}
                 />
             )}
 
@@ -647,34 +645,18 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     <GatewayCard
                                         key={item.id}
                                         item={item}
-                                        onClick={() => { setMainCategory(item.id as MainCategory); item.id === 'lawsuit' ? setStep('selection') : setStep('form'); }}
+                                        onClick={() => {
+                                            setMainCategory(item.id as MainCategory);
+                                            if (item.id === 'lawsuit') {
+                                                setSelectedType('civil');
+                                                setStep('form');
+                                            } else {
+                                                setStep('form');
+                                            }
+                                        }}
                                     />
                                 ))}
                             </div>
-                        </div>
-                    )}
-                    {step === 'selection' && (
-                        <div className="px-5 pt-4 pb-14 max-w-md mx-auto w-full">
-                            <h2 className="mb-7 text-right text-lg font-bold text-white/88">اختصاص الدعوى</h2>
-                            <JurisdictionGlassPanel
-                                items={JURISDICTIONS}
-                                onItemPointerEnter={(id) => {
-                                    if (id === 'criminal') {
-                                        void import('@/app/components/lawyer/criminal-system/criminalStore');
-                                        void import('@/app/components/lawyer/criminal-system/CriminalNewCase');
-                                    }
-                                }}
-                                onSelect={(id) => {
-                                    if (id === 'criminal' && !criminalSeveranceFormMode) {
-                                        void import('@/app/components/lawyer/criminal-system/criminalStore').then(
-                                            ({ useCriminalStore }) =>
-                                                useCriminalStore.getState().prepareNormalCriminalCaseForm(),
-                                        );
-                                    }
-                                    setSelectedType(id as CaseType);
-                                    setStep('form');
-                                }}
-                            />
                         </div>
                     )}
 
@@ -693,8 +675,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     <LazyCriminalNewCase
                                         severanceFormMode={criminalSeveranceFormMode}
                                         onBack={() => {
-                                            setStep('selection');
-                                            setSelectedType(null);
+                                            onClose();
                                         }}
                                         onClose={onClose}
                                         onCreated={(caseId) => {
@@ -731,61 +712,38 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     retrialTargetRef={retrialTargetRef as React.RefObject<HTMLSelectElement | null>}
                                 />
                             ) : (
-                            <>
-                            <CaseBasicsForm
-                                caseDetails={caseDetails}
-                                setCaseDetails={setCaseDetails}
-                                errorMap={errorMap}
-                                caseNumberError={caseNumberError}
-                                labels={labels}
-                                stageOptions={stageOptions}
-                                isUndeterminedValue={isUndeterminedValue}
-                                setIsUndeterminedValue={setIsUndeterminedValue}
-                                isFixedFee={isFixedFee}
-                                setIsFixedFee={setIsFixedFee}
-                                valuePlaceholder={valuePlaceholder}
-                                exceptionWarning={exceptionWarning}
-                                courtRef={courtRef as React.RefObject<HTMLInputElement | null>}
-                                typeRef={typeRef as React.RefObject<HTMLInputElement | null>}
-                                stageRef={stageRef}
-                                numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
-                                retrialTargetRef={retrialTargetRef}
-                            />
-
-                            <PartiesSection
-                                side={1}
-                                parties={parties1}
-                                onUpdate={updateParty}
-                                onRemove={removeParty}
-                                onAdd={addParty}
-                                labels={labels}
-                                errorMap={errorMap}
-                                addButtonText={getAddPartyButtonText(1)}
-                                clientError={errorMap['lawyer_client']}
-                            />
-
-                            <PartiesSection
-                                side={2}
-                                parties={parties2}
-                                onUpdate={updateParty}
-                                onRemove={removeParty}
-                                onAdd={addParty}
-                                labels={labels}
-                                errorMap={errorMap}
-                                addButtonText={getAddPartyButtonText(2)}
-                                clientError={errorMap['lawyer_client']}
-                            />
-
-                            <ThirdPartiesSection
-                                thirdParties={thirdParties}
-                                onAdd={() => setIsThirdPartyModalOpen(true)}
-                                onRemove={removeThirdParty}
-                                onUpdate={updateThirdParty}
-                                clientError={errorMap['lawyer_client']}
-                            />
-                            </>
+                                <CivilNewCaseForm
+                                    caseDetails={caseDetails}
+                                    setCaseDetails={setCaseDetails}
+                                    errorMap={errorMap}
+                                    caseNumberError={caseNumberError}
+                                    labels={labels}
+                                    stageOptions={stageOptions}
+                                    isUndeterminedValue={isUndeterminedValue}
+                                    setIsUndeterminedValue={setIsUndeterminedValue}
+                                    isFixedFee={isFixedFee}
+                                    setIsFixedFee={setIsFixedFee}
+                                    valuePlaceholder={valuePlaceholder}
+                                    exceptionWarning={exceptionWarning}
+                                    courtRef={courtRef as React.RefObject<HTMLInputElement | null>}
+                                    typeRef={typeRef as React.RefObject<HTMLInputElement | null>}
+                                    stageRef={stageRef}
+                                    numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
+                                    retrialTargetRef={retrialTargetRef}
+                                    parties1={parties1}
+                                    parties2={parties2}
+                                    thirdParties={thirdParties}
+                                    onUpdateParty={updateParty}
+                                    onRemoveParty={removeParty}
+                                    onAddParty={addParty}
+                                    addPartyButtonText1={getAddPartyButtonText(1)}
+                                    addPartyButtonText2={getAddPartyButtonText(2)}
+                                    onAddThirdParty={() => setIsThirdPartyModalOpen(true)}
+                                    onRemoveThirdParty={removeThirdParty}
+                                    onUpdateThirdParty={updateThirdParty}
+                                />
                             )}
-                                </>
+                            </>
                             )}
 
                         </div>

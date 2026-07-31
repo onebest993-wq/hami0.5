@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { UrgentActionsDB } from '@/app/services/urgent-actions-db';
 import { TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
 
@@ -12,6 +12,8 @@ export type ClusterScanSources = {
     fieldTasks: unknown[];
     ready: boolean;
 };
+
+const EMPTY_LIST: unknown[] = [];
 
 /** مصادر مسح الربط العنقودي — دعاوى + تنفيذ + جزائي + مستعجل + إداري + مفكرة + مهام */
 export function useClusterScanSources(params: {
@@ -28,27 +30,29 @@ export function useClusterScanSources(params: {
         lawyerId,
         lawsuitFiles,
         executionFiles,
-        criminalCases: criminalCasesParam = [],
-        notes = [],
-        fieldTasks = [],
+        criminalCases: criminalCasesParam,
+        notes: notesParam,
+        fieldTasks: fieldTasksParam,
     } = params;
 
-    const [urgentCases, setUrgentCases] = useState<unknown[]>([]);
-    const [threadingTransactions, setThreadingTransactions] = useState<unknown[]>([]);
-    const [extrasReady, setExtrasReady] = useState(false);
+    const criminalCases = criminalCasesParam ?? EMPTY_LIST;
+    const notes = notesParam ?? EMPTY_LIST;
+    const fieldTasks = fieldTasksParam ?? EMPTY_LIST;
 
-    const criminalCases = criminalCasesParam;
+    const [urgentCases, setUrgentCases] = useState<unknown[]>(EMPTY_LIST);
+    const [threadingTransactions, setThreadingTransactions] = useState<unknown[]>(EMPTY_LIST);
+    const [extrasReady, setExtrasReady] = useState(false);
 
     useEffect(() => {
         if (!enabled) {
-            setUrgentCases([]);
-            setThreadingTransactions([]);
+            setUrgentCases(EMPTY_LIST);
+            setThreadingTransactions(EMPTY_LIST);
             setExtrasReady(false);
             return;
         }
         if (!lawyerId) {
-            setUrgentCases([]);
-            setThreadingTransactions([]);
+            setUrgentCases(EMPTY_LIST);
+            setThreadingTransactions(EMPTY_LIST);
             setExtrasReady(true);
             return;
         }
@@ -57,15 +61,17 @@ export function useClusterScanSources(params: {
         void Promise.all([UrgentActionsDB.getState(lawyerId), TransactionsThreadingDB.getState(lawyerId)])
             .then(([urgentState, threadingState]) => {
                 if (cancelled) return;
-                setUrgentCases(Array.isArray(urgentState?.cases) ? urgentState.cases : []);
+                setUrgentCases(Array.isArray(urgentState?.cases) ? urgentState.cases : EMPTY_LIST);
                 setThreadingTransactions(
-                    Array.isArray(threadingState?.transactions) ? threadingState.transactions : [],
+                    Array.isArray(threadingState?.transactions)
+                        ? threadingState.transactions
+                        : EMPTY_LIST,
                 );
             })
             .catch(() => {
                 if (!cancelled) {
-                    setUrgentCases([]);
-                    setThreadingTransactions([]);
+                    setUrgentCases(EMPTY_LIST);
+                    setThreadingTransactions(EMPTY_LIST);
                 }
             })
             .finally(() => {
@@ -76,14 +82,27 @@ export function useClusterScanSources(params: {
         };
     }, [enabled, lawyerId]);
 
-    return {
-        lawsuitFiles,
-        executionFiles,
-        criminalCases,
-        urgentCases,
-        threadingTransactions,
-        notes,
-        fieldTasks,
-        ready: extrasReady,
-    };
+    // مرجع مستقر — يمنع setState في الأب في حلقة Maximum update depth
+    return useMemo(
+        () => ({
+            lawsuitFiles,
+            executionFiles,
+            criminalCases,
+            urgentCases,
+            threadingTransactions,
+            notes,
+            fieldTasks,
+            ready: extrasReady,
+        }),
+        [
+            lawsuitFiles,
+            executionFiles,
+            criminalCases,
+            urgentCases,
+            threadingTransactions,
+            notes,
+            fieldTasks,
+            extrasReady,
+        ],
+    );
 }

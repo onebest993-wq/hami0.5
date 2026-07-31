@@ -36,7 +36,7 @@ function FieldTasksSheetLoadError({ onRetry }: { onRetry: () => void }) {
     );
 }
 
-/** يحمّل ستارة الميدان مرة واحدة — لا يشغّل hooks الستارة إلا عند open */
+/** يحمّل ستارة الميدان مرة واحدة — يبقي الـ chunk دافئاً عند host مركّب حتى مع open=false */
 export function FieldTasksSheetHost(props: FieldTasksBottomSheetProps): React.ReactElement | null {
     const { open, onClose } = props;
     const [Component, setComponent] = useState<SheetComponent | null>(() => getCachedFieldTasksBottomSheet());
@@ -102,7 +102,9 @@ export function FieldTasksSheetHost(props: FieldTasksBottomSheetProps): React.Re
         void hydrateFieldTasksShellForInstantOpen(true);
     }, [open]);
 
+    /* Host مركّب + chunk جاهز: أبقِ الستارة في الشجرة (مخفية) لمسار reveal الدافئ */
     if (!open) {
+        if (Component) return <Component {...props} onClose={onClose} />;
         return null;
     }
 

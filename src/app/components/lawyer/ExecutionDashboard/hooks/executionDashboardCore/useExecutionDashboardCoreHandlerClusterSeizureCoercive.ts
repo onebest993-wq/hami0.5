@@ -103,6 +103,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         showToast,
         setLastActionDate,
         setUnifiedLedgerRevision,
+        isRepresentingDebtor: Boolean((c as { isRepresentingDebtor?: boolean }).isRepresentingDebtor),
     });
 
     const { saveCoerciveAction, clearActiveSalarySeizurePath } = coerciveActionBridge;

@@ -3,7 +3,6 @@ import {
     buildPhoneBodyScopeKeys,
     collectPhoneBodyRequiredKeys,
     extractComponentProps,
-    isPassthroughScopeKey,
     validateScopeKeys,
 } from './phone-body-scope-utils.mjs';
 

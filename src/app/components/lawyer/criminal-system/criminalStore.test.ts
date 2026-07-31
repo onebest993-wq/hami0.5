@@ -960,6 +960,20 @@ describe('criminalStore', () => {
         expect(saved.trashBin?.length ?? 0).toBe(0);
     });
 
+    it('registerInitialTrialHearingDate sets nextHearingDate without creating a trial session', () => {
+        seedDraftForNewCase('محكمة الجنح');
+        const caseId = useCriminalStore.getState().createCaseFromDraft();
+
+        const err = useCriminalStore.getState().registerInitialTrialHearingDate(caseId, '2026-08-15');
+        expect(err).toBeNull();
+        const saved = useCriminalStore.getState().casesById[caseId];
+        expect(saved?.location.nextHearingDate).toBe('2026-08-15');
+        expect(saved?.trials?.length ?? 0).toBe(0);
+
+        const dupErr = useCriminalStore.getState().registerInitialTrialHearingDate(caseId, '2026-09-01');
+        expect(dupErr).toBe('تم تسجيل موعد المحاكمة مسبقاً.');
+    });
+
     it('adds postpones and finalizes trial sessions', () => {
         seedDraftForNewCase('محكمة الجنح');
         const caseId = useCriminalStore.getState().createCaseFromDraft();

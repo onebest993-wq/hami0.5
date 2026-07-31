@@ -355,8 +355,15 @@ export default defineConfig(function (_a) {
             warmup: {
                 clientFiles: [
                     './src/index.tsx',
-                    './src/app/App.tsx',
+                    './src/app/AppBootRoot.tsx',
                     './src/styles/index.css',
+                ],
+            },
+            watch: {
+                ignored: [
+                    '**/playwright-report/**',
+                    '**/test-results/**',
+                    '**/blob-report/**',
                 ],
             },
             headers: __assign({}, getDevSecurityHeaders()),

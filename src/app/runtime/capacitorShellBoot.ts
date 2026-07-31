@@ -1,4 +1,4 @@
-import { getCapacitorPlatformId, type NativePlatformId } from './nativePlatform';
+import { getBootCapacitorPlatformId, type BootNativePlatformId } from './bootNativePlatform';
 import { applyNativeSecurityFromSettings, wireNativeSecuritySettingsListener } from './nativeSecurityBoot';
 
 type CapacitorLike = {
@@ -11,9 +11,13 @@ function readCapacitorGlobal(): CapacitorLike | null {
     return (window as Window & { Capacitor?: CapacitorLike }).Capacitor ?? null;
 }
 
-function applyNativeDataset(isNative: boolean, platform: NativePlatformId): void {
+function applyNativeDataset(isNative: boolean, platform: BootNativePlatformId): void {
     if (typeof document === 'undefined') return;
     const root = document.documentElement;
+    /* لا تُسقط native→web إن كُشف Android مبكراً عبر UA قبل Capacitor */
+    if (!isNative && root.dataset.hamiNative === '1' && root.dataset.hamiPlatform === 'android') {
+        return;
+    }
     root.dataset.hamiNative = isNative ? '1' : '0';
     root.dataset.hamiPlatform = platform;
     if (isNative) {
@@ -32,7 +36,7 @@ export function applyCapacitorShellBoot(): void {
 
     const cap = readCapacitorGlobal();
     const isNative = Boolean(cap?.isNativePlatform?.());
-    const platform: NativePlatformId = isNative ? getCapacitorPlatformId() : 'web';
+    const platform: BootNativePlatformId = isNative ? getBootCapacitorPlatformId() : 'web';
 
     applyNativeDataset(isNative, platform);
 
@@ -47,7 +51,12 @@ export async function applyCapacitorNativePlugins(): Promise<void> {
     try {
         const { StatusBar, Style } = await import('@capacitor/status-bar');
         await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: '#05060D' });
+        await StatusBar.setBackgroundColor({ color: '#0A0F1C' });
+        /* Android فقط: WebView تحت شريط الحالة — يمنع لصق الهيدر الثابت فوق الساعة/البطارية */
+        if (getBootCapacitorPlatformId() === 'android') {
+            await StatusBar.setOverlaysWebView({ overlay: false });
+            await StatusBar.setBackgroundColor({ color: '#0A0F1C' });
+        }
     } catch {
         /* plugin غير متاح على الويب */
     }

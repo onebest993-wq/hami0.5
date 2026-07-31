@@ -18,6 +18,20 @@ type ProfileImageFrameShellProps = {
     previewInteractive?: boolean;
 };
 
+function rimPadPx(rim: string | undefined): number {
+    switch (rim) {
+        case 'minimal':
+            return 2;
+        case 'ornate':
+            return 8;
+        case 'neon':
+            return 5;
+        case 'gold':
+        default:
+            return 4;
+    }
+}
+
 export function ProfileImageFrameShell({
     block,
     src,
@@ -35,8 +49,10 @@ export function ProfileImageFrameShell({
     const isPerspective = template === 'perspective';
     const useAspect = mediaTemplateUsesAspectRatio(template);
     const aspectRatio = mediaTemplateAspectRatio(template);
-    const interaction = frameStyle.interaction ?? 'none';
-    const glow = frameStyle.frameGlow ?? 'gold';
+    const storedInteraction = frameStyle.interaction ?? 'none';
+    const interaction = previewInteractive ? storedInteraction : 'none';
+    const rim = frameStyle.rimStyle ?? 'gold';
+    const accent = frameStyle.accentColor ?? '#E6C673';
     const shellRef = useRef<HTMLDivElement>(null);
     const [tiltActive, setTiltActive] = useState(false);
     const [tilt, setTilt] = useState({ x: 0, y: 0 });
@@ -56,15 +72,52 @@ export function ProfileImageFrameShell({
         [interaction, previewInteractive],
     );
 
+    const onTiltPointerDown = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            if (interaction !== 'tilt' || !previewInteractive) return;
+            if (typeof window !== 'undefined') {
+                const reduce =
+                    window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+                    Boolean(
+                        event.currentTarget.closest('[data-lawyer-profile-root]')?.getAttribute(
+                            'data-profile-reduce-motion',
+                        ) === 'true',
+                    );
+                if (reduce) return;
+            }
+            try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+            } catch {
+                /* بعض WebViews ترفض capture */
+            }
+            onTiltPointer(event);
+        },
+        [interaction, previewInteractive, onTiltPointer],
+    );
+
     const onTiltEnd = useCallback(() => {
         setTiltActive(false);
         setTilt({ x: 0, y: 0 });
     }, []);
 
+    const onTiltPointerEnd = useCallback(
+        (event: React.PointerEvent<HTMLDivElement>) => {
+            try {
+                if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                }
+            } catch {
+                /* ignore */
+            }
+            onTiltEnd();
+        },
+        [onTiltEnd],
+    );
+
     const frameClass = useMemo(() => {
         const parts = [
             'profile-image-frame',
-            `profile-image-frame--rim-${frameStyle.rimStyle ?? 'gold'}`,
+            `profile-image-frame--rim-${rim}`,
             `profile-image-frame--template-${template}`,
         ];
         if (interaction === 'kenBurns') parts.push('profile-image-frame--ken-burns');
@@ -75,50 +128,70 @@ export function ProfileImageFrameShell({
         if (tiltActive) parts.push('profile-image-frame--tilt-active');
         if (isPerspective && !borderless) parts.push('profile-media-perspective');
         return parts.join(' ');
-    }, [borderless, frameStyle.rimStyle, interaction, isPerspective, template, tiltActive]);
+    }, [borderless, rim, interaction, isPerspective, template, tiltActive]);
 
     const wrapClass = useMemo(
         () =>
             [
                 'profile-image-frame-wrap',
-                `profile-image-frame-wrap--glow-${glow}`,
                 `profile-image-frame-wrap--template-${template}`,
+                `profile-image-frame-wrap--rim-${rim}`,
                 interaction === 'pulse' ? 'profile-image-frame-wrap--pulse' : '',
             ]
                 .filter(Boolean)
                 .join(' '),
-        [glow, interaction, template],
+        [interaction, rim, template],
     );
+
+    const clipStyle = useMemo(() => {
+        if (!clip || isPerspective) return undefined;
+        return { clipPath: clip, WebkitClipPath: clip } as React.CSSProperties;
+    }, [clip, isPerspective]);
 
     const wrapStyle = useMemo(
         () =>
             ({
-                '--img-accent': frameStyle.accentColor ?? '#E6C673',
-                '--img-glow': String(frameStyle.glowIntensity ?? 0.6),
+                '--img-accent': accent,
                 height: useAspect ? undefined : heightPx,
                 maxHeight: useAspect ? undefined : 320,
                 aspectRatio: useAspect ? aspectRatio : undefined,
-                clipPath: clip && !isPerspective ? clip : undefined,
-                WebkitClipPath: clip && !isPerspective ? clip : undefined,
                 transform:
                     interaction === 'tilt' && tiltActive
                         ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`
                         : undefined,
             }) as React.CSSProperties,
-        [
-            aspectRatio,
-            clip,
-            frameStyle.accentColor,
-            frameStyle.glowIntensity,
-            heightPx,
-            interaction,
-            isPerspective,
-            tilt.x,
-            tilt.y,
-            tiltActive,
-            useAspect,
-        ],
+        [accent, aspectRatio, heightPx, interaction, tilt.x, tilt.y, tiltActive, useAspect],
     );
+
+    const pad = rimPadPx(rim);
+
+    const rimShellStyle = useMemo(() => {
+        const base: React.CSSProperties = {
+            ...clipStyle,
+            padding: pad,
+            boxSizing: 'border-box',
+        };
+
+        if (rim === 'minimal') {
+            base.background = 'rgba(255,255,255,0.28)';
+            base.boxShadow = 'inset 0 0 0 1px rgba(255,255,255,0.18)';
+        } else if (rim === 'neon') {
+            base.background = `linear-gradient(135deg, ${accent}, color-mix(in srgb, ${accent} 35%, #fff) 55%, ${accent})`;
+            base.boxShadow = `0 0 18px color-mix(in srgb, ${accent} 55%, transparent), 0 0 4px ${accent}`;
+        } else if (rim === 'ornate') {
+            base.background = `
+                linear-gradient(${accent}, ${accent}) padding-box,
+                linear-gradient(135deg, color-mix(in srgb, ${accent} 95%, #fff), ${accent}, color-mix(in srgb, ${accent} 45%, #000)) border-box
+            `;
+            base.border = `2px solid transparent`;
+            base.boxShadow = `0 0 0 1px color-mix(in srgb, ${accent} 40%, transparent), inset 0 0 0 3px rgba(0,0,0,0.35)`;
+        } else {
+            base.background = `linear-gradient(160deg, color-mix(in srgb, ${accent} 88%, #fff), ${accent} 45%, color-mix(in srgb, ${accent} 70%, #000))`;
+            base.boxShadow = `0 2px 10px color-mix(in srgb, ${accent} 28%, transparent)`;
+        }
+
+        return base;
+    }, [accent, clipStyle, pad, rim]);
 
     const imgStyle = useMemo(() => {
         const base: React.CSSProperties = {
@@ -134,24 +207,26 @@ export function ProfileImageFrameShell({
     return (
         <div
             ref={shellRef}
-            key={`${interaction}-${template}-${glow}-${frameStyle.rimStyle}`}
+            key={`${interaction}-${template}-${rim}-${accent}`}
             data-profile-media-shell
             data-borderless={borderless ? 'true' : 'false'}
             data-template={template}
+            data-rim={rim}
             data-preview-interactive={previewInteractive ? 'true' : 'false'}
             className={wrapClass}
             style={wrapStyle}
-            onPointerDown={interaction === 'tilt' && previewInteractive ? onTiltPointer : undefined}
+            onPointerDown={interaction === 'tilt' && previewInteractive ? onTiltPointerDown : undefined}
             onPointerMove={interaction === 'tilt' && previewInteractive ? onTiltPointer : undefined}
-            onPointerLeave={interaction === 'tilt' ? onTiltEnd : undefined}
-            onPointerUp={interaction === 'tilt' ? onTiltEnd : undefined}
-            onPointerCancel={interaction === 'tilt' ? onTiltEnd : undefined}
+            onPointerLeave={interaction === 'tilt' ? onTiltPointerEnd : undefined}
+            onPointerUp={interaction === 'tilt' ? onTiltPointerEnd : undefined}
+            onPointerCancel={interaction === 'tilt' ? onTiltPointerEnd : undefined}
         >
-            <div className={frameClass}>
+            <div className={frameClass} style={rimShellStyle} data-rim-shell="">
                 <div
                     data-profile-media-frame
                     data-template={template}
                     className="profile-image-frame__media"
+                    style={clipStyle}
                 >
                     <ProfileAvatarImage
                         src={src}
@@ -159,9 +234,6 @@ export function ProfileImageFrameShell({
                         className="profile-image-frame__img"
                         style={imgStyle}
                     />
-                    {frameStyle.vignette !== false ? (
-                        <div className="profile-image-frame__vignette" aria-hidden />
-                    ) : null}
                 </div>
             </div>
         </div>

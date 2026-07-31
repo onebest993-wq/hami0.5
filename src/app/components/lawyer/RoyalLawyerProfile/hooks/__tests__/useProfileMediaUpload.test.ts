@@ -11,6 +11,7 @@ vi.mock('@/app/services/lawyer-cloud', () => ({
 vi.mock('@/app/services/profileMediaService', () => ({
     uploadProfileMedia: vi.fn(),
     profileMediaErrorMessage: vi.fn(() => 'خطأ رفع'),
+    removeProfileMediaPaths: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
@@ -117,5 +118,57 @@ describe('useProfileMediaUpload', () => {
         });
 
         expect(stageAvatarInDraft).toHaveBeenCalledWith('https://cdn/a.jpg', 'profiles/a.jpg');
+    });
+
+    it('يتجاهل نتيجة الرفع بعد invalidateUploads', async () => {
+        let resolveUpload!: (v: {
+            displayUrl: string;
+            source: 'cloud' | 'local';
+            storagePath?: string;
+        }) => void;
+        vi.mocked(uploadProfileMedia).mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveUpload = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() =>
+            useProfileMediaUpload({
+                userId: 'owner-1',
+                isOwnProfile: true,
+                profile: baseProfile as never,
+                setProfile,
+                draft: null,
+                setDraft,
+                setIsEditing,
+                stageAvatarInDraft,
+            }),
+        );
+
+        let uploadPromise!: Promise<void>;
+        act(() => {
+            uploadPromise = result.current.uploadImage(
+                new File(['x'], 'g.jpg', { type: 'image/jpeg' }),
+                'gallery',
+            );
+        });
+
+        act(() => {
+            result.current.invalidateUploads();
+        });
+
+        await act(async () => {
+            resolveUpload({
+                displayUrl: 'https://cdn/orphan.jpg',
+                source: 'cloud',
+                storagePath: 'profiles/orphan.jpg',
+            });
+            await uploadPromise;
+        });
+
+        expect(setDraft).not.toHaveBeenCalled();
+        expect(setIsEditing).not.toHaveBeenCalled();
+        expect(SmartToast.success).not.toHaveBeenCalled();
     });
 });

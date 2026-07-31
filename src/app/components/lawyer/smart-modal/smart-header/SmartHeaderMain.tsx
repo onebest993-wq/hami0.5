@@ -1,32 +1,27 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import {
-    Clock, X, Scale, Lock, PauseCircle, Play, Users, Shield, ShieldCheck, Check, ChevronLeft, MapPin, Phone, Briefcase, Gavel, ArrowRightLeft,
+    Clock, Scale, Lock, PauseCircle, Play, Check, ArrowRightLeft,
 } from 'lucide-react';
 import { getLegalRole } from '../../LawyerShared';
 import { shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
 import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
 import { filterHeaderIncidentalCases, groupPartiesForHeader } from '../smartFile/incidentalCaseLinking';
 import { resolveDisplayParties } from '../smartFile/resolveDisplayParties';
-import { resolveCrossAppealEligibility, type CrossAppealEligibility } from '../smartFile/crossAppealEngine';
-import {
-    isAffiliativeThirdPartyRole,
-    isAppealIntegratedInterpleaderRole,
-    isInterpleaderThirdPartyRole,
-} from '../smartFile/partyRoleClassification';
+import { resolveCrossAppealEligibility } from '../smartFile/crossAppealEngine';
+
+
 import {
     isPlaintiffFavorableFinalDecision,
-    isAwaitingOpponentAppeal,
     shouldShowOpponentAppealRegisterButton,
     isAppealStageName,
+    isCassationStageName,
 } from '../smartFile/judgmentTypes';
+import { isCassationCorrectionStageName } from '../smartFile/extraordinaryAppealGateway';
 import { isLockedPriorStage, shouldShowFirstInstancePleadingLockUi } from '../smartFile/stageInit';
-import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 
 import { HeaderPartiesStrip } from './HeaderPartiesStrip';
 import { PartyItem } from './PartyItem';
-import { PARTY_STRIP_SHELL, PARTIES_CARD_SHELL } from './smartHeaderPresentation';
+import { PARTY_STRIP_SHELL } from './smartHeaderPresentation';
 import { PartyChip } from './PartyChip';
 import {
     resolveLawsuitTypeLabel,
@@ -73,7 +68,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
         formData?.extraordinaryAppealType;
     const hasFirstInstanceData = formData?.firstInstanceCaseNumber && formData?.firstInstanceCourt;
     
-    const isCassation = formData?.stageName === 'التمييز';
+    const isCassation = isCassationStageName(formData?.stageName);
+    const isCorrectionStage = isCassationCorrectionStageName(formData?.stageName);
     const isAppealStage = isAppealStageName(formData?.stageName);
     const rawCourtName = String(formData?.court || '').trim();
     const rawJudgeName = String(
@@ -87,6 +83,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     ).trim();
     const courtName = rawCourtName || (isAppealStage ? '' : 'Ø§Ù„Ù…Ø­ÙƒÙ…Ø© Ø§Ù„Ù…Ø®ØªØµØ©');
     const judgeName = rawJudgeName;
+    const showJudgeChip = !isCassation && !isCorrectionStage;
+    const judgeChipValue = isAppealStage ? '' : judgeName;
     const lawsuitTypeLabel = resolveLawsuitTypeLabel(formData);
     const claimValueLabel = formatClaimValueDisplay(formData?.claimValue);
     const awaitingOpponentAppeal = shouldShowOpponentAppealRegisterButton(
@@ -123,8 +121,6 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     const selfClaimThirdParties = activeThirdPartyCases.filter(
         (c) => c.thirdPartyEntryMode === 'selfClaim' || !c.thirdPartyEntryMode,
     );
-    const partyCount =
-        plaintiffs.length + defendants.length + interpleaders.length + activeThirdPartyCases.length;
     const hasHeaderActions =
         (Boolean((hasJudgment || isPleadingsClosed) && !isCassation && !isReadOnly && showPleadingLockChrome)) ||
         (Boolean(!isCassation && !isReadOnly && (!isPleadingsClosed || isAppealStageName(formData?.stageName)) &&
@@ -194,10 +190,11 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                                 <button
                                     type="button"
                                     onClick={() => setShowClaimValue((v) => !v)}
-                                    className={`${GLASS_CHIP} bg-[#E6C673]/10 border-[#E6C673]/22 text-[#E6C673] max-w-[min(100%,14rem)] truncate touch-manipulation cursor-pointer hover:bg-[#E6C673]/15 transition-colors`}
+                                    className={`${GLASS_CHIP} bg-[#E6C673]/10 border-[#E6C673]/22 text-[#E6C673] max-w-[min(100%,16rem)] truncate touch-manipulation cursor-pointer hover:bg-[#E6C673]/15 transition-colors`}
                                     title={lawsuitTypeLabel}
                                 >
-                                    {lawsuitTypeLabel}
+                                    <span className="text-[#E6C673]/55 font-bold">نوع الدعوى</span>
+                                    <span className="truncate">{lawsuitTypeLabel}</span>
                                 </button>
                             ) : null}
                             {wasReopened ? (
@@ -230,24 +227,35 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                             </p>
                         ) : null}
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0">
-                            <div className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
-                                <Scale size={12} className="shrink-0 text-[#E6C673]/70" />
+                            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                                <span className="shrink-0 text-[9px] font-bold text-white/35">المحكمة</span>
                                 <span className="truncate text-[11px] font-bold text-white/92 leading-snug" title={courtName}>
                                     {isCassation ? 'محكمة التمييز الاتحادية' : courtName}
                                 </span>
                             </div>
-                            <div className="inline-flex min-w-0 items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
-                                <Gavel size={11} className="shrink-0 text-[#E6C673]/65" />
+                            {showJudgeChip ? (
+                            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                                <span className="shrink-0 text-[9px] font-bold text-white/35">القاضي</span>
                                 <span
-                                    className={`truncate text-[11px] font-semibold ${judgeName ? 'text-white/80' : 'text-white/35'}`}
-                                    title={judgeName || 'اسم القاضي غير مدخل'}
+                                    className={`truncate text-[11px] font-semibold ${judgeChipValue ? 'text-white/80' : 'text-white/35'}`}
+                                    title={judgeChipValue || 'اسم القاضي غير مدخل'}
                                 >
-                                    {judgeName || '—'}
+                                    {judgeChipValue || '—'}
                                 </span>
                             </div>
+                            ) : null}
+                            {activeStage ? (
+                                <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                                    <span className="shrink-0 text-[9px] font-bold text-white/35">المرحلة</span>
+                                    <span className="truncate text-[11px] font-bold text-white/85" title={String(activeStage)}>
+                                        {activeStage}
+                                    </span>
+                                </div>
+                            ) : null}
                             {hasAppealContext && hasFirstInstanceData ? (
-                                <span className="inline-flex min-w-0 items-center rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40 truncate" dir="ltr">
-                                        أساس {formData.firstInstanceCaseNumber}
+                                <span className="inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40 truncate">
+                                    <span className="shrink-0 text-white/30 font-bold">الأساس</span>
+                                    <span dir="ltr">{formData.firstInstanceCaseNumber}</span>
                                 </span>
                             ) : null}
                         </div>
@@ -276,7 +284,8 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                                     awaitingOpponentAppeal
                                         ? 'bg-indigo-500/10 border-indigo-400/25 text-indigo-200'
                                         : 'bg-[#E6C673]/10 border-[#E6C673]/22 text-[#E6C673]'
-                                }`}>
+                                }`}
+                                >
                                     {awaitingOpponentAppeal ? (
                                         <Clock size={10} />
                                     ) : (
@@ -390,38 +399,21 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
 
                 {/* 4. END OF HEADER ACTIONS */}
             </div>
-            </div>
 
             {hasPartiesSection ? (
-            <div className={`${PARTIES_CARD_SHELL} mt-2`} dir="rtl">
-                <div className="px-3 py-2 border-b border-[#E6C673]/10 bg-white/[0.02]">
-                    <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                            <span className="inline-flex h-6 w-6 items-center justify-center rounded-xl bg-[#E6C673]/10 text-[#E6C673] border border-[#E6C673]/18">
-                                <Users size={12} />
-                            </span>
-                            <p className="text-[11px] font-black text-[#E6C673]/85 tracking-wide">أطراف الدعوى</p>
-                        </div>
-                        <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.06] bg-white/[0.04] px-2 py-1 text-[10px] font-bold text-white/45">
-                            <span>{partyCount}</span>
-                            <span>أطراف</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="px-3 py-2.5">
-                <HeaderPartiesStrip
-                    plaintiffs={plaintiffs}
-                    defendants={defendants}
-                    interpleaders={interpleaders}
-                    p1Role={p1Role}
-                    p2Role={p2Role}
-                    openPartyKey={openPartyKey}
-                    onToggleParty={(key) => setOpenPartyKey(key || null)}
-                />
-                </div>
+                <div className="px-3 pb-2.5 border-t border-white/[0.05] pt-2" dir="rtl">
+                    <HeaderPartiesStrip
+                        plaintiffs={plaintiffs}
+                        defendants={defendants}
+                        interpleaders={interpleaders}
+                        p1Role={p1Role}
+                        p2Role={p2Role}
+                        openPartyKey={openPartyKey}
+                        onToggleParty={(key) => setOpenPartyKey(key || null)}
+                    />
 
-            {activeThirdPartyCases.length > 0 ? (
-                <div className="w-full px-3 pb-2.5 border-t border-white/[0.05] space-y-1.5" dir="rtl">
+                    {activeThirdPartyCases.length > 0 ? (
+                        <div className="w-full mt-2 border-t border-white/[0.05] pt-2 space-y-1.5" dir="rtl">
                     {affiliativeThirdParties.map((c) => (
                         <div
                             key={c.id}
@@ -460,7 +452,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
 
             {/* legacy thirdParties prop — only when not already in parties strip */}
             {thirdParties && thirdParties.length > 0 && interpleaders.length === 0 && plaintiffs.length === 0 && defendants.length === 0 ? (
-                <div className="w-full px-3 pb-2.5 border-t border-white/[0.05]">
+                <div className="w-full mt-2 border-t border-white/[0.05] pt-2">
                     <div className="flex flex-wrap gap-1.5">
                         {thirdParties.map((party: { name?: string; role?: string; roleLabel?: string }, index: number) => (
                             <PartyChip
@@ -474,8 +466,9 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                     </div>
                 </div>
             ) : null}
-            </div>
+                </div>
             ) : null}
+            </div>
 
                             {/* 3. CROSS-APPEAL SECTION (Dedicated Card) */}
             {crossAppealEligibility.filedCrossAppellants.length > 0 && isAppealStage && (
@@ -510,7 +503,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                              ))}
                          </div>
                     </div>
-                </div>
+                 </div>
             )}
         </>
     );

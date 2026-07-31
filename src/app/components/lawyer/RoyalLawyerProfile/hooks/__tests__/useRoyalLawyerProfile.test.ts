@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 
 const setIsEditing = vi.fn();
 const setDraft = vi.fn();
+const cancelEdit = vi.fn();
 const loaderReturn = {
     profile: {
         header: { name: 'أحمد', title: 'محامٍ', coverImage: '', profileImage: '', phone: '0770', city: 'بغداد' },
@@ -43,16 +44,21 @@ vi.mock('../useProfileLoader', () => ({
     useProfileLoader: vi.fn(() => loaderReturn),
 }));
 
+const saveProfileMock = vi.fn(async () => true);
+const editSessionState = {
+    isEditing: false,
+};
+
 vi.mock('../useProfileEditSession', () => ({
     useProfileEditSession: () => ({
-        isEditing: false,
+        isEditing: editSessionState.isEditing,
         setIsEditing,
         draft: null,
         setDraft,
         saving: false,
         startEdit: vi.fn(),
-        cancelEdit: vi.fn(),
-        saveProfile: vi.fn(),
+        cancelEdit,
+        saveProfile: saveProfileMock,
         ensureEditDraft: vi.fn(),
         stageAvatarInDraft: vi.fn(),
         addContactChannel: vi.fn(),
@@ -66,6 +72,7 @@ vi.mock('../useProfileMediaUpload', () => ({
         avatarRef: { current: null },
         galleryRef: { current: null },
         uploadImage: vi.fn(),
+        invalidateUploads: vi.fn(),
     }),
 }));
 
@@ -76,6 +83,7 @@ vi.mock('../useProfileStudioSettings', () => ({
         openSettings: vi.fn(),
         closeSettings: vi.fn(),
         saveCustomization: vi.fn(),
+        registerStudioDiscard: vi.fn(),
     }),
 }));
 
@@ -92,6 +100,8 @@ import { useRoyalLawyerProfile } from '../useRoyalLawyerProfile';
 describe('useRoyalLawyerProfile', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        editSessionState.isEditing = false;
+        saveProfileMock.mockResolvedValue(true);
     });
 
     it('isOwnProfile=true للمشاهد نفسه', () => {
@@ -117,7 +127,36 @@ describe('useRoyalLawyerProfile', () => {
 
         rerender({ targetUserId: 'lawyer-b' });
 
-        expect(setIsEditing).toHaveBeenCalledWith(false);
-        expect(setDraft).toHaveBeenCalledWith(null);
+        expect(cancelEdit).toHaveBeenCalled();
+    });
+
+    it('لا يستدعي onBack عند فشل حفظ التحرير أثناء المغادرة', async () => {
+        editSessionState.isEditing = true;
+        saveProfileMock.mockResolvedValue(false);
+        const onBack = vi.fn();
+        const { result } = renderHook(() => useRoyalLawyerProfile({ onBack, isScreenMode: true }));
+
+        await act(async () => {
+            result.current.handleBack();
+            await Promise.resolve();
+        });
+
+        expect(saveProfileMock).toHaveBeenCalled();
+        expect(onBack).not.toHaveBeenCalled();
+    });
+
+    it('يستدعي onBack بعد نجاح حفظ التحرير أثناء المغادرة', async () => {
+        editSessionState.isEditing = true;
+        saveProfileMock.mockResolvedValue(true);
+        const onBack = vi.fn();
+        const { result } = renderHook(() => useRoyalLawyerProfile({ onBack, isScreenMode: true }));
+
+        await act(async () => {
+            result.current.handleBack();
+            await Promise.resolve();
+        });
+
+        expect(saveProfileMock).toHaveBeenCalled();
+        expect(onBack).toHaveBeenCalled();
     });
 });

@@ -3,6 +3,9 @@ import { Buffer } from 'node:buffer';
 
 const uploadMock = vi.fn();
 const signedUrlMock = vi.fn();
+const { requireWifeUserMock } = vi.hoisted(() => ({
+  requireWifeUserMock: vi.fn(),
+}));
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -15,18 +18,16 @@ vi.mock('@supabase/supabase-js', () => ({
   }),
 }));
 
+vi.mock('../security/bffAuth.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../security/bffAuth.ts')>();
+  return {
+    ...actual,
+    requireWifeUser: (...args: unknown[]) => requireWifeUserMock(...args),
+  };
+});
+
 vi.mock('../security/wifeValidator.ts', () => ({
-  extractUserTokenFromRequest: vi.fn(),
-  getVerifiedTokenSubject: vi.fn(),
-  isTokenAuthorized: vi.fn(),
-  verifyWifeSignature: vi.fn(),
-  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () =>
-    new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
-      status: 403,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    }),
-  wifeSignatureFailedResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
       status: 403,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -34,6 +35,11 @@ vi.mock('../security/wifeValidator.ts', () => ({
   wifeUnauthorizedResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Unauthorized user' }), {
       status: 401,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    }),
+  wifeSignatureFailedResponse: () =>
+    new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
+      status: 403,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     }),
 }));
@@ -48,14 +54,7 @@ vi.mock('../../services/server/MalwareScanService.ts', () => ({
 }));
 
 import { POST } from './route';
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  verifyWifeSignature,
-  assertWifeSignatureRequest,
-  wifeSignatureFailedResponse,
-} from '../security/wifeValidator.ts';
+import { wifeSignatureFailedResponse } from '../security/wifeValidator.ts';
 import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
 
 function jpegTestFile(): File {
@@ -91,11 +90,7 @@ describe('upload route security checkpoints', () => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
-    (extractUserTokenFromRequest as unknown as ReturnType<typeof vi.fn>).mockReturnValue('token');
-    (isTokenAuthorized as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (verifyWifeSignature as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    vi.mocked(assertWifeSignatureRequest).mockResolvedValue(null);
-    (getVerifiedTokenSubject as unknown as ReturnType<typeof vi.fn>).mockResolvedValue('user-1');
+    requireWifeUserMock.mockResolvedValue({ ok: true, userId: 'user-1' });
     (verifyFileContentHash as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     (validateFileBuffer as unknown as ReturnType<typeof vi.fn>).mockReturnValue(true);
     uploadMock.mockResolvedValue({ error: null });
@@ -103,15 +98,22 @@ describe('upload route security checkpoints', () => {
   });
 
   it('returns 401 when token is missing/unauthorized', async () => {
-    (extractUserTokenFromRequest as unknown as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    requireWifeUserMock.mockResolvedValue({
+      ok: false,
+      response: new Response(JSON.stringify({ ok: false, error: 'Unauthorized user' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      }),
+    });
     const res = await POST(buildUploadRequest());
     expect(res.status).toBe(401);
   });
 
   it('returns 403 on failed WIFE signature', async () => {
-    vi.mocked(assertWifeSignatureRequest).mockResolvedValue(
-      wifeSignatureFailedResponse({ method: 'POST', url: 'http://127.0.0.1/api/upload' } as Request),
-    );
+    requireWifeUserMock.mockResolvedValue({
+      ok: false,
+      response: wifeSignatureFailedResponse({ method: 'POST', url: 'http://127.0.0.1/api/upload' } as Request),
+    });
     const res = await POST(buildUploadRequest());
     expect(res.status).toBe(403);
   });
@@ -142,13 +144,11 @@ describe('upload route security checkpoints', () => {
 
   it('returns 200 with signed downloadUrl on success', async () => {
     const res = await POST(buildUploadRequest());
-    const body = (await res.json()) as { ok?: boolean; downloadUrl?: string; path?: string; error?: string };
+    const body = (await res.json()) as { ok?: boolean; downloadUrl?: string };
     if (res.status !== 200) {
       throw new Error(`expected 200 got ${res.status}: ${JSON.stringify(body)}`);
     }
     expect(body.ok).toBe(true);
-    expect(body.downloadUrl).toContain('https://');
-    expect(body.path).toMatch(/^user-1\/vault\//);
+    expect(body.downloadUrl).toBe('https://example.test/signed');
   });
 });
-

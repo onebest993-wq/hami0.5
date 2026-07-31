@@ -1,6 +1,12 @@
-import React from 'react';
-import { DossierLawArticleRichEditor } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
+import React, { Suspense, lazy } from 'react';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { REPO_BTN_GOLD, REPO_INPUT } from '../smartRepositoryTheme';
+
+const LazyDossierLawArticleRichEditor = lazy(() =>
+    import('@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor').then((m) => ({
+        default: m.DossierLawArticleRichEditor,
+    })),
+);
 
 type EntryCardInlineEditorProps = {
     title: string;
@@ -23,21 +29,33 @@ export function EntryCardInlineEditor({
     onSave,
     onCancel,
 }: EntryCardInlineEditorProps) {
+    const keyboardInset = useMobileKeyboardInset();
     return (
-        <div className="space-y-3">
-            <input
+        <div
+            className="space-y-3"
+            data-testid="repository-inline-editor"
+            style={
+                keyboardInset > 0
+                    ? { paddingBottom: `max(0.75rem, ${keyboardInset}px)` }
+                    : undefined
+            }
+        >            <input
                 type="text"
                 value={title}
                 onChange={(e) => onTitleChange(e.target.value)}
                 className={REPO_INPUT}
                 data-testid="repository-note-title"
-            />
+                     />
             {editorReady ? (
-                <DossierLawArticleRichEditor
-                    value={bodyHtml}
-                    onChange={onBodyChange}
-                    context={{ kind: 'repository' }}
-                />
+                <Suspense
+                    fallback={<p className="text-xs text-white/45 py-2">جاري تجهيز المحرر…</p>}
+                >
+                    <LazyDossierLawArticleRichEditor
+                        value={bodyHtml}
+                        onChange={onBodyChange}
+                        context={{ kind: 'repository' }}
+                    />
+                </Suspense>
             ) : (
                 <p className="text-xs text-white/45 py-2">جاري تجهيز المحرر…</p>
             )}

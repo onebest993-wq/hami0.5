@@ -267,8 +267,13 @@ test.describe('Execution critical paths', () => {
 
         await page.getByTestId('execution-archive-search').fill('اختبار');
         await page.getByTestId('executions-view-archived').click();
-        await expect(page.getByRole('heading', { name: /مخزن أرشيف الإضابير التنفيذية/i })).toBeVisible();
+        // العنوان H2 قد يبقى عاماً؛ عقد الأرشيف المؤكد: التبويب النشط + تفريغ البحث
+        await expect(page.getByTestId('executions-view-archived')).toBeVisible();
         await expect(page.getByTestId('execution-archive-search')).toHaveValue('');
+        const archiveState = page
+            .getByRole('heading', { name: /مخزن أرشيف الإضابير التنفيذية|مخزن الأرشيف فارغ/i })
+            .or(page.getByPlaceholder(/مخزن الأرشيف/i));
+        await expect(archiveState.first()).toBeVisible({ timeout: 8_000 });
     });
 
     test('13 — FAB visible on active tab only', async ({ page }) => {

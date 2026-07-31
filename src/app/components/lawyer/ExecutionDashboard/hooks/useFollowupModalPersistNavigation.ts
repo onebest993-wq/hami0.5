@@ -7,7 +7,7 @@ import {
     type FollowupModalTabId,
 } from '../utils/followupModalPersistUtils';
 import type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
-import { prefetchExecutionFollowupModalPortal } from '../executionFollowupModalLazy';
+import { prefetchExecutionFollowupOverlay } from '../executionDashboardOverlayPrefetch';
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 
 export type { FollowupUnifiedModalTab } from '../followupModalTabTypes';
@@ -86,7 +86,7 @@ export function useFollowupModalPersistNavigation({
 
     const openFollowupModalPersisted = useCallback(
         (opts?: { tab?: FollowupModalTabId }) => {
-            prefetchExecutionFollowupModalPortal();
+            prefetchExecutionFollowupOverlay();
             followupModalOpenGenerationRef.current += 1;
             setShowUnifiedExecutionModal(true);
             const order = (followupSectionTabOrder as readonly string[]).filter(

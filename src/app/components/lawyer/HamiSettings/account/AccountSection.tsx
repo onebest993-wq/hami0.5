@@ -35,7 +35,7 @@ export const AccountSection = memo(function AccountSection({
     };
 
     return (
-        <div data-testid="settings-section-account">
+        <div data-testid="settings-section-account" data-settings-interactive="true">
             <SettingCard>
                 <SettingRow
                     icon={User}
@@ -64,6 +64,8 @@ export const AccountSection = memo(function AccountSection({
                             <button
                                 type="button"
                                 onClick={() => void requestLogout()}
+                                data-testid="settings-account-logout"
+                                aria-label="تسجيل الخروج"
                                 className="text-rose-400 text-xs font-bold min-h-[44px]"
                             >
                                 خروج

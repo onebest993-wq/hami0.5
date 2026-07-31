@@ -1,7 +1,8 @@
-import { Edit2, Lock, Trash2, X } from 'lucide-react';
+import { Edit2, Lock, Trash2 } from 'lucide-react';
 import { buildPersonalStatusChromeStageStripItems } from './personalStatusStageDisplay';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smart-modal/smartFile/civilLawsuitTestIds';
 import type { SmartFileChromeProps } from '../smart-modal/layout/SmartFileChrome';
+import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
 import {
     PS_CHROME_BAR,
     PS_CHROME_BTN,
@@ -22,9 +23,12 @@ import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseS
 export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     const {
         onClose,
+        onDossierBack,
+        onDossierExit,
         setShowEditInfoModal,
         isTrashOpen,
         setIsTrashOpen,
+        isViewingArchived,
         stages,
         viewingStageIndex,
         activeStageIndex,
@@ -32,20 +36,19 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     } = props;
 
     const stageStripItems = buildPersonalStatusChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
+    const dossierBack = onDossierBack ?? onClose;
+    const dossierExit = onDossierExit ?? onClose;
 
     return (
         <>
             <div className={PS_CHROME_BAR}>
                 <div className="relative z-[1] flex items-center justify-between px-3 py-2.5 gap-2">
-                    <button
-                        type="button"
-                        data-testid={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
-                        onClick={onClose}
-                        className={PS_CHROME_BTN}
-                    >
-                        <X size={14} />
-                        رجوع
-                    </button>
+                    <DossierHeaderNavButtons
+                        onBack={dossierBack}
+                        onExit={dossierExit}
+                        backTestId={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
+                        exitTestId={CIVIL_LAWSUIT_TEST_IDS.dossierExit}
+                    />
 
                     <div className="flex flex-1 items-center justify-center gap-1.5 min-w-0 px-1">
                         <h2 className={`text-center text-xs font-bold ${PS_TEXT} truncate`}>
@@ -58,23 +61,35 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                            type="button"
-                            onClick={() => setShowEditInfoModal(true)}
-                            className={PS_CHROME_ICON_BTN}
-                            title="تعديل بيانات الدعوى"
-                        >
-                            <Edit2 size={16} />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setIsTrashOpen(!isTrashOpen)}
-                            className={isTrashOpen ? PS_CHROME_TRASH_BTN_ACTIVE : PS_CHROME_TRASH_BTN_IDLE}
-                            title="سلة المهملات"
-                            aria-label="سلة المهملات"
-                        >
-                            <Trash2 size={16} strokeWidth={1.75} />
-                        </button>
+                        {!isViewingArchived ? (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowEditInfoModal(true)}
+                                    className={PS_CHROME_ICON_BTN}
+                                    title="تعديل بيانات الدعوى"
+                                >
+                                    <Edit2 size={16} />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsTrashOpen(!isTrashOpen)}
+                                    className={isTrashOpen ? PS_CHROME_TRASH_BTN_ACTIVE : PS_CHROME_TRASH_BTN_IDLE}
+                                    title="سلة المهملات"
+                                    aria-label="سلة المهملات"
+                                >
+                                    <Trash2 size={16} strokeWidth={1.75} />
+                                </button>
+                            </>
+                        ) : (
+                            <span
+                                className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold ${PS_TEXT} opacity-70`}
+                                title="مرحلة مؤرشفة — للقراءة فقط"
+                            >
+                                <Lock size={12} aria-hidden />
+                                أرشيف
+                            </span>
+                        )}
                     </div>
                 </div>
                 <PersonalStatusMoroccanDivider className="pb-1.5 opacity-80" />

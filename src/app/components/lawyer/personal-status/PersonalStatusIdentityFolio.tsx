@@ -1,5 +1,4 @@
 import React from 'react';
-import { UserCheck } from 'lucide-react';
 import type { FileData, Party } from '../LawyerShared';
 import { groupPartiesForHeader } from '../smart-modal/smartFile/incidentalCaseLinking';
 import { resolveDisplayParties } from '../smart-modal/smartFile/resolveDisplayParties';
@@ -17,7 +16,57 @@ import {
     PersonalStatusMoroccanDivider,
 } from './PersonalStatusMoroccanGlass';
 
-function PartyStack({ role, parties }: { role: string; parties: Party[] }) {
+const FOLIO_LABEL =
+    'text-[8px] font-black tracking-[0.14em] text-[#9894A0] uppercase leading-none';
+
+const CLIENT_BADGE_CLASS =
+    'rounded-md border border-[#E6C673]/40 bg-[#E6C673]/12 px-1.5 py-px text-[8px] font-extrabold text-[#E6C673] shrink-0';
+
+function FolioField({
+    label,
+    children,
+    className = '',
+    align = 'start',
+}: {
+    label: string;
+    children: React.ReactNode;
+    className?: string;
+    align?: 'start' | 'end';
+}) {
+    return (
+        <div className={`min-w-0 ${className}`}>
+            <p className={`${FOLIO_LABEL} ${align === 'end' ? 'text-right' : ''}`}>{label}</p>
+            <div className="mt-1">{children}</div>
+        </div>
+    );
+}
+
+function partyShowsClientMark(
+    p: Party,
+    parties: Party[],
+    representedParty?: string | null,
+    side: 'plaintiff' | 'defendant',
+): boolean {
+    if (p.isClient) return true;
+    const rp = String(representedParty ?? '').trim();
+    if (!rp) return false;
+    if (parties.some((x) => x.isClient)) return false;
+    if (side === 'plaintiff' && rp === 'المدعي' && parties[0]?.id === p.id) return true;
+    if (side === 'defendant' && rp === 'المدعى عليه' && parties[0]?.id === p.id) return true;
+    return false;
+}
+
+function PartyStack({
+    role,
+    parties,
+    representedParty,
+    side,
+}: {
+    role: string;
+    parties: Party[];
+    representedParty?: string | null;
+    side: 'plaintiff' | 'defendant';
+}) {
     return (
         <div className="rounded-lg bg-white/[0.07] border border-white/[0.14] px-2 py-1.5 min-h-[3rem] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
             <p className={`text-[8px] font-black tracking-widest ${PS_TEXT_BEIGE} mb-1.5 opacity-90`}>{role}</p>
@@ -25,16 +74,21 @@ function PartyStack({ role, parties }: { role: string; parties: Party[] }) {
                 <p className={`text-[10px] ${PS_TEXT_MUTED}`}>—</p>
             ) : (
                 <ul className="space-y-1">
-                    {parties.map((p) => (
-                        <li key={String(p.id)} className="flex items-center justify-between gap-1">
-                            <span className={`text-[11px] font-semibold ${PS_TEXT_PEARL} truncate`}>
-                                {p.name || '—'}
-                            </span>
-                            {p.isClient ? (
-                                <UserCheck size={10} className="text-[#C9B89A] shrink-0" />
-                            ) : null}
-                        </li>
-                    ))}
+                    {parties.map((p) => {
+                        const isClient = partyShowsClientMark(p, parties, representedParty, side);
+                        return (
+                            <li key={String(p.id)} className="flex items-center gap-1 min-w-0">
+                                <span className={`text-[11px] font-semibold ${PS_TEXT_PEARL} truncate min-w-0`}>
+                                    {p.name || '—'}
+                                </span>
+                                {isClient ? (
+                                    <span className={CLIENT_BADGE_CLASS} title="موكل">
+                                        موكل
+                                    </span>
+                                ) : null}
+                            </li>
+                        );
+                    })}
                 </ul>
             )}
         </div>
@@ -45,11 +99,17 @@ export function PersonalStatusIdentityFolio({
     formData,
     caseType,
     file,
-}: SmartHeaderProps & { file?: FileData }) {
+    representedParty,
+}: SmartHeaderProps & { file?: FileData; representedParty?: string | null }) {
     const partiesList = Array.isArray(formData?.parties) && formData.parties.length > 0
         ? formData.parties
         : resolveDisplayParties({ displayStage: formData, allStages: [] });
     const { plaintiffs, defendants } = groupPartiesForHeader(partiesList);
+
+    const resolvedRepresentedParty =
+        representedParty ??
+        (typeof formData?.representedParty === 'string' ? formData.representedParty : null) ??
+        (typeof file?.representedParty === 'string' ? file.representedParty : null);
 
     const stageName = String(formData?.stageName ?? formData?.stage ?? '').trim() || 'أحوال شخصية';
     const p1Role = getPersonalStatusRoleForSide(stageName, 1, plaintiffs.length || 1);
@@ -68,21 +128,30 @@ export function PersonalStatusIdentityFolio({
             <div className="relative z-[1]">
                 <div className="h-[2px] bg-gradient-to-l from-white/[0.35] via-[#ECE8E2]/40 to-[#F8F6F0]/25" />
 
-                <div className="px-3 pt-2 pb-1.5 flex items-center justify-between gap-2 border-b border-white/[0.10]">
-                    <div className="min-w-0 flex-1">
-                        <p className={`text-[10px] ${PS_TEXT_MUTED} truncate leading-tight`}>{court}</p>
-                        <h1 className={`text-[15px] font-bold ${PS_TEXT_PEARL} leading-tight mt-0.5 truncate`}>
-                            {lawsuitType}
-                        </h1>
-                        {judge ? (
-                            <p className={`text-[9px] ${PS_TEXT_MUTED} mt-0.5 leading-tight`}>القاضي · {judge}</p>
-                        ) : null}
+                <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.10] space-y-2">
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
+                        <FolioField label="رقم الدعوى">
+                            <p
+                                className={`text-sm font-mono font-bold ${PS_TEXT_PEARL} tracking-wide leading-none`}
+                                dir="ltr"
+                            >
+                                {displayCaseNo(formData?.caseNo)}
+                            </p>
+                        </FolioField>
+                        <FolioField label="المحكمة" align="end">
+                            <p className={`text-[11px] font-semibold ${PS_TEXT_BEIGE} leading-snug text-right truncate`}>
+                                {court}
+                            </p>
+                        </FolioField>
                     </div>
-                    <div className="shrink-0 text-left">
-                        <p className={`text-sm font-mono font-bold ${PS_TEXT_PEARL} tracking-wide leading-none`} dir="ltr">
-                            {displayCaseNo(formData?.caseNo)}
-                        </p>
-                    </div>
+                    <FolioField label="نوع الدعوى">
+                        <h1 className={`text-[14px] font-bold ${PS_TEXT_PEARL} leading-snug`}>{lawsuitType}</h1>
+                    </FolioField>
+                    {judge ? (
+                        <FolioField label="القاضي">
+                            <p className={`text-[11px] font-semibold ${PS_TEXT_BEIGE} leading-snug`}>{judge}</p>
+                        </FolioField>
+                    ) : null}
                 </div>
 
                 {lawLabel ? (
@@ -96,8 +165,18 @@ export function PersonalStatusIdentityFolio({
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-1.5 p-2">
-                    <PartyStack role={p1Role} parties={plaintiffs} />
-                    <PartyStack role={p2Role} parties={defendants} />
+                    <PartyStack
+                        role={p1Role}
+                        parties={plaintiffs}
+                        representedParty={resolvedRepresentedParty}
+                        side="plaintiff"
+                    />
+                    <PartyStack
+                        role={p2Role}
+                        parties={defendants}
+                        representedParty={resolvedRepresentedParty}
+                        side="defendant"
+                    />
                 </div>
             </div>
         </article>

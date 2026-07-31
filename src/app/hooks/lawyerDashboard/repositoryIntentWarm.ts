@@ -1,4 +1,3 @@
-import { prefetchSmartRepositoryModal } from '@/app/utils/lazyComponents';
 import {
     prefetchSmartVaultDocs,
     refreshVaultDocsFromStore,
@@ -9,6 +8,12 @@ import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 
 let registeredWarmUserId: string | null | undefined;
 let repositoryIdleScheduled = false;
+
+function prefetchSmartRepositoryModalIntent(): void {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.prefetchSmartRepositoryModal())
+        .catch(() => undefined);
+}
 
 export function resetRepositoryIdlePrefetchForTests(): void {
     repositoryIdleScheduled = false;
@@ -26,7 +31,13 @@ export function registerRepositoryWarmUserId(userId: string | null | undefined):
 /** prefetch chunks + بيانات — hover/idle */
 export function warmRepositoryHubOnHover(userId?: string | null): void {
     prefetchRepositoryHubModule();
-    prefetchSmartRepositoryModal();
+    prefetchSmartRepositoryModalIntent();
+    if (typeof window !== 'undefined') {
+        void import('@/app/components/lawyer/SmartRepository/SmartRepositoryHost').catch(() => undefined);
+        void import(
+            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry'
+        ).catch(() => undefined);
+    }
     const uid = (userId ?? registeredWarmUserId)?.trim();
     if (uid) prefetchSmartVaultDocs(uid);
 }
@@ -46,10 +57,16 @@ export function warmRepositoryOnOpen(
     userId?: string | null,
     tab: RepositoryWarmTab = 'notepad',
 ): void {
-    const uid = userId ?? registeredWarmUserId;
     prefetchRepositoryHubModule();
+    if (typeof window !== 'undefined') {
+        void import('@/app/components/lawyer/SmartRepository/SmartRepositoryHost').catch(() => undefined);
+        void import(
+            '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry'
+        ).catch(() => undefined);
+    }
+    const uid = userId ?? registeredWarmUserId;
     if (uid) prefetchSmartVaultDocs(uid);
-    if (tab === 'notepad') prefetchSmartRepositoryModal();
+    if (tab === 'notepad') prefetchSmartRepositoryModalIntent();
 }
 
 /** idle warm لبطاقة المستودع — cold open أخف بعد جاهزية الرئيسية */

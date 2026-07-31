@@ -1,9 +1,14 @@
 import React, { memo } from 'react';
 import { Calendar } from 'lucide-react';
 
-export type SummonsDateAccent = 'indigo' | 'violet' | 'amber' | 'cyan' | 'emerald';
+export type SummonsDateAccent = 'gold' | 'indigo' | 'violet' | 'amber' | 'cyan' | 'emerald';
 
 const ACCENT = {
+    gold: {
+        shell: 'border-[#E6C673]/25 bg-[#E6C673]/[0.06]',
+        icon: 'text-[#E6C673]/90',
+        input: 'border-[#E6C673]/35 focus-visible:ring-[#E6C673]/40',
+    },
     indigo: {
         shell: 'border-indigo-500/25 bg-indigo-950/15',
         icon: 'text-indigo-300/85',
@@ -52,7 +57,7 @@ export const SummonsInlineDateField = memo(function SummonsInlineDateField({
     error,
     hint,
     max,
-    accent = 'indigo',
+    accent = 'gold',
     className = '',
 }: SummonsInlineDateFieldProps) {
     const a = ACCENT[accent];

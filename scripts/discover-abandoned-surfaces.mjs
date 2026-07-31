@@ -27,7 +27,17 @@ const DEFERRED_PATH_FRAGMENTS = [
     'lawsuits',
 ];
 
+const ORPHAN_SKIP_PATHS = new Set([
+    'src/app/bootstrap/SecurityInitializerGate.dev.tsx',
+    'src/app/bootstrap/SecurityInitializerGate.prod.tsx',
+    'src/app/components/lawyer/Dashboard_Active_Order_File/utils/ymd.ts',
+    'src/app/modules/transactionsThreading/ids.ts',
+    'src/app/services/settings/nav.ts',
+    'src/vite-plugins/preferFileOverDirectory.ts',
+]);
+
 const SKIP_FILE = (rel) =>
+    rel.endsWith('.d.ts') ||
     rel.includes('__tests__') ||
     rel.endsWith('.test.ts') ||
     rel.endsWith('.test.tsx') ||
@@ -159,7 +169,7 @@ function moduleKeys(filePath) {
     const rel = path.relative(SRC, filePath).replace(/\\/g, '/');
     const noExt = rel.replace(/\.(tsx?|jsx?)$/, '');
     const base = path.basename(filePath).replace(/\.(tsx?|jsx?)$/, '');
-    return [`@/${noExt}`, `@/app/${noExt.replace(/^app\//, '')}`, base];
+    return [`@/${noExt}`, `@/app/${noExt.replace(/^app\//, '')}`, `./${base}`, `../${base}`, base];
 }
 
 const orphanCandidates = [];
@@ -167,6 +177,7 @@ for (const file of allFiles) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/');
     if (SKIP_FILE(rel)) continue;
     if (isDeferred(rel)) continue;
+    if (ORPHAN_SKIP_PATHS.has(rel)) continue;
 
     const keys = moduleKeys(file);
     let refs = 0;
@@ -187,7 +198,7 @@ for (const file of allFiles) {
 
 /** 5 — إشارات toast/placeholder في التنبيهات */
 const placeholderRoutes = [];
-const placeholderRe = /(?:case\s+['"`])(\w+)['"`]\s*:[\s\S]{0,200}?(?:toast|placeholder|قريب|محاكاة|TODO)/gi;
+const _placeholderRe = /(?:case\s+['"`])(\w+)['"`]\s*:[\s\S]{0,200}?(?:toast|placeholder|قريب|محاكاة|TODO)/gi;
 for (const [file, text] of fileTexts) {
     const rel = path.relative(ROOT, file).replace(/\\/g, '/');
     if (!/notification|alert|toast/i.test(rel) && !/handleNotification|onNotification/i.test(text)) continue;

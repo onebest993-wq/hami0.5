@@ -7,13 +7,25 @@ import {
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { Copy, ChevronLeft, MapPin } from 'lucide-react';
 import { ActionIcon } from './ActionIcon';
+import { withAllowedClipboardAction } from '@/app/runtime/screenshotDeterrentRuntime';
 
 type ProfileContactChannelProps = {
     action: ProfileAction;
 };
 
 const channelClassName =
-    'group flex items-center gap-3 hami-profile-contact-channel border text-right w-full no-underline text-inherit';
+    'group flex items-center gap-3 hami-profile-contact-channel border text-right w-full no-underline text-inherit touch-manipulation min-h-[44px]';
+
+async function copyValue(value: string) {
+    try {
+        await withAllowedClipboardAction(async () => {
+            await navigator.clipboard.writeText(value);
+        });
+        SmartToast.success('تم النسخ');
+    } catch {
+        SmartToast.error('تعذر النسخ');
+    }
+}
 
 export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
     const isManualLocation =
@@ -25,7 +37,23 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
         SmartToast.error('بيانات التواصل غير صالحة — عدّلها من «تعديل»');
     };
 
-    const inner = (
+    const copyControl = (
+        <button
+            type="button"
+            className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] touch-manipulation text-white/22 hover:text-[color:color-mix(in_srgb,var(--profile-accent)_60%,transparent)]"
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+            onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void copyValue(action.value);
+            }}
+            aria-label="نسخ"
+        >
+            <Copy size={14} aria-hidden />
+        </button>
+    );
+
+    const body = (
         <>
             <div className="hami-profile-contact-icon group-hover:scale-105 transition-transform">
                 <ActionIcon type={action.type} />
@@ -35,7 +63,7 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
                 <p className="text-[10px] text-white/42 truncate mt-0.5 tracking-wide">{action.value}</p>
                 {isGpsLocation ? (
                     <p className="text-[9px] text-white/30 mt-1 flex items-center gap-1">
-                        <MapPin size={10} />
+                        <MapPin size={10} aria-hidden />
                         اضغط لفتح الخرائط
                     </p>
                 ) : null}
@@ -43,61 +71,37 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
                     <p className="text-[9px] text-white/30 mt-1">اضغط للبحث في الخرائط</p>
                 ) : null}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-                <span
-                    role="button"
-                    tabIndex={0}
-                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-white/22 group-hover:text-[color:color-mix(in_srgb,var(--profile-accent)_60%,transparent)]"
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void navigator.clipboard.writeText(action.value);
-                        SmartToast.success('تم النسخ');
-                    }}
-                    onKeyDown={(e) => {
-                        if (e.key !== 'Enter' && e.key !== ' ') return;
-                        e.preventDefault();
-                        e.stopPropagation();
-                        void navigator.clipboard.writeText(action.value);
-                        SmartToast.success('تم النسخ');
-                    }}
-                    aria-label="نسخ"
-                >
-                    <Copy size={14} />
-                </span>
-                <ChevronLeft
-                    size={16}
-                    className="text-white/18 group-hover:text-[color:color-mix(in_srgb,var(--profile-accent)_55%,transparent)] transition-colors"
-                    aria-hidden
-                />
-            </div>
+            <ChevronLeft
+                size={16}
+                className="text-white/18 group-hover:text-[color:color-mix(in_srgb,var(--profile-accent)_55%,transparent)] transition-colors shrink-0"
+                aria-hidden
+            />
         </>
     );
 
-    if (!target) {
-        return (
-            <button type="button" onClick={handleInvalid} className={channelClassName}>
-                {inner}
-            </button>
-        );
-    }
-
-    if (action.type === 'website') {
-        return (
-            <a
-                href={target}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={channelClassName}
-            >
-                {inner}
-            </a>
-        );
-    }
+    const openControl = !target ? (
+        <button type="button" onClick={handleInvalid} className={channelClassName}>
+            {body}
+        </button>
+    ) : target.startsWith('http://') || target.startsWith('https://') ? (
+        <a
+            href={target}
+            target="_blank"
+            rel="noopener noreferrer"
+            className={channelClassName}
+        >
+            {body}
+        </a>
+    ) : (
+        <a href={target} className={channelClassName}>
+            {body}
+        </a>
+    );
 
     return (
-        <a href={target} className={channelClassName}>
-            {inner}
-        </a>
+        <div className="flex items-stretch gap-1" data-testid="profile-contact-channel-row">
+            <div className="min-w-0 flex-1">{openControl}</div>
+            {copyControl}
+        </div>
     );
 }

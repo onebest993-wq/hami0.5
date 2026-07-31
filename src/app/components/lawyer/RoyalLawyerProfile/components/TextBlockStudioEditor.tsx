@@ -1,44 +1,49 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ensureProfileCanvasFxLoadedSync } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
 import { scheduleDeferredGoogleFonts } from '@/app/runtime/deferredGoogleFonts';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import { TextBlockCanvasPanel } from './textStudio/TextBlockCanvasPanel';
-import { TextBlockInteractionPanel } from './textStudio/TextBlockInteractionPanel';
 import { TextBlockStylePanel } from './textStudio/TextBlockStylePanel';
 import type { TextStyleScope } from './textStudio/patchTextBlockStyle';
 
-type StudioPanel = 'style' | 'canvas' | 'interaction';
+type StudioPanel = 'style' | 'canvas';
 
 type TextBlockStudioEditorProps = {
     block: ProfileCustomBlock;
     onChange: (patch: Partial<ProfileCustomBlock>) => void;
     uploadingCanvasBg?: boolean;
+    saving?: boolean;
     onUploadCanvasBg?: () => void;
+    onClearCanvasBg?: () => void;
 };
 
 const PANELS: { id: StudioPanel; label: string; testId: string }[] = [
-    { id: 'style', label: 'تنسيق النص', testId: 'text-studio-tab-style' },
-    { id: 'canvas', label: 'لوحة الكتابة', testId: 'text-studio-tab-canvas' },
-    { id: 'interaction', label: 'التفاعل', testId: 'text-studio-tab-interaction' },
+    { id: 'style', label: 'النص', testId: 'text-studio-tab-style' },
+    { id: 'canvas', label: 'الإطار', testId: 'text-studio-tab-canvas' },
 ];
 
-const TEXT_BODY_COMMIT_DELAY_MS = 140;
-
+/**
+ * محرر نص خفيف: تنسيق + إطار فقط.
+ * تفاعلات الكشف الثقيلة (ستارة/غبار…) أُزيلت من الاستوديو لأنها تثقل المعاينة والجهاز.
+ * النص يُثبَّت فوراً في المسودة — لا debounce يسبق «حفظ» ويفقد آخر الأحرف.
+ */
 export const TextBlockStudioEditor = React.memo(function TextBlockStudioEditor({
     block,
     onChange,
     uploadingCanvasBg,
+    saving = false,
     onUploadCanvasBg,
+    onClearCanvasBg,
 }: TextBlockStudioEditorProps) {
     const [panel, setPanel] = useState<StudioPanel>('style');
     const [scope, setScope] = useState<TextStyleScope>('all');
     const [lineIndex, setLineIndex] = useState(0);
     const [phraseRange, setPhraseRange] = useState<{ start: number; end: number } | null>(null);
     const [bodyDraft, setBodyDraft] = useState(block.body ?? '');
-    const bodyCommitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const bodyDraftRef = useRef(block.body ?? '');
     const blockRef = useRef(block);
     const onChangeRef = useRef(onChange);
+    const armedPanelRef = useRef<StudioPanel | null>(null);
 
     blockRef.current = block;
     bodyDraftRef.current = bodyDraft;
@@ -46,113 +51,118 @@ export const TextBlockStudioEditor = React.memo(function TextBlockStudioEditor({
 
     const lines = useMemo(() => bodyDraft.split('\n'), [bodyDraft]);
 
+    /* تبديل البلوك فقط — لا تُصفَّر فهرس السطر عند كل حرف في body */
     useEffect(() => {
         const nextBody = block.body ?? '';
         bodyDraftRef.current = nextBody;
         setBodyDraft(nextBody);
-    }, [block.id, block.body]);
-
-    const commitBody = useCallback(
-        (body: string) => {
-            const current = blockRef.current;
-            const lineCount = body.split('\n').length;
-            onChangeRef.current({
-                body,
-                lineStyles: current.lineStyles?.slice(0, lineCount),
-                textSpans: current.textSpans?.filter((s) => s.lineIndex < lineCount),
-            });
-        },
-        [],
-    );
-
-    const flushPendingBody = useCallback(() => {
-        if (bodyCommitTimerRef.current) {
-            clearTimeout(bodyCommitTimerRef.current);
-            bodyCommitTimerRef.current = null;
-        }
-        commitBody(bodyDraft);
-    }, [bodyDraft, commitBody]);
-
-    useEffect(
-        () => () => {
-            if (bodyCommitTimerRef.current) {
-                clearTimeout(bodyCommitTimerRef.current);
-                commitBody(bodyDraftRef.current);
-            }
-        },
-        [commitBody],
-    );
+        setPhraseRange(null);
+        setLineIndex(0);
+        setScope('all');
+    }, [block.id]);
 
     useEffect(() => {
-        ensureProfileCanvasFxLoadedSync({
-            includeStudio: true,
-            interaction: block.canvasStyle?.interaction ?? 'none',
-        });
-        scheduleDeferredGoogleFonts();
-    }, [block.canvasStyle?.interaction]);
+        const nextBody = block.body ?? '';
+        if (nextBody === bodyDraftRef.current) return;
+        bodyDraftRef.current = nextBody;
+        setBodyDraft(nextBody);
+        setPhraseRange(null);
+    }, [block.body]);
+
+    useEffect(() => {
+        setLineIndex((idx) => Math.min(idx, Math.max(0, lines.length - 1)));
+    }, [lines.length]);
+
+    const activatePanel = useCallback((next: StudioPanel) => {
+        setPanel((curr) => (curr === next ? curr : next));
+    }, []);
+
+    useEffect(() => {
+        if (panel !== 'style') return;
+        if (!isAndroidNativeShell()) {
+            scheduleDeferredGoogleFonts();
+        }
+    }, [panel]);
+
+    const styleBlock = useMemo(() => ({ ...block, body: bodyDraft }), [block, bodyDraft]);
 
     return (
-        <div className="space-y-3" data-testid="text-block-studio-editor">
+        <div className="profile-studio-editor" data-testid="text-block-studio-editor">
             <textarea
                 value={bodyDraft}
+                maxLength={2000}
                 onChange={(e) => {
-                    const body = e.target.value;
+                    const body = e.target.value.slice(0, 2000);
                     bodyDraftRef.current = body;
                     setBodyDraft(body);
-                    if (bodyCommitTimerRef.current) clearTimeout(bodyCommitTimerRef.current);
-                    bodyCommitTimerRef.current = setTimeout(() => {
-                        bodyCommitTimerRef.current = null;
-                        commitBody(body);
-                    }, TEXT_BODY_COMMIT_DELAY_MS);
+                    if (body !== (blockRef.current.body ?? '')) {
+                        onChangeRef.current({ body });
+                    }
                 }}
-                onBlur={flushPendingBody}
-                rows={5}
-                className="w-full bg-black/35 border border-white/10 rounded-xl px-3 py-3 text-sm outline-none resize-y focus:border-white/20 leading-relaxed"
-                placeholder="اكتب نصك — كل سطر مستقل، ويمكن تلوين كلمة أو سطر أو الكل"
+                rows={4}
+                className="profile-studio-body-input"
+                placeholder="اكتب النص هنا…"
                 data-testid="text-block-body-input"
             />
 
-            <div className="profile-studio-panel-tabs">
+            <div className="profile-studio-panel-tabs" role="tablist" aria-label="أقسام تحرير النص">
                 {PANELS.map((p) => (
                     <button
                         key={p.id}
                         type="button"
+                        role="tab"
+                        aria-selected={panel === p.id}
                         data-active={panel === p.id ? 'true' : 'false'}
                         data-testid={p.testId}
-                        className="profile-studio-panel-tab min-h-[44px]"
-                        onClick={() => setPanel(p.id)}
+                        className="profile-studio-panel-tab min-h-[44px] touch-manipulation"
+                        style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                        onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            event.stopPropagation();
+                            /* لا preventDefault — على Android يمرّر click لاحقاً ويغلق الورقة */
+                            if (event.pointerType === 'touch' || event.pointerType === 'pen') {
+                                armedPanelRef.current = p.id;
+                                activatePanel(p.id);
+                            }
+                        }}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            if (armedPanelRef.current === p.id) {
+                                armedPanelRef.current = null;
+                                return;
+                            }
+                            activatePanel(p.id);
+                        }}
                     >
                         {p.label}
                     </button>
                 ))}
             </div>
 
-            {panel === 'style' ? (
-                <TextBlockStylePanel
-                    block={{ ...block, body: bodyDraft }}
-                    scope={scope}
-                    lineIndex={lineIndex}
-                    phraseRange={phraseRange}
-                    lines={lines}
-                    onScopeChange={setScope}
-                    onLineIndexChange={setLineIndex}
-                    onPhraseRangeChange={setPhraseRange}
-                    onChange={onChange}
-                />
-            ) : null}
-
-            {panel === 'canvas' ? (
-                <TextBlockCanvasPanel
-                    block={block}
-                    uploadingCanvasBg={uploadingCanvasBg}
-                    onChange={onChange}
-                    onUploadCanvasBg={onUploadCanvasBg}
-                />
-            ) : null}
-
-            {panel === 'interaction' ? (
-                <TextBlockInteractionPanel block={block} onChange={onChange} />
-            ) : null}
+            <div className="profile-studio-panel-slot" role="tabpanel">
+                {panel === 'style' ? (
+                    <TextBlockStylePanel
+                        block={styleBlock}
+                        scope={scope}
+                        lineIndex={lineIndex}
+                        phraseRange={phraseRange}
+                        lines={lines}
+                        onScopeChange={setScope}
+                        onLineIndexChange={setLineIndex}
+                        onPhraseRangeChange={setPhraseRange}
+                        onChange={onChange}
+                    />
+                ) : null}
+                {panel === 'canvas' ? (
+                    <TextBlockCanvasPanel
+                        block={styleBlock}
+                        uploadingCanvasBg={Boolean(uploadingCanvasBg || saving)}
+                        onChange={onChange}
+                        onUploadCanvasBg={onUploadCanvasBg}
+                        onClearCanvasBg={onClearCanvasBg}
+                    />
+                ) : null}
+            </div>
         </div>
     );
 });

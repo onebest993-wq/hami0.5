@@ -6,10 +6,9 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import { debug } from '@/app/utils/debug';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
-import { reconcileExecutionDossierStorageAsync } from '@/app/utils/executionDossierStorageReconcile';
 
 export type CloudSyncBucket = 'execution' | 'lawsuit' | 'notes' | 'unsupported';
 
@@ -158,8 +157,8 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
             cloudDataRaw = await SupabaseService.getExecutionFiles();
             localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
         } else if (bucket === 'lawsuit') {
+            cloudDataRaw = await SupabaseService.getLawsuitFiles();
             localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
-            return { ok: true };
         } else if (bucket === 'notes') {
             cloudDataRaw = await SupabaseService.getGlobalNotes();
             localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
@@ -178,6 +177,9 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
         } else {
             persistenceRepository.save(localKey, merged);
             if (bucket === 'execution') {
+                const { reconcileExecutionDossierStorageAsync } = await import(
+                    '@/app/utils/executionDossierStorageReconcile'
+                );
                 await reconcileExecutionDossierStorageAsync();
             }
         }

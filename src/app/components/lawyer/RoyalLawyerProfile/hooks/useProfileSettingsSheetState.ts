@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import { useProfileSettingsDraft } from './useProfileSettingsDraft';
-import { useProfileSettingsRandomAppearance } from './useProfileSettingsRandomAppearance';
 import { useProfileSettingsBlockOps } from './useProfileSettingsBlockOps';
 
-export type ProfileSettingsTab = 'privacy' | 'appearance' | 'containers';
+export type ProfileSettingsTab = 'appearance' | 'containers';
 export type ContainerKindTab = 'text' | 'image';
 
 export function useProfileSettingsSheetState(
@@ -12,23 +11,27 @@ export function useProfileSettingsSheetState(
     customization: ProfilePageCustomization,
     userId: string,
     onDraftChange?: (draft: ProfilePageCustomization) => void,
+    options?: { isOwnProfile?: boolean; saving?: boolean },
 ) {
-    const [tab, setTab] = useState<ProfileSettingsTab>('privacy');
-    const { draft, setDraft, patchDraft, toggleContactVisibility } = useProfileSettingsDraft(
+    const isOwnProfile = options?.isOwnProfile !== false;
+    const saving = options?.saving === true;
+    const [tab, setTab] = useState<ProfileSettingsTab>('appearance');
+    const { draft, setDraft, patchDraft } = useProfileSettingsDraft(open, customization, onDraftChange);
+    const blockOps = useProfileSettingsBlockOps({
+        userId,
+        isOwnProfile,
         open,
-        customization,
-        onDraftChange,
-    );
-    const { randomDisabled, randomCooldownSec, handleRandomAppearance } = useProfileSettingsRandomAppearance(
-        open,
+        saving,
+        draft,
+        baseline: customization,
         setDraft,
-    );
-    const blockOps = useProfileSettingsBlockOps({ userId, isOwnProfile: true, draft, setDraft, setTab });
+        setTab,
+    });
     const { setExpandedBlockId } = blockOps;
 
     useEffect(() => {
         if (!open) return;
-        setTab('privacy');
+        setTab('appearance');
         setExpandedBlockId(null);
     }, [open, setExpandedBlockId]);
 
@@ -36,11 +39,8 @@ export function useProfileSettingsSheetState(
         tab,
         setTab,
         draft,
+        setDraft,
         patchDraft,
-        toggleContactVisibility,
-        randomDisabled,
-        randomCooldownSec,
-        handleRandomAppearance,
         ...blockOps,
     };
 }

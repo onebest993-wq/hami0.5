@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useState, startTransition } from 'react';
-import { MapPin, Phone, Users } from 'lucide-react';
+import { MapPin, Users } from 'lucide-react';
 import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
 import { ExecutionPartyInteractiveBadges } from '@/app/components/lawyer/execution/ExecutionPartyInteractiveBadges';
 import { PartyOverflowToggle } from '../executionDashboardLazyShell';
@@ -31,7 +31,7 @@ type PartiesSectionProps = {
     onOpenDecisionsAppealsTab: () => void;
     partyBadgesExecutionId: string;
     viewExecutionData: any;
-    activeCoerciveActions: any[];
+    activeCoerciveActions?: any[];
     seizedAssets: any[];
     activeTimelineEvents: any[];
     decisionsReloadEpoch: number;
@@ -187,46 +187,24 @@ export const PartiesSection = memo(function PartiesSection({
                                                 </p>
                                             </div>
                                         ) : null}
-                                        {c.phone || c.address ? (
-                                            <div
-                                                className={`grid gap-2 ${
-                                                    c.phone && c.address ? 'grid-cols-2' : 'grid-cols-1'
-                                                }`}
-                                            >
-                                                {c.phone ? (
-                                                    <div className="min-w-0 rounded-lg border border-emerald-500/15 bg-slate-900/35 px-2.5 py-1.5">
-                                                        <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
-                                                            <span>الهاتف</span>
-                                                            <Phone
-                                                                size={12}
-                                                                className="shrink-0 text-emerald-400"
-                                                            />
-                                                        </div>
-                                                        <p className="text-xs font-medium text-white [unicode-bidi:plaintext] break-all">
-                                                            {String(c.phone ?? '')}
-                                                        </p>
-                                                    </div>
-                                                ) : null}
-                                                {c.address ? (
-                                                    <div className="min-w-0 rounded-lg border border-emerald-500/15 bg-slate-900/35 px-2.5 py-1.5">
-                                                        <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
-                                                            <span>العنوان</span>
-                                                            <MapPin
-                                                                size={12}
-                                                                className="shrink-0 text-emerald-400"
-                                                            />
-                                                        </div>
-                                                        <p className="text-xs leading-snug text-white break-words">
-                                                            {String(c.address ?? '')}
-                                                        </p>
-                                                    </div>
-                                                ) : null}
+                                        {c.address ? (
+                                            <div className="min-w-0 rounded-lg border border-emerald-500/15 bg-slate-900/35 px-2.5 py-1.5">
+                                                <div className="mb-0.5 flex flex-row-reverse items-center justify-end gap-1 text-[10px] text-gray-400">
+                                                    <span>العنوان</span>
+                                                    <MapPin
+                                                        size={12}
+                                                        className="shrink-0 text-emerald-400"
+                                                    />
+                                                </div>
+                                                <p className="text-xs leading-snug text-white break-words">
+                                                    {String(c.address ?? '')}
+                                                </p>
                                             </div>
                                         ) : null}
                                     </div>
-                                    {!c.phone && !c.address && creditorExtraMinorNames.length === 0 && (
+                                    {!c.address && creditorExtraMinorNames.length === 0 && (
                                         <p className="py-1 text-center text-[11px] text-gray-500">
-                                            لا توجد بيانات اتصال
+                                            لا يوجد عنوان مسجّل
                                         </p>
                                     )}
                                     {creditorExtraMinorNames.length > 0 && creditorExtraMinorLabel && (
@@ -240,7 +218,7 @@ export const PartiesSection = memo(function PartiesSection({
                                             </p>
                                         </div>
                                     )}
-                                </>
+                            </>
                         }
                         collapsed={
                             <div className="flex w-full flex-col items-center justify-center gap-0.5 text-center" dir="rtl">
@@ -268,11 +246,11 @@ export const PartiesSection = memo(function PartiesSection({
                                             : c.isClient) &&
                                         !creditorDisp.showDeceasedGlyph ? (
                                             <span
-                                                className="ms-1 inline-block text-[#E6C673] text-[13px] leading-none select-none"
+                                                className="ms-1 inline-block rounded border border-[#E6C673]/30 bg-[#E6C673]/10 px-1 py-px text-[9px] font-bold leading-none text-[#E6C673] select-none"
                                                 title="موكلي"
                                                 aria-label="موكلي"
                                             >
-                                                ★
+                                                موكلي
                                             </span>
                                         ) : null}
                                     </span>

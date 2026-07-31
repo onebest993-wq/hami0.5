@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
-import { ChevronRight } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { HomeChevronRightIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 type ArchiveHubInstantShellProps = {
     onBack: () => void;
@@ -23,7 +24,14 @@ export function ArchiveHubInstantShell({
             onBack();
         };
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            onBack();
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
     }, [onBack]);
 
     return (
@@ -43,7 +51,7 @@ export function ArchiveHubInstantShell({
                     className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-sm border border-white/10 bg-white/[0.04] text-white/80"
                     aria-label="رجوع"
                 >
-                    <ChevronRight className="w-5 h-5" />
+                    <HomeChevronRightIcon className="w-5 h-5" />
                 </button>
                 <h2 className="text-lg font-bold text-white truncate">{title}</h2>
             </div>

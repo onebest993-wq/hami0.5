@@ -2,9 +2,9 @@ import { useCallback, type Dispatch, type MutableRefObject, type RefObject, type
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { ExecutionFile, ThirdPartySeizureAsset } from '@/app/types/execution';
 import type { TimelineEvent } from '@/app/types/execution';
-import { formatNumberInput } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { creditThirdPartySeizureFunds } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import {
     buildThirdPartyReceiveTimelineDescription,
     mapThirdPartyAssetToReceived,

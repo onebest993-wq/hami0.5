@@ -32,7 +32,7 @@ interface TimelineSectionProps {
         isHistoricalMode: boolean;
     }>;
     toggleTimelineEventPin: (ev: TimelineEvent) => void;
-    setShowTimelineModal: (show: boolean) => void;
+    setShowTimelineModal?: (show: boolean) => void;
     timelineRadarPreviewLimit: number;
     isHistoricalMode: boolean;
     activeTimelineFilter: string;
@@ -56,6 +56,7 @@ interface TimelineSectionProps {
     executionEntityId?: string | null;
     /** تصنيفات السجل الظاهرة — مزامنة مع إخفاء أقسام التنفيذ */
     timelineFilterOptions?: readonly ExecutionTimelineFilterLabel[];
+    onOpenTimelineModal?: () => void;
 }
 
 export const TimelineSection: React.FC<TimelineSectionProps> = ({
@@ -63,7 +64,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     setTimelineAccordionExpanded,
     startTransition,
     ChevronUp,
-    Activity,
+    Activity: _Activity,
     History,
     debtorBrowserTabsMode,
     activeTimelineEventsDebtorScoped,
@@ -72,6 +73,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
     SmartTimelineRadar,
     toggleTimelineEventPin,
     setShowTimelineModal,
+    onOpenTimelineModal,
     timelineRadarPreviewLimit,
     isHistoricalMode,
     activeTimelineFilter,
@@ -128,6 +130,14 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
             executionEntityId,
         );
     }, [dedupedAllEvents, entityCal, executionEntityId]);
+
+    const openFullTimeline = () => {
+        if (typeof onOpenTimelineModal === 'function') {
+            onOpenTimelineModal();
+            return;
+        }
+        setShowTimelineModal?.(true);
+    };
 
     useEffect(() => {
         void import('@/app/components/lawyer/SmartTimelineRadar');
@@ -258,7 +268,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
             <div className="p-3 pt-0">
                 <button
                     type="button"
-                    onClick={() => setShowTimelineModal(true)}
+                    onClick={openFullTimeline}
                     className="w-full rounded-lg border border-slate-600/45 bg-slate-800/40 p-2.5 transition-all hover:border-[#E6C673]/35 hover:bg-slate-800/55"
                 >
                     <div className="flex items-center justify-center gap-2 text-slate-200">
@@ -283,7 +293,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                     }`}
                 />
                 <div className="flex items-center gap-2">
-                    <Activity size={16} className="text-[#D4AF37]/85" />
+                    <History size={16} className="text-[#E6C673]/85" />
                     <h3 className="text-xs font-semibold text-slate-200 sm:text-sm">السجل الزمني</h3>
                 </div>
             </button>
@@ -293,7 +303,7 @@ export const TimelineSection: React.FC<TimelineSectionProps> = ({
                         <SmartTimelineRadar
                             events={radarEvents}
                             onTogglePin={toggleTimelineEventPin}
-                            onOpenFull={() => setShowTimelineModal(true)}
+                            onOpenFull={openFullTimeline}
                             previewLimit={timelineRadarPreviewLimit}
                             isHistoricalMode={isHistoricalMode}
                         />

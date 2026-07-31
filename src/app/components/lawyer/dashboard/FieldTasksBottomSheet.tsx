@@ -2,9 +2,11 @@ import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState
 import { createPortal } from 'react-dom';
 import { CheckCircle2, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { inertProps } from '@/app/utils/inertProps';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
+import { buildLinkedCaseLookup, type LinkedCaseLookupIndex } from '@/app/workspace/resolveLinkedCaseMeta';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { listFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
 import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
@@ -32,6 +34,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/app/components/ui/dialog';
+import { isFieldTasksForceVisible } from '@/app/runtime/fieldTasksInstantPaint';
 
 const CURTAIN_LAYER_Z = 214;
 const CURTAIN_SHEET_Z = 215;
@@ -48,8 +51,7 @@ type FieldCurtainTaskCardProps = {
     task: LegalTask;
     listOrdinal?: TaskListOrdinal;
     now: Date;
-    lawsuitFiles: unknown[];
-    executionFiles: unknown[];
+    pinLookup: LinkedCaseLookupIndex;
     onCompleteRequest: (task: LegalTask) => void;
     onReopenTask: (task: LegalTask) => void;
     onToggleSubComplete: (parentId: string, subId: string) => void;
@@ -72,8 +74,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     task,
     listOrdinal,
     now,
-    lawsuitFiles,
-    executionFiles,
+    pinLookup,
     onCompleteRequest,
     onReopenTask,
     onToggleSubComplete,
@@ -83,8 +84,8 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
     const fatal = task.isFatalDeadline;
     const hasSubs = task.subTasks.length > 0;
     const clusterPin = useMemo(
-        () => buildTaskWorkspacePin(task, lawsuitFiles, executionFiles),
-        [task, lawsuitFiles, executionFiles],
+        () => buildTaskWorkspacePin(task, undefined, undefined, pinLookup),
+        [task, pinLookup],
     );
 
     return (
@@ -193,7 +194,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
         return false;
     }
     if (prev.now.toDateString() !== next.now.toDateString()) return false;
-    if (prev.lawsuitFiles !== next.lawsuitFiles || prev.executionFiles !== next.executionFiles) return false;
+    if (prev.pinLookup !== next.pinLookup) return false;
     if (taskCardSignature(prev.task) !== taskCardSignature(next.task)) return false;
     return true;
 });
@@ -207,14 +208,18 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
 }: FieldTasksBottomSheetProps) {
     const { pendingTasks } = useQuantumTasksData();
     const { completeTask, reopenTask, toggleSubTaskComplete } = useQuantumTasksActions();
-    const keyboardInsetPx = useMobileKeyboardInset();
+    const keyboardInsetPx = useMobileKeyboardInset(open);
     const { fatalOpen, requestComplete, confirmFatalComplete, cancelFatalComplete } =
         useFatalTaskComplete(completeTask);
 
     const now = useMemo(() => new Date(), [open]);
     const curtainTasks = useMemo(
-        () => listFieldDaySheetTasks(pendingTasks, now),
-        [pendingTasks, now],
+        () => (open ? listFieldDaySheetTasks(pendingTasks, now) : []),
+        [open, pendingTasks, now],
+    );
+    const pinLookup = useMemo(
+        () => (open ? buildLinkedCaseLookup(lawsuitFiles, executionFiles) : null),
+        [open, lawsuitFiles, executionFiles],
     );
 
     const [sheetVisible, setSheetVisible] = useState(open);
@@ -269,150 +274,164 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
         };
     }, [fatalOpen, cancelFatalComplete]);
 
-    if (typeof document === 'undefined' || (!open && !fatalOpen)) return null;
+    if (typeof document === 'undefined') return null;
+
+    const layerVisible = open || isFieldTasksForceVisible();
 
     return createPortal(
         <>
-            <Dialog
-                open={fatalOpen}
-                onOpenChange={(o) => {
-                    if (!o) cancelFatalComplete();
-                }}
-            >
-                <DialogContent className="border-[#A67C52]/35 bg-[#0A2E25] text-[#E8F5F0] sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
-                    <DialogHeader className="text-right sm:text-right space-y-2">
-                        <DialogTitle className="text-[#D4B896] text-base font-extrabold leading-relaxed">
-                            تحذير — موعد حتمي
-                        </DialogTitle>
-                        <DialogDescription className="text-[#E8F5F0]/80 text-sm leading-relaxed">
-                            هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل نهائي؟
-                        </DialogDescription>
-                    </DialogHeader>
-                    <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
-                        <button
-                            type="button"
-                            onClick={confirmFatalComplete}
-                            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold"
-                        >
-                            تأكيد الإكمال
-                        </button>
-                        <button
-                            type="button"
-                            onClick={cancelFatalComplete}
-                            className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold"
-                        >
-                            إلغاء
-                        </button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {open ? (
-                <>
-                    <button
-                        type="button"
-                        aria-label="إغلاق الستارة"
-                        className={`fixed inset-0 bg-[#051410]/75 border-0 cursor-default transition-opacity duration-150 ${
-                            sheetVisible ? 'opacity-100' : 'opacity-0'
-                        }`}
-                        style={{ zIndex: CURTAIN_LAYER_Z }}
-                        onClick={handleClose}
-                    />
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="field-tasks-sheet-title"
-                        data-testid="field-tasks-sheet"
-                        data-field-tasks-hydrated={sheetHydrated && sheetVisible ? 'true' : 'false'}
-                        className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] transition-transform duration-200 ease-out will-change-transform ${
-                            sheetVisible ? 'translate-y-0' : 'translate-y-full'
-                        }`}
-                        style={{
-                            zIndex: CURTAIN_SHEET_Z,
-                            marginBottom: keyboardInsetPx > 0 ? keyboardInsetPx : undefined,
-                        }}
-                    >
-                        <div className="shrink-0 flex flex-col items-center pt-2.5 pb-1 relative z-[1]">
-                            <div className="w-12 h-1 rounded-full bg-[#A67C52]/40" />
-                        </div>
-
-                        <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-3 border-b border-[#A67C52]/18 relative z-[1]">
-                            <div className="flex items-center gap-2 min-w-0">
-                                <div className="w-9 h-9 rounded-xl bg-[#0c0c0e]/45 border border-[#A67C52]/25 flex items-center justify-center shrink-0">
-                                    <ClipboardList size={18} className="text-[#B8956A]" />
-                                </div>
-                                <div className="min-w-0">
-                                    <h2 id="field-tasks-sheet-title" className="text-[#E8F5F0] font-extrabold text-base truncate">
-                                        مهام اليوم الميدانية
-                                    </h2>
-                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">
-                                        {curtainTasks.length > 0
-                                            ? `${curtainTasks.length} مهمة — الستارة الذكية`
-                                            : 'الستارة الذكية'}
-                                    </p>
-                                </div>
-                            </div>
+            {fatalOpen ? (
+                <Dialog
+                    open={fatalOpen}
+                    onOpenChange={(o) => {
+                        if (!o) cancelFatalComplete();
+                    }}
+                >
+                    <DialogContent className="border-[#A67C52]/35 bg-[#0A2E25] text-[#E8F5F0] sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
+                        <DialogHeader className="text-right sm:text-right space-y-2">
+                            <DialogTitle className="text-[#D4B896] text-base font-extrabold leading-relaxed">
+                                تحذير — موعد حتمي
+                            </DialogTitle>
+                            <DialogDescription className="text-[#E8F5F0]/80 text-sm leading-relaxed">
+                                هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل نهائي؟
+                            </DialogDescription>
+                        </DialogHeader>
+                        <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
                             <button
                                 type="button"
-                                onClick={handleClose}
-                                data-testid="field-tasks-close"
-                                className="shrink-0 w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 touch-manipulation"
-                                aria-label="إغلاق"
+                                onClick={confirmFatalComplete}
+                                className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold"
                             >
-                                <X size={20} />
+                                تأكيد الإكمال
                             </button>
-                        </div>
-
-                        <div
-                            dir="rtl"
-                            className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 min-h-0 relative z-[1]"
-                        >
-                            {curtainTasks.length === 0 ? (
-                                <div
-                                    className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}
-                                    data-testid="field-tasks-empty"
-                                >
-                                    <PanelBottom size={32} className="text-[#A67C52]/50 mb-3" />
-                                    <p className="text-[#E8F5F0]/55 text-sm font-medium leading-relaxed max-w-xs">
-                                        لا مهام ميدانية لليوم. أضف مهمة من مدير المهام أو ثبّتها على الستارة للوصول السريع.
-                                    </p>
-                                    <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
-                                </div>
-                            ) : (
-                                <ul className="space-y-2.5">
-                                    {curtainTasks.map((task, i) => (
-                                        <FieldCurtainTaskCard
-                                            key={task.id}
-                                            task={task}
-                                            listOrdinal={{ index: i, total: curtainTasks.length }}
-                                            now={now}
-                                            lawsuitFiles={lawsuitFiles}
-                                            executionFiles={executionFiles}
-                                            onCompleteRequest={requestComplete}
-                                            onReopenTask={handleReopenTask}
-                                            onToggleSubComplete={toggleSubTaskComplete}
-                                        />
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
-
-                        <div className="shrink-0 p-4 pt-2 border-t border-[#A67C52]/18 bg-[#0c0c0e]/30 relative z-[1]">
                             <button
                                 type="button"
-                                data-testid="field-tasks-manage-all"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onManageAll();
-                                }}
-                                className={CURTAIN_BTN_MANAGE}
+                                onClick={cancelFatalComplete}
+                                className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold"
                             >
-                                عرض وإدارة جميع المهام ←
+                                إلغاء
                             </button>
-                        </div>
-                    </div>
-                </>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             ) : null}
+
+            <div
+                data-field-tasks-root=""
+                data-open={layerVisible ? 'true' : 'false'}
+                aria-hidden={!layerVisible}
+                className={layerVisible ? 'hami-field-tasks-layer--visible' : undefined}
+                style={{
+                    opacity: layerVisible ? 1 : 0,
+                    visibility: layerVisible ? 'visible' : 'hidden',
+                    pointerEvents: layerVisible ? 'auto' : 'none',
+                }}
+                {...inertProps(!layerVisible)}
+            >
+                <button
+                    type="button"
+                    aria-label="إغلاق الستارة"
+                    tabIndex={layerVisible ? 0 : -1}
+                    className={`fixed inset-0 bg-[#051410]/75 border-0 cursor-default transition-opacity duration-150 ${
+                        sheetVisible ? 'opacity-100' : 'opacity-0'
+                    }`}
+                    style={{ zIndex: CURTAIN_LAYER_Z }}
+                    onClick={handleClose}
+                />
+                <div
+                    role="dialog"
+                    aria-modal={layerVisible ? true : undefined}
+                    aria-labelledby="field-tasks-sheet-title"
+                    data-testid="field-tasks-sheet"
+                    data-field-tasks-hydrated={sheetHydrated && sheetVisible ? 'true' : 'false'}
+                    className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] transition-transform duration-200 ease-out will-change-transform ${
+                        sheetVisible ? 'translate-y-0' : 'translate-y-full'
+                    }`}
+                    style={{
+                        zIndex: CURTAIN_SHEET_Z,
+                        marginBottom: keyboardInsetPx > 0 ? keyboardInsetPx : undefined,
+                    }}
+                >
+                    <div className="shrink-0 flex flex-col items-center pt-2.5 pb-1 relative z-[1]">
+                        <div className="w-12 h-1 rounded-full bg-[#A67C52]/40" />
+                    </div>
+
+                    <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-3 border-b border-[#A67C52]/18 relative z-[1]">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-[#0c0c0e]/45 border border-[#A67C52]/25 flex items-center justify-center shrink-0">
+                                <ClipboardList size={18} className="text-[#B8956A]" />
+                            </div>
+                            <div className="min-w-0">
+                                <h2 id="field-tasks-sheet-title" className="text-[#E8F5F0] font-extrabold text-base truncate">
+                                    مهام اليوم الميدانية
+                                </h2>
+                                {curtainTasks.length > 0 ? (
+                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">
+                                        {curtainTasks.length} مهمة
+                                    </p>
+                                ) : null}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            data-testid="field-tasks-close"
+                            tabIndex={layerVisible ? 0 : -1}
+                            className="shrink-0 w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 touch-manipulation"
+                            aria-label="إغلاق"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
+
+                    <div
+                        dir="rtl"
+                        className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 min-h-0 relative z-[1]"
+                    >
+                        {curtainTasks.length === 0 ? (
+                            <div
+                                className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}
+                                data-testid="field-tasks-empty"
+                            >
+                                <p className="text-[#E8F5F0]/55 text-sm font-medium leading-relaxed max-w-xs">
+                                    لا مهام ميدانية لليوم. أضف مهمة من مدير المهام أو ثبّتها على الستارة للوصول السريع.
+                                </p>
+                                <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
+                            </div>
+                        ) : (
+                            <ul className="space-y-2.5">
+                                {curtainTasks.map((task, i) => (
+                                    <FieldCurtainTaskCard
+                                        key={task.id}
+                                        task={task}
+                                        listOrdinal={{ index: i, total: curtainTasks.length }}
+                                        now={now}
+                                        pinLookup={pinLookup!}
+                                        onCompleteRequest={requestComplete}
+                                        onReopenTask={handleReopenTask}
+                                        onToggleSubComplete={toggleSubTaskComplete}
+                                    />
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+
+                    <div className="shrink-0 p-4 pt-2 border-t border-[#A67C52]/18 bg-[#0c0c0e]/30 relative z-[1]">
+                        <button
+                            type="button"
+                            data-testid="field-tasks-manage-all"
+                            tabIndex={layerVisible ? 0 : -1}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onManageAll();
+                            }}
+                            className={CURTAIN_BTN_MANAGE}
+                        >
+                            عرض وإدارة جميع المهام ←
+                        </button>
+                    </div>
+                </div>
+            </div>
         </>,
         document.body,
     );

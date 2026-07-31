@@ -7,6 +7,8 @@ const warmCalendarEventsCache = vi.fn(() => Promise.resolve([]));
 vi.mock('@/app/runtime/scheduleHubLoader', () => ({
     hydrateScheduleShellForInstantOpen: (...args: unknown[]) => hydrateScheduleShellForInstantOpen(...args),
     isScheduleShellModuleResolved: vi.fn(() => false),
+    prefetchScheduleTabHostModule: vi.fn(),
+    prefetchScheduleHubModule: vi.fn(),
 }));
 
 vi.mock('@/app/services/calendar/calendarCloudLoader', () => ({

@@ -90,18 +90,6 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                             />
                         </div>
                         <div>
-                            <label className="mb-1 block text-[10px] text-slate-500">الهاتف</label>
-                            <input
-                                type="text"
-                                value={partyEditDraft.phone}
-                                onChange={(e) =>
-                                    setPartyEditDraft((d) => (d ? { ...d, phone: e.target.value } : d))
-                                }
-                                disabled={partyEditDraft.lockBaseInfo}
-                                className="w-full rounded-lg border border-white/10 bg-slate-900/80 px-2 py-2 text-sm text-white"
-                            />
-                        </div>
-                        <div>
                             <label className="mb-1 block text-[10px] text-slate-500">العنوان</label>
                             <textarea
                                 value={partyEditDraft.address}
@@ -119,10 +107,10 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                     <p className="text-[10px] text-amber-300/90">
                         {editPartyTarget.kind === 'creditor'
                             ? getCreditorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
-                                ? 'بيانات المتوفى (الاسم/الهاتف/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
+                                ? 'بيانات المتوفى (الاسم/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
                                 : 'بيانات المتوفى مقفلة. تفاصيل الورثة تظهر هنا فقط بعد موافقة المنفذ العدل على طلب الإحلال.'
                             : getDebtorHeirSubstitutionRequestStatus(decisionsStorageExecutionId) === 'approved'
-                                ? 'بيانات المتوفى (الاسم/الهاتف/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
+                                ? 'بيانات المتوفى (الاسم/العنوان) مقفلة. يمكن تعديل بيانات الورثة المعتمدة من المنفذ فقط.'
                                 : 'بيانات المتوفى مقفلة. تفاصيل الورثة تظهر هنا فقط بعد موافقة المنفذ العدل على طلب الإحلال.'}
                     </p>
                 ) : partyEditDraft.heirsOnlyEdit ? (

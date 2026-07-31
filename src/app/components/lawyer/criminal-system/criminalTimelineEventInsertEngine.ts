@@ -2,7 +2,6 @@ import type {
     CriminalCase,
     CriminalDefendant,
     DefendantStatus,
-    InAbsentiaDetails,
     TimelineEvent,
 } from './criminalCaseModel';
 import { isTimelineEventInsertBlocked } from './criminalCaseMutationPolicy';

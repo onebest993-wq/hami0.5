@@ -1,7 +1,21 @@
-import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
+import type {
+    MaritalFurnitureDeliveryOutcome,
+    MaritalFurnitureItem,
+} from '@/app/types/maritalFurniture';
 
 export function createMaritalFurnitureItemId(): string {
     return `mf-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+/** معرّف ثابت لقطع مُشتقة من furnitureDetails — يمنع اختلاف الـ id بين القراءات */
+export function stableMaritalFurnitureDetailItemId(name: string, index: number): string {
+    const slug = String(name || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9\u0600-\u06FF-]/g, '')
+        .slice(0, 48);
+    return `mf-detail-${index}-${slug || 'item'}`;
 }
 
 export function createEmptyMaritalFurnitureItem(): MaritalFurnitureItem {
@@ -24,14 +38,23 @@ export function sumMaritalFurnitureTotal(items: MaritalFurnitureItem[]): number 
 }
 
 export function sumUndeliveredMaritalFurnitureTotal(items: MaritalFurnitureItem[]): number {
-    return items.reduce(
-        (sum, row) => sum + (row.delivered === false ? lineTotalIqd(row) : 0),
-        0
-    );
+    return items.reduce((sum, row) => {
+        const outcome = resolveMaritalFurnitureDeliveryOutcome(row);
+        if (outcome === 'failed') return sum + lineTotalIqd(row);
+        if (outcome === 'pending' && row.delivered === false) return sum + lineTotalIqd(row);
+        return sum;
+    }, 0);
 }
 
 export function sumDeliveredMaritalFurnitureTotal(items: MaritalFurnitureItem[]): number {
-    return items.reduce((sum, row) => sum + (row.delivered ? lineTotalIqd(row) : 0), 0);
+    return items.reduce((sum, row) => {
+        const outcome = resolveMaritalFurnitureDeliveryOutcome(row);
+        if (outcome === 'delivered' || outcome === 'external_delivered') {
+            return sum + lineTotalIqd(row);
+        }
+        if (outcome === 'pending' && row.delivered === true) return sum + lineTotalIqd(row);
+        return sum;
+    }, 0);
 }
 
 /** هل سُجّلت حالة التسليم (من جرد «تسليم أثاث») */
@@ -45,9 +68,94 @@ export function isMaritalFurnitureDeliveryStatusRecorded(
         | null
         | undefined
 ): boolean {
-    if (Array.isArray(data)) return false;
+    if (Array.isArray(data)) {
+        return hasAnyMaritalFurnitureDeliveryRecorded(data);
+    }
+    const items = readMaritalFurnitureItems(data);
+    if (hasAnyMaritalFurnitureDeliveryRecorded(items)) return true;
     if (!String(data?.maritalFurnitureDeliveryRecordedAt || '').trim()) return false;
-    return readMaritalFurnitureItems(data).length > 0;
+    return items.length > 0;
+}
+
+export function resolveMaritalFurnitureDeliveryOutcome(
+    item: MaritalFurnitureItem,
+): MaritalFurnitureDeliveryOutcome {
+    if (item.deliveryOutcome) return item.deliveryOutcome;
+    if (item.deliveryRecordedAt) {
+        if (item.delivered === true) return 'delivered';
+        if (item.delivered === false) return 'failed';
+    }
+    return 'pending';
+}
+
+export function isMaritalFurnitureItemDeliveryLocked(item: MaritalFurnitureItem): boolean {
+    const outcome = resolveMaritalFurnitureDeliveryOutcome(item);
+    return outcome !== 'pending';
+}
+
+export function hasAnyMaritalFurnitureDeliveryRecorded(items: MaritalFurnitureItem[]): boolean {
+    return normalizeMaritalFurnitureItems(items).some(isMaritalFurnitureItemDeliveryLocked);
+}
+
+export function areAllMaritalFurnitureItemsDeliveryLocked(items: MaritalFurnitureItem[]): boolean {
+    const normalized = normalizeMaritalFurnitureItems(items);
+    return normalized.length > 0 && normalized.every(isMaritalFurnitureItemDeliveryLocked);
+}
+
+export function applyMaritalFurnitureDeliveryOutcome(
+    item: MaritalFurnitureItem,
+    outcome: Exclude<MaritalFurnitureDeliveryOutcome, 'pending'>,
+    recordedAt: string,
+): MaritalFurnitureItem {
+    const delivered =
+        outcome === 'delivered' || outcome === 'external_delivered'
+            ? true
+            : outcome === 'failed'
+              ? false
+              : undefined;
+    return {
+        ...item,
+        deliveryOutcome: outcome,
+        deliveryRecordedAt: recordedAt,
+        ...(typeof delivered === 'boolean' ? { delivered } : {}),
+    };
+}
+
+export function readMaritalFurnitureDeliverySchedule(
+    data:
+        | {
+              maritalFurnitureDeliveryScheduleYmd?: string;
+              maritalFurnitureDeliveryScheduleLabel?: string;
+          }
+        | null
+        | undefined,
+): { ymd: string; label: string } {
+    const ymd = String(data?.maritalFurnitureDeliveryScheduleYmd || '').trim();
+    const label = String(data?.maritalFurnitureDeliveryScheduleLabel || '').trim();
+    return { ymd, label };
+}
+
+/** بصمة محتوى مالي لأثاث زوجية — لمزامنة executionData / المركز المالي */
+export function maritalFurnitureFinancialContentSignature(
+    data:
+        | {
+              maritalFurnitureItems?: MaritalFurnitureItem[];
+              debtAmount?: unknown;
+              totalAmount?: unknown;
+          }
+        | null
+        | undefined,
+): string {
+    const items = readMaritalFurnitureItems(data);
+    const itemSig = items
+        .map(
+            (row) =>
+                `${row.id}:${row.deliveryOutcome ?? ''}:${row.delivered ?? ''}:${row.deliveryRecordedAt ?? ''}:${row.quantity}:${row.unitPriceIqd}`,
+        )
+        .join('|');
+    const debt = Math.round(Number(data?.debtAmount) || 0);
+    const total = Math.round(Number(data?.totalAmount) || 0);
+    return `${itemSig}#${debt}#${total}`;
 }
 
 /** المبلغ المالي في المركز — صفر حتى جرد التسليم، ثم غير المُسلَّم فقط */
@@ -68,16 +176,28 @@ export function countMaritalFurnitureDeliveryStatus(items: MaritalFurnitureItem[
     delivered: number;
     undelivered: number;
     pending: number;
+    external: number;
+    failed: number;
 } {
     let delivered = 0;
     let undelivered = 0;
     let pending = 0;
+    let external = 0;
+    let failed = 0;
     for (const row of items) {
-        if (row.delivered === true) delivered += 1;
+        const outcome = resolveMaritalFurnitureDeliveryOutcome(row);
+        if (outcome === 'delivered') delivered += 1;
+        else if (outcome === 'external_delivered') {
+            external += 1;
+            delivered += 1;
+        } else if (outcome === 'failed') {
+            failed += 1;
+            undelivered += 1;
+        } else if (row.delivered === true) delivered += 1;
         else if (row.delivered === false) undelivered += 1;
         else pending += 1;
     }
-    return { delivered, undelivered, pending };
+    return { delivered, undelivered, pending, external, failed };
 }
 
 export function buildMaritalFurnitureDeliveryNoteBody(items: MaritalFurnitureItem[]): string {
@@ -113,6 +233,12 @@ export function normalizeMaritalFurnitureItems(
             if (typeof row.delivered === 'boolean') {
                 normalized.delivered = row.delivered;
             }
+            if (row.deliveryOutcome) {
+                normalized.deliveryOutcome = row.deliveryOutcome;
+            }
+            if (row.deliveryRecordedAt) {
+                normalized.deliveryRecordedAt = row.deliveryRecordedAt;
+            }
             return normalized;
         })
         .filter((row) => row.name.length > 0);
@@ -135,8 +261,8 @@ export function readMaritalFurnitureItems(data: {
         .split(/\n|؛|;/)
         .map((chunk) => chunk.trim())
         .filter(Boolean)
-        .map((name) => ({
-            id: createMaritalFurnitureItemId(),
+        .map((name, index) => ({
+            id: stableMaritalFurnitureDetailItemId(name, index),
             name,
             quantity: 1,
             unitPriceIqd: Math.max(0, Math.round(Number(data?.furnitureValue) || 0)),

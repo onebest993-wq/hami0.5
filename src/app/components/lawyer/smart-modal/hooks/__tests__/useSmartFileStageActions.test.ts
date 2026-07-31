@@ -45,6 +45,7 @@ describe('useSmartFileStageActions', () => {
                 court: 'محكمة الاستئناف',
                 judge: 'القاضي الجديد',
                 caseNo: '123/استئناف/2026',
+                type: 'دعوى مدنية',
             });
         });
 
@@ -54,6 +55,19 @@ describe('useSmartFileStageActions', () => {
         expect(updatedStages[1]?.court).toBe('محكمة الاستئناف');
         expect(updatedStages[1]?.judge).toBe('القاضي الجديد');
         expect(updatedStages[1]?.caseNo).toBe('123/استئناف/2026');
+        expect((updatedStages[1] as { docType?: string }).docType).toBe('دعوى مدنية');
+        expect(updatedStages[1]?.stageName).toBe('الاستئناف');
+        expect(setParentData).toHaveBeenCalledTimes(1);
+        const nextParent = setParentData.mock.calls[0]?.[0] as Record<string, unknown>;
+        expect(nextParent.caseNo).toBe('123/استئناف/2026');
+        expect(nextParent.court).toBe('محكمة الاستئناف');
+        expect(nextParent.judge).toBe('القاضي الجديد');
+        expect(nextParent.docType).toBe('دعوى مدنية');
         expect(saveToCloud).toHaveBeenCalledTimes(1);
+        expect(saveToCloud.mock.calls[0]?.[1]).toMatchObject({
+            caseNo: '123/استئناف/2026',
+            court: 'محكمة الاستئناف',
+            docType: 'دعوى مدنية',
+        });
     });
 });

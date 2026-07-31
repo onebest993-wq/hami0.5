@@ -1,12 +1,7 @@
-import type { Party } from '../../../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import {
-    isSulhJudgmentType,
-    JUDGMENT_TYPE_PETITION_NULLIFIED_LEGACY,
-    JUDGMENT_TYPE_WAIVER,
-} from '../../../smartFile/judgmentTypes';
+
+
 import {
     interpleaderClientAwaitingOpponentAppeal,
     isInterpleaderJudgmentType,
@@ -14,7 +9,6 @@ import {
     resolveLawyerJudgmentBucket,
 } from '../../../smartFile/interpleaderJudgmentEngine';
 import { isPersonalStatusStageName } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
-import { applyCassationRemand, cassationRemandSuccessMessage, resolveCassationRemandTarget } from '../../../smartFile/appealStageTransition';
 import type { JudgmentConfirmRuntime, JudgmentConfirmScope } from './judgmentConfirmTypes';
 
 export function applyWaitAppealScenarios(scope: JudgmentConfirmScope, rt: JudgmentConfirmRuntime): void {
@@ -139,7 +133,7 @@ else if (action === 'waiting_for_cassation') {
     rt.handled = true;
 
     let decisionText = `محسومة لصالح الموكل - بانتظار التمييز (${judgmentType})`;
-    if (judgmentType === 'فسخ الحكم المستأنف كلياً') {
+    if (judgmentType === 'فسخ الحكم البدائي كلياً' || judgmentType === 'فسخ الحكم المستأنف كلياً') {
         decisionText = 'محسومة لصالح الموكل - بانتظار تمييز الخصم';
     }
 

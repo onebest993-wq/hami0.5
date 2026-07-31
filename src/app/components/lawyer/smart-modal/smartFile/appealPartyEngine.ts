@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { IncidentalCase, Party } from '../../LawyerShared';
 import {
     resolveClientPartyBucket,
@@ -25,7 +24,6 @@ import type { CaseStage } from '../../LawyerShared';
 import {
     filterPartiesForAppealDossier,
     INTERPLEADER_APPELLANT_SIDE,
-    resolveAppealDossierLayout,
     type AppealDossierLayout,
 } from './interpleaderAppealEngine';
 

@@ -72,23 +72,6 @@ export const LazySmartJudgmentModal = lazy(() =>
     import('./SmartJudgmentModal')
         .then((m) => ({ default: m.SmartJudgmentModal }))
         .catch((error) => {
-            // #region debug-point C:lazy-judgment-import
-            fetch('http://127.0.0.1:7778/event', {
-                method: 'POST',
-                body: JSON.stringify({
-                    sessionId: 'pleadings-close-button',
-                    runId: 'pre-fix',
-                    hypothesisId: 'C',
-                    location: 'lazySmartFileModalChunks.tsx:LazySmartJudgmentModal',
-                    msg: '[DEBUG] lazy SmartJudgmentModal import failed',
-                    data: {
-                        message: error instanceof Error ? error.message : String(error),
-                        stack: error instanceof Error ? error.stack ?? null : null,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => {});
-            // #endregion
             throw error;
         })
 );
@@ -96,23 +79,6 @@ export const LazyAppealTransitionModal = lazy(() =>
     import('./AppealTransitionModal')
         .then((m) => ({ default: m.AppealTransitionModal }))
         .catch((error) => {
-            // #region debug-point B:lazy-appeal-transition-import
-            fetch('http://127.0.0.1:7777/event', {
-                method: 'POST',
-                body: JSON.stringify({
-                    sessionId: 'opponent-appeal-crash',
-                    runId: 'pre-fix',
-                    hypothesisId: 'B',
-                    location: 'lazySmartFileModalChunks.tsx:LazyAppealTransitionModal',
-                    msg: '[DEBUG] lazy AppealTransitionModal import failed',
-                    data: {
-                        message: error instanceof Error ? error.message : String(error),
-                        stack: error instanceof Error ? error.stack ?? null : null,
-                    },
-                    ts: Date.now(),
-                }),
-            }).catch(() => {});
-            // #endregion
             throw error;
         })
 );

@@ -1,13 +1,16 @@
 import { useMemo } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 
 export function useProfileSettingsSheetChrome() {
-    const reduceMotion = useReduceMotion();
+    const preferReduce = useReduceMotion();
+    /* Android WebView: حركة y:100% على ورقة كبيرة تكلّف تركيب GPU أثناء اللمس */
+    const reduceMotion = preferReduce || isAndroidNativeShell();
     const keyboardInset = useMobileKeyboardInset();
 
     const backdropTransition = useMemo(
-        () => (reduceMotion ? { duration: 0 } : { duration: 0.22 }),
+        () => (reduceMotion ? { duration: 0 } : { duration: 0.08 }),
         [reduceMotion],
     );
 
@@ -15,7 +18,7 @@ export function useProfileSettingsSheetChrome() {
         () =>
             reduceMotion
                 ? { duration: 0 }
-                : { duration: 0.26, ease: [0.32, 0.72, 0, 1] as const },
+                : { duration: 0.1, ease: [0.22, 1, 0.36, 1] as const },
         [reduceMotion],
     );
 

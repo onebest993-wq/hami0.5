@@ -26,7 +26,7 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import { debug } from '@/app/utils/debug';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';

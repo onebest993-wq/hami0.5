@@ -1,7 +1,6 @@
 /**
  * مصدر واحد لمزامنة إجراءات التخلية الجبرية مع مركز القرارات والطعون.
  */
-import type { Decision } from '@/app/components/lawyer/DecisionsAndAppealsEngine/types';
 import {
     type CreditorRequestAppealGate,
     type ExecutorRequestFollowupBlock,

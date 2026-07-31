@@ -4,7 +4,6 @@ import { useAppTheme } from "../context/AppContext";
 import { cn } from "./ui/utils";
 import type { 
     GlassCardProps, 
-    GoldButtonProps, 
     AppHeaderProps, 
     InputFieldProps 
 } from "@/app/types/common";
@@ -35,7 +34,8 @@ export const FontInjector = React.memo(() => (
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(230, 198, 115, 0.2); border-radius: 4px; }
-  `}</style>
+  `}
+  </style>
 ));
 
 // ⚡ PERFORMANCE: Memoized Page Wrapper
@@ -106,48 +106,13 @@ export const GlassCard = React.memo(({ children, className, onClick, style }: Gl
     );
 });
 
-// ⚡ PERFORMANCE: Memoized Gold Button
-export const GoldButton = React.memo(({ children, onClick, className, icon: Icon, fullWidth, variant = 'primary' }: GoldButtonProps) => {
-    const { themeConfig } = useAppTheme();
-    
-    const primaryStyle = {
-        background: `linear-gradient(135deg, ${themeConfig.accentColor}, ${themeConfig.glowColor})`,
-        color: '#05060D', 
-        boxShadow: `0 4px 20px ${themeConfig.glowColor}40`,
-        border: 'none'
-    };
-
-    const outlineStyle = {
-        background: 'transparent',
-        border: `1px solid ${themeConfig.accentColor}`,
-        color: themeConfig.accentColor,
-    };
-
-    return (
-        <motion.button
-            onClick={onClick} 
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            className={cn(
-                "flex items-center justify-center rounded-full px-6 py-3 font-bold transition-all",
-                fullWidth && "w-full",
-                className
-            )}
-            style={variant === 'primary' ? primaryStyle : outlineStyle}
-        >
-            {Icon && <Icon className="ml-2 w-5 h-5" />}
-            {children}
-        </motion.button>
-    );
-});
-
 // ⚡ PERFORMANCE: Memoized App Header
 export const AppHeader = React.memo(({ title, onBack, rightIcon }: AppHeaderProps) => {
     const { themeConfig } = useAppTheme();
     return (
         <div className="flex items-center justify-between p-6 sticky top-0 z-40 backdrop-blur-md border-b transition-colors duration-500"
-             style={{ borderColor: `${themeConfig.accentColor}1A`, backgroundColor: 'rgba(5,6,13,0.7)' }}>
+             style={{ borderColor: `${themeConfig.accentColor}1A`, backgroundColor: 'rgba(5,6,13,0.7)' }}
+        >
             <div className="flex items-center gap-3">
                 {onBack && (
                     <motion.button

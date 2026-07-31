@@ -5,7 +5,7 @@ import {
     resolveCommunityAttachmentUrl,
 } from '@/app/services/forumAttachmentService';
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     LawyerStorage: {
         getSignedUrl: vi.fn(async (path: string) => `https://cdn.example/${path}`),
         uploadSmartFile: vi.fn(),
@@ -56,7 +56,7 @@ describe('forumAttachmentService', () => {
     });
 
     it('prepareForumAttachmentForPublish يعود إلى IDB المحلي إذا فشل الرفع السحابي', async () => {
-        const { LawyerStorage } = await import('@/app/services/lawyer-cloud');
+        const { LawyerStorage } = await import('@/app/services/storage/lawyerStorageRuntime');
         vi.mocked(LawyerStorage.uploadSmartFile).mockRejectedValueOnce(new Error('Upload failed'));
 
         const file = new File(['img'], 'photo.jpg', { type: 'image/jpeg' });
@@ -76,5 +76,14 @@ describe('forumAttachmentService', () => {
         expect(prepared.storagePath).not.toContain('pending:');
         expect(prepared.url).toBe('blob:preview');
         expect(prepared.type).toBe('image');
+    });
+
+    it('resolveCommunityAttachmentUrl يرفض data:text/html', async () => {
+        const url = await resolveCommunityAttachmentUrl({
+            type: 'document',
+            url: 'data:text/html,<script>x</script>',
+            name: 'bad.html',
+        });
+        expect(url).toBeNull();
     });
 });

@@ -23,6 +23,8 @@ type DossierNotesVaultProps = {
     renderNoteExtra?: (note: DossierVaultNote) => React.ReactNode;
     testId?: string;
     lawContext?: DossierNoteContext;
+    /** محتوى تدفق داخل لوحة الملاحظات — لا يغيّر الشكل إن لم يُستخدم */
+    flowContent?: boolean;
 };
 
 const variantStyles = {
@@ -39,9 +41,9 @@ const variantStyles = {
         empty: 'text-[11px] text-white/40 text-center py-3',
     },
     execution: {
-        shell: 'rounded-2xl border border-amber-500/15 bg-[#0A0F1C]/35 p-3',
+        shell: 'rounded-2xl border border-amber-500/25 bg-[#0B1120] p-3',
         heading: 'text-xs font-bold text-amber-300/90',
-        row: 'rounded-xl border border-slate-700/30 bg-white/[0.02] p-3',
+        row: 'rounded-xl border border-amber-500/15 bg-slate-900/80 p-3',
         title: 'text-white text-xs font-semibold break-words',
         date: 'text-[10px] text-slate-400 font-mono tabular-nums',
         pinActive: 'border-amber-400/35 bg-amber-500/15 text-amber-200',
@@ -87,7 +89,7 @@ export function DossierNotesVault({
                 {heading}
                 {notes.length > 0 ? ` (${notes.length})` : ''}
             </p>
-            <div className={`${s.shell} min-h-[min(46vh,380px)] max-h-[min(66vh,620px)] overflow-y-auto space-y-2`}>
+            <div className={`${s.shell} max-h-[min(66vh,620px)] overflow-y-auto space-y-2`}>
                 {notes.length === 0 ? (
                     <p className={s.empty}>{emptyLabel}</p>
                 ) : (

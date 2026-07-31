@@ -1,4 +1,4 @@
-import { SecureFetchError } from '@/app/services/SecureAPIClient';
+import { SecureFetchError } from '@/app/services/SecureFetchError';
 
 const ARABIC_BY_CODE: Record<string, string> = {
     api_unavailable: 'الوضع المحلي — الخادم غير متصل. التطبيق يعمل من بيانات هذا الجهاز.',

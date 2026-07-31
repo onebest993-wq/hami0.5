@@ -1,19 +1,24 @@
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
+import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
+import {
+    compressImageToDataUrl,
+    compressWallpaperToDataUrl,
+} from '@/app/services/profileMediaCompress';
 
-const MAX_EDGE = 1280;
-const JPEG_QUALITY = 0.82;
-const MAX_DATA_URL_BYTES = 900_000;
+export { compressImageToDataUrl, compressWallpaperToDataUrl } from '@/app/services/profileMediaCompress';
 
-const WALLPAPER_MAX_EDGE = 960;
-const WALLPAPER_JPEG_QUALITY = 0.72;
-const WALLPAPER_MAX_BYTES = 480_000;
-
-type CompressImageOptions = {
-    maxEdge?: number;
-    quality?: number;
-    maxBytes?: number;
-};
+/** حد خام قبل الضغط — يمنع قراءة ملفات ضخمة/غير صور */
+const MAX_SOURCE_FILE_BYTES = 12 * 1024 * 1024;
+const ALLOWED_IMAGE_MIME = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/heic',
+    'image/heif',
+]);
 
 export type ProfileMediaUploadResult = {
     displayUrl: string;
@@ -21,89 +26,18 @@ export type ProfileMediaUploadResult = {
     source: 'cloud' | 'local';
 };
 
-export async function compressImageToDataUrl(file: File, opts?: CompressImageOptions): Promise<string> {
-    const maxEdge = opts?.maxEdge ?? MAX_EDGE;
-    const initialQuality = opts?.quality ?? JPEG_QUALITY;
-    const maxBytes = opts?.maxBytes ?? MAX_DATA_URL_BYTES;
-    let sourceWidth = 0;
-    let sourceHeight = 0;
-    let drawSource: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
-
-    if (typeof createImageBitmap === 'function') {
-        try {
-            const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-            sourceWidth = bitmap.width;
-            sourceHeight = bitmap.height;
-            drawSource = (ctx, w, h) => {
-                ctx.drawImage(bitmap, 0, 0, w, h);
-                bitmap.close();
-            };
-        } catch {
-            /* fallback below */
-        }
-    }
-
-    if (!sourceWidth) {
-        const objectUrl = URL.createObjectURL(file);
-        try {
-            const image = await new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = () => reject(new Error('image load failed'));
-                img.src = objectUrl;
-            });
-            sourceWidth = image.naturalWidth || image.width;
-            sourceHeight = image.naturalHeight || image.height;
-            drawSource = (ctx, w, h) => ctx.drawImage(image, 0, 0, w, h);
-        } finally {
-            URL.revokeObjectURL(objectUrl);
-        }
-    }
-
-    if (!sourceWidth || !sourceHeight || !drawSource!) throw new Error('invalid dimensions');
-
-    let w = sourceWidth;
-    let h = sourceHeight;
-    const ratio = Math.min(1, maxEdge / Math.max(w, h));
-    w = Math.round(w * ratio);
-    h = Math.round(h * ratio);
-
-    const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('canvas unavailable');
-    drawSource(ctx, w, h);
-
-    let quality = initialQuality;
-    let dataUrl = canvas.toDataURL('image/jpeg', quality);
-    while (dataUrl.length > maxBytes && quality > 0.42) {
-        quality -= 0.08;
-        dataUrl = canvas.toDataURL('image/jpeg', quality);
-    }
-    if (dataUrl.length > maxBytes) {
-        throw new Error('image too large');
-    }
-    return dataUrl;
-}
-
-/** ضغط أخف لخلفية اللوحة — أداء أفضل في localStorage والرسم */
-export async function compressWallpaperToDataUrl(file: File): Promise<string> {
-    return compressImageToDataUrl(file, {
-        maxEdge: WALLPAPER_MAX_EDGE,
-        quality: WALLPAPER_JPEG_QUALITY,
-        maxBytes: WALLPAPER_MAX_BYTES,
-    });
-}
-
 /** رفع صورة الملف: ضغط أولاً ثم سحابة، ثم تخزين محلي مضغوط عند الفشل */
 export async function uploadProfileMedia(
     userId: string,
     file: File,
     opts?: { variant?: 'default' | 'canvasBg' },
 ): Promise<ProfileMediaUploadResult> {
-    if (!file.type.startsWith('image/')) {
+    const mime = (file.type || '').toLowerCase();
+    if (!ALLOWED_IMAGE_MIME.has(mime) || mime.includes('svg')) {
         throw new Error('نوع الملف غير مدعوم');
+    }
+    if (file.size <= 0 || file.size > MAX_SOURCE_FILE_BYTES) {
+        throw new Error('image too large');
     }
 
     const compress =
@@ -146,6 +80,73 @@ export async function refreshProfileMediaUrl(
     } catch {
         return currentUrl || '';
     }
+}
+
+function isRemoteProfileMediaPath(path: string): boolean {
+    const p = path.trim();
+    if (!p) return false;
+    if (p.startsWith('idb:') || p.startsWith('local:') || p.startsWith('data:')) return false;
+    return true;
+}
+
+/** حذف أفضل جهد لملفات وسائط الملف — لا يرمي عند الفشل */
+export async function removeProfileMediaPaths(paths: string[]): Promise<void> {
+    const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteProfileMediaPath))];
+    if (toRemove.length === 0) return;
+    try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
+        await SecureAPIClient.fetchSecure('/api/upload/remove', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paths: toRemove }),
+        });
+    } catch {
+        /* best-effort — لا نُفشِل تجربة المستخدم */
+    }
+}
+
+/** إعادة توقيع صور الحاويات / خلفيات اللوحة دون حذف الكتل */
+export async function refreshProfileCustomizationMedia(
+    customization: ProfilePageCustomization | undefined,
+): Promise<ProfilePageCustomization | undefined> {
+    if (!customization) return customization;
+    const blocks = customization.customBlocks ?? [];
+    if (blocks.length === 0) return customization;
+
+    const nextBlocks = await Promise.all(
+        blocks.map(async (block) => {
+            let next = block;
+            if (block.imageStoragePath) {
+                const imageUrl = await refreshProfileMediaUrl(block.imageStoragePath, block.imageUrl);
+                if (imageUrl && imageUrl !== block.imageUrl) {
+                    next = { ...next, imageUrl };
+                } else if (imageUrl && !block.imageUrl) {
+                    next = { ...next, imageUrl };
+                }
+            }
+            const canvas = next.canvasStyle;
+            if (canvas?.backgroundStoragePath) {
+                const backgroundImage = await refreshProfileMediaUrl(
+                    canvas.backgroundStoragePath,
+                    canvas.backgroundImage,
+                );
+                if (backgroundImage && backgroundImage !== canvas.backgroundImage) {
+                    next = {
+                        ...next,
+                        canvasStyle: { ...canvas, backgroundImage },
+                    };
+                } else if (backgroundImage && !canvas.backgroundImage) {
+                    next = {
+                        ...next,
+                        canvasStyle: { ...canvas, backgroundImage },
+                    };
+                }
+            }
+            return next;
+        }),
+    );
+
+    return { ...customization, customBlocks: nextBlocks };
 }
 
 export function profileMediaErrorMessage(err: unknown): string {

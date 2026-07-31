@@ -60,7 +60,7 @@ function parseSecureApiErrorMessage(err: unknown): string {
         return "ليس لديك صلاحية إدخال القوانين.";
     }
     if (err.status === 503) {
-        return "قاعدة البيانات غير مهيأة: أضف SUPABASE_SERVICE_ROLE_KEY في ملف .env ثم أعد تشغيل npm run dev.";
+        return 'قاعدة البيانات غير مهيأة: أضف مفتاح خدمة Supabase في ملف .env ثم أعد تشغيل npm run dev.';
     }
     return err.message || `خطأ HTTP ${err.status}`;
 }

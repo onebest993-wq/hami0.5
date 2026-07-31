@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { resolveDecisionsModalBootState } from '@/app/utils/decisionsModalBoot';
 
 export type UseExecutionDecisionsModalControllerParams = {
@@ -22,6 +22,7 @@ export function useExecutionDecisionsModalController({
     const [appealsModalScrollToDecisionId, setAppealsModalScrollToDecisionId] = useState<string | null>(
         null,
     );
+    const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const clearDecisionsModalBootState = useCallback(() => {
         setDecisionsModalBootHubTab(null);
@@ -43,12 +44,23 @@ export function useExecutionDecisionsModalController({
     );
 
     useEffect(() => {
+        // البتّ (موافقة/رفض المنفذ) يحدث والـ modal مفتوح — إسقاط الحدث هنا كان يجمّد
+        // كل الحالات المشتقة من epoch (حالة طلب الإحلال، عناوين قائمة ⋮، مزامنة الملف)
+        // إلى الأبد حتى بعد إغلاق الـ modal. نُرحّل دوماً مع debounce يلمّ الدفعات.
         const bump = () => {
-            queueMicrotask(() => setDecisionsReloadEpoch((n) => n + 1));
+            if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+            reloadDebounceRef.current = setTimeout(() => {
+                reloadDebounceRef.current = null;
+                setDecisionsReloadEpoch((n) => n + 1);
+            }, 80);
         };
         window.addEventListener('hami-decisions-reload', bump);
         window.addEventListener('hami-execution-decision-outcome', bump);
         return () => {
+            if (reloadDebounceRef.current) {
+                clearTimeout(reloadDebounceRef.current);
+                reloadDebounceRef.current = null;
+            }
             window.removeEventListener('hami-decisions-reload', bump);
             window.removeEventListener('hami-execution-decision-outcome', bump);
         };

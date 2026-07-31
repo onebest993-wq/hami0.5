@@ -1,4 +1,5 @@
 import type { ComponentProps, ComponentType } from 'react';
+import { ensureRejectClearingPromise } from '@/app/runtime/ensureRejectClearingPromise';
 import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
 
 type ProfileSettingsSheetModule =
@@ -25,16 +26,17 @@ export function resetProfileSettingsSheetLoaderForTests(): void {
 }
 
 function ensureModule(): Promise<ProfileSettingsSheetModule> {
-    if (!modulePromise) {
+    return ensureRejectClearingPromise(modulePromise, (next) => {
+        modulePromise = next;
+    }, () => {
         prefetchProfileSettingsStudioTabsModule();
-        modulePromise = import(
+        return import(
             '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet'
         ).then((mod) => {
             if (mod?.ProfileSettingsSheet) cachedSheet = mod.ProfileSettingsSheet;
             return mod;
         });
-    }
-    return modulePromise;
+    });
 }
 
 export function loadProfileSettingsSheetModule(): Promise<ProfileSettingsSheetModule> {

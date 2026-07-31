@@ -210,7 +210,7 @@ function renderGroup(name, keys) {
 }
 
 const localGrouped = Object.entries(localGroups).map(([n, ks]) => renderGroup(n, ks)).join('\n');
-const restGrouped = Object.entries(restGroups).map(([n, ks]) => renderGroup(n, ks)).join('\n');
+const _restGrouped = Object.entries(restGroups).map(([n, ks]) => renderGroup(n, ks)).join('\n');
 
 // Fix firstActiveAppealDecisionId - use handlerCluster in claimDisplay group
 restGroups.claimDisplay = restGroups.claimDisplay.filter((k) => k !== 'firstActiveAppealDecisionId');

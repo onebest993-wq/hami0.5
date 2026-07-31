@@ -1,6 +1,7 @@
 import React from 'react';
 import { DatePickerField } from '../../components/DatePickerField';
 import type { GrievanceLifecyclePanelProps } from '../GrievanceLifecyclePanelProps';
+import { URGENT_DOSSIER_BTN_PRIMARY } from '../../layout/urgentDossierUi';
 
 export function GrievanceFiledDetailsSection(props: GrievanceLifecyclePanelProps) {
     const {
@@ -24,7 +25,7 @@ export function GrievanceFiledDetailsSection(props: GrievanceLifecyclePanelProps
 
     return (
                                                                 <div className="border border-white/10 bg-white/5 rounded-xl p-4 space-y-4">
-                                                                    <div className="text-white font-extrabold text-sm">3️⃣ بيانات التظلم</div>
+                                                                    <div className="text-white font-extrabold text-sm">بيانات التظلم</div>
                                                                     <div className="bg-black/20 border border-white/10 rounded-lg p-3">
                                                                         <div className="text-white/60 text-xs mb-1">مقدّم التظلم (محسوب تلقائياً)</div>
                                                                         <div className="text-white font-bold">{partyLabel(computedGrievanceFiledBy)}</div>
@@ -82,9 +83,9 @@ export function GrievanceFiledDetailsSection(props: GrievanceLifecyclePanelProps
                                                                                 !!grievanceFilingDateChronologyError ||
                                                                                 !!grievanceFirstHearingDateChronologyError
                                                                             }
-                                                                            className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-extrabold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                            className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[40px] py-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed`}
                                                                         >
-                                                                            ✅ تثبيت بيانات التظلم
+                                                                            تثبيت بيانات التظلم
                                                                         </button>
                                                                     </div>
                                                                 </div>

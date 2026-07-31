@@ -1,106 +1,100 @@
 /**
- * UnifiedDossierCard
- * ===================
- * الحاوية الزجاجية الماسية الموحَّدة لبطاقات الأضابير (جزائية/مدنية/أحوال شخصية/معاملة).
- *
- * هدف هذا المكوّن: توحيد التصميم البصري لجميع البطاقات في `ArchivePortal`
- * مع احترام اختلاف البيانات (المتغيرات في props كما هي — لا تُغيَّر).
- *
- * هيكل البطاقة الصارم:
- *   ┌─────────────────────────────────────────────┐
- *   │  [type pill]            [pin] [status pill] │  ← Header
- *   │                                             │
- *   │  Title (court / case name)                  │  ← Body
- *   │  Subtitle (case number / year)              │
- *   │  Extra lines (parties, articles, timers)    │
- *   │                                             │
- *   │  [open btn]            [trash][archive]…    │  ← Footer
- *   └─────────────────────────────────────────────┘
+ * UnifiedDossierCard — بطاقة إضبارة تحريرية كثيفة:
+ * رقم/عنوان بارز · أطراف واضحة · إجراءات خفيفة · بلا فراغات ميتة.
  */
 
 import { useRef, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import { motion } from 'motion/react';
-import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
+import { prefetchCriminalDashboard, warmLawsuitWorkspace } from '@/app/utils/lazyComponentsIntent';
+import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 
 export type DossierKind = 'criminal' | 'civil' | 'personal' | 'transaction';
 
 const DEFAULT_KIND_LABEL: Record<DossierKind, string> = {
     criminal: 'جزائية',
     civil: 'مدنية',
-    personal: 'أحوال شخصية',
+    personal: 'أحوال',
     transaction: 'معاملة',
 };
 
+const KIND_BAR: Record<DossierKind, string> = {
+    criminal: 'bg-rose-500/70',
+    civil: 'bg-[#E6C673]/75',
+    personal: 'bg-violet-400/70',
+    transaction: 'bg-sky-400/70',
+};
+
+const KIND_BADGE: Record<DossierKind, string> = {
+    criminal:
+        'border-rose-400/45 bg-rose-500/15 text-rose-100 shadow-[0_0_14px_rgba(244,63,94,0.18)]',
+    civil: 'border-[#E6C673]/50 bg-[#E6C673]/14 text-[#F3E4B8] shadow-[0_0_14px_rgba(230,198,115,0.16)]',
+    personal:
+        'border-violet-400/45 bg-violet-500/15 text-violet-100 shadow-[0_0_14px_rgba(167,139,250,0.16)]',
+    transaction:
+        'border-sky-400/45 bg-sky-500/15 text-sky-100 shadow-[0_0_14px_rgba(56,189,248,0.16)]',
+};
+
+const KIND_GLOW: Record<DossierKind, string> = {
+    criminal: 'rgba(244,63,94,0.12)',
+    civil: 'rgba(230,198,115,0.14)',
+    personal: 'rgba(167,139,250,0.12)',
+    transaction: 'rgba(56,189,248,0.12)',
+};
+
 export type UnifiedDossierFooterIcon = {
-    /** معرّف داخلي للزر (key). */
     id: string;
-    /** أيقونة من lucide (تُمرَّر كعنصر). */
     icon: ReactNode;
-    /** نصّ aria-label + title. */
     label: string;
     onClick: (event: MouseEvent<HTMLButtonElement>) => void;
-    /** نغمة الـ hover. */
     tone?: 'default' | 'danger' | 'success' | 'warning';
-    /** data-testid اختياري. */
     testId?: string;
 };
 
 export type UnifiedDossierStatusBadge = {
-    /** نصّ الحالة (يدعم emoji). */
     label: ReactNode;
-    /** كلاسات Tailwind إضافية للون (bg/border/text). افتراضياً: زجاج أبيض شفّاف. */
     className?: string;
 };
 
 export type UnifiedDossierCardProps = {
-    /** نوع الإضبارة — يحدّد التسمية الافتراضية للشارة العلوية اليمنى. */
     kind: DossierKind;
-    /** يلغي تسمية kind الافتراضية (مثل: «إضبارة جزائية» بدل «جزائية»). */
     typeBadgeLabel?: string;
-
-    /** شارة الحالة (المرحلة/الحالة الزمنية) — أعلى اليسار. */
     statusBadge?: UnifiedDossierStatusBadge;
-    /** زر التثبيت (Pin) — يُمرَّر كـ ReactNode من المستدعي مع e.stopPropagation. */
     pinNode?: ReactNode;
-
-    /** العنوان الرئيسي (اسم المحكمة أو عنوان الدعوى). */
     title: string;
-    /** السطر الفرعي (رقم الدعوى/السنة أو سطر ثانوي). */
     subtitle?: ReactNode;
-    /** أسطر إضافية في الجسم (مثل: المشتكي/المتهم أو المدعي/المدعى عليه أو المؤقتات). */
     bodyExtra?: ReactNode;
-    /** ملاحظة قصيرة بلون تنبيهي (مثل: «يُحذف خلال X يوم»). */
     footerNote?: ReactNode;
-
-    /** نقرة «فتح» — الزر الذهبي/الماسي. */
     onOpen: () => void;
-    /** نصّ زر الفتح (افتراضي: «فتح الإضبارة»). */
     openLabel?: string;
-
-    /** أزرار أيقونية في يسار الذيل (سلة المهملات، أرشيف، استرجاع…). */
     footerIcons?: UnifiedDossierFooterIcon[];
-
-    /** عنصر يُلصَق فوق البطاقة (مثل checkbox سلة المهملات). */
     overlayBadge?: ReactNode;
-
-    /** كلاسات إضافية للحاوية الخارجية (مثل ring للسلة، opacity للأرشيف). */
     wrapperClassName?: string;
-    /** data-testid على الحاوية الخارجية. */
     testId?: string;
 };
 
 const toneToHoverClass = (tone: UnifiedDossierFooterIcon['tone']): string => {
     switch (tone) {
         case 'danger':
-            return 'hover:text-rose-300';
+            return 'hover:text-rose-200 hover:bg-rose-500/15';
         case 'success':
-            return 'hover:text-emerald-300';
+            return 'hover:text-emerald-200 hover:bg-emerald-500/15';
         case 'warning':
-            return 'hover:text-amber-300';
+            return 'hover:text-amber-200 hover:bg-amber-500/15';
         default:
-            return 'hover:text-white';
+            return 'hover:text-white hover:bg-white/10';
     }
 };
+
+function stripLeadingEmoji(label: ReactNode): ReactNode {
+    if (typeof label !== 'string') return label;
+    return label.replace(/^[\p{Extended_Pictographic}\uFE0F\u200D]+\s*/u, '').trim() || label;
+}
+
+function statusTextClass(className?: string): string {
+    if (!className) return 'text-emerald-300';
+    const hit = className.split(/\s+/).find((c) => c.startsWith('text-'));
+    return hit || 'text-emerald-300';
+}
 
 export const UnifiedDossierCard = ({
     kind,
@@ -119,6 +113,8 @@ export const UnifiedDossierCard = ({
     testId,
 }: UnifiedDossierCardProps) => {
     const prefetchFiredRef = useRef(false);
+    const reduceMotion = useReduceMotion();
+    const actions = footerIcons ?? [];
 
     const warmDossierShell = () => {
         if (prefetchFiredRef.current) return;
@@ -126,22 +122,13 @@ export const UnifiedDossierCard = ({
         if (kind === 'criminal') {
             prefetchCriminalDashboard();
         } else {
-            warmLawsuitWorkspace();
+            warmLawsuitWorkspace({ includeSecondary: false });
         }
     };
 
     const openDossier = () => {
         warmDossierShell();
         onOpen();
-    };
-
-    const handleOpenClick = (event: MouseEvent<HTMLButtonElement>) => {
-        event.stopPropagation();
-        openDossier();
-    };
-
-    const handleCardClick = () => {
-        openDossier();
     };
 
     const handleCardKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -151,64 +138,77 @@ export const UnifiedDossierCard = ({
         }
     };
 
+    const statusLabel = statusBadge ? stripLeadingEmoji(statusBadge.label) : null;
+    const kindLabel = typeBadgeLabel ?? DEFAULT_KIND_LABEL[kind];
+
     return (
         <motion.div
-            layout
+            layout={!reduceMotion}
             data-testid={testId}
             role="button"
             tabIndex={0}
-            onClick={handleCardClick}
+            aria-label={openLabel}
+            onClick={openDossier}
             onKeyDown={handleCardKeyDown}
             onPointerEnter={warmDossierShell}
             onFocus={warmDossierShell}
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            whileHover={{ y: -4 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-            className={`relative flex flex-col justify-between w-full p-5 rounded-2xl bg-[#ffffff05] backdrop-blur-md border border-white/10 hover:bg-[#ffffff0a] hover:border-white/20 hover:shadow-[0_0_15px_rgba(212,175,55,0.05)] transition-all duration-300 min-h-[220px] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${wrapperClassName ?? ''}`}
+            initial={false}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={reduceMotion ? undefined : { y: -3 }}
+            transition={
+                reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 420, damping: 30 }
+            }
+            className={`group relative w-full cursor-pointer overflow-hidden rounded-[1.15rem] border border-white/[0.1] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${wrapperClassName ?? ''}`}
+            style={{
+                background: `
+                    radial-gradient(120% 80% at 100% 0%, ${KIND_GLOW[kind]}, transparent 55%),
+                    linear-gradient(165deg, rgba(255,255,255,0.06) 0%, rgba(12,18,32,0.96) 42%, rgba(8,12,20,0.98) 100%)
+                `,
+                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.28)',
+            }}
             dir="rtl"
         >
+            <div aria-hidden className={`absolute inset-x-0 top-0 h-[2px] ${KIND_BAR[kind]}`} />
+
             {overlayBadge}
 
-            <div className="flex justify-between items-start w-full mb-4 gap-2">
-                <span className="bg-white/5 border border-white/10 text-xs px-3 py-1 rounded-full text-gray-300 whitespace-nowrap shrink-0">
-                    {typeBadgeLabel ?? DEFAULT_KIND_LABEL[kind]}
-                </span>
-                <div className="flex items-center gap-2 min-w-0">
-                    {pinNode}
-                    {statusBadge ? (
-                        <span
-                            className={`text-xs px-3 py-1 rounded-full border whitespace-nowrap truncate max-w-[12rem] ${
-                                statusBadge.className ?? 'bg-white/5 border-white/10 text-gray-300'
-                            }`}
-                            title={typeof statusBadge.label === 'string' ? statusBadge.label : undefined}
-                        >
-                            {statusBadge.label}
-                        </span>
-                    ) : null}
-                </div>
-            </div>
+            <div className="relative flex flex-col gap-2.5 px-4 pb-3.5 pt-3.5">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                        <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                            <span
+                                className={`rounded-lg border px-2.5 py-1 text-[11px] font-black tracking-wide ${KIND_BADGE[kind]}`}
+                            >
+                                {kindLabel}
+                            </span>
+                            {statusLabel ? (
+                                <span
+                                    className={`text-[11px] font-bold ${statusTextClass(statusBadge?.className)}`}
+                                    title={typeof statusLabel === 'string' ? statusLabel : undefined}
+                                >
+                                    {statusLabel}
+                                </span>
+                            ) : null}
+                        </div>
 
-            <div className="flex flex-col gap-1.5 mb-4 flex-1 min-w-0">
-                <h3 className="text-xl font-bold text-white truncate leading-tight">{title}</h3>
-                {subtitle ? (
-                    <p className="text-gray-400 text-sm truncate font-mono">{subtitle}</p>
-                ) : null}
-                {bodyExtra}
-                {footerNote ? <div className="mt-1">{footerNote}</div> : null}
-            </div>
+                        <h3 className="text-[1.05rem] font-black leading-[1.35] tracking-tight text-white line-clamp-2 transition-colors group-hover:text-[#F3E4B8]">
+                            {title}
+                        </h3>
+                        {subtitle ? (
+                            <p className="mt-1 truncate text-[13px] font-medium text-white/50">
+                                {subtitle}
+                            </p>
+                        ) : null}
+                    </div>
 
-            <div className="flex justify-between items-center w-full pt-4 border-t border-white/10 gap-2">
-                <button
-                    type="button"
-                    onClick={handleOpenClick}
-                    className="px-6 py-2 rounded-xl bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/20 hover:bg-[#d4af37]/20 font-medium transition-all text-sm whitespace-nowrap"
-                >
-                    {openLabel}
-                </button>
-                {footerIcons && footerIcons.length > 0 ? (
-                    <div className="flex items-center gap-1">
-                        {footerIcons.map((action) => (
+                    <div
+                        className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                        role="presentation"
+                    >
+                        {pinNode}
+                        {actions.map((action) => (
                             <button
                                 key={action.id}
                                 type="button"
@@ -219,15 +219,19 @@ export const UnifiedDossierCard = ({
                                     event.stopPropagation();
                                     action.onClick(event);
                                 }}
-                                className={`text-gray-500 transition-colors p-2 rounded-lg hover:bg-white/5 ${toneToHoverClass(action.tone)}`}
+                                className={`rounded-lg p-1.5 text-white/45 transition-colors ${toneToHoverClass(action.tone)}`}
                             >
                                 {action.icon}
                             </button>
                         ))}
                     </div>
-                ) : (
-                    <span />
-                )}
+                </div>
+
+                {bodyExtra ? (
+                    <div className="border-t border-white/[0.07] pt-2.5">{bodyExtra}</div>
+                ) : null}
+
+                {footerNote ? <div className="text-[11px] font-bold">{footerNote}</div> : null}
             </div>
         </motion.div>
     );

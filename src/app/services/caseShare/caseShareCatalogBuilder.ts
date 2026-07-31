@@ -3,7 +3,7 @@ import type { FileData, CaseStage } from '@/app/components/lawyer/LawyerShared';
 import type { CriminalCase } from '@/app/components/lawyer/criminal-system/criminalStore';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { readExecutorDecisionsFromActiveNamespace } from '@/app/utils/executionDecisionsNamespace';
-import { executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
+import { executionDocumentsStorageKey } from '@/app/utils/executionStorageKeysLite';
 import type { ShareCatalogItem, ShareCatalogSection } from './caseShareTypes';
 import { EXECUTION_CONSULT_SECTION_DEFS } from './caseShareTypes';
 

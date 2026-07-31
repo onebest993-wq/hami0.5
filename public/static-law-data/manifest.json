@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-28T15:56:14.696Z",
+  "bundles": {
+    "civil-procedure": {
+      "path": "/static-law-data/v1/civil-procedure.8c77fe711b94.json",
+      "sha256": "8c77fe711b94d3306e0882b1db346cf02b45995268d4f49ff57751d6eaf1139f",
+      "articleCount": 325,
+      "law_name": "قانون المرافعات المدنية العراقي رقم 83 لسنة 1969"
+    },
+    "criminal-procedure": {
+      "path": "/static-law-data/v1/criminal-procedure.7fc0d240e377.json",
+      "sha256": "7fc0d240e3778681008c8896caa56bdd06ee5f50b1f6d3e60d52c1881c94dae9",
+      "articleCount": 372,
+      "law_name": "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971"
+    },
+    "evidence": {
+      "path": "/static-law-data/v1/evidence.b87b09e052d1.json",
+      "sha256": "b87b09e052d1d375e328e69eb74742a8f6b9c0f04a2d1591e5ff7b1ee319fab6",
+      "articleCount": 149,
+      "law_name": "قانون الإثبات العراقي رقم 107 لسنة 1979"
+    },
+    "execution": {
+      "path": "/static-law-data/v1/execution.a9b6f5c37051.json",
+      "sha256": "a9b6f5c37051150cd3d00654574e278fae46126fd5e7b770ac49445db10a4551",
+      "articleCount": 129,
+      "law_name": "قانون التنفيذ العراقي رقم 45 لسنة 1980"
+    },
+    "jaafari-code": {
+      "path": "/static-law-data/v1/jaafari-code.74e60b44f8d4.json",
+      "sha256": "74e60b44f8d4b73df28f9cf1c958e11b54ff6cc0afc43225540a476a57a77299",
+      "articleCount": 337,
+      "law_name": "المدونة الجعفرية"
+    },
+    "juvenile": {
+      "path": "/static-law-data/v1/juvenile.05813f833b92.json",
+      "sha256": "05813f833b92356bb63f963a01fa7517604fedfe5b3d3119c97ab49da355650f",
+      "articleCount": 110,
+      "law_name": "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983"
+    },
+    "penal": {
+      "path": "/static-law-data/v1/penal.da1aab487470.json",
+      "sha256": "da1aab487470d31e05372b4ddc1e827a1d373679e30d263a5e5549e469c22768",
+      "articleCount": 503,
+      "law_name": "قانون العقوبات العراقي رقم 111 لسنة 1969"
+    },
+    "personal-status-188": {
+      "path": "/static-law-data/v1/personal-status-188.1eaf4ce987e6.json",
+      "sha256": "1eaf4ce987e6da2ef32635454f34ce18372577d4c727660fc1c0efb4f2587d36",
+      "articleCount": 88,
+      "law_name": "قانون الأحوال الشخصية رقم 188 لسنة 1959"
+    },
+    "personal-status-supplementary": {
+      "path": "/static-law-data/v1/personal-status-supplementary.c02531eeb7d2.json",
+      "sha256": "c02531eeb7d26db4a229a040dd19f140930b742a53fb5de3dc46d12f536f8706",
+      "articleCount": 0,
+      "law_name": "قوانين الأحوال الشخصية التطبيقية"
+    }
+  }
+}

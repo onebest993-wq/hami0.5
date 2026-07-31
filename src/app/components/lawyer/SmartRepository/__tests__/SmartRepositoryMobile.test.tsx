@@ -31,7 +31,7 @@ describe('SmartRepository mobile readiness', () => {
         expect(REPO_FILTER_ROW).toContain('touch-pan-x');
         expect(REPO_FILTER_ROW).toContain('overflow-x-auto');
         expect(REPO_ACTION_BTN).toContain('active:scale-[0.97]');
-        expect(REPO_ACTION_BTN).toContain('h-[3.5rem]');
+        expect(REPO_ACTION_BTN).toContain('min-h-[44px]');
     });
 
     it('أزرار الرأس والفلاتر تلبي هدف اللمس 44px', () => {

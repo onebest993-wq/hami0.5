@@ -1,8 +1,14 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
-import { X, Plus, Lock, TrendingUp, AlertTriangle, CheckCircle, Calendar, FileText, Gavel, DollarSign, Building2, Car, Home, CreditCard, Package } from 'lucide-react';
+import { X, Plus, Lock, TrendingUp, CheckCircle, Gavel, DollarSign, Car, Home, CreditCard, Package } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '@/app/components/lawyer/ExecutionDashboard/executionModalMobileShell';
 
 interface Asset {
     id: string;
@@ -256,18 +262,18 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[99999] flex items-center justify-center p-4" onClick={onClose}>
+        <div className={`fixed inset-0 bg-black/80 backdrop-blur-sm z-[99999] flex items-center justify-center p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`} onClick={onClose}>
             <div 
                 className="bg-slate-900 border-2 border-amber-500/30 rounded-2xl p-6 w-full max-w-5xl max-h-[90vh] overflow-y-auto" 
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Header */}
-                <div className="flex justify-between items-center border-b border-slate-700 pb-4 mb-6">
+                <div className={`flex justify-between items-center border-b border-slate-700 pb-4 mb-6 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                     <h2 className="text-2xl font-bold text-amber-400 flex items-center gap-3">
                         <Lock size={28} />
                         🔒 إدارة الأموال المحجوزة والمزايدات العلنية
                     </h2>
-                    <button type="button" onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full transition-colors">
+                    <button type="button" onClick={onClose} className={EXEC_MODAL_CLOSE_BTN_CLASS}>
                         <X size={20} className="text-slate-400" />
                     </button>
                 </div>
@@ -319,13 +325,13 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
                                         setShowAddForm(false);
                                         setFormData({});
                                     }}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold transition-colors"
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 py-3 px-4 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold transition-colors`}
                                 >
                                     إلغاء
                                 </button>
                                 <button type="button"
                                     onClick={handleAddAsset}
-                                    className="flex-1 py-3 px-4 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold transition-colors shadow-lg flex items-center justify-center gap-2"
+                                    className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 py-3 px-4 rounded-lg bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white font-bold transition-colors shadow-lg flex items-center justify-center gap-2`}
                                 >
                                     <CheckCircle size={20} />
                                     حفظ وإضافة للمحجوزات
@@ -388,7 +394,8 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
                                             : asset.status === 'seized'
                                             ? 'bg-red-500/20 text-red-300'
                                             : 'bg-slate-700 text-slate-300'
-                                    }`}>
+                                    }`}
+                                    >
                                         {asset.status === 'pending' && '⏳ قيد إرسال كتاب الحجز'}
                                         {asset.status === 'seized' && '🔴 تم وضع إشارة الحجز التنفيذي'}
                                         {asset.status === 'auction' && '⚖️ قيد إجراءات المزايدة والبيع'}
@@ -460,7 +467,7 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
                                                                 SmartToast.error('يرجى إدخال القيمة والتاريخ');
                                                             }
                                                         }}
-                                                        className="flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-bold transition-colors text-sm shadow-lg"
+                                                        className={`${EXEC_MODAL_TOUCH_TARGET} flex-1 py-2 px-4 rounded-lg bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white font-bold transition-colors text-sm shadow-lg`}
                                                     >
                                                         حفظ التقدير
                                                     </button>
@@ -469,7 +476,7 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
                                         ) : (
                                             <button type="button"
                                                 onClick={() => setEditingAsset(asset.id)}
-                                                className="w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold transition-colors text-sm"
+                                                className={`${EXEC_MODAL_TOUCH_TARGET} w-full py-2.5 px-4 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold transition-colors text-sm`}
                                             >
                                                 + إضافة التقدير من الخبير
                                             </button>
@@ -566,7 +573,8 @@ export const ModalSeizedAssetsManager: React.FC<ModalSeizedAssetsManagerProps> =
                                                             parseFloat(auctionFormData.highestBid) >= asset.expertValue * 0.70
                                                                 ? 'bg-emerald-900/20 border-emerald-500/50 text-emerald-300'
                                                                 : 'bg-rose-900/20 border-rose-500/50 text-rose-300'
-                                                        }`}>
+                                                        }`}
+                                                        >
                                                             <p className="font-bold text-sm">
                                                                 {parseFloat(auctionFormData.highestBid) >= asset.expertValue * 0.70 
                                                                     ? '✅ المزايدة مستوفية للشروط القانونية' 

@@ -132,6 +132,7 @@ describe('💥 ROUTE WAVE 1 — KV proxy execution vault raid', () => {
     vi.clearAllMocks();
     process.env.SUPABASE_URL = 'https://example.supabase.co';
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
+    requireWifeUserMock.mockResolvedValue(wifeUserOk(ATTACKER));
   });
 
   it('403 on get victim lawyer_files key', async () => {

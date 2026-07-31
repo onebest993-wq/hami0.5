@@ -1,6 +1,5 @@
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { loadLawsuitFilesRaw, saveLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
-import { loadDossierCollectionAsync } from '@/app/services/dossierPersistence/dossierPersistenceService';
 
 const STALE_MOCK_CASE_NO = '2025/ب/522';
 
@@ -21,8 +20,11 @@ export function loadInitialLawsuitFiles(): FileData[] {
     return stripped;
 }
 
-/** تحميل غير متزامn بعد جاهزية IndexedDB — يستعيد من النسخة الاحتياطية عند الحاجة */
+/** تحميل غير متزامن بعد جاهزية IndexedDB — يستعيد من النسخة الاحتياطية عند الحاجة */
 export async function loadInitialLawsuitFilesAsync(): Promise<FileData[]> {
+    const { loadDossierCollectionAsync } = await import(
+        '@/app/services/dossierPersistence/dossierPersistenceService'
+    );
     const asyncLoaded = (await loadDossierCollectionAsync('lawsuit')) as FileData[];
     const syncLoaded = loadLawsuitFilesRaw() as FileData[];
     const primary =

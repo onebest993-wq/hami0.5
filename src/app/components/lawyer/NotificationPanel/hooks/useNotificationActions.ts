@@ -38,9 +38,7 @@ export function useNotificationActions(
                     path = 'vault';
                     break;
                 case 'ai':
-                    if (payload.caseId) {
-                        onNavigate('case_details', payload);
-                    }
+                    if (payload.caseId) path = 'case_details';
                     break;
                 default:
                     break;

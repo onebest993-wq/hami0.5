@@ -1,30 +1,41 @@
 import { useEffect, useState } from 'react';
-import { useLawyerSettingsOptional } from '@/app/context/LawyerSettingsContext';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 
-/** يحترم إعدادات حامي + prefers-reduced-motion + وضع الأداء الخفيف */
-export function useReduceMotion(): boolean {
-    const settingsCtx = useLawyerSettingsOptional();
-    const fromSettings = Boolean(
-        settingsCtx?.settings.appearance.reduceMotion ||
-            settingsCtx?.settings.performance.enableAnimations === false,
-    );
-    const fromLite = Boolean(
-        settingsCtx &&
-            isLitePerformanceActive(settingsCtx.settings.performance.litePerformance),
-    );
+function readDomReduceMotion(): boolean {
+    if (typeof document === 'undefined') return false;
+    const root = document.documentElement;
+    return root.dataset.hamiReduceMotion === '1' || root.dataset.hamiLite === '1';
+}
 
-    const [prefersReduced, setPrefersReduced] = useState(() => {
-        if (typeof window === 'undefined') return false;
+function readPrefersReducedMotion(): boolean {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    try {
         return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    });
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * تقليل الحركة من DOM (يُضبط في index عبر applySettingsToDom) + prefers-reduced-motion.
+ * بلا استيراد سياق الإعدادات — لا يسحب SecureStore/native إلى Shell قبل TTFI.
+ */
+export function useReduceMotion(): boolean {
+    const [prefersReduced, setPrefersReduced] = useState(readPrefersReducedMotion);
+    const [fromDom, setFromDom] = useState(readDomReduceMotion);
 
     useEffect(() => {
+        if (typeof window.matchMedia !== 'function') return;
         const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
         const onChange = () => setPrefersReduced(mq.matches);
         mq.addEventListener('change', onChange);
         return () => mq.removeEventListener('change', onChange);
     }, []);
 
-    return fromSettings || fromLite || prefersReduced;
+    useEffect(() => {
+        const syncFromDom = () => setFromDom(readDomReduceMotion());
+        window.addEventListener('hami:settings-updated', syncFromDom);
+        return () => window.removeEventListener('hami:settings-updated', syncFromDom);
+    }, []);
+
+    return fromDom || prefersReduced;
 }

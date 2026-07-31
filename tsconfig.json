@@ -52,21 +52,22 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "noEmitOnError": false, /* Keep false for now to avoid breaking builds */
+    "ignoreDeprecations": "5.0",
 
     "types": ["vite/client", "vitest/globals"],
 
-    "baseUrl": ".",
     "paths": {
-      "@/app/bootstrap/LawyerDashboardGate": ["src/app/bootstrap/LawyerDashboardGate.tsx"],
-      "@/app/bootstrap/SecurityInitializerGate": ["src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
-      "@/*": ["src/*"],
-      "@/app/*": ["src/app/*"]
+      "@/app/bootstrap/LawyerDashboardGate": ["./src/app/bootstrap/LawyerDashboardGate.tsx"],
+      "@/app/bootstrap/SecurityInitializerGate": ["./src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
+      "@/*": ["./src/*"],
+      "@/app/*": ["./src/app/*"]
     }
   },
   "include": ["src"],
   "exclude": [
     "node_modules",
     "dist",
+    "src/vite-plugins",
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__tests__/**"

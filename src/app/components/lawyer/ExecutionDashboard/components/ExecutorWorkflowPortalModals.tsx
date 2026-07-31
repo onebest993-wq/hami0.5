@@ -65,7 +65,8 @@ export interface ExecutorWorkflowPortalModalsProps {
 
     executionReportPrompt: { onConfirm: () => void } | null;
     setExecutionReportPrompt: Dispatch<SetStateAction<{ onConfirm: () => void } | null>>;
-    setShowDecisionsModal: (show: boolean) => void;
+    setShowDecisionsModal?: (show: boolean) => void;
+    onCloseDecisionsModal?: () => void;
     openExecutionSeizuresTab: () => void;
     showToast: (
         message: string,
@@ -103,6 +104,7 @@ export const ExecutorWorkflowPortalModals: React.FC<ExecutorWorkflowPortalModals
     executionReportPrompt,
     setExecutionReportPrompt,
     setShowDecisionsModal,
+    onCloseDecisionsModal,
     openExecutionSeizuresTab,
     showToast,
 }) => {
@@ -200,7 +202,11 @@ export const ExecutorWorkflowPortalModals: React.FC<ExecutorWorkflowPortalModals
                             onClose={() => setExecutionReportPrompt(null)}
                             onConfirm={() => {
                                 executionReportPrompt?.onConfirm();
-                                setShowDecisionsModal(false);
+                                if (typeof onCloseDecisionsModal === 'function') {
+                                    onCloseDecisionsModal();
+                                } else {
+                                    setShowDecisionsModal?.(false);
+                                }
                                 openExecutionSeizuresTab();
                                 showToast(
                                     'تم فتح «محضر المتابعة». أكمل الإجراءات من التبويب المناسب؛ للحجز المالي استخدم «الحجز المالي».',

@@ -6,7 +6,6 @@ import {
 } from '../decisionCardPresentation';
 import GlowingDot from './GlowingDot';
 import { AppealOriginBadge } from './AppealOriginBadge';
-import type { Decision } from '../types';
 import {
     resolveRequestFilerFromDebtorAgentView,
     resolveUnderlyingDecisionHub,
@@ -18,6 +17,7 @@ import { DecisionCardDeleteConfirm } from './DecisionCardDeleteConfirm';
 import { DecisionCardAppealGatePanel } from './DecisionCardAppealGatePanel';
 import { DecisionDebtorFateLine } from './DecisionDebtorFateLine';
 import { AppealProceedingsToggle } from './AppealProceedingsToggle';
+import { AppealExecutorNoteToggle } from './AppealExecutorNoteToggle';
 import { ManualExecutorSmartCardPanel } from './ManualExecutorSmartCardPanel';
 import type { DecisionCardProps } from './decisionCardTypes';
 import { useDecisionCardDerivedState } from './useDecisionCardDerivedState';
@@ -105,8 +105,6 @@ function DecisionCard(props: DecisionCardProps) {
         executorAppealEntryOpen,
         showCreditorFollowupActions,
         personalStatusCourtCoerciveBlocked,
-        selectedAction,
-        setSelectedAction,
         showReasoning,
         setShowReasoning,
         showDetails,
@@ -115,6 +113,15 @@ function DecisionCard(props: DecisionCardProps) {
         setDeleteConfirmId,
         debtorFateLine,
     } = derived;
+
+    const underlyingHub = resolveUnderlyingDecisionHub(decision, decisions);
+    const executorNoteText = String(
+        decision.executorNote ??
+            pipelineRow.executorNote ??
+            underlyingHub.executorNote ??
+            hubNoteById[decision.id] ??
+            '',
+    ).trim();
 
     return (
         <motion.div
@@ -186,6 +193,22 @@ function DecisionCard(props: DecisionCardProps) {
                         <p className="text-[10px] leading-relaxed text-blue-400/80">
                             قيد المعالجة — بانتظار قرار المنفذ
                         </p>
+                    ) : null}
+                    <AppealExecutorNoteToggle note={executorNoteText} />
+                    {requestNeedsExecutorOutcome(decision) && dispatcherHub ? (
+                        <DecisionCardExecutorPanel
+                            decision={decision}
+                            dispatcherHub={dispatcherHub}
+                            isCassated={isCassated}
+                            hubNoteById={hubNoteById}
+                            setHubNoteById={setHubNoteById}
+                            handleExecutorResolveById={handleExecutorResolveById}
+                            requestNeedsExecutorOutcome={requestNeedsExecutorOutcome}
+                            btnPrimaryFlex={btnPrimaryFlex}
+                            btnSecondaryFlex={btnSecondaryFlex}
+                            showReasoning={showReasoning}
+                            setShowReasoning={setShowReasoning}
+                        />
                     ) : null}
                 </div>
 
@@ -289,21 +312,21 @@ function DecisionCard(props: DecisionCardProps) {
                 ) : null}
 
 
-                <DecisionCardExecutorPanel
-                    decision={decision}
-                    dispatcherHub={dispatcherHub}
-                    isCassated={isCassated}
-                    hubNoteById={hubNoteById}
-                    setHubNoteById={setHubNoteById}
-                    handleExecutorResolveById={handleExecutorResolveById}
-                    requestNeedsExecutorOutcome={requestNeedsExecutorOutcome}
-                    btnPrimaryFlex={btnPrimaryFlex}
-                    btnSecondaryFlex={btnSecondaryFlex}
-                    selectedAction={selectedAction}
-                    setSelectedAction={setSelectedAction}
-                    showReasoning={showReasoning}
-                    setShowReasoning={setShowReasoning}
-                />
+                {requestNeedsExecutorOutcome(decision) && !dispatcherHub ? (
+                    <DecisionCardExecutorPanel
+                        decision={decision}
+                        dispatcherHub={dispatcherHub}
+                        isCassated={isCassated}
+                        hubNoteById={hubNoteById}
+                        setHubNoteById={setHubNoteById}
+                        handleExecutorResolveById={handleExecutorResolveById}
+                        requestNeedsExecutorOutcome={requestNeedsExecutorOutcome}
+                        btnPrimaryFlex={btnPrimaryFlex}
+                        btnSecondaryFlex={btnSecondaryFlex}
+                        showReasoning={showReasoning}
+                        setShowReasoning={setShowReasoning}
+                    />
+                ) : null}
 
                 {legacyAppealActionsVisible &&
                     pipelineRow.appealStatus === 'tadhallum_filed' &&
@@ -341,18 +364,6 @@ function DecisionCard(props: DecisionCardProps) {
                         );
                     })}
 
-                {!requestNeedsExecutorOutcome(decision) && decision.executorNote ? (
-                    <blockquote className="mt-3 p-3 border-r-4 border-gray-500 bg-gray-800/30 text-sm text-gray-300 italic leading-relaxed">
-                        التسبيب: {decision.executorNote}
-                    </blockquote>
-                ) : null}
-                {!requestNeedsExecutorOutcome(decision) && hubNoteById[decision.id] ? (
-                    <div className="mt-2">
-                        <p className="text-[11px] text-gray-400 leading-relaxed border border-white/5 bg-slate-900/30 rounded-lg p-2">
-                            {hubNoteById[decision.id]}
-                        </p>
-                    </div>
-                ) : null}
             </div>
 
 

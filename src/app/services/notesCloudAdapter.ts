@@ -5,6 +5,16 @@ function isRecord(v: unknown): v is Record<string, unknown> {
     return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 }
 
+function asOptionalString(v: unknown): string | undefined {
+    return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+function asOptionalNullableString(v: unknown): string | null | undefined {
+    if (v === null) return null;
+    if (typeof v === 'string') return v;
+    return undefined;
+}
+
 /** تحويل ملاحظة سحابية/مخزنة محلياً بصيغة content إلى صيغة اللوحة body */
 export function cloudNoteToDashboard(raw: unknown): DashboardNote | null {
     if (!isRecord(raw)) return null;
@@ -14,7 +24,11 @@ export function cloudNoteToDashboard(raw: unknown): DashboardNote | null {
             : typeof raw.content === 'string'
               ? raw.content
               : '';
-    if (!body.trim() && !raw.title) return null;
+    const title = typeof raw.title === 'string' ? raw.title : '';
+    const attachmentDocId = asOptionalString(raw.attachmentDocId);
+    const roomId = asOptionalNullableString(raw.roomId);
+    // بطاقة بمرفق أو عنوان فقط يجب أن تبقى بعد إعادة التحميل
+    if (!body.trim() && !title.trim() && !attachmentDocId) return null;
 
     const id = raw.id ?? Date.now();
     const date =
@@ -33,9 +47,13 @@ export function cloudNoteToDashboard(raw: unknown): DashboardNote | null {
     const apptMatch = apptRaw?.match(/^(\d{4}-\d{2}-\d{2})/);
     const apptDate = apptMatch ? apptMatch[1] : undefined;
 
+    const quickTaskLines = Array.isArray(raw.quickTaskLines)
+        ? raw.quickTaskLines.filter((line): line is string => typeof line === 'string')
+        : undefined;
+
     return {
         id: typeof id === 'number' || typeof id === 'string' ? id : Date.now(),
-        title: typeof raw.title === 'string' ? raw.title : 'ملاحظة',
+        title: title.trim() || (attachmentDocId ? 'بطاقة مرفق' : 'ملاحظة'),
         body,
         isPinned: Boolean(raw.isPinned),
         color: typeof raw.color === 'string' ? raw.color : undefined,
@@ -49,6 +67,13 @@ export function cloudNoteToDashboard(raw: unknown): DashboardNote | null {
         tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : undefined,
         type: typeof raw.type === 'string' ? raw.type : undefined,
         linkedFileId: typeof raw.linkedFileId === 'number' ? raw.linkedFileId : undefined,
+        attachmentDocId,
+        roomId: roomId === undefined ? undefined : roomId,
+        repositoryInboxHidden: raw.repositoryInboxHidden === true ? true : undefined,
+        createdAtIso: asOptionalString(raw.createdAtIso) ?? (typeof raw.createdAt === 'string' ? raw.createdAt : undefined),
+        quickTaskLines: quickTaskLines?.length ? quickTaskLines : undefined,
+        transcript: asOptionalString(raw.transcript),
+        voiceDurationSec: typeof raw.voiceDurationSec === 'number' ? raw.voiceDurationSec : undefined,
     };
 }
 

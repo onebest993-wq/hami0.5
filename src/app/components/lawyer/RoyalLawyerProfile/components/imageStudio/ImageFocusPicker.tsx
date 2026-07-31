@@ -7,7 +7,8 @@ function clampFocus(value: number) {
 }
 
 function clampZoom(value: number) {
-    return Math.max(50, Math.min(400, Math.round(value)));
+    /* يطابق حدود normalizeProfilePageCustomization — تجنّب قصّ صامت عند الحفظ */
+    return Math.max(100, Math.min(220, Math.round(value)));
 }
 
 const ZOOM_COMMIT_DELAY_MS = 120;
@@ -45,9 +46,15 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
         () => () => {
             if (zoomCommitTimer.current) {
                 clearTimeout(zoomCommitTimer.current);
+                zoomCommitTimer.current = null;
+            }
+            const pending = pendingZoom.current;
+            pendingZoom.current = null;
+            if (pending !== null) {
+                onChange({ imageZoom: pending });
             }
         },
-        [],
+        [onChange],
     );
 
     const computeFocus = useCallback((clientX: number, clientY: number) => {
@@ -63,7 +70,12 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         if ((e.target as HTMLElement).closest('.profile-image-focus-picker__zoom-controls')) return;
         dragging.current = true;
-        e.currentTarget.setPointerCapture(e.pointerId);
+        e.currentTarget.dataset.dragging = 'true';
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+            /* بعض WebViews ترفض capture */
+        }
         const next = computeFocus(e.clientX, e.clientY);
         if (next) {
             pendingFocus.current = next;
@@ -82,8 +94,13 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
 
     const finishPointer = (e: React.PointerEvent<HTMLDivElement>) => {
         dragging.current = false;
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
+        e.currentTarget.dataset.dragging = 'false';
+        try {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+        } catch {
+            /* ignore */
         }
         const pending = pendingFocus.current;
         pendingFocus.current = null;
@@ -102,6 +119,19 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
                 zoomCommitTimer.current = null;
                 if (pending !== null) onChange({ imageZoom: pending });
             }, ZOOM_COMMIT_DELAY_MS);
+        },
+        [onChange],
+    );
+
+    const commitZoomNow = useCallback(
+        (nextZoom: number) => {
+            if (zoomCommitTimer.current) {
+                clearTimeout(zoomCommitTimer.current);
+                zoomCommitTimer.current = null;
+            }
+            pendingZoom.current = null;
+            setLiveZoom(nextZoom);
+            onChange({ imageZoom: nextZoom });
         },
         [onChange],
     );
@@ -131,6 +161,7 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
             onPointerMove={onPointerMove}
             onPointerUp={finishPointer}
             onPointerCancel={finishPointer}
+            onLostPointerCapture={finishPointer}
             onWheel={onWheel}
         >
             <ProfileMediaFrame
@@ -139,7 +170,7 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
                 template={block.mediaTemplate}
                 heightPx={height}
                 borderless
-                previewInteractive
+                previewInteractive={false}
             />
             <span
                 className="profile-image-focus-picker__reticle"
@@ -152,9 +183,7 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
                     className="profile-image-focus-picker__zoom-btn"
                     aria-label="تصغير"
                     onClick={() => {
-                        const next = clampZoom(liveZoom - 10);
-                        setLiveZoom(next);
-                        onChange({ imageZoom: next });
+                        commitZoomNow(clampZoom(liveZoom - 10));
                     }}
                 >
                     −
@@ -165,9 +194,7 @@ export function ImageFocusPicker({ block, src, onChange }: ImageFocusPickerProps
                     className="profile-image-focus-picker__zoom-btn"
                     aria-label="تكبير"
                     onClick={() => {
-                        const next = clampZoom(liveZoom + 10);
-                        setLiveZoom(next);
-                        onChange({ imageZoom: next });
+                        commitZoomNow(clampZoom(liveZoom + 10));
                     }}
                 >
                     +

@@ -1,5 +1,8 @@
-// @ts-nocheck
 /** Phase C Slice 24 — مستمعو نتائج الحجز/الدفتر بعد claim financials */
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import type { ExecutionFile, SeizedAsset, TimelineEvent } from '@/app/types/execution';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
+import type { ThirdPartySeizure } from '@/app/types/execution';
 import { useThirdPartyFundsReceivedOutcome } from '../useThirdPartyFundsReceivedOutcome';
 import { useSeizureDecisionOutcome } from '../useSeizureDecisionOutcome';
 import { useUnifiedCollectionOutcome } from '../useUnifiedCollectionOutcome';
@@ -7,40 +10,48 @@ import { useGuarantorRequestOutcome } from '../useGuarantorRequestOutcome';
 import { useOpenSeizureCompletion } from '../useOpenSeizureCompletion';
 import { useTrustDisbursedOutcome } from '../useTrustDisbursedOutcome';
 import { useOpenFinancialHubLedger } from '../useOpenFinancialHubLedger';
+import type { SeizureDecisionOutcomeContext } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureDecisionOutcomeHandler.types';
+import type { FinancialHubLedgerOpenContext } from '@/app/components/lawyer/ExecutionDashboard/utils/financialHubLedgerOpenHandler';
 
-export function useExecutionDashboardSeizureLedgerOutcomeEffects(p: {
-    executionDataRef: { current: unknown };
+type ShowToast = (msg: string, type?: string) => void;
+
+export type ExecutionDashboardSeizureLedgerOutcomeEffectsInput = {
+    executionDataRef: MutableRefObject<ExecutionFile | null>;
     executionDataId: string | undefined;
     executionId: string | undefined;
     decisionsStorageExecutionId: string;
-    setThirdPartySeizuresUi: (v: unknown) => void;
-    clearThirdPartyFundsDraft: () => void;
-    getLedgerParams: () => unknown;
-    setTimelineEvents: (v: unknown) => void;
+    setThirdPartySeizuresUi: Dispatch<SetStateAction<ThirdPartySeizure[]>>;
+    clearThirdPartyFundsDraft: (seizureId: string) => void;
+    getLedgerParams: () => UnifiedLedgerTotalParams | null;
+    setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     nextTimelineId: () => string;
-    persistExecutionMergeRef: { current: unknown };
+    persistExecutionMergeRef: MutableRefObject<((patch: Record<string, unknown>) => void) | null>;
     onLedgerRevision: () => void;
-    showToast: (msg: string, type?: string) => void;
-    applyThirdPartySeizuresFromPatch: (...args: unknown[]) => unknown;
-    pushTimelineEventRef: { current: unknown };
-    seizureMatrixLedgerParamsRef: { current: unknown };
-    focusSeizurePropertyInlineRef: { current: unknown };
-    focusSeizureMovableInlineRef: { current: unknown };
-    focusSeizureThirdPartyInlineRef: { current: unknown };
-    focusSeizureNoticeInlineRef: { current: unknown };
-    openSeizureRequestsTabRef: { current: unknown };
-    setShowCoerciveActionForm: (v: boolean) => void;
-    setSeizureDetailCompletion: (v: unknown) => void;
-    setShowUnifiedExecutionModal: (v: boolean) => void;
-    setUnifiedLedgerRevision: (fn: (v: number) => number) => void;
+    showToast: ShowToast;
+    applyThirdPartySeizuresFromPatch: SeizureDecisionOutcomeContext['applyThirdPartySeizuresFromPatch'];
+    pushTimelineEventRef: SeizureDecisionOutcomeContext['pushTimelineEventRef'];
+    seizureMatrixLedgerParamsRef: MutableRefObject<UnifiedLedgerTotalParams | null>;
+    focusSeizurePropertyInlineRef: SeizureDecisionOutcomeContext['focusSeizurePropertyInlineRef'];
+    focusSeizureMovableInlineRef: SeizureDecisionOutcomeContext['focusSeizureMovableInlineRef'];
+    focusSeizureThirdPartyInlineRef: SeizureDecisionOutcomeContext['focusSeizureThirdPartyInlineRef'];
+    focusSeizureNoticeInlineRef: SeizureDecisionOutcomeContext['focusSeizureNoticeInlineRef'];
+    openSeizureRequestsTabRef: SeizureDecisionOutcomeContext['openSeizureRequestsTabRef'];
+    setShowCoerciveActionForm: SeizureDecisionOutcomeContext['setShowCoerciveActionForm'];
+    setSeizureDetailCompletion: SeizureDecisionOutcomeContext['setSeizureDetailCompletion'];
+    setShowUnifiedExecutionModal: SeizureDecisionOutcomeContext['setShowUnifiedExecutionModal'];
+    setUnifiedLedgerRevision: Dispatch<SetStateAction<number>>;
     setEvictionAssetsTabUnlocked: (v: boolean) => void;
-    seizedAssetsSnapshotRef: { current: unknown };
-    setSeizedAssets: (v: unknown) => void;
-    setFinancialHubAutoOpenMode: (v: unknown) => void;
-    setFinancialHubSeizedMovableId: (v: unknown) => void;
-    setFinancialHubSeizedPropertyId: (v: unknown) => void;
-    openFinancialHubLedger: (...args: unknown[]) => unknown;
-}) {
+    seizedAssetsSnapshotRef: MutableRefObject<SeizedAsset[]>;
+    setSeizedAssets: Dispatch<SetStateAction<SeizedAsset[]>>;
+    setFinancialHubAutoOpenMode: FinancialHubLedgerOpenContext['setFinancialHubAutoOpenMode'];
+    setFinancialHubSeizedMovableId: FinancialHubLedgerOpenContext['setFinancialHubSeizedMovableId'];
+    setFinancialHubSeizedPropertyId: FinancialHubLedgerOpenContext['setFinancialHubSeizedPropertyId'];
+    openFinancialHubLedger: FinancialHubLedgerOpenContext['openFinancialHubLedger'];
+};
+
+export function useExecutionDashboardSeizureLedgerOutcomeEffects(
+    p: ExecutionDashboardSeizureLedgerOutcomeEffectsInput,
+) {
     useThirdPartyFundsReceivedOutcome({
         executionDataRef: p.executionDataRef,
         executionDataId: p.executionDataId,

@@ -30,7 +30,7 @@ describe('AccountSection', () => {
         const onClose = vi.fn();
 
         render(<AccountSection onClose={onClose} onLogout={onLogout} />);
-        fireEvent.click(screen.getByRole('button', { name: 'خروج' }));
+        fireEvent.click(screen.getByTestId('settings-account-logout'));
 
         await waitFor(() => expect(confirm).toHaveBeenCalledTimes(1));
         expect(onLogout).not.toHaveBeenCalled();
@@ -43,7 +43,7 @@ describe('AccountSection', () => {
         const onClose = vi.fn();
 
         render(<AccountSection onClose={onClose} onLogout={onLogout} />);
-        fireEvent.click(screen.getByRole('button', { name: 'خروج' }));
+        fireEvent.click(screen.getByTestId('settings-account-logout'));
 
         await waitFor(() => expect(onLogout).toHaveBeenCalledTimes(1));
         expect(onClose).toHaveBeenCalledTimes(1);

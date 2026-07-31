@@ -5,7 +5,7 @@ import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
-import { coerceExecutionFilePreserveId, isFileData } from '../LawyerDashboardParts/utils';
+import { isFileData } from '../LawyerDashboardParts/utils';
 
 export type LawyerDashboardScheduleTabProps = {
     visible: boolean;

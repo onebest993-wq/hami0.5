@@ -3,11 +3,17 @@ import { requireWifeUser } from '../security/bffAuth.ts';
 import { extractUserTokenFromRequest } from '../security/wifeValidator.ts';
 import { canAccessLawyerForumUserId, isForumModeratorUserId } from '../security/roleResolver.ts';
 
-/** محامٍ ضيف للعرض التجريبي — قراءة فقط في الإنتاج */
+/** محامٍ ضيف للعرض التجريبي — محظور في الإنتاج إلا بتصريح صريح */
 export const DEMO_GUEST_USER_ID = 'guest-lawyer-1';
 
 function isProductionForumEnv(): boolean {
     return (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+}
+
+/** قراءة الضيف في الإنتاج تتطلب FORUM_ALLOW_DEMO_GUEST_READ=1 صراحةً */
+export function isForumDemoGuestReadAllowed(): boolean {
+    if (!isProductionForumEnv()) return true;
+    return (process.env.FORUM_ALLOW_DEMO_GUEST_READ ?? '').trim() === '1';
 }
 
 export function isDemoGuestUserId(userId: string): boolean {
@@ -32,6 +38,23 @@ export function rejectDemoGuestForumWrite(userId: string, request?: Request): Re
     });
 }
 
+export function rejectDemoGuestForumRead(userId: string, request?: Request): Response | null {
+    if (!isDemoGuestUserId(userId)) return null;
+    if (isForumDemoGuestReadAllowed()) return null;
+    if (request) {
+        recordWifeRejection({
+            reason: 'forum_guest_read_denied',
+            request,
+            userId,
+        });
+    }
+    return jsonResponse(403, {
+        ok: false,
+        error: 'الوصول إلى المنتدى مقتصر على حسابات المحامين المفعلة',
+        code: 'FORUM_ACCESS_DENIED',
+    });
+}
+
 export async function requireForumAuth(request: Request): Promise<
     | { ok: false; response: Response }
     | { ok: true; userId: string; token: string; isAdmin: boolean }
@@ -39,7 +62,12 @@ export async function requireForumAuth(request: Request): Promise<
     const auth = await requireWifeUser(request);
     if (auth.ok === false) return auth;
 
-    if (!isDemoGuestUserId(auth.userId)) {
+    if (isDemoGuestUserId(auth.userId)) {
+        const guestDenied = rejectDemoGuestForumRead(auth.userId, request);
+        if (guestDenied) {
+            return { ok: false as const, response: guestDenied };
+        }
+    } else {
         const canAccessForum = await canAccessLawyerForumUserId(auth.userId);
         if (!canAccessForum) {
             return {

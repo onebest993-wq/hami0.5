@@ -28,6 +28,13 @@ describe('maritalFurniture', () => {
         expect(items[0]?.name).toBe('ثلاجة');
     });
 
+    it('uses stable ids when reading furnitureDetails fallback twice', () => {
+        const data = { furnitureDetails: 'ثلاجة؛ سرير', furnitureValue: 200_000 };
+        const first = readMaritalFurnitureItems(data);
+        const second = readMaritalFurnitureItems(data);
+        expect(first.map((row) => row.id)).toEqual(second.map((row) => row.id));
+    });
+
     it('sums undelivered items only for financial center', () => {
         const items = normalizeMaritalFurnitureItems([
             { id: 'a', name: 'أريكة', quantity: 1, unitPriceIqd: 500_000, delivered: true },
@@ -57,6 +64,24 @@ describe('maritalFurniture', () => {
                 maritalFurnitureItems: items,
             })
         ).toBe(300_000);
+    });
+
+    it('counts failed delivery outcome toward financial principal', () => {
+        const items = normalizeMaritalFurnitureItems([
+            {
+                id: 'a',
+                name: 'خزانة',
+                quantity: 1,
+                unitPriceIqd: 1_633_665,
+                delivered: false,
+                deliveryOutcome: 'failed',
+                deliveryRecordedAt: '2026-07-31T12:00:00.000Z',
+            },
+        ]);
+        expect(sumUndeliveredMaritalFurnitureTotal(items)).toBe(1_633_665);
+        expect(resolveMaritalFurnitureFinancialPrincipal({ maritalFurnitureItems: items })).toBe(
+            1_633_665,
+        );
     });
 
     it('ignores delivered flags without delivery inventory timestamp', () => {

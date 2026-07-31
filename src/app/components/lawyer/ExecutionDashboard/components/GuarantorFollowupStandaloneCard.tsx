@@ -20,9 +20,13 @@ export type GuarantorFollowupStandaloneCardProps = {
     openGuarantorDetailsModal: () => void;
     archiveAndClearGuarantor: (reason: 'replace' | 'unlink') => void;
     handleGuarantorRequestFromFollowup: () => void;
-    setSummonsContextDebtorKey: (key: string | null) => void;
-    setSummonsHubInitialMainTab: (tab: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null) => void;
-    setShowUnifiedSummonsModal: (show: boolean) => void;
+    setSummonsContextDebtorKey?: (key: string | null) => void;
+    setSummonsHubInitialMainTab?: (tab: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null) => void;
+    setShowUnifiedSummonsModal?: (show: boolean) => void;
+    onOpenUnifiedSummonsHub?: (opts: {
+        debtorKey: string | null;
+        initialMainTab: string;
+    }) => void;
 };
 
 export type GuarantorFollowupCardToolbarProps = {
@@ -112,6 +116,7 @@ export const GuarantorFollowupStandaloneCard: React.FC<GuarantorFollowupStandalo
     setSummonsContextDebtorKey,
     setSummonsHubInitialMainTab,
     setShowUnifiedSummonsModal,
+    onOpenUnifiedSummonsHub,
     embedded,
 }) => {
     const gf = executionData?.guarantor_followup;
@@ -181,9 +186,14 @@ export const GuarantorFollowupStandaloneCard: React.FC<GuarantorFollowupStandalo
                     <button
                         type="button"
                         onClick={() => {
-                            setSummonsContextDebtorKey(null);
-                            setSummonsHubInitialMainTab('guarantor');
-                            setShowUnifiedSummonsModal(true);
+                            onOpenUnifiedSummonsHub?.({
+                                debtorKey: null,
+                                initialMainTab: 'guarantor',
+                            }) ?? (() => {
+                                setSummonsContextDebtorKey?.(null);
+                                setSummonsHubInitialMainTab?.('guarantor');
+                                setShowUnifiedSummonsModal?.(true);
+                            })();
                         }}
                         className="mt-3 inline-flex w-full flex-row-reverse items-center justify-center gap-2 rounded-xl border border-cyan-500/25 bg-cyan-500/10 py-2.5 text-[11px] font-bold text-cyan-50 hover:bg-cyan-500/15"
                     >

@@ -2,6 +2,12 @@
  * Phase 31–36 — Quantum Task Engine + تفرع إجرائي ومتطلبات ورسوم.
  */
 
+import type {
+    CollaborationStatus,
+    ShareScope,
+    SharedTaskNote,
+} from '@/app/types/taskHelpTypes';
+
 export type LegalTaskStatus = 'pending' | 'completed' | 'delegated';
 
 /** فرع إجرائي (خطوة ميدانية ضمن المسار) */
@@ -55,4 +61,12 @@ export interface LegalTask {
     voiceRef: string | null;
     voiceTranscript: string | null;
     voiceDurationSec: number | null;
+    /** طلب مساعدة / تفويض — حقول اختيارية للتوافق مع المهام القديمة */
+    helpRequestId?: string;
+    requesterId?: string;
+    assigneeId?: string;
+    shareScope?: ShareScope;
+    collaborationStatus?: CollaborationStatus;
+    isSanitised?: boolean;
+    sharedNotes?: SharedTaskNote[];
 }

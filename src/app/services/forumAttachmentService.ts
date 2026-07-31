@@ -8,9 +8,11 @@ import {
     parseForumIdbPath,
     putForumBlob,
 } from '@/app/services/forumBlobStore';
+import { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
+
+export { isSafeForumAttachmentUrl } from '@/app/services/forum/forumUrlSafety';
 
 const IDB_PERSIST_TIMEOUT_MS = 4_000;
-const BLOCKED_URL_SCHEMES = /^(javascript|data:text\/html|vbscript):/i;
 
 function createCacheKey(): string {
     const cryptoObj = globalThis.crypto as Crypto | undefined;
@@ -106,7 +108,7 @@ export async function readCommunityAttachmentFile(attachment: CommunityAttachmen
     }
 
     const rawUrl = attachment.url?.trim();
-    if (rawUrl && !rawUrl.startsWith('blob:') && !BLOCKED_URL_SCHEMES.test(rawUrl)) {
+    if (rawUrl && !rawUrl.startsWith('blob:') && isSafeForumAttachmentUrl(rawUrl)) {
         return blobUrlToFile(rawUrl, fileName, mimeType);
     }
 
@@ -257,11 +259,11 @@ export async function resolveCommunityAttachmentUrl(
     }
 
     if (attachment.url?.startsWith('data:')) {
-        return attachment.url;
+        return isSafeForumAttachmentUrl(attachment.url) ? attachment.url : null;
     }
 
     const rawUrl = attachment.url?.trim();
-    if (rawUrl && !rawUrl.startsWith('blob:') && !BLOCKED_URL_SCHEMES.test(rawUrl)) {
+    if (rawUrl && !rawUrl.startsWith('blob:') && isSafeForumAttachmentUrl(rawUrl)) {
         return rawUrl;
     }
     if (rawUrl?.startsWith('blob:')) {

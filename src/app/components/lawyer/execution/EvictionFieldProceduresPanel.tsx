@@ -29,9 +29,7 @@ import {
     getNewestEvictionProcedureRowForBranch,
     isEvictionBranchResendBlocked,
     isEvictionProcedureRowActive,
-    isEvictionProcedureRowWorkflowComplete,
     isEvictionProcedureRowPending,
-    isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
@@ -1109,7 +1107,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                     hidden: { opacity: 1 },
                     show: { opacity: 1, transition: { staggerChildren: 0.06 } },
                 }}
-            >
+			>
                 {showResidentialEvictionGraceButton && onResidentialEvictionGraceClick ? (
                     <motion.button
                         type="button"
@@ -1540,7 +1538,7 @@ export const EvictionFieldProceduresPanel = React.memo(function EvictionFieldPro
                         )}
                     </div>
                 )}
-            </motion.div>
+   </motion.div>
         </div>
     );
 });

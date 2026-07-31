@@ -1,11 +1,4 @@
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 import { consumeRateLimitSlot } from '../security/wifeRateLimitStore.ts';
 import { sanitizePayload } from '../security/sanitizer.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
@@ -90,15 +83,9 @@ async function dispatchTwilio(params: {
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const subject = await getVerifiedTokenSubject(userToken);
-    if (!subject) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId: subject } = authGate;
 
     const allowed = await consumeRateLimitSlot(subject, {
       scope: 'comms',

@@ -91,10 +91,12 @@ describe('notificationStore', () => {
         expect(state.notifications[399]!.id).toBe('n-50');
     });
 
-    it('n5) Persistence: addNotification يستدعي repository.addNotification عند تسجيل userId', () => {
+    it('n5) Persistence: addNotification يستدعي repository.addNotification عند تسجيل userId', async () => {
         useNotificationStore.getState().setUserId('user-xyz');
         useNotificationStore.getState().addNotification(makeNotif('persist-1'));
-        expect(persistMock).toHaveBeenCalledTimes(1);
+        await vi.waitFor(() => {
+            expect(persistMock).toHaveBeenCalledTimes(1);
+        });
         expect(persistMock).toHaveBeenCalledWith('user-xyz', expect.objectContaining({ id: 'persist-1' }));
     });
 

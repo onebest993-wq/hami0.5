@@ -1,149 +1,315 @@
-import React from 'react';
-import { LayoutGrid, List, Search } from 'lucide-react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Archive, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
+import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import {
-    ARCHIVE_SEARCH_INPUT,
+    ARCHIVE_GLASS_ACTIVE_COMPACT,
     ARCHIVE_SEGMENT_BTN_ACTIVE,
-    ARCHIVE_SEGMENT_BTN_BASE,
     ARCHIVE_SEGMENT_BTN_CRIMINAL_ACTIVE,
     ARCHIVE_SEGMENT_BTN_INACTIVE,
-    ARCHIVE_SEGMENT_SHELL,
-    ARCHIVE_TOOLBAR_LABEL,
-    ARCHIVE_TOOLBAR_SECTION,
 } from '../archiveToolbarStyles';
 
 export type ArchiveDossierViewMode = 'grid' | 'compact';
 
-const JURISDICTION_TABS: { id: LawsuitJurisdictionTab; label: string }[] = [
-    { id: 'all', label: 'الكل' },
-    { id: 'civil', label: 'القضاء المدني' },
-    { id: 'personal', label: 'الأحوال الشخصية' },
-    { id: 'criminal', label: 'جزائي' },
+/** توافق أسماء قديمة — الاختصاص فقط بلا مستعجل */
+export type LawsuitWorkspaceFilterChip = LawsuitJurisdictionTab;
+
+export type LawsuitLifecycleViewMode = 'active' | 'archived' | 'trash';
+
+const JURISDICTION_TABS: { id: LawsuitJurisdictionTab; label: string; full: string }[] = [
+    { id: 'all', label: 'الكل', full: 'كل الاختصاصات' },
+    { id: 'civil', label: 'مدني', full: 'القضاء المدني' },
+    { id: 'personal', label: 'أحوال', full: 'الأحوال الشخصية' },
+    { id: 'criminal', label: 'جزائي', full: 'جزائي' },
 ];
+
+const LIFECYCLE_LABEL: Record<LawsuitLifecycleViewMode, string> = {
+    active: 'نشطة',
+    archived: 'أرشيف',
+    trash: 'سلة',
+};
 
 export type ArchiveDossierToolbarProps = {
     showJurisdictionTabs: boolean;
     jurisdictionTab: LawsuitJurisdictionTab;
     onJurisdictionTabChange: (value: LawsuitJurisdictionTab) => void;
-    searchOpen: boolean;
-    onToggleSearch: () => void;
+    /** @deprecated */
+    searchOpen?: boolean;
+    /** @deprecated */
+    onToggleSearch?: () => void;
     searchQuery: string;
     onSearchQueryChange: (value: string) => void;
     searchPlaceholder?: string;
     viewMode: ArchiveDossierViewMode;
     onViewModeChange: (mode: ArchiveDossierViewMode) => void;
+    /** @deprecated */
+    showUrgentChip?: boolean;
+    /** دمج النشطة/الأرشيف داخل لوحة الفلتر بجانب البحث */
+    lifecycleViewMode?: LawsuitLifecycleViewMode;
+    onLifecycleViewModeChange?: (mode: LawsuitLifecycleViewMode) => void;
+    archivedCount?: number;
+    trashedCount?: number;
 };
 
+/**
+ * شريط واحد فاخر: [فلاتر ▾] بحث [عرض]
+ * الفلاتر (حالة + اختصاص) تُفتح من زر واحد لتقليص الارتفاع.
+ */
 export const ArchiveDossierToolbar: React.FC<ArchiveDossierToolbarProps> = ({
     showJurisdictionTabs,
     jurisdictionTab,
     onJurisdictionTabChange,
-    searchOpen,
-    onToggleSearch,
     searchQuery,
     onSearchQueryChange,
-    searchPlaceholder = 'ابحث في الإضابير…',
+    searchPlaceholder = 'ابحث برقم أو اسم…',
     viewMode,
     onViewModeChange,
-}) => (
-    <div className={`${ARCHIVE_TOOLBAR_SECTION} space-y-2.5`}>
-        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
-                <button
-                    type="button"
-                    onClick={onToggleSearch}
-                    className={`${ARCHIVE_SEGMENT_BTN_BASE} inline-flex items-center gap-1.5 border ${
-                        searchOpen
-                            ? 'border-[#E6C673]/45 bg-[#E6C673]/12 text-[#E6C673]'
-                            : 'border-white/10 bg-[#0B1021]/60 text-white/70 hover:text-white'
-                    }`}
-                >
-                    <Search size={15} />
-                    بحث
-                </button>
+    lifecycleViewMode,
+    onLifecycleViewModeChange,
+    archivedCount = 0,
+    trashedCount = 0,
+}) => {
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const panelId = useId();
+    const hasLifecycle = Boolean(lifecycleViewMode && onLifecycleViewModeChange);
+    const showFilterButton = hasLifecycle || showJurisdictionTabs;
 
-                {showJurisdictionTabs ? (
-                    <div className="flex flex-wrap items-center gap-2 min-w-0">
-                        <span className={ARCHIVE_TOOLBAR_LABEL}>الاختصاص</span>
-                        <div className={ARCHIVE_SEGMENT_SHELL} role="tablist" aria-label="فلترة اختصاص الدعوى">
-                            {JURISDICTION_TABS.map((tab) => {
-                                const isActive = jurisdictionTab === tab.id;
-                                const isCriminal = tab.id === 'criminal';
-                                return (
-                                    <button
-                                        key={tab.id}
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={isActive}
-                                        data-testid={
-                                            isCriminal ? 'archive-tab-criminal' : `archive-jurisdiction-${tab.id}`
-                                        }
-                                        onClick={() => onJurisdictionTabChange(tab.id)}
-                                        onPointerEnter={() => {
-                                            if (isCriminal) prefetchCriminalDashboard();
-                                        }}
-                                        onFocus={() => {
-                                            if (isCriminal) prefetchCriminalDashboard();
-                                        }}
-                                        className={`${ARCHIVE_SEGMENT_BTN_BASE} ${
-                                            isActive
-                                                ? isCriminal
-                                                    ? ARCHIVE_SEGMENT_BTN_CRIMINAL_ACTIVE
-                                                    : ARCHIVE_SEGMENT_BTN_ACTIVE
-                                                : ARCHIVE_SEGMENT_BTN_INACTIVE
-                                        }`}
-                                    >
-                                        {tab.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
+    const jurisdictionLabel =
+        JURISDICTION_TABS.find((t) => t.id === jurisdictionTab)?.label ?? 'الكل';
+    const filterSummary = hasLifecycle
+        ? `${LIFECYCLE_LABEL[lifecycleViewMode!]} · ${jurisdictionLabel}`
+        : jurisdictionLabel;
+
+    useEffect(() => {
+        if (!filtersOpen) return;
+        const onPointerDown = (event: PointerEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setFiltersOpen(false);
+            }
+        };
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') setFiltersOpen(false);
+        };
+        document.addEventListener('pointerdown', onPointerDown);
+        document.addEventListener('keydown', onKeyDown);
+        return () => {
+            document.removeEventListener('pointerdown', onPointerDown);
+            document.removeEventListener('keydown', onKeyDown);
+        };
+    }, [filtersOpen]);
+
+    return (
+        <div dir="rtl" ref={rootRef} className="relative w-full px-4 sm:px-5 py-2 border-b border-white/[0.06]">
+            <div
+                className="flex h-11 w-full items-stretch overflow-hidden rounded-2xl border border-white/12 bg-white/[0.035] backdrop-blur-md shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]"
+                role="search"
+            >
+                {showFilterButton ? (
+                    <button
+                        type="button"
+                        data-testid="archive-jurisdiction-filters-toggle"
+                        aria-expanded={filtersOpen}
+                        aria-controls={panelId}
+                        onClick={() => setFiltersOpen((open) => !open)}
+                        className={`flex shrink-0 items-center gap-1.5 border-l border-white/10 px-2.5 text-[11px] font-bold transition-colors touch-manipulation ${
+                            filtersOpen
+                                ? ARCHIVE_SEGMENT_BTN_ACTIVE
+                                : 'text-white/70 hover:bg-white/[0.06] hover:text-white'
+                        }`}
+                    >
+                        <SlidersHorizontal size={14} aria-hidden />
+                        <span className="max-w-[7.5rem] truncate">{filterSummary}</span>
+                        <ChevronDown
+                            size={14}
+                            className={`opacity-70 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+                            aria-hidden
+                        />
+                    </button>
                 ) : null}
-            </div>
 
-            <div className="flex items-center gap-2 shrink-0 self-end lg:self-auto">
-                <span className={ARCHIVE_TOOLBAR_LABEL}>العرض</span>
-                <div className={`${ARCHIVE_SEGMENT_SHELL} p-0.5`}>
+                <label className="relative flex min-w-0 flex-1 items-center">
+                    <span className="sr-only">بحث في الإضابير</span>
+                    <Search
+                        className="pointer-events-none absolute right-3 text-white/40"
+                        size={15}
+                        aria-hidden
+                    />
+                    <input
+                        type="search"
+                        value={searchQuery}
+                        onChange={(e) => onSearchQueryChange(e.target.value)}
+                        placeholder={searchPlaceholder}
+                        className="h-full w-full bg-transparent pr-9 pl-3 text-sm text-white placeholder:text-white/35 outline-none focus:bg-white/[0.03]"
+                    />
+                </label>
+
+                <div
+                    className="flex shrink-0 items-center gap-0.5 border-r border-white/10 px-1"
+                    role="group"
+                    aria-label="نمط العرض"
+                >
                     <button
                         type="button"
                         title="عرض شبكي"
+                        aria-pressed={viewMode === 'grid'}
                         onClick={() => onViewModeChange('grid')}
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-colors ${
-                            viewMode === 'grid' ? 'bg-[#E6C673]/20 text-[#E6C673]' : 'text-white/50 hover:text-white'
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
+                            viewMode === 'grid'
+                                ? ARCHIVE_GLASS_ACTIVE_COMPACT
+                                : 'text-white/45 hover:bg-white/[0.06] hover:text-white'
                         }`}
                     >
-                        <LayoutGrid size={16} />
+                        <LayoutGrid size={15} />
                     </button>
                     <button
                         type="button"
                         title="عرض مضغوط"
+                        aria-pressed={viewMode === 'compact'}
                         onClick={() => onViewModeChange('compact')}
-                        className={`h-9 w-9 rounded-xl flex items-center justify-center transition-colors ${
-                            viewMode === 'compact' ? 'bg-[#E6C673]/20 text-[#E6C673]' : 'text-white/50 hover:text-white'
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors touch-manipulation ${
+                            viewMode === 'compact'
+                                ? ARCHIVE_GLASS_ACTIVE_COMPACT
+                                : 'text-white/45 hover:bg-white/[0.06] hover:text-white'
                         }`}
                     >
-                        <List size={16} />
+                        <List size={15} />
                     </button>
                 </div>
             </div>
-        </div>
 
-        {searchOpen ? (
-            <div className="relative">
-                <Search
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-white/35 pointer-events-none"
-                    size={17}
-                />
-                <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => onSearchQueryChange(e.target.value)}
-                    placeholder={searchPlaceholder}
-                    className={ARCHIVE_SEARCH_INPUT}
-                />
-            </div>
-        ) : null}
-    </div>
-);
+            {filtersOpen ? (
+                <div
+                    id={panelId}
+                    className="absolute inset-x-4 sm:inset-x-5 top-[calc(100%-0.25rem)] z-40 rounded-2xl border border-white/12 bg-[#0B1021]/96 p-3 shadow-[0_20px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl"
+                    role="dialog"
+                    aria-label="فلاتر المخزن"
+                >
+                    {hasLifecycle ? (
+                        <div className="mb-3">
+                            <p className="mb-1.5 px-0.5 text-[10px] font-bold tracking-wide text-white/40">
+                                الحالة
+                            </p>
+                            <div
+                                className="flex flex-wrap gap-1.5"
+                                role="tablist"
+                                aria-label="حالة الإضابير"
+                            >
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={lifecycleViewMode === 'active'}
+                                    data-testid="lawsuits-view-active"
+                                    onClick={() => onLifecycleViewModeChange?.('active')}
+                                    className={`min-h-[40px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                        lifecycleViewMode === 'active'
+                                            ? ARCHIVE_SEGMENT_BTN_ACTIVE
+                                            : ARCHIVE_SEGMENT_BTN_INACTIVE
+                                    }`}
+                                >
+                                    الإضابير النشطة
+                                </button>
+                                <button
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={lifecycleViewMode === 'archived'}
+                                    data-testid="lawsuits-view-archived"
+                                    onClick={() => onLifecycleViewModeChange?.('archived')}
+                                    className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                        lifecycleViewMode === 'archived'
+                                            ? 'bg-amber-950/45 text-amber-100 border border-amber-500/30'
+                                            : ARCHIVE_SEGMENT_BTN_INACTIVE
+                                    }`}
+                                >
+                                    <Archive size={13} aria-hidden />
+                                    الأرشيف
+                                    {lifecycleViewMode !== 'archived' && archivedCount > 0 ? (
+                                        <span className="min-w-[1.1rem] h-4 rounded-full bg-amber-600 px-1 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                                            {archivedCount > 9 ? '9+' : archivedCount}
+                                        </span>
+                                    ) : null}
+                                </button>
+                                {(trashedCount > 0 || lifecycleViewMode === 'trash') && (
+                                    <button
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={lifecycleViewMode === 'trash'}
+                                        data-testid="lawsuits-trash-toggle"
+                                        onClick={() => onLifecycleViewModeChange?.('trash')}
+                                        className={`inline-flex min-h-[40px] items-center gap-1.5 rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                            lifecycleViewMode === 'trash'
+                                                ? 'bg-rose-950/50 text-rose-100 border border-rose-500/30'
+                                                : ARCHIVE_SEGMENT_BTN_INACTIVE
+                                        }`}
+                                    >
+                                        <Trash2 size={13} aria-hidden />
+                                        السلة
+                                        {lifecycleViewMode !== 'trash' && trashedCount > 0 ? (
+                                            <span className="min-w-[1.1rem] h-4 rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white inline-flex items-center justify-center">
+                                                {trashedCount > 9 ? '9+' : trashedCount}
+                                            </span>
+                                        ) : null}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {showJurisdictionTabs ? (
+                        <div>
+                            <p className="mb-1.5 px-0.5 text-[10px] font-bold tracking-wide text-white/40">
+                                الاختصاص
+                            </p>
+                            <div
+                                className="flex flex-wrap gap-1.5"
+                                role="tablist"
+                                aria-label="فلترة اختصاص الدعوى"
+                            >
+                                {JURISDICTION_TABS.map((tab) => {
+                                    const isActive = jurisdictionTab === tab.id;
+                                    const isCriminal = tab.id === 'criminal';
+                                    return (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            role="tab"
+                                            aria-selected={isActive}
+                                            title={tab.full}
+                                            data-testid={
+                                                isCriminal
+                                                    ? 'archive-tab-criminal'
+                                                    : `archive-jurisdiction-${tab.id}`
+                                            }
+                                            onClick={() => onJurisdictionTabChange(tab.id)}
+                                            onPointerEnter={() => {
+                                                if (isCriminal) prefetchCriminalDashboard();
+                                            }}
+                                            onFocus={() => {
+                                                if (isCriminal) prefetchCriminalDashboard();
+                                            }}
+                                            className={`min-h-[40px] rounded-xl px-3 text-[11px] font-bold touch-manipulation ${
+                                                isActive
+                                                    ? isCriminal
+                                                        ? ARCHIVE_SEGMENT_BTN_CRIMINAL_ACTIVE
+                                                        : ARCHIVE_SEGMENT_BTN_ACTIVE
+                                                    : ARCHIVE_SEGMENT_BTN_INACTIVE
+                                            }`}
+                                        >
+                                            {tab.full}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {lifecycleViewMode === 'trash' ? (
+                        <p className="mt-3 text-[11px] leading-relaxed text-amber-200/75">
+                            تبقى الإضابير هنا حتى تحذفها نهائياً بنفسك. يمكنك استرجاعها في أي وقت.
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
+        </div>
+    );
+};

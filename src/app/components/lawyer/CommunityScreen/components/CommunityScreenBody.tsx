@@ -1,6 +1,5 @@
 import type { MutableRefObject } from 'react';
 import { Suspense, useEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
 
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
@@ -17,14 +16,19 @@ import {
     prefetchCommunityRepositorySection,
 } from '@/app/components/lawyer/CommunityScreen/communityScreenLazySections';
 import {
-    FORUM_PUBLISH_BTN,
-    FORUM_PUBLISH_BTN_DISABLED,
+    FORUM_PUBLISH_FAB,
+    FORUM_PUBLISH_FAB_DISABLED,
+    FORUM_PUBLISH_FAB_ICON,
+    FORUM_PUBLISH_FAB_LABEL,
+    FORUM_PUBLISH_FAB_SLOT,
 } from '@/app/components/lawyer/CommunityScreen/forumPlumTheme';
 import { prefetchCommunityAddQuestionOverlay } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { HomePlusIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 export type CommunityScreenBodyProps = {
     onBack?: () => void;
+    forumSurfaceOpen?: boolean;
     activeSection: CommunitySection;
     onSectionChange: (section: CommunitySection) => void;
     onSearchOpen: () => void;
@@ -111,6 +115,7 @@ export type CommunityScreenBodyProps = {
 export function CommunityScreenBody(props: CommunityScreenBodyProps) {
     const {
         onBack,
+        forumSurfaceOpen = true,
         activeSection,
         onSectionChange,
         onSearchOpen,
@@ -228,6 +233,7 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
         <>
             <ForumAppBar
                 onBack={onBack}
+                forumSurfaceOpen={forumSurfaceOpen}
                 activeSection={activeSection}
                 onSectionChange={onSectionChange}
                 onSearchOpen={onSearchOpen}
@@ -243,6 +249,8 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                 onRepositoryTypeChange={onRepositoryTypeChange}
                 repositorySelectedTag={repositorySelectedTag}
                 onRepositoryTagChange={onRepositoryTagChange}
+                groupsSearchQuery={groupsSearchQuery}
+                onGroupsSearchQueryChange={onGroupsSearchQueryChange}
                 followingCount={followingRecords.length}
                 onOpenFollowing={onOpenFollowing}
                 forumFeedScope={forumFeedScope}
@@ -275,11 +283,11 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                 >
                     {forumFeedScope === 'following' ? (
                         <div className="px-4 pt-2 pb-1 flex items-center justify-between gap-2">
-                            <p className="text-[#F0B896]/80 text-[11px] font-bold">عرض منشورات المحامين الذين تتابعهم</p>
+                            <p className="text-[#C9A86C]/80 text-[11px] font-bold">عرض منشورات المحامين الذين تتابعهم</p>
                             <button
                                 type="button"
                                 onClick={() => onForumFeedScopeChange('all')}
-                                className="text-[10px] text-white/45 hover:text-[#F0B896] font-bold"
+                                className="text-[10px] text-[#9AA3B2] hover:text-[#C9A86C] font-bold"
                             >
                                 الكل
                             </button>
@@ -313,6 +321,7 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                                 selectedType={repositorySelectedType}
                                 sortBy={repositorySortBy}
                                 selectedTag={repositorySelectedTag}
+                                surfaceOpen={forumSurfaceOpen}
                             />
                         </Suspense>
                     ) : null}
@@ -350,48 +359,24 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                 </div>
             </div>
 
-            <div className="fixed bottom-0 left-0 right-0 h-[180px] bg-gradient-to-t from-[#0E0812] via-[#140A18]/95 to-transparent pointer-events-none z-10" />
+            <div className="fixed bottom-0 left-0 right-0 h-[140px] bg-gradient-to-t from-[#0A0F1C]/90 via-[#0A0F1C]/40 to-transparent pointer-events-none z-10" />
 
-            {activeSection === 'forum' ? (
-                <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-6 z-20">
+            {activeSection === 'forum' || (activeSection === 'groups' && activeGroupId) ? (
+                <div className={FORUM_PUBLISH_FAB_SLOT} data-testid="forum-publish-fab-slot">
                     <button
                         type="button"
                         data-testid="forum-add-question-fab"
                         onClick={onOpenAddQuestion}
                         onPointerEnter={prefetchCommunityAddQuestionOverlay}
-                        className={`flex min-h-[52px] items-center gap-2.5 rounded-[1.35rem] border px-5 py-3 text-sm font-black shadow-[0_18px_36px_rgba(0,0,0,0.24)] transition-all duration-150 ${
-                            canPublishPost
-                                ? 'border-[#F7C7A7]/70 bg-[linear-gradient(135deg,#F0B896_0%,#F8C7A7_100%)] text-[#2A1520] hover:-translate-y-0.5 hover:shadow-[0_22px_42px_rgba(240,184,150,0.24)] active:translate-y-0'
-                                : FORUM_PUBLISH_BTN_DISABLED
-                        }`}
+                        className={`pointer-events-auto ${canPublishPost ? FORUM_PUBLISH_FAB : FORUM_PUBLISH_FAB_DISABLED}`}
                         disabled={!canPublishPost}
                         aria-disabled={!canPublishPost}
+                        aria-label="النشر"
                     >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2A1520]/10">
-                            <Plus size={18} />
+                        <span className={FORUM_PUBLISH_FAB_ICON}>
+                            <HomePlusIcon size={20} strokeWidth={2.5} />
                         </span>
-                        <span>نشر</span>
-                    </button>
-                </div>
-            ) : activeSection === 'groups' && activeGroupId ? (
-                <div className="absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-6 z-20">
-                    <button
-                        type="button"
-                        data-testid="forum-add-question-fab"
-                        onClick={onOpenAddQuestion}
-                        onPointerEnter={prefetchCommunityAddQuestionOverlay}
-                        className={`flex min-h-[52px] items-center gap-2.5 rounded-[1.35rem] border px-5 py-3 text-sm font-black shadow-[0_18px_36px_rgba(0,0,0,0.24)] transition-all duration-150 ${
-                            canPublishPost
-                                ? 'border-[#F7C7A7]/70 bg-[linear-gradient(135deg,#F0B896_0%,#F8C7A7_100%)] text-[#2A1520] hover:-translate-y-0.5 hover:shadow-[0_22px_42px_rgba(240,184,150,0.24)] active:translate-y-0'
-                                : FORUM_PUBLISH_BTN_DISABLED
-                        }`}
-                        disabled={!canPublishPost}
-                        aria-disabled={!canPublishPost}
-                    >
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#2A1520]/10">
-                            <Plus size={18} />
-                        </span>
-                        <span>نشر</span>
+                        <span className={FORUM_PUBLISH_FAB_LABEL}>النشر</span>
                     </button>
                 </div>
             ) : null}

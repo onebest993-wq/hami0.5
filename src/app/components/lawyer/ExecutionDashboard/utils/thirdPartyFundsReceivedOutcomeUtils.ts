@@ -5,7 +5,7 @@ import {
     creditThirdPartyFundsToTrustLedger,
     type ThirdPartyFundsTrustCreditResult,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartySeizureFinancialUtils';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { getExecutorDecisionRowById } from '@/app/utils/executorSeizureDecisionQueue';
 
 export type ThirdPartyFundsReceivedPayload = {

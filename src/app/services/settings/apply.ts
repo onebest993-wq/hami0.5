@@ -121,15 +121,28 @@ export function hasPersistedWallpaper(): boolean {
 /** لون سطح معتم — لا يُخلط مع transparent عند وجود صورة خلفية */
 const WALLPAPER_SOLID_SURFACE = '#0B1021';
 
-export function applyWallpaperSurfaceVars(hasWallpaper: boolean, themeKey: ThemeKey): void {
+function cssWallpaperUrl(src: string): string {
+    return `url("${src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
+}
+
+export function applyWallpaperSurfaceVars(
+    hasWallpaper: boolean,
+    themeKey: ThemeKey,
+    wallpaperSrc?: string | null,
+): void {
     const t = LAWYER_THEME_TOKENS[themeKey] ?? LAWYER_THEME_TOKENS.gold;
     const root = document.documentElement;
     if (hasWallpaper) {
         root.style.setProperty('--hami-surface-bg', WALLPAPER_SOLID_SURFACE);
         root.dataset.hamiWallpaper = '1';
+        const src = wallpaperSrc ?? loadPersistedWallpaper();
+        if (src) {
+            root.style.setProperty('--hami-wallpaper-image', cssWallpaperUrl(src));
+        }
     } else {
         root.style.setProperty('--hami-surface-bg', t.bg);
         root.dataset.hamiWallpaper = '0';
+        root.style.removeProperty('--hami-wallpaper-image');
     }
 }
 
@@ -144,7 +157,7 @@ export function applySettingsToDom(settings: AppSettingsState) {
     root.style.setProperty('--hami-font-size', `${appearance.fontSize}px`);
     applyLawyerThemeCssVars(appearance.theme as ThemeKey);
     const wallpaper = loadPersistedWallpaper();
-    applyWallpaperSurfaceVars(Boolean(wallpaper), appearance.theme as ThemeKey);
+    applyWallpaperSurfaceVars(Boolean(wallpaper), appearance.theme as ThemeKey, wallpaper);
     root.dataset.hamiTheme = appearance.theme;
     root.dataset.hamiShape = appearance.shape;
     const colorMode = resolveThemeMode(appearance.themeMode);
@@ -156,6 +169,9 @@ export function applySettingsToDom(settings: AppSettingsState) {
     root.dataset.hamiCompact = BUILTIN_COMPACT_MODE ? '1' : '0';
     root.dataset.hamiHighContrast = appearance.highContrast ? '1' : '0';
     root.dataset.hamiReduceMotion = appearance.reduceMotion || !performance.enableAnimations ? '1' : '0';
+    root.dataset.hamiAnimations =
+        !appearance.reduceMotion && performance.enableAnimations ? '1' : '0';
+    root.dataset.hamiPrefetch = performance.prefetchScreens ? '1' : '0';
 
     root.dataset.hamiBgPreset = appearance.backgroundPreset ?? 'none';
     document.body.style.backgroundImage = '';

@@ -25,8 +25,32 @@ export function dismissTransientOverlays(except?: TransientOverlayId): void {
 
 let lockCount = 0;
 let prevBodyOverflow = '';
+let prevBodyOverflowY = '';
 let prevHtmlOverflow = '';
+let prevHtmlOverflowY = '';
+let scrollClampBound = false;
 const lockCleanups = new Set<() => void>();
+
+function clampDocumentScrollToTop(): void {
+    if (typeof window === 'undefined') return;
+    if (window.scrollY !== 0 || document.documentElement.scrollTop !== 0 || document.body.scrollTop !== 0) {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    }
+}
+
+function bindScrollClamp(): void {
+    if (scrollClampBound || typeof window === 'undefined') return;
+    scrollClampBound = true;
+    window.addEventListener('scroll', clampDocumentScrollToTop, { passive: true, capture: true });
+}
+
+function unbindScrollClamp(): void {
+    if (!scrollClampBound || typeof window === 'undefined') return;
+    scrollClampBound = false;
+    window.removeEventListener('scroll', clampDocumentScrollToTop, true);
+}
 
 /** يحرّر كل أقفال التمرير النشطة — يُستدعى فقط عند إغلاق طبقات متداخلة أو تنظيف طارئ */
 export function releaseBodyScrollLock(): void {
@@ -40,11 +64,16 @@ export function releaseBodyScrollLock(): void {
 export function reconcileBodyScrollLock(): void {
     if (typeof document === 'undefined') return;
     if (lockCount > 0) return;
-    const bodyHidden = document.body.style.overflow === 'hidden';
-    const htmlHidden = document.documentElement.style.overflow === 'hidden';
+    const bodyHidden =
+        document.body.style.overflow === 'hidden' || document.body.style.overflowY === 'hidden';
+    const htmlHidden =
+        document.documentElement.style.overflow === 'hidden' ||
+        document.documentElement.style.overflowY === 'hidden';
     if (bodyHidden || htmlHidden) {
         document.body.style.overflow = prevBodyOverflow || '';
+        document.body.style.overflowY = prevBodyOverflowY || '';
         document.documentElement.style.overflow = prevHtmlOverflow || '';
+        document.documentElement.style.overflowY = prevHtmlOverflowY || '';
     }
     if (document.body.style.touchAction === 'none' && !document.documentElement.dataset.hamiHomeDragActive) {
         document.body.style.touchAction = '';
@@ -73,9 +102,23 @@ export function getBodyScrollLockDebugState(): {
     }
     return {
         lockCount,
-        bodyOverflow: document.body.style.overflow,
-        htmlOverflow: document.documentElement.style.overflow,
+        bodyOverflow: document.body.style.overflow || document.body.style.overflowY,
+        htmlOverflow: document.documentElement.style.overflow || document.documentElement.style.overflowY,
     };
+}
+
+function applyLockedOverflow(): void {
+    document.body.style.overflow = 'hidden';
+    document.body.style.overflowY = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overflowY = 'hidden';
+}
+
+function restoreUnlockedOverflow(): void {
+    document.body.style.overflow = prevBodyOverflow;
+    document.body.style.overflowY = prevBodyOverflowY;
+    document.documentElement.style.overflow = prevHtmlOverflow;
+    document.documentElement.style.overflowY = prevHtmlOverflowY;
 }
 
 export function lockBodyScroll(): () => void {
@@ -83,17 +126,20 @@ export function lockBodyScroll(): () => void {
 
     if (lockCount === 0) {
         prevBodyOverflow = document.body.style.overflow;
+        prevBodyOverflowY = document.body.style.overflowY;
         prevHtmlOverflow = document.documentElement.style.overflow;
-        document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
+        prevHtmlOverflowY = document.documentElement.style.overflowY;
+        applyLockedOverflow();
+        clampDocumentScrollToTop();
+        bindScrollClamp();
     }
     lockCount += 1;
 
     const releaseOne = () => {
         lockCount = Math.max(0, lockCount - 1);
         if (lockCount === 0) {
-            document.body.style.overflow = prevBodyOverflow;
-            document.documentElement.style.overflow = prevHtmlOverflow;
+            unbindScrollClamp();
+            restoreUnlockedOverflow();
         }
     };
 

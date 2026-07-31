@@ -69,7 +69,7 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
     return createPortal(
         <div
             role="presentation"
-            className="fixed inset-0 bg-[#05060D]/82 backdrop-blur-md"
+            className="fixed inset-0 flex flex-col bg-[#05060D]/82 backdrop-blur-md"
             style={{ zIndex: z }}
             onClick={(e) => {
                 if (e.target === e.currentTarget) handleClose();
@@ -79,12 +79,12 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="law-reference-title"
-                className="fixed inset-x-0 bottom-0 flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom)))] w-full min-h-0 flex-col overflow-hidden rounded-t-[1.5rem] border border-[#E6C673]/20 bg-[#0A0F1C] shadow-2xl sm:inset-x-auto sm:inset-y-0 sm:start-0 sm:bottom-auto sm:h-full sm:max-h-none sm:w-full sm:max-w-md sm:rounded-none sm:rounded-e-[1.5rem] sm:border-y sm:border-e sm:border-s-0"
+                className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#0A0F1C] pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]"
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
                 data-testid="execution-law-reference-panel"
             >
-                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3.5 pt-[max(0.75rem,env(safe-area-inset-top))] sm:pt-3.5">
+                <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-700/50 px-4 py-3.5">
                     <button
                         type="button"
                         onPointerDown={(e) => {
@@ -108,13 +108,15 @@ export const LawReferencePanel: React.FC<LawReferencePanelProps> = ({
                     </div>
                     <span className="w-10 shrink-0" aria-hidden />
                 </div>
-                {articlesReady ? (
-                    <ExecutionLawReferencePanel executionType={executionType} />
-                ) : (
-                    <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
-                        <p className="text-sm text-slate-500">جاري تجهيز المرجع القانوني…</p>
-                    </div>
-                )}
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    {articlesReady ? (
+                        <ExecutionLawReferencePanel executionType={executionType} />
+                    ) : (
+                        <div className="flex min-h-0 flex-1 items-center justify-center px-4 py-8">
+                            <p className="text-sm text-slate-500">جاري تجهيز المرجع القانوني…</p>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>,
         document.body,

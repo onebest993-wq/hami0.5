@@ -113,4 +113,5 @@ export type ExecutionDashboardCorePersistHandlerPipelineInput = {
     seizedAssetsSnapshotRef: { current: SeizedAsset[] };
     maritalFurnitureItemsForFollowup: unknown[];
     setActiveCoerciveActions: (v: unknown[]) => void;
+    isRepresentingDebtor?: boolean;
 };

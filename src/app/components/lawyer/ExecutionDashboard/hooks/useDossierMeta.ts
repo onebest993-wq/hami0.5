@@ -1,6 +1,30 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { fileHasSpecificDeliveryClaim } from '@/app/utils/executionDossierHeaderFields';
+
+function resolveInstrumentDocNumber(file: ExecutionFile | null | undefined, fallback = ''): string {
+    if (!file) return String(fallback ?? '').trim();
+    const row = file as ExecutionFile & {
+        chequeNumber?: string;
+        shariaDeedNumber?: string;
+    };
+    return String(
+        row.docNumber || row.chequeNumber || row.shariaDeedNumber || fallback || '',
+    ).trim();
+}
+
+function resolveInstrumentJudgmentDate(file: ExecutionFile | null | undefined, fallback = ''): string {
+    if (!file) return String(fallback ?? '').trim().slice(0, 10);
+    const row = file as ExecutionFile & {
+        chequeIssueDate?: string;
+        shariaIssueDate?: string;
+    };
+    return String(
+        row.judgmentDate || row.chequeIssueDate || row.shariaIssueDate || fallback || '',
+    )
+        .trim()
+        .slice(0, 10);
+}
 
 export function useDossierMeta(
     executionData: ExecutionFile | null | undefined,
@@ -29,8 +53,9 @@ export function useDossierMeta(
             fileYear: String(executionData?.fileYear ?? fileYear ?? ''),
             docType: String(executionData?.docType ?? ''),
             claimType: String(executionData?.claimType ?? ''),
-            docNumber: String(executionData?.docNumber ?? docNumber ?? ''),
-            judgmentDate: String(executionData?.judgmentDate ?? judgmentDate ?? '').slice(0, 10),
+            docNumber: resolveInstrumentDocNumber(executionData, docNumber),
+            judgmentDate: resolveInstrumentJudgmentDate(executionData, judgmentDate),
+            // التصنيف غير قابل للتعديل من هذه الواجهة — يُحفظ كما هو
             classification: String(executionData?.classification ?? classification ?? ''),
             property_number: String(evictionPropertyNumber ?? ''),
             district: String(evictionPropertyDistrict ?? ''),
@@ -78,7 +103,9 @@ export function useDossierMeta(
             claimType: dossierMetaDraft.claimType,
             docNumber: dossierMetaDraft.docNumber,
             judgmentDate: dossierMetaDraft.judgmentDate,
-            classification: dossierMetaDraft.classification,
+            classification: String(
+                executionData?.classification ?? dossierMetaDraft.classification ?? '',
+            ),
         };
         const specificDeliveryPatch = fileHasSpecificDeliveryClaim({
             ...executionData,
@@ -119,12 +146,20 @@ export function useDossierMeta(
         showToast('تم حفظ بيانات الإضبارة', 'success');
     }, [dossierMetaDraft, executionData, isEvictionExecutionModule, persistExecutionMerge, showToast]);
 
-    return {
-        showEditDossierMetaModal,
-        dossierMetaDraft,
-        setShowEditDossierMetaModal,
-        setDossierMetaDraft,
-        openEditDossierMeta,
-        saveDossierMetaDraft,
-    };
+    return useMemo(
+        () => ({
+            showEditDossierMetaModal,
+            dossierMetaDraft,
+            setShowEditDossierMetaModal,
+            setDossierMetaDraft,
+            openEditDossierMeta,
+            saveDossierMetaDraft,
+        }),
+        [
+            dossierMetaDraft,
+            openEditDossierMeta,
+            saveDossierMetaDraft,
+            showEditDossierMetaModal,
+        ],
+    );
 }

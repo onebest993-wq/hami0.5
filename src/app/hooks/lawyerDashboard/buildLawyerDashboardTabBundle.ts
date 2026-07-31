@@ -8,21 +8,34 @@ import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import type { useLawyerDashboardNavigation } from '@/app/hooks/useLawyerDashboardNavigation';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import { coerceExecutionFilePreserveId } from '@/app/components/lawyer/LawyerDashboardParts/utils';
-import { CalendarBridge, resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { coerceExecutionFilePreserveId, isRecord, resolveOpenableFileData } from '@/app/components/lawyer/LawyerDashboardParts/utils';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { quickNoteTitle } from '@/app/components/lawyer/dashboard/quickNoteUtils';
 import { voiceNoteTitleFromMeta } from '@/app/services/voice/voiceNoteCodec';
 import { createLawyerDashboardHeaderPrefetch } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderPrefetch';
 import { computeLawyerDashboardHeaderShouldShow } from '@/app/hooks/lawyerDashboard/lawyerDashboardHeaderVisibility';
-import { warmExecutionDossier, warmExecutionWorkspace, warmLawsuitWorkspace } from '@/app/utils/lazyComponents';
 import {
-    loadExecutionArchiveHubModule,
     loadLawsuitArchiveHubModule,
     hydrateArchiveHubForInstantOpen,
 } from '@/app/runtime/hubArchiveLoader';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
-import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import type { ClusterScanSources } from '@/app/workspace/useClusterScanSources';
+import { resolveShellAuthUserId, isRealSignedIn } from '@/app/services/auth/shellAuth';
+import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
+import { openLawsuitDossierWithContract } from '@/app/runtime/lawsuitOpenContract';
+import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
+
+function warmLawsuitWorkspaceIntent(options?: { includeSecondary?: boolean; secondaryDelayMs?: number }) {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.warmLawsuitWorkspace(options))
+        .catch(() => undefined);
+}
+
+function warmExecutionWorkspaceIntent(options?: { includeSecondary?: boolean; secondaryDelayMs?: number }) {
+    // مسار مباشر — بلا hop عبر lazyComponentsIntent
+    void import('@/app/runtime/executionWorkspaceWarm')
+        .then((m) => m.warmExecutionWorkspace(options))
+        .catch(() => undefined);
+}
 
 export type LawyerDashboardTabBundleParams = {
     user: { id?: string };
@@ -40,7 +53,6 @@ export type LawyerDashboardTabBundleParams = {
     enterHomeLayoutEdit: () => void;
     exitHomeLayoutEdit: () => void;
     homeTabSessionKey: number;
-    homeHubCardSessionKey: number;
     homeDockChromeSessionKey: number;
     isNewCaseModalOpen: boolean;
     isNotepadOpen: boolean;
@@ -76,6 +88,8 @@ export type LawyerDashboardTabBundleParams = {
     dismissAppAlert: (alertId: string) => void;
     handleAlertResolved: (alert: SecretaryAlert) => void;
     setArchiveType: (type: LawyerArchiveOverlay) => void;
+    /** تسليح keep-alive لمخزن التنفيذ قبل/عند الفتح */
+    armExecutionArchiveHost?: () => void;
     openNormalNewCaseModal: () => void;
     openCommunityTab: () => void;
     setLawsuitsDossierSection: (section: 'all' | 'civil' | 'personal' | 'criminal') => void;
@@ -177,14 +191,9 @@ export function buildLawyerDashboardTabBundle(
                       shouldShow: computeLawyerDashboardHeaderShouldShow(headerVisibilityInput),
                       unreadCount: params.notificationsUnreadCount,
                       onProfileClick: params.openProfileTab,
-                      onProfilePointerEnter: () => {
-                          headerPrefetch.onProfilePointerEnter();
-                          params.primeProfileTabMount();
-                      },
-                      onProfilePointerDown: () => {
-                          headerPrefetch.onProfilePointerDown();
-                          params.primeProfileTabMount();
-                      },
+                      onProfilePointerEnter: headerPrefetch.onProfilePointerEnter,
+                      onProfilePointerDown: headerPrefetch.onProfilePointerDown,
+                      profileExpanded: params.activeTab === 'profile',
                       onSearchClick: params.openGlobalSearch,
                       onSearchPointerEnter: headerPrefetch.onSearchPointerEnter,
                       onSearchPointerDown: headerPrefetch.onSearchPointerDown,
@@ -211,9 +220,8 @@ export function buildLawyerDashboardTabBundle(
             previous && canReuseHomeTabProps(previous.params, params)
                 ? previous.result.homeTabProps
                 : {
-            visible: params.activeTab === 'home',
+            visible: params.activeTab === 'home' || params.activeTab === 'profile',
             homeTabSessionKey: params.homeTabSessionKey,
-            homeHubCardSessionKey: params.homeHubCardSessionKey,
             homeDockChromeSessionKey: params.homeDockChromeSessionKey,
             homeLayoutEditMode: params.homeLayoutEditMode,
             onExitHomeLayoutEdit: params.exitHomeLayoutEdit,
@@ -227,6 +235,8 @@ export function buildLawyerDashboardTabBundle(
             onDismissAlert: params.dismissAppAlert,
             onAlertResolved: params.handleAlertResolved,
             onAcceptedConvertToCase: () => {
+                const shellUid = resolveShellAuthUserId(params.authUserId, params.user?.id);
+                if (!isRealSignedIn(shellUid)) return;
                 params.setArchiveType('client_requests');
                 params.openNormalNewCaseModal();
             },
@@ -234,6 +244,9 @@ export function buildLawyerDashboardTabBundle(
             theme: params.theme,
             shapeClass: params.shapeClass,
             onOpenArchive: (id) => {
+                const shellUid = resolveShellAuthUserId(params.authUserId, params.user?.id);
+                if (!isRealSignedIn(shellUid)) return;
+
                 params.closeNotepad();
                 dismissTransientOverlays();
                 params.closeTransactionsHub();
@@ -245,24 +258,26 @@ export function buildLawyerDashboardTabBundle(
                 }
 
                 if (id === 'lawsuit') {
-                    warmLawsuitWorkspace();
+                    // أول فتح: Host غالباً مركَّب مسبقاً بعد interactive؛ warm يعيد prime بعد idle-release
+                    warmLawsuitWorkspaceIntent({ includeSecondary: false, secondaryDelayMs: 2_000 });
+                    void import('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost').catch(() => undefined);
                     params.setArchiveType(null);
                     params.setLawsuitsDossierSection('all');
                     params.setLawsuitsWorkspaceTab('civil');
                     params.setShowLawsuitsWorkspace(true);
                     void hydrateArchiveHubForInstantOpen('lawsuit');
                     void loadLawsuitArchiveHubModule().catch(() => undefined);
-                    void import('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost').catch(() => undefined);
                     return;
                 }
 
                 if (id === 'execution') {
-                    warmExecutionWorkspace();
+                    params.armExecutionArchiveHost?.();
+                    void import('@/app/runtime/executionArchiveOpenSession').then((m) =>
+                        m.prefetchExecutionArchiveOpen(),
+                    );
+                    warmExecutionWorkspaceIntent({ includeSecondary: false, secondaryDelayMs: 1_200 });
                     params.setShowLawsuitsWorkspace(false);
                     params.setArchiveType('execution');
-                    void hydrateArchiveHubForInstantOpen('execution');
-                    void loadExecutionArchiveHubModule().catch(() => undefined);
-                    void import('@/app/components/lawyer/dashboard/ExecutionArchiveOverlayHost').catch(() => undefined);
                 }
             },
             userId: params.user?.id || '',
@@ -292,12 +307,14 @@ export function buildLawyerDashboardTabBundle(
             onAddNote: async (note) => {
                 const id = note.id;
                 if (note.type === 'schedule') {
-                    CalendarBridge.syncNoteReminder({
-                        userId: resolveCalendarUserId(params.user?.id),
-                        noteId: String(id),
-                        date: new Date().toISOString(),
-                        title: note.content.trim().slice(0, 80) || 'موعد سريع',
-                        body: note.content,
+                    void import('@/app/services/calendar/bridge/legacyCalendarBridge').then(({ CalendarBridge }) => {
+                        CalendarBridge.syncNoteReminder({
+                            userId: resolveCalendarUserId(params.user?.id),
+                            noteId: String(id),
+                            date: new Date().toISOString(),
+                            title: note.content.trim().slice(0, 80) || 'موعد سريع',
+                            body: note.content,
+                        });
                     });
                 }
                 const title =
@@ -340,18 +357,38 @@ export function buildLawyerDashboardTabBundle(
             onBackToHome: params.backToHomeFromSchedule,
             files: params.files,
             executionFiles: params.executionFiles,
-            onOpenLawsuitFile: (f) => params.setActiveFile(f),
+            onOpenLawsuitFile: (f) => {
+                const shellUid = resolveShellAuthUserId(params.authUserId, params.user?.id);
+                if (!isRealSignedIn(shellUid)) return;
+                const resolved = resolveOpenableFileData(f, params.files);
+                if (!resolved) return;
+                openLawsuitDossierWithContract(() => params.setActiveFile(resolved));
+            },
             onOpenExecutionFile: (ex) => {
-                warmExecutionDossier('urgent');
-                params.setActiveFile(coerceExecutionFilePreserveId(ex));
+                const shellUid = resolveShellAuthUserId(params.authUserId, params.user?.id);
+                if (!isRealSignedIn(shellUid)) return;
+                const id = isRecord(ex) ? ex.id : undefined;
+                const fromPool =
+                    id != null
+                        ? params.executionFiles.find((row) => String(row.id) === String(id))
+                        : undefined;
+                if (!fromPool) return;
+                openExecutionDossierWithContract(() => {
+                    params.setActiveFile(coerceExecutionFilePreserveId(fromPool));
+                });
             },
             onOpenCriminalCase: params.openCriminalCase,
             onOpenUrgentCase: (caseId) => {
                 params.openUrgentInLawsuitsWorkspace(caseId);
             },
             onOpenTransaction: (entityId, file) => {
+                const shellUid = resolveShellAuthUserId(params.authUserId, params.user?.id);
+                if (!isRealSignedIn(shellUid)) return;
                 if (file) {
-                    params.setActiveFile(file);
+                    const resolved = resolveOpenableFileData(file, params.files);
+                    if (resolved) {
+                        openLawsuitDossierWithContract(() => params.setActiveFile(resolved));
+                    }
                     return;
                 }
                 params.setTransactionsFocusId(entityId);
@@ -404,14 +441,18 @@ function canReuseHeaderProps(
     );
 }
 
+function isHomeStackTab(tab: LawyerDashboardTab): boolean {
+    return tab === 'home' || tab === 'profile';
+}
+
 function canReuseHomeTabProps(
     previous: LawyerDashboardTabBundleParams,
     next: LawyerDashboardTabBundleParams,
 ): boolean {
     return (
-        previous.activeTab === next.activeTab &&
+        (previous.activeTab === next.activeTab ||
+            (isHomeStackTab(previous.activeTab) && isHomeStackTab(next.activeTab))) &&
         previous.homeTabSessionKey === next.homeTabSessionKey &&
-        previous.homeHubCardSessionKey === next.homeHubCardSessionKey &&
         previous.homeDockChromeSessionKey === next.homeDockChromeSessionKey &&
         previous.homeLayoutEditMode === next.homeLayoutEditMode &&
         previous.exitHomeLayoutEdit === next.exitHomeLayoutEdit &&

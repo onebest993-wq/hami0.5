@@ -102,6 +102,28 @@ describe('LawyerDashboard utils', () => {
         expect(fromString.notes).toBe('ملاحظة تنفيذ');
     });
 
+    it('coerceExecutionFilePreserveId keeps instrument fields from creation payload', () => {
+        const normalized = coerceExecutionFilePreserveId({
+            id: 'exec-instrument',
+            type: 'execution',
+            status: 'active',
+            classification: 'مدني',
+            docType: 'قرارات وأحكام المحاكم',
+            docNumber: '441/ب/2024',
+            judgmentDate: '2024-06-15',
+            claimType: 'مبلغ نقدي',
+            directorate: 'مديرية تنفيذ الكرخ',
+            fileNumber: '100',
+            fileYear: '2026',
+        });
+        expect(normalized.docType).toBe('قرارات وأحكام المحاكم');
+        expect(normalized.docNumber).toBe('441/ب/2024');
+        expect(normalized.judgmentDate).toBe('2024-06-15');
+        expect(normalized.claimType).toBe('مبلغ نقدي');
+        expect(normalized.classification).toBe('مدني');
+        expect(normalized.directorate).toBe('مديرية تنفيذ الكرخ');
+    });
+
     it('mapLawsuitFilesToLegalCases يحوّل الأطراف والحالة', () => {
         const file = buildFileDataFromNewCaseSave({
             mainCategory: 'lawsuit',

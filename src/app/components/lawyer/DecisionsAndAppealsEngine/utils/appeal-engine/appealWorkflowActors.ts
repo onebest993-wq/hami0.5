@@ -1,28 +1,14 @@
-import { createElement, type ReactNode } from 'react';
-import { stripEmojisFromText } from '@/app/utils/timelineSmartDisplay';
-import type { ExecutionDecisionAppealPhase, ExecutionDecisionHubStatus } from '@/app/types/execution';
 import type { Decision } from '../../types';
+
+
 import {
-    decisionCardGlassClasses,
-    type DecisionCardEnforcementVisual,
-} from '../../decisionCardGlassShell';
-import {
-    appealCreditorRequestPauseGateMessage,
-    appealCreditorRequestRevokedGateMessage,
-    appealRelabelTimelineMessage,
-    isAppealResultFavorableToDebtorClient,
     type AppealUiPerspective,
 } from '../../appealUiLabels';
 import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
 import {
-    EXECUTOR_QUEUE_REQUEST_KINDS,
     hubWithInferredAppealOrigin,
-    inferDecisionAppealRequestOrigin,
     isCreditorInitiatedExecutorRequest,
     isCreditorExecutorAppealSubject,
-    isCreditorPartyRequest,
-    isDecisionLikeRow,
-    resolveRequestFilerFromDebtorAgentView,
     resolveRequestProponent,
 } from '../appealRequestOrigin';
 import { isManualExecutorLedgerDecision } from './manualExecutorIdentity';
@@ -84,7 +70,14 @@ export function resolveHarmedPartyAppealActor(
     d: Decision,
     perspective: AppealUiPerspective = 'creditor_agent'
 ): 'lawyer' | 'debtor' | null {
-    if (d.appealRequestOrigin === 'executor_side') return null;
+    if (d.appealRequestOrigin === 'executor_side') {
+        const ex = d.executorOutcome;
+        if (d.activatedByExecutorOrder === true || d.requestKind === 'personal_coercive') {
+            if (ex === 'approved' || ex === 'alternative') return 'debtor';
+            if (ex === 'rejected') return 'lawyer';
+        }
+        return null;
+    }
     const proponent = resolveRequestProponent(d, perspective);
     const ex = d.executorOutcome;
     if (ex === 'approved' || ex === 'alternative') {

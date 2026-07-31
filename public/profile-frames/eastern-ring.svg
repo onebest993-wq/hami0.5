@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" aria-hidden="true">
+  <defs>
+    <linearGradient id="rim" x1="18" y1="12" x2="180" y2="188" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5EEAD4"/>
+      <stop offset="0.45" stop-color="#E6C673"/>
+      <stop offset="1" stop-color="#2DD4BF"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="40" y1="30" x2="160" y2="170" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#134E4A"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <radialGradient id="petal" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#F9A8D4" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#FB7185" stop-opacity="0.15"/>
+    </radialGradient>
+  </defs>
+
+  <!-- -DB) 'D%7'1 AB7  'DE1C2 4A'A ('DC'ED -->
+  <path
+    fill="url(#ink)"
+    fill-rule="evenodd"
+    opacity="0.88"
+    d="M100 14c47.5 0 86 38.5 86 86s-38.5 86-86 86-86-38.5-86-86 38.5-86 86-86zm0 22c-35.3 0-64 28.7-64 64s28.7 64 64 64 64-28.7 64-64-28.7-64-64-64z"
+  />
+  <circle cx="100" cy="100" r="93" stroke="url(#rim)" stroke-width="2.4" opacity="0.95"/>
+  <circle cx="100" cy="100" r="82.5" stroke="#E6C673" stroke-width="1.2" opacity="0.55"/>
+  <circle
+    cx="100"
+    cy="100"
+    r="88"
+    stroke="#5EEAD4"
+    stroke-width="5.5"
+    stroke-dasharray="1.8 6.2"
+    stroke-linecap="round"
+    opacity="0.55"
+  />
+  <circle
+    cx="100"
+    cy="100"
+    r="88"
+    stroke="#E6C673"
+    stroke-width="1"
+    stroke-dasharray="0.8 10"
+    stroke-linecap="round"
+    opacity="0.7"
+    transform="rotate(8 100 100)"
+  />
+
+  <!-- 2.'1A 9DI 'D-'A) AB7 (DJ3* 5H1) .DAJ)) -->
+  <g opacity="0.92">
+    <circle cx="100" cy="16" r="3.2" fill="url(#petal)"/>
+    <circle cx="178" cy="78" r="2.6" fill="url(#petal)"/>
+    <circle cx="164" cy="156" r="3" fill="url(#petal)"/>
+    <circle cx="36" cy="148" r="2.4" fill="url(#petal)"/>
+    <circle cx="24" cy="64" r="2.8" fill="url(#petal)"/>
+  </g>
+  <g stroke="#E6C673" stroke-width="1.1" stroke-linecap="round" opacity="0.75">
+    <path d="M100 8c4 6 7 10 7 14"/>
+    <path d="M100 8c-4 6-7 10-7 14"/>
+    <path d="M186 100c-6 3-10 6-14 7"/>
+    <path d="M186 100c-6-3-10-6-14-7"/>
+    <path d="M14 100c6 3 10 6 14 7"/>
+    <path d="M14 100c6-3 10-6 14-7"/>
+  </g>
+</svg>

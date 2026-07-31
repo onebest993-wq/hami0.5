@@ -18,6 +18,11 @@ import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hub
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
 import type { CaseStage } from '../../LawyerShared';
+import {
+    canRequestCassationCorrection,
+    findCassationStageIndex,
+} from '../smartFile/extraordinaryAppealGateway';
+import { isCassationStageName } from '../smartFile/judgmentTypes';
 
 const EXTRAORDINARY_APPEAL_TYPES = {
     retrial: 'إعادة المحاكمة',
@@ -37,6 +42,8 @@ interface LegalActionsMenuProps {
     setShowCaseConsolidationModal?: (v: boolean) => void;
     setShowCaseLinkModal?: (v: boolean) => void;
     setShowCorrespondenceModal?: (v: boolean) => void;
+    stages?: CaseStage[];
+    viewingStageIndex?: number;
 }
 
 type ActionItem = {
@@ -95,6 +102,8 @@ export const LegalActionsMenu = ({
     setShowCaseConsolidationModal,
     setShowCaseLinkModal,
     setShowCorrespondenceModal,
+    stages = [],
+    viewingStageIndex = -1,
 }: LegalActionsMenuProps) => {
     const T = useSmartFileModalTheme();
     const isPearl = T.variant === 'personal-pearl';
@@ -112,7 +121,14 @@ export const LegalActionsMenu = ({
         displayStage?.timeline?.some((e) => e.type === 'decision');
     const caseStatus = parentData?.status ?? '';
     const isFinal = caseStatus === 'مكتسبة الدرجة القطعية';
-    const isCassation = displayStage?.stageName === 'التمييز';
+    const isCassation = isCassationStageName(displayStage?.stageName ?? currentStageName);
+    const cassationStageIndex =
+        viewingStageIndex >= 0 && isCassationStageName(stages[viewingStageIndex]?.stageName)
+            ? viewingStageIndex
+            : findCassationStageIndex(stages);
+    const correctionAvailable =
+        isCassation &&
+        canRequestCassationCorrection(stages, cassationStageIndex, caseStatus);
     const isActive = displayStage?.status === 'active' && !isFinal;
 
     const coreActions: ActionItem[] = [];
@@ -153,7 +169,7 @@ export const LegalActionsMenu = ({
                 onClick: wrap(() => setShowExtraordinaryAppealModal(EXTRAORDINARY_APPEAL_TYPES.retrial)),
             });
         }
-        if (isCassation) {
+        if (correctionAvailable) {
             extraordinaryActions.push({
                 key: 'cassation_correction',
                 label: EXTRAORDINARY_APPEAL_TYPES.cassation_correction,

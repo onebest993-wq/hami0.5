@@ -6,7 +6,6 @@ import type {
 } from '@/app/services/cloud/lawyerTransactionTypes';
 import {
     getTransactionsThreadingLocalKey,
-    mirrorTransactionsThreadingLocalSync,
     parseTransactionsThreadingState,
     peekTransactionsThreadingState,
 } from '@/app/services/transactions/transactionsThreadingMirror';

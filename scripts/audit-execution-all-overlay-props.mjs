@@ -3,10 +3,11 @@
  */
 import fs from 'node:fs';
 import { resolveExecutionChunkScopeKeys } from './lib/resolveExecutionChunkScopeKeys.mjs';
+import { isExecutionShellExplicitCloseProp } from './lib/executionShellExplicitCloseProps.mjs';
 
 const ROOT = 'src/app/components/lawyer/ExecutionDashboard';
 const SHELL_KEYS_PATH = `${ROOT}/hooks/executionShellOverlayPropKeys.ts`;
-const CORE_PATH = `${ROOT}/hooks/useExecutionDashboardCore.ts`;
+const _CORE_PATH = `${ROOT}/hooks/useExecutionDashboardCore.ts`;
 const PORTAL_KEYS_PATH = `${ROOT}/hooks/pickSeizedPropertyPortalProps.ts`;
 
 const OVERLAY_S_FILES = [
@@ -36,8 +37,8 @@ function extractConstKeys(content, constName) {
 }
 
 function extractRequiredTypeProps(src, typeName) {
-    const iface = src.match(new RegExp(`export interface ${typeName} \\{([\\s\\S]*?)\\n\\}`));
-    const typeAlias = src.match(new RegExp(`export type ${typeName} = \\{([\\s\\S]*?)\\n\\};`));
+    const iface = src.match(new RegExp(`export interface ${typeName} \\{([\\s\\S]*?)\n\\}`));
+    const typeAlias = src.match(new RegExp(`export type ${typeName} = \\{([\\s\\S]*?)\n\\};`));
     const body = iface?.[1] ?? typeAlias?.[1];
     if (!body) return [];
     const required = [];
@@ -66,13 +67,14 @@ const portalKeys = extractConstKeys(
     fs.readFileSync(PORTAL_KEYS_PATH, 'utf8'),
     'SEIZED_PROPERTY_PORTAL_PROP_KEYS',
 );
-const core = fs.readFileSync(CORE_PATH, 'utf8');
-const scopeKeys = resolveExecutionChunkScopeKeys(core);
+const scopeKeys = resolveExecutionChunkScopeKeys();
 
 let failed = false;
 
 const sUsed = collectSProps(OVERLAY_S_FILES);
-const sMissingRegistry = [...sUsed].filter((k) => !shellKeys.has(k)).sort();
+const sMissingRegistry = [...sUsed]
+    .filter((k) => !shellKeys.has(k) && !isExecutionShellExplicitCloseProp(k))
+    .sort();
 const sMissingScope = sMissingRegistry.filter((k) => !scopeKeys.has(k));
 console.log(`[overlay-s-props] ${sUsed.size} s.* usages across ${OVERLAY_S_FILES.length} files`);
 if (sMissingRegistry.length) {
@@ -88,8 +90,12 @@ if (!sMissingRegistry.length && !sMissingScope.length) console.log('  OK');
 for (const source of TYPED_OVERLAY_SOURCES) {
     const src = fs.readFileSync(source.file, 'utf8');
     const required = extractRequiredTypeProps(src, source.typeName);
-    const missingRegistry = required.filter((k) => !shellKeys.has(k));
-    const missingScope = required.filter((k) => !scopeKeys.has(k));
+    const missingRegistry = required.filter(
+        (k) => !shellKeys.has(k) && !isExecutionShellExplicitCloseProp(k),
+    );
+    const missingScope = required.filter(
+        (k) => !scopeKeys.has(k) && !isExecutionShellExplicitCloseProp(k),
+    );
     console.log(`[${source.label}] ${required.length} required typed props`);
     if (missingRegistry.length) {
         failed = true;

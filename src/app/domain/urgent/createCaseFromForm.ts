@@ -71,6 +71,10 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
             ? data.deadlineDays
             : defaultDeadlineDays;
     const derivedDeadline = new Date(requestDate.getTime() + deadlineDays * msPerDay);
+    const firstHearingYmd =
+        typeof data.firstHearingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.firstHearingDate.trim())
+            ? data.firstHearingDate.trim()
+            : null;
 
     const newCaseBase: UrgentCase = {
         id: uuidv4(),
@@ -110,7 +114,7 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
         allParty2: Array.isArray(data.allParty2) ? data.allParty2 : undefined,
         representedParty: resolveRepresentedParty(data),
         deadlineDate: derivedDeadline,
-        sessionDate: null,
+        sessionDate: pathway !== 'state_order' && firstHearingYmd ? firstHearingYmd : null,
         notificationDate: null,
         deadlineDays,
         preDecisionClosed: startDefenderPhase3 ? true : false,
@@ -170,9 +174,7 @@ export function createCaseFromForm(data: UrgentFormSavePayload, opts?: CreateCas
             typeof data.stateOrderIssuedDate === 'string' &&
             /^\d{4}-\d{2}-\d{2}$/.test(data.stateOrderIssuedDate)
                 ? data.stateOrderIssuedDate
-                : typeof data.firstHearingDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(data.firstHearingDate)
-                  ? data.firstHearingDate
-                  : null,
+                : firstHearingYmd,
         isNotificationConfirmed: false,
         grievanceResult: null,
         archived: false,

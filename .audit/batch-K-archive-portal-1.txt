@@ -1,0 +1,21 @@
+# K-archive-portal batch 1 — 20 files / 4114 lines
+src/app/components/lawyer/ArchivePortal/ArchivePortalChrome.tsx  (526 lines)
+src/app/components/lawyer/ArchivePortal/components/ExecutionSmartCard.tsx  (445 lines)
+src/app/components/lawyer/ArchivePortal/executionArchiveFilterUtils.ts  (376 lines)  [@ts-nocheck]
+src/app/components/lawyer/ArchivePortal/utils.ts  (318 lines)
+src/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar.tsx  (316 lines)
+src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveToolbar.tsx  (304 lines)
+src/app/components/lawyer/ArchivePortal/executionArchiveCardViewLite.ts  (261 lines)
+src/app/components/lawyer/ArchivePortal/__tests__/executionArchiveFilterUtils.test.ts  (255 lines)
+src/app/components/lawyer/ArchivePortal/archiveFinancialSync.ts  (240 lines)  [@ts-nocheck]
+src/app/components/lawyer/ArchivePortal/components/UnifiedDossierCard.tsx  (239 lines)
+src/app/components/lawyer/ArchivePortal/components/ExecutionArchiveFileGrid.tsx  (170 lines)
+src/app/components/lawyer/ArchivePortal/components/ArchivePortalExecutionPreviewModal.tsx  (151 lines)
+src/app/components/lawyer/ArchivePortal/executionArchiveEnrichment.ts  (142 lines)
+src/app/components/lawyer/ArchivePortal/components/ArchiveDossierIdentityBlock.tsx  (109 lines)
+src/app/components/lawyer/ArchivePortal/components/__tests__/ExecutionArchiveToolbar.test.tsx  (84 lines)
+src/app/components/lawyer/ArchivePortal/components/ExecutionArchivePartyBlock.tsx  (60 lines)
+src/app/components/lawyer/ArchivePortal/__tests__/executionArchiveLifecycle.test.ts  (36 lines)
+src/app/components/lawyer/ArchivePortal/ArchivePortalExecutionSurface.tsx  (31 lines)
+src/app/components/lawyer/ArchivePortal/hooks/useExecutionArchiveCardLiveRevision.ts  (30 lines)
+src/app/components/lawyer/ArchivePortal/__tests__/archiveDossierCardCohesion.test.ts  (21 lines)

@@ -26,20 +26,30 @@ export function useSettingsLifecycle(
     useEffect(() => {
         if (!open || reportedRef.current) return;
 
-        return observeSettingsSectionInteractive({
+        const markInteractiveNow = () => {
+            if (reportedRef.current) return;
+            reportedRef.current = true;
+            markSettingsPerfPhase('interactive');
+            reportSettingsPerf({
+                userId: userId ?? undefined,
+                activeSection,
+                hadChunkCached: isHamiSettingsModuleResolved(),
+            });
+            onHydrated?.();
+        };
+
+        const stopObserve = observeSettingsSectionInteractive({
             activeSection,
             isDone: () => reportedRef.current,
-            onInteractive: () => {
-                if (reportedRef.current) return;
-                reportedRef.current = true;
-                markSettingsPerfPhase('interactive');
-                reportSettingsPerf({
-                    userId: userId ?? undefined,
-                    activeSection,
-                    hadChunkCached: isHamiSettingsModuleResolved(),
-                });
-                onHydrated?.();
-            },
+            onInteractive: markInteractiveNow,
         });
+
+        /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخّر القسم (S1/S9) */
+        const fallback = window.setTimeout(markInteractiveNow, 1_200);
+
+        return () => {
+            stopObserve();
+            window.clearTimeout(fallback);
+        };
     }, [activeSection, onHydrated, open, userId]);
 }

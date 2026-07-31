@@ -1,0 +1,22 @@
+{
+  "savedAt": "2026-07-31T21:12:21.451Z",
+  "totalErrors": 242,
+  "byRule": {
+    "@typescript-eslint/ban-ts-comment": 195,
+    "react/jsx-closing-tag-location": 12,
+    "react-hooks/rules-of-hooks": 29,
+    "react/jsx-closing-bracket-location": 5,
+    "@typescript-eslint/no-unused-expressions": 1
+  },
+  "crashFiles": [
+    "src/app/components/lawyer/DecisionsHub.stability.test.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodySecondarySections.tsx",
+    "src/app/components/lawyer/ExecutionDashboard/components/ExecutorDecisionFollowupMirror.tsx",
+    "src/app/components/lawyer/dashboard/quickNoteDraft.ts",
+    "src/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock.tsx",
+    "src/app/components/lawyer/execution/OtherPartyActionsLog.tsx",
+    "src/app/services/caseShare/caseShareLocalStore.ts",
+    "src/app/services/vaultBlobStore.ts",
+    "src/app/services/voice/voiceNoteStorage.ts"
+  ]
+}

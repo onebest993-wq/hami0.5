@@ -1,13 +1,10 @@
 import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
 import { hydrateProfileShellForInstantOpenWithData } from '@/app/runtime/profileBootHydrator';
 import { prefetchProfileData } from '@/app/services/profile/profileWarmCache';
-import {
-    prefetchProfileCanvasFxCore,
-    prefetchProfileCanvasStudioFx,
-} from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
-import { prefetchProfileSettingsSheet } from '@/app/utils/lazyComponents';
+import { prefetchProfileCanvasFxCore } from '@/app/components/lawyer/RoyalLawyerProfile/profileCanvasFxLoader';
+import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
-import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
+import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsSnapshot';
 import { prefetchLawyerDashboardProfileTabShell } from '@/app/runtime/lawyerDashboardProfileTabLoader';
 
 function shouldAggressiveProfileWarm(): boolean {
@@ -22,14 +19,13 @@ function shouldAggressiveProfileWarm(): boolean {
     return true;
 }
 
-/** عند hover/لمس الملف المهني: chunk + بيانات + FX أساسي + استوديو */
+/** عند hover/لمس الملف المهني: chunk + بيانات + FX أساسي (بلا استوديو ثقيل) */
 export function warmProfileOnHover(userId?: string | null): void {
     prefetchLawyerDashboardProfileTabShell();
     prefetchProfileHubModule();
-    prefetchProfileSettingsSheet();
-    prefetchProfileCanvasFxCore();
+    prefetchProfileSettingsSheetModule();
     if (shouldAggressiveProfileWarm()) {
-        prefetchProfileCanvasStudioFx();
+        prefetchProfileCanvasFxCore();
     }
     if (userId?.trim()) {
         prefetchProfileData(userId);
@@ -38,7 +34,7 @@ export function warmProfileOnHover(userId?: string | null): void {
 
 /**
  * عند فتح التبويب: shell + chunk فوراً + بيانات الشبكة فوراً (بلا انتظار microtask).
- * FX/studio يُكمَّل بعد paint — بلا حجب flushSync.
+ * FX أساسي بعد paint — بلا prefetch استوديو ثقيل.
  */
 export function warmProfileOnOpen(userId?: string | null): void {
     prefetchLawyerDashboardProfileTabShell();
@@ -47,10 +43,9 @@ export function warmProfileOnOpen(userId?: string | null): void {
         prefetchProfileData(userId);
     }
     queueMicrotask(() => {
-        prefetchProfileSettingsSheet();
-        prefetchProfileCanvasFxCore();
+        prefetchProfileSettingsSheetModule();
         if (!shouldAggressiveProfileWarm()) return;
         if (typeof document !== 'undefined' && document.hidden) return;
-        prefetchProfileCanvasStudioFx();
+        prefetchProfileCanvasFxCore();
     });
 }

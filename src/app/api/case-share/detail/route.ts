@@ -1,10 +1,4 @@
-import {
-    extractUserTokenFromRequest,
-    getVerifiedTokenSubject,
-    isTokenAuthorized,
-    assertWifeSignatureRequest,
-    wifeUnauthorizedResponse,
-} from '../../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { CaseShareRepository } from '../../../services/caseShare/caseShareRepository.ts';
 
 function json(status: number, body: unknown): Response {
@@ -15,15 +9,9 @@ function json(status: number, body: unknown): Response {
 }
 
 async function auth(request: Request): Promise<{ userId: string } | Response> {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-        return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-    const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-    const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    return { userId };
+    const unwrapped = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in unwrapped) return unwrapped.response;
+    return { userId: unwrapped.userId };
 }
 
 /** تفاصيل جلسة مشاركة — بعد الموافقة فقط للمستقبل */

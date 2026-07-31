@@ -1,0 +1,28 @@
+/**
+ * ستارة المهام — إظهار بنواة المنتدى/المستودع:
+ * visibility + opacity (لا display:none) حتى تبقى الطبقة مُركَّبة وجاهزة.
+ */
+
+.hami-field-tasks-layer {
+    opacity: 0;
+    transition: none;
+}
+
+.hami-field-tasks-layer--visible {
+    opacity: 1;
+}
+
+.hami-field-tasks-layer:not(.hami-field-tasks-layer--visible) {
+    pointer-events: none !important;
+    visibility: hidden;
+}
+
+.hami-field-tasks-layer--snap {
+    transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-field-tasks-layer {
+        transition: none;
+    }
+}

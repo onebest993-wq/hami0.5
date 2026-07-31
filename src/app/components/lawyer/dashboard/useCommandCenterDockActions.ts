@@ -85,7 +85,11 @@ export function useCommandCenterDockActions({
 
     const openSmartRepository = useCallback(() => {
         dismissTransientOverlays('repository');
-        if (onOpenRepository) onOpenRepository({ tab: 'vault' });
+        void import('@/app/runtime/repositoryBootHydrator')
+            .then((m) => m.dispatchRepositoryPrimeHost())
+            .catch(() => undefined);
+        /* المستودع الموحّد — تبويب المفكرة / فلتر «الكل» (لا وسائط فقط) */
+        if (onOpenRepository) onOpenRepository({ tab: 'notepad' });
         else onOpenFullNotepad?.();
     }, [onOpenFullNotepad, onOpenRepository]);
 

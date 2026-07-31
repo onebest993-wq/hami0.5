@@ -1,35 +1,13 @@
 import React, { useState } from 'react';
 import {
-    AlertTriangle,
-    Check,
     Gavel,
-    Lock,
-    PauseCircle,
-    RotateCcw,
-    Trash2,
     X,
 } from 'lucide-react';
-import type { AffiliationSide, Party, ThirdPartyEntryMode } from '../../../LawyerShared';
-import { TimelineEvent } from '../../../LawyerShared';
-import {
-    affiliationSideLabel,
-    groupPartiesBySide,
-} from '../../smartFile/incidentalCaseLinking';
+
+
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import {
-    GLASS_BTN,
-    GLASS_CHIP,
-    GLASS_CHIP_ACTIVE,
-    GLASS_CLOSE,
-    GLASS_FIELD,
-    GLASS_MODAL_HEADER,
-    GLASS_MODAL_OVERLAY,
-    GLASS_MODAL_SHELL,
-    GLASS_SELECT,
-    MoroccanCloseButton,
-    MoroccanGlassShell,
-    MoroccanHeaderDivider,
-} from '../../smartFile/moroccanGlassShell';
+
+
 import type { TransitionModalProps } from '../../smartFile/modalFormTypes';
 
 export const TransitionModal = ({ isOpen, onClose, onConfirm, nextStageName, currentParties = [] }: TransitionModalProps) => {

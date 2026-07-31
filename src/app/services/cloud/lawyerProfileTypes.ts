@@ -21,6 +21,16 @@ export interface ProfileStat {
     value: string;
 }
 
+/** عنصر معرض الملف — URL مع تركيز/تكبير اختياري */
+export type ProfileGalleryItem = {
+    url: string;
+    focusX: number;
+    focusY: number;
+    zoom: number;
+    /** مسار التخزين السحابي — لتنظيف الوسائط اليتيمة */
+    storagePath?: string;
+};
+
 export type ProfileLocationMode = 'gps' | 'manual';
 
 export interface ProfileAction {
@@ -35,7 +45,7 @@ export interface ProfileAction {
 export interface LawyerProfileSection {
     id: string;
     type: 'stats' | 'bio' | 'gallery' | 'actions';
-    data: ProfileStat[] | string[] | string | ProfileAction[];
+    data: ProfileStat[] | string[] | string | ProfileAction[] | ProfileGalleryItem[];
 }
 
 export interface LawyerProfileData {

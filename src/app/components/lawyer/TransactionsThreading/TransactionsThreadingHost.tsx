@@ -40,9 +40,9 @@ function TransactionsLoadError({ onRetry, onBack }: { onRetry: () => void; onBac
     );
 }
 
-/** يحمّل hub المعاملات مرة واحدة — الفتح التالي فوري بعد أول resolve */
+/** يحمّل hub المعاملات مرة واحدة — keepAlive يسخّن مخفياً؛ الفتح = InstantShell أو System */
 export function TransactionsThreadingHost(props: TransactionsThreadingSystemProps): React.ReactElement | null {
-    const { open, onBack } = props;
+    const { open = true, keepAlive = false, onBack } = props;
     const [Component, setComponent] = useState<TransactionsThreadingSystemComponent | null>(() =>
         getCachedTransactionsThreadingSystem(),
     );
@@ -54,7 +54,14 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
         setLoadGeneration((g) => g + 1);
     }, []);
 
+    /* kick أثناء الرسم إن فُتح/دُفئ بلا كاش */
+    if ((open || keepAlive) && !Component && typeof window !== 'undefined') {
+        void loadTransactionsHubModule().catch(() => undefined);
+    }
+
     useLayoutEffect(() => {
+        if (!open && !keepAlive) return;
+
         const cached = getCachedTransactionsThreadingSystem();
         if (cached) {
             setComponent(() => cached);
@@ -91,18 +98,30 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
         return () => {
             cancelled = true;
         };
-    }, [loadGeneration]);
+    }, [open, keepAlive, loadGeneration]);
 
     useLayoutEffect(() => {
-        if (!open) return;
+        if (!open && !keepAlive) return;
         void hydrateTransactionsShellForInstantOpen();
-        void import('@/app/modules/transactionsThreading/store').catch(() => undefined);
-    }, [open]);
+        void import('@/app/modules/transactionsThreading/store')
+            .then((m) => {
+                const uid = props.userId?.trim();
+                if (uid) return m.warmTransactionsThreadingStore(uid);
+                return undefined;
+            })
+            .catch(() => undefined);
+    }, [open, keepAlive, props.userId]);
+
+    if (!open && !keepAlive) {
+        return null;
+    }
 
     if (Component) {
+        /* keepAlive: أبقِ System في DOM مخفياً — الفتح = إظهار بلا InstantShell/remount */
         return <Component {...props} />;
     }
 
+    /* تسخين صامت — بلا InstantShell فوق اللوحة */
     if (!open) {
         return null;
     }

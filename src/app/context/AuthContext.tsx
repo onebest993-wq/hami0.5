@@ -17,6 +17,7 @@ import React, {
     useCallback,
     useContext,
     useEffect,
+    useLayoutEffect,
     useMemo,
     useState,
     type ReactNode,
@@ -31,6 +32,7 @@ import {
     readDevMockAccessToken,
     readDevMockUser,
 } from '@/app/utils/authStorage';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 import {
     getDevMockLawyerSession,
     resolveDevMockLawyerSession,
@@ -104,6 +106,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [user, setUser] = useState<User | null>(boot.user);
     const [session, setSession] = useState<Session | null>(boot.session);
     const [isLoading, setIsLoading] = useState(false);
+
+    useLayoutEffect(() => {
+        setLiveAuthUserId(user?.id ?? null);
+    }, [user]);
 
     useEffect(() => {
         if (!boot.session) return;

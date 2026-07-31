@@ -2,7 +2,11 @@ import type { ForumNotification } from '@/app/services/forum/forumTypes';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { mapForumNotificationToModel } from '@/app/services/notifications/forumNotificationMapper';
 
-export const FORUM_UNREAD_CHANGED_EVENT = 'hami:forum-unread-changed';
+/** إعادة تصدير أحداث الشارة — المصدر الذري: forumNotificationEvents (لا تُسحَب مع LawyerDashboard). */
+export {
+    FORUM_UNREAD_CHANGED_EVENT,
+    emitForumUnreadCount,
+} from '@/app/services/forum/forumNotificationEvents';
 
 /** مزامنة إشعارات المنتدى → notificationStore (معرّف موحّد، بدون AuditLog). */
 export function syncForumNotificationsToAppStore(userId: string, notifications: ForumNotification[]): number {
@@ -16,11 +20,4 @@ export function syncForumNotificationsToAppStore(userId: string, notifications: 
 
     useNotificationStore.getState().upsertNotifications(models);
     return models.length;
-}
-
-export function emitForumUnreadCount(count: number, options?: { refresh?: boolean }): void {
-    if (typeof window === 'undefined') return;
-    window.dispatchEvent(
-        new CustomEvent(FORUM_UNREAD_CHANGED_EVENT, { detail: { count, refresh: options?.refresh === true } }),
-    );
 }

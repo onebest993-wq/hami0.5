@@ -1,17 +1,28 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { isTaskOnFieldCurtain } from '@/app/utils/fieldCurtain';
-import { isTaskMarkedDone } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import {
+    isTaskDayOverdueIncomplete,
+    isTaskMarkedDone,
+} from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { fieldTaskDueYmd } from '@/app/services/fieldTaskAlerts';
+import { localTodayYmd } from '@/app/services/alertFutureGate';
 
 /** مهام مثبتة على الستارة وغير منجزة */
 export function listActiveFieldCurtainTasks(tasks: LegalTask[]): LegalTask[] {
     return sortFieldCurtainTasks(tasks.filter((t) => isTaskOnFieldCurtain(t) && !isTaskMarkedDone(t)));
 }
 
-/** مهام تظهر في ستارة «مهام اليوم» — فقط المثبتة صراحةً عبر زر ستارة الميدان */
+/** مهام تظهر في ستارة «مهام اليوم» — مثبتة، أو مستحقة اليوم/متأخرة (غير حتمية). */
 export function isEligibleFieldDaySheetTask(task: LegalTask, _now = new Date()): boolean {
-    if (task.status !== 'pending' || isTaskMarkedDone(task)) return false;
-    return isTaskOnFieldCurtain(task);
+    if (task.status !== 'pending' && task.status !== 'delegated') return false;
+    if (isTaskMarkedDone(task)) return false;
+    if (isTaskOnFieldCurtain(task)) return true;
+    /** الحتمية غير المثبتة تبقى في قسم المواعيد — لا تُدرج تلقائياً في الستارة */
+    if (task.isFatalDeadline) return false;
+    if (isTaskDayOverdueIncomplete(task, _now)) return true;
+    const dueYmd = fieldTaskDueYmd(task);
+    if (!dueYmd) return false;
+    return dueYmd === localTodayYmd(_now);
 }
 
 export function listFieldDaySheetTasks(tasks: LegalTask[], now = new Date()): LegalTask[] {

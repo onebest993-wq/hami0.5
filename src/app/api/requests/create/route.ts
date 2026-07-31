@@ -1,11 +1,10 @@
 import {
   enforceTokenActorBinding,
   extractUserTokenFromRequest,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
+  wifeForbiddenResponse,
   wifeUnauthorizedResponse,
 } from '../../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { sanitizePayload } from '../../security/sanitizer.ts';
 
 type LegalRequestRow = {
@@ -94,12 +93,12 @@ function isLegalRequestRow(value: unknown): value is LegalRequestRow {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
     const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
+    if (!userToken) {
       return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
 
     const payload = sanitizePayload((await request.json().catch(() => null)) as unknown);
 

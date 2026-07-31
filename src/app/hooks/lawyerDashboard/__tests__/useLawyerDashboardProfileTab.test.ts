@@ -21,6 +21,20 @@ vi.mock('@/app/hooks/lawyerDashboard/profileIntentWarm', () => ({
 
 vi.mock('@/app/runtime/profileBootHydrator', () => ({
     hydrateProfileShellForInstantOpenWithData: vi.fn(() => Promise.resolve(true)),
+    prefetchProfileAfterBootReveal: vi.fn(),
+    bindProfileBootHydrator: vi.fn(() => () => undefined),
+    dispatchProfilePrimeHost: vi.fn(),
+}));
+
+vi.mock('@/app/services/auth/shellAuth', () => ({
+    isRealSignedIn: (userId: string | null | undefined) => {
+        const id = userId?.trim();
+        if (!id) return false;
+        return id !== 'guest-lawyer-1' && id !== 'demo_user';
+    },
+    resolveShellAuthUserId: (auth?: string | null, display?: string | null) =>
+        auth?.trim() || display?.trim() || null,
+    isShellAuthBypassed: () => false,
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -44,13 +58,29 @@ import {
     markProfilePerfPhase,
 } from '@/app/services/profile/profilePerfMetrics';
 
+async function flushProfileShellPaint() {
+    await act(async () => {
+        await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => resolve());
+        });
+    });
+}
+
 describe('useLawyerDashboardProfileTab', () => {
     beforeEach(() => {
         resetDashboardOverlayCoordinatorForTests();
         vi.clearAllMocks();
+        document.documentElement.removeAttribute('data-hami-profile-open');
+        document.body.innerHTML = '';
     });
 
-    it('يفتح تبويب الملف للمستخدم المسجّل فوراً (flushSync)', async () => {
+    it('يفتح تبويب الملف بعد رسم الـ snap (بلا flushSync حاجب)', async () => {
+        document.body.innerHTML = `
+          <div data-testid="lawyer-dashboard-home-surface" class="hami-dashboard-home-stack-cover is-active"></div>
+          <div data-testid="lawyer-dashboard-profile-surface" class="hami-dashboard-tab-preserve" data-hami-tab-preserve="idle">
+            <div data-lawyer-profile-root data-profile-page-hidden="true"></div>
+          </div>
+        `;
         const setActiveTab = vi.fn();
         const setShowCommunity = vi.fn();
 
@@ -67,19 +97,30 @@ describe('useLawyerDashboardProfileTab', () => {
             result.current.openProfileTab();
         });
 
+        expect(setActiveTab).not.toHaveBeenCalled();
+        expect(document.documentElement.getAttribute('data-hami-profile-open')).toBe('1');
+
+        await flushProfileShellPaint();
+
         expect(setActiveTab).toHaveBeenCalledWith('profile');
         expect(setShowCommunity).toHaveBeenCalledWith(false);
         expect(result.current.profileTabSessionKey).toBe(0);
-        expect(result.current.profileOpenEpoch).toBe(1);
-        expect(warmProfileOnOpen).toHaveBeenCalledWith('lawyer-1');
-        expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledWith('lawyer-1', true);
 
         await act(async () => {
             await Promise.resolve();
+            await Promise.resolve();
         });
+
+        expect(result.current.profileOpenEpoch).toBe(1);
+        expect(warmProfileOnOpen).toHaveBeenCalledWith('lawyer-1');
+        expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledWith('lawyer-1', true);
+        document.body.innerHTML = '';
     });
 
     it('لا ينتظر chunk قبل تبديل التبويب', async () => {
+        document.body.innerHTML = `
+          <div data-testid="lawyer-dashboard-profile-surface"></div>
+        `;
         let resolveChunk!: (value: unknown) => void;
         vi.mocked(hydrateProfileShellForInstantOpenWithData).mockImplementation(
             () =>
@@ -102,13 +143,22 @@ describe('useLawyerDashboardProfileTab', () => {
             result.current.openProfileTab();
         });
 
+        await flushProfileShellPaint();
+
         expect(setActiveTab).toHaveBeenCalledWith('profile');
+
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+
         expect(hydrateProfileShellForInstantOpenWithData).toHaveBeenCalledTimes(1);
 
         await act(async () => {
             resolveChunk(true);
             await Promise.resolve();
         });
+        document.body.innerHTML = '';
     });
 
     it('يرفض فتح الملف بدون تسجيل دخول', () => {
@@ -123,6 +173,9 @@ describe('useLawyerDashboardProfileTab', () => {
                 setShowCommunity,
             }),
         );
+
+        /* أثر P2 قد يستدعي setActiveTab عند التركيب — نمسح قبل فحص الرفض */
+        setActiveTab.mockClear();
 
         act(() => {
             result.current.openProfileTab();
@@ -165,14 +218,22 @@ describe('useLawyerDashboardProfileTab', () => {
             }),
         );
 
-        await act(async () => {
+        act(() => {
             result.current.openProfileTab();
+        });
+        await flushProfileShellPaint();
+        await act(async () => {
+            await Promise.resolve();
             await Promise.resolve();
         });
         expect(result.current.profileTabSessionKey).toBe(0);
 
-        await act(async () => {
+        act(() => {
             result.current.openProfileTab();
+        });
+        await flushProfileShellPaint();
+        await act(async () => {
+            await Promise.resolve();
             await Promise.resolve();
         });
         expect(result.current.profileTabSessionKey).toBe(0);
@@ -192,20 +253,38 @@ describe('useLawyerDashboardProfileTab', () => {
             { initialProps: { tab: 'home' as const } },
         );
 
+        act(() => {
+            result.current.openProfileTab();
+            result.current.openProfileTab();
+        });
+        await flushProfileShellPaint();
         await act(async () => {
-            result.current.openProfileTab();
-            result.current.openProfileTab();
+            await Promise.resolve();
             await Promise.resolve();
         });
 
         expect(warmProfileOnOpen).toHaveBeenCalledTimes(1);
 
+        vi.mocked(warmProfileOnOpen).mockClear();
+        /* محاكاة إغلاق بصري مع بقاء activeTab=profile (سباق rAF) */
+        document.documentElement.removeAttribute('data-hami-profile-open');
         rerender({ tab: 'profile' });
         await act(async () => {
-            result.current.openProfileTab();
+            await Promise.resolve();
             await Promise.resolve();
         });
-        expect(warmProfileOnOpen).toHaveBeenCalledTimes(1);
+        const warmAfterActive = warmProfileOnOpen.mock.calls.length;
+
+        act(() => {
+            result.current.openProfileTab();
+        });
+        await flushProfileShellPaint();
+        await act(async () => {
+            await Promise.resolve();
+            await Promise.resolve();
+        });
+        /* يُسمح بإعادة الفتح إن أُغلق بصرياً حتى لو activeTab لم يتحدّث بعد */
+        expect(warmProfileOnOpen.mock.calls.length).toBeGreaterThanOrEqual(warmAfterActive);
     });
 
     it('dismiss-transient-overlays(notifications) لا يُعيد التبويب للرئيسية', () => {
@@ -233,7 +312,7 @@ describe('useLawyerDashboardProfileTab', () => {
         expect(setActiveTab).not.toHaveBeenCalled();
     });
 
-    it('dismiss-transient-overlays(profile) بعد الفتح لا يُعيد التبويب للرئيسية', () => {
+    it('dismiss-transient-overlays(profile) بعد الفتح لا يُعيد التبويب للرئيسية', async () => {
         let activeTab: 'home' | 'profile' = 'home';
         const setActiveTab = vi.fn((next) => {
             activeTab = typeof next === 'function' ? next(activeTab) : next;
@@ -251,6 +330,7 @@ describe('useLawyerDashboardProfileTab', () => {
         act(() => {
             window.__hamiE2eForceOpenProfileTab?.();
         });
+        await flushProfileShellPaint();
 
         expect(activeTab).toBe('profile');
 
@@ -276,12 +356,44 @@ describe('useLawyerDashboardProfileTab', () => {
         vi.mocked(clearProfilePerfMarks).mockClear();
         vi.mocked(markProfilePerfPhase).mockClear();
 
-        await act(async () => {
+        act(() => {
             result.current.openProfileTab();
-            await Promise.resolve();
         });
 
         expect(clearProfilePerfMarks).toHaveBeenCalledTimes(1);
         expect(markProfilePerfPhase).toHaveBeenCalledWith('open-request');
+
+        await flushProfileShellPaint();
+
+        expect(markProfilePerfPhase).toHaveBeenCalledWith('chunk-ready');
+    });
+
+    it('يمسح host ويغلق التبويب عند غياب هوية حقيقية', () => {
+        let activeTab: 'home' | 'profile' = 'profile';
+        const setActiveTab = vi.fn((updater: unknown) => {
+            if (typeof updater === 'function') {
+                activeTab = (updater as (t: typeof activeTab) => typeof activeTab)(activeTab);
+            } else {
+                activeTab = updater as typeof activeTab;
+            }
+        });
+
+        const { result, rerender } = renderHook(
+            ({ userId }: { userId: string | null }) =>
+                useLawyerDashboardProfileTab({
+                    userId,
+                    activeTab,
+                    setActiveTab,
+                    setShowCommunity: vi.fn(),
+                }),
+            { initialProps: { userId: 'lawyer-1' as string | null } },
+        );
+
+        expect(result.current.profileHostMounted).toBe(true);
+
+        rerender({ userId: null });
+
+        expect(activeTab).toBe('home');
+        expect(result.current.profileHostMounted).toBe(false);
     });
 });

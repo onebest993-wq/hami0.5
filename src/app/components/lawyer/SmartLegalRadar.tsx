@@ -22,9 +22,13 @@ import { useSmartLegalRadarDayInsights } from './SmartLegalRadar/hooks/useSmartL
 
 import { useSmartLegalRadarLifecycle } from './SmartLegalRadar/hooks/useSmartLegalRadarLifecycle';
 
+import { useScheduleTabEscape } from './SmartLegalRadar/hooks/useScheduleTabEscape';
+
 import { RADAR_SCROLL } from './SmartLegalRadar/radarTheme';
 
 import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
+
+import { RadarAddEventDock } from './SmartLegalRadar/RadarAddEventDock';
 
 
 
@@ -62,7 +66,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
 
 
-    useOpaqueFeatureSurface(true);
+    useOpaqueFeatureSurface(true, '#1f1712');
 
 
 
@@ -130,7 +134,13 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
     });
 
-
+    useScheduleTabEscape({
+        enabled: true,
+        showForm: form.showForm,
+        formSaving: form.saving,
+        onCloseForm: form.closeForm,
+        onBack,
+    });
 
     const daysInMonth = useMemo(
 
@@ -172,7 +182,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
 
 
-    const { conflictMessage, aiBriefing } = useSmartLegalRadarDayInsights(selectedEvents);
+    const { conflictMessage, aiBriefing, scheduleConflict } = useSmartLegalRadarDayInsights(selectedEvents);
 
 
 
@@ -193,6 +203,8 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
         showFullMonth: view.showFullMonth,
 
         onToggleFullMonth: view.toggleFullMonth,
+
+        selectedDate: view.selectedDate,
 
         syncing: foregroundSyncing,
 
@@ -266,8 +278,6 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
                 <RadarSelectedDaySection
 
-                    selectedDate={view.selectedDate}
-
                     selectedEvents={selectedEvents}
 
                     highlightEventId={highlightEventId}
@@ -276,7 +286,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
                     conflictMessage={conflictMessage}
 
-                    onAddEvent={form.openAddForm}
+                    scheduleConflict={scheduleConflict}
 
                     onEditEvent={form.openEditForm}
 
@@ -287,6 +297,16 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                 />
 
             </div>
+
+
+
+            <RadarAddEventDock
+
+                selectedDate={view.selectedDate}
+
+                onAddEvent={form.openAddForm}
+
+            />
 
 
 

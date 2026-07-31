@@ -50,8 +50,8 @@ export function scopeTimelineEventsOnExecutionSwitch(
         );
     }
 
-    if (parentDossierId) {
-        return filterTimelineEventsForParentDossier(raw, parentDossierId);
+    if (activeSubFileId && isInabaSubFileId(activeSubFileId)) {
+        return filterTimelineEventsForInabaDossier(raw, activeSubFileId);
     }
 
     return raw;

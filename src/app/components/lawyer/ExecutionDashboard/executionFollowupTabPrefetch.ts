@@ -1,5 +1,17 @@
 /** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */
 import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
+import {
+    LazyCoerciveTab,
+    LazyCommunicationsTab,
+    LazyDossierControlsTab,
+    LazyFinancialTab,
+    LazyOtherPartyActionsLog,
+    LazyOtherPartyTab,
+    LazyPersonalCoerciveFollowupPanel,
+    LazyPersonalTab,
+    LazyRequestsTab,
+    LazySeizureRequestsTab,
+} from './executionDashboardLazyRegistry';
 
 export type ExecutionFollowupTabPrefetchId =
     | 'personal'
@@ -12,20 +24,22 @@ export type ExecutionFollowupTabPrefetchId =
     | 'admin'
     | 'special';
 
+// preload (لا import خام) — يثبّت مكوّن التبويب للرسم المباشر بلا تعليق Suspense
 const TAB_LOADERS: Record<ExecutionFollowupTabPrefetchId, () => Promise<unknown>> = {
     personal: () =>
         Promise.all([
-            import('./components/PersonalTab'),
-            import('../execution/PersonalCoerciveFollowupPanel'),
+            LazyPersonalTab.preload(),
+            LazyPersonalCoerciveFollowupPanel.preload(),
         ]),
-    coercive: () => import('./components/CoerciveTab'),
-    financial: () => import('./components/FinancialTab'),
-    other_party: () => import('./components/OtherPartyTab'),
-    seizure_requests: () => import('./components/SeizureRequestsTab'),
-    correspondences: () => import('./components/CommunicationsTab'),
-    dossier_controls: () => import('./components/DossierControlsTab'),
-    admin: () => import('./components/RequestsTab'),
-    special: () => import('./components/RequestsTab'),
+    coercive: () => LazyCoerciveTab.preload(),
+    financial: () => LazyFinancialTab.preload(),
+    other_party: () =>
+        Promise.all([LazyOtherPartyTab.preload(), LazyOtherPartyActionsLog.preload()]),
+    seizure_requests: () => LazySeizureRequestsTab.preload(),
+    correspondences: () => LazyCommunicationsTab.preload(),
+    dossier_controls: () => LazyDossierControlsTab.preload(),
+    admin: () => LazyRequestsTab.preload(),
+    special: () => LazyRequestsTab.preload(),
 };
 
 export function isExecutionFollowupTabPrefetchId(
@@ -40,16 +54,20 @@ export function prefetchExecutionFollowupTab(tabId: string): void {
         case 'personal':
         case 'coercive':
             prefetchExecutionCoreHandlers('coercive');
+            prefetchExecutionCoreHandlers('coercive-lifecycle');
             break;
         case 'admin':
         case 'special':
             prefetchExecutionCoreHandlers('followup-admin-special');
             break;
         case 'seizure_requests':
-            prefetchExecutionCoreHandlers('seizure');
+            // 'seizure' كان no-op — أول تفاعل داخل تبويب الحجز كان يصطدم بجسور باردة
+            prefetchExecutionCoreHandlers('seizure-requests');
             break;
         case 'other_party':
-            prefetchExecutionCoreHandlers('followup-other-party');
+            // 'followup-other-party' كان no-op — سخّن جسرَي المدين والدائن معاً
+            prefetchExecutionCoreHandlers('followup-other-party-debtor');
+            prefetchExecutionCoreHandlers('followup-other-party-creditor');
             break;
         case 'dossier_controls':
             prefetchExecutionCoreHandlers('followup-dossier-controls');
@@ -58,6 +76,16 @@ export function prefetchExecutionFollowupTab(tabId: string): void {
             break;
     }
     void TAB_LOADERS[tabId]().catch(() => undefined);
+}
+
+/**
+ * تسخين كل تبويبات المحضر + جسورها دفعة واحدة (idle فقط) —
+ * يجعل التنقل بين التبويبات لحظياً بلا أي Suspense بارد عند أول زيارة.
+ */
+export function prefetchAllExecutionFollowupTabs(): void {
+    (Object.keys(TAB_LOADERS) as ExecutionFollowupTabPrefetchId[]).forEach((tabId) => {
+        prefetchExecutionFollowupTab(tabId);
+    });
 }
 
 /** التبويب الافتراضي عند فتح المحضر بدون تفضيل محفوظ */

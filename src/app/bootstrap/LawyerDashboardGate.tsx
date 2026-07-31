@@ -1,20 +1,59 @@
-import React, { Suspense, useCallback, useEffect, useState } from 'react';
+import React, { Suspense, useCallback, useLayoutEffect, useRef, useState } from 'react';
 
 import { HamiBootOverlay } from '@/app/bootstrap/HamiBootOverlay';
+import {
+    removeStaticBootShell,
+    shouldMountReactBootOverlay,
+} from '@/app/bootstrap/bootStaticShell';
 import { useBootReveal } from '@/app/bootstrap/useBootReveal';
-import { LawyerDashboardLazy, preloadLawyerDashboardChunk, resetLawyerDashboardChunkPreload } from '@/app/bootstrap/lawyerDashboardChunk';
+import { isBootRevealDone, isSplashGuardFrozen } from '@/app/bootstrap/bootReveal';
 import { LawyerDashboardBootErrorBoundary } from '@/app/bootstrap/LawyerDashboardBootErrorBoundary';
-import { LawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
+import {
+    LawyerDashboardLazy,
+    preloadLawyerDashboardChunk,
+} from '@/app/bootstrap/lawyerDashboardChunk';
 import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboard/LawyerDashboardQuantumShell';
 
-/** chunk يُحمَّل عند دخول شاشة المحامي — طبقة «حامي» حتى جاهزية الواجهة */
+/** مع تقييم Gate — ابدأ LD فوراً بلا انتظار commit لـ Suspense */
+if (typeof window !== 'undefined') {
+    void preloadLawyerDashboardChunk();
+}
+
+/**
+ * أثناء تحميل chunk اللوحة:
+ * - الشعار من #hami-static-boot فقط
+ * - هنا خلفية صامتة — بلا إعادة «حامي»
+ */
+function GateContentFallback(): React.ReactElement {
+    return (
+        <div
+            className="relative min-h-screen w-full bg-[#0a0f1c]"
+            data-testid="lawyer-gate-content-fallback"
+            aria-busy="true"
+            aria-label={isSplashGuardFrozen() ? 'تهيئة حامي' : 'حامي'}
+        />
+    );
+}
+
+/** chunk يُحمَّل عند دخول شاشة المحامي — الشعار الثابت يغطي حتى جاهزية الواجهة */
 export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
     const [bootKey, setBootKey] = useState(0);
-    const { overlayPhase, dashboardVisible } = useBootReveal();
+    const { overlayCovering } = useBootReveal();
+    const dashboardRootRef = useRef<HTMLDivElement | null>(null);
+    const splashFrozen = isSplashGuardFrozen();
+    const mountReactOverlay = shouldMountReactBootOverlay();
+    const showBootOverlay = overlayCovering && !splashFrozen && mountReactOverlay;
+    const blockPointer = overlayCovering && !splashFrozen;
 
-    useEffect(() => {
-        void preloadLawyerDashboardChunk();
-    }, []);
+    useLayoutEffect(() => {
+        if (!isBootRevealDone()) return;
+        dashboardRootRef.current?.style.setProperty('pointer-events', 'auto');
+        dashboardRootRef.current?.setAttribute('aria-hidden', 'false');
+        document
+            .querySelectorAll<HTMLElement>('[data-testid="lawyer-boot-shell"]')
+            .forEach((el) => el.setAttribute('hidden', ''));
+        removeStaticBootShell();
+    }, [overlayCovering]);
 
     const handleBootReset = useCallback(() => {
         try {
@@ -22,27 +61,27 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
         } catch {
             /* ignore */
         }
-        resetLawyerDashboardChunkPreload();
         setBootKey((k) => k + 1);
     }, []);
 
     return (
-        <LawyerSettingsProvider>
-            <LawyerDashboardBootErrorBoundary bootKey={bootKey} onReset={handleBootReset}>
-                <div
-                    className="relative min-h-screen"
-                    style={{
-                        visibility: dashboardVisible ? 'visible' : 'hidden',
-                        pointerEvents: dashboardVisible ? 'auto' : 'none',
-                    }}
-                    aria-hidden={!dashboardVisible}
-                >
-                    <Suspense fallback={null}>
-                        <LawyerDashboardLazy key={bootKey} {...props} />
-                    </Suspense>
-                </div>
-                {overlayPhase !== 'gone' ? <HamiBootOverlay phase={overlayPhase} /> : null}
-            </LawyerDashboardBootErrorBoundary>
-        </LawyerSettingsProvider>
+        <LawyerDashboardBootErrorBoundary bootKey={bootKey} onReset={handleBootReset}>
+            <div
+                ref={dashboardRootRef}
+                className="relative min-h-screen bg-[#0a0f1c]"
+                style={{
+                    opacity: 1,
+                    visibility: 'visible',
+                    pointerEvents: blockPointer ? 'none' : 'auto',
+                }}
+                aria-hidden={blockPointer}
+            >
+                <Suspense fallback={<GateContentFallback />}>
+                    <LawyerDashboardLazy key={bootKey} {...props} />
+                </Suspense>
+            </div>
+            {/* فقط إن غاب الشعار الثابت — مسار نادر */}
+            {showBootOverlay ? <HamiBootOverlay phase="visible" /> : null}
+        </LawyerDashboardBootErrorBoundary>
     );
 }

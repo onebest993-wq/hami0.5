@@ -7,6 +7,8 @@
  * - Canonical payload MUST stay aligned with client logic in:
  *   src/app/services/RequestSigningService.ts
  */
+import { createClient } from '@supabase/supabase-js';
+import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.ts';
 import { consumeNonceWithTtl } from './wifeNonceStore.ts';
 import {
   detectStolenTokenServer,
@@ -54,6 +56,8 @@ export async function verifyCsrfToken(req: Request, userToken: string): Promise<
   if (jwtFields?.sub) {
     const serverValid = await validateCsrfForSubject(jwtFields.sub, csrfToken);
     if (serverValid) return true;
+    // Subject authenticated but registry miss — no cookie fallback in production
+    if (isProductionNodeEnv()) return false;
   }
 
   const cookieHeader = req.headers.get('cookie');
@@ -399,16 +403,15 @@ function getSupabaseAuthConfig(): { url: string; key: string } | null {
 }
 
 /**
- * Creates a Supabase admin client (service_role) for internal DB queries.
+ * Creates a Supabase admin client for internal DB queries.
  * لا يُستخدم fetch مباشر—بل مكتبة @supabase/supabase-js الآمنة
  */
-let _adminClient: ReturnType<typeof import('@supabase/supabase-js').createClient> | null = null;
-function getSupabaseAdminClient(): ReturnType<typeof import('@supabase/supabase-js').createClient> | null {
+let _adminClient: ReturnType<typeof createClient> | null = null;
+function getSupabaseAdminClient(): ReturnType<typeof createClient> | null {
   if (_adminClient) return _adminClient;
   const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  const serviceRoleKey = readSupabasePrivilegedKey();
   if (!supabaseUrl || !serviceRoleKey) return null;
-  const { createClient } = require('@supabase/supabase-js') as typeof import('@supabase/supabase-js');
   _adminClient = createClient(supabaseUrl, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });

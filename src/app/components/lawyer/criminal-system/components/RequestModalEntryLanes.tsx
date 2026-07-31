@@ -7,7 +7,6 @@ import {
     isCustomJudicialTemplate,
     isDefendantBailTemplate,
     isJuvenileJudgeCassationAppealableTemplate,
-    judicialDecisionModalTemplates,
 } from '../proceduralRequestTypes';
 import { LAWYER_REQUEST_STATUS_OPTIONS } from '../lawyerRequestStatusMachine';
 import { ModalIsoDateInput } from './ModalIsoDateInput';
@@ -88,6 +87,8 @@ export type RequestModalEntryLanesProps = {
     reqJuvenileDetentionLocked?: boolean;
     /** كل المتهمين مجهولون — يُقيَّد قائمة القرارات القضائية. */
     isAllDefendantsUnknown?: boolean;
+    /** حالات التوقيف/الحرية للمتهمين — تُصفّي قوالب القرارات عند الحاجة. */
+    defendantCustodyStatuses?: readonly string[];
     /** بيانات «تكفيل المتهم» المهيكلة — جديد. */
     reqBailKind?: GuarantorBailKind | '';
     reqBailAmount?: string;

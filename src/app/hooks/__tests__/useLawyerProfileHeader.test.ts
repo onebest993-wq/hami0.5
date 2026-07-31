@@ -6,13 +6,13 @@ vi.mock('@/app/services/profile/profileCloudLoader', () => ({
     fetchLawyerProfile: vi.fn(),
 }));
 
-vi.mock('@/app/services/profile/profileWarmCache', () => ({
+vi.mock('@/app/services/profile/profileWarmCacheCore', () => ({
     peekProfileWarmCache: vi.fn(() => null),
 }));
 
 import { fetchLawyerProfile } from '@/app/services/profile/profileCloudLoader';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
-import { peekProfileWarmCache } from '@/app/services/profile/profileWarmCache';
+import { peekProfileWarmCache } from '@/app/services/profile/profileWarmCacheCore';
 
 const stableMeta = { fullName: 'E2E Dev' };
 
@@ -20,6 +20,10 @@ describe('useLawyerProfileHeader', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         vi.mocked(peekProfileWarmCache).mockReturnValue(null);
+        vi.mocked(fetchLawyerProfile).mockResolvedValue({
+            header: { name: '', title: '', profileImage: '' },
+            sections: [],
+        } as never);
     });
 
     it('يستخدم الاسم الافتراضي بدون userId', () => {
@@ -41,8 +45,12 @@ describe('useLawyerProfileHeader', () => {
         expect(fetchLawyerProfile).toHaveBeenCalledWith('u1', 'u1');
     });
 
-    it('يطبّق الكاش الدافئ فوراً دون fetch أولي', () => {
+    it('يطبّق الكاش الدافئ فوراً ثم يجلب التحديث في الخلفية', async () => {
         vi.mocked(peekProfileWarmCache).mockReturnValue({
+            header: { name: 'من الكاش', title: 'مستشار', profileImage: '' },
+            sections: [],
+        } as never);
+        vi.mocked(fetchLawyerProfile).mockResolvedValue({
             header: { name: 'من الكاش', title: 'مستشار', profileImage: '' },
             sections: [],
         } as never);
@@ -50,7 +58,23 @@ describe('useLawyerProfileHeader', () => {
         const { result } = renderHook(() => useLawyerProfileHeader('u1', stableMeta));
 
         expect(result.current.displayName).toBe('من الكاش');
-        expect(fetchLawyerProfile).not.toHaveBeenCalled();
+        await waitFor(() => expect(fetchLawyerProfile).toHaveBeenCalledWith('u1', 'u1'));
+    });
+
+    it('يرفض صورة غير آمنة من السحابة ويبقي الحقل فارغاً', async () => {
+        vi.mocked(fetchLawyerProfile).mockResolvedValue({
+            header: {
+                name: 'أحمد',
+                title: 'محامٍ',
+                profileImage: 'javascript:alert(1)',
+            },
+            sections: [],
+        } as never);
+
+        const { result } = renderHook(() => useLawyerProfileHeader('u1', stableMeta));
+
+        await waitFor(() => expect(result.current.displayName).toBe('أحمد'));
+        expect(result.current.avatarUrl).toBe('');
     });
 
     it('يحدّث الهيدر عند LAWYER_PROFILE_UPDATED لنفس المستخدم', async () => {

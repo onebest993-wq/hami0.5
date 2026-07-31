@@ -2,10 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { useDismissedAlertIds } from '@/app/hooks/useDismissedAlertIds';
 import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
-import { markAlertSeenForPush } from '@/app/services/appAlertPushSync';
 import { peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
-import { useNotificationStore } from '@/app/stores/notificationStore';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 
 type AlertsSlice = {
     alerts: SecretaryAlert[];
@@ -59,18 +57,21 @@ export function useLawyerDashboardAppAlerts(userId: string | undefined) {
     );
 
     const { dismissedIds, dismiss: dismissAppAlertBase } = useDismissedAlertIds();
-    const markAsReadNotification = useNotificationStore((s) => s.markAsRead);
 
     const dismissAppAlert = useCallback(
         (alertId: string) => {
             dismissAppAlertBase(alertId);
-            markAlertSeenForPush(alertId);
+            void import('@/app/services/appAlertPushSync')
+                .then((m) => m.markAlertSeenForPush(alertId))
+                .catch(() => undefined);
             if (alertId.startsWith('notif:') && userId) {
                 const notifId = alertId.slice('notif:'.length);
-                void markAsReadNotification(userId, notifId);
+                void import('@/app/stores/notificationStore')
+                    .then((m) => m.useNotificationStore.getState().markAsRead(userId, notifId))
+                    .catch(() => undefined);
             }
         },
-        [dismissAppAlertBase, markAsReadNotification, userId],
+        [dismissAppAlertBase, userId],
     );
 
     const visibleAppAlerts = useMemo(

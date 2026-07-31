@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-06-28T20:43:11.484Z",
+  "generatedAt": "2026-07-31T19:28:36.183Z",
   "note": "قراءة فقط — راجع confidence قبل أي حذف. التنفيذ/الدعاوى/الأرشيف مستثناة من orphanCandidates.",
   "summary": {
     "zombieOverlays": 0,
     "zombieOverlaysDeferred": 0,
-    "deprecatedComments": 103,
-    "unusedLazyExports": 0,
-    "orphanCandidates": 12,
+    "deprecatedComments": 125,
+    "unusedLazyExports": 9,
+    "orphanCandidates": 50,
     "placeholderNotificationRoutes": 0
   },
   "zombieOverlays": [],
@@ -16,6 +16,31 @@
     {
       "file": "src/app/api/laws/devLawsLocalStore.ts",
       "snippet": "/** @deprecated استخدم lawBundleStore — إبقاء للتوافق مع الاختبارات القديمة. */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar.tsx",
+      "snippet": "/** توافق أسماء قديمة — الاختصاص فقط بلا مستعجل */ export type LawsuitWorkspaceFilterChip = LawsuitJurisdictionTab; export type LawsuitLifecycleViewMode = 'acti",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar.tsx",
+      "snippet": "/** @deprecated */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar.tsx",
+      "snippet": "/** @deprecated */",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/CommunityScreen/components/ForumChromeShell.tsx",
+      "snippet": "/** * @deprecated استخدم ForumBootShell — ملف توافق للاستيرادات القديمة */",
+      "deferred": false
+    },
+    {
+      "file": "src/app/components/lawyer/CommunityScreen/components/QuestionCardAttachment.tsx",
+      "snippet": "/** @deprecated لم يعد يُستدعى — المعاينة عبر VaultDocViewer محلياً */",
       "deferred": false
     },
     {
@@ -44,6 +69,11 @@
       "deferred": true
     },
     {
+      "file": "src/app/components/lawyer/criminal-system/criminalStagePartyAndStatusUtils.ts",
+      "snippet": "/** شارة العمود في شبكة الخصوم حسب جهة الطرف (وليس صفة المكتب). */ export function partyColumnBadge(partyKind: 'complainant' | 'defendant'): string { return par",
+      "deferred": true
+    },
+    {
       "file": "src/app/components/lawyer/criminal-system/criminalStageUtils.ts",
       "snippet": "/** صفة المكتب في الدعوى — القائمة الموحدة الوحيدة في نموذج الإنشاء. */ export const OFFICE_REPRESENTATION_OPTIONS = [ { value: 'complainant_side' as const, lab",
       "deferred": true
@@ -54,8 +84,8 @@
       "deferred": true
     },
     {
-      "file": "src/app/components/lawyer/criminal-system/criminalStore.ts",
-      "snippet": "/** سياق تفريق الدعوى الجاري — null عند عدم وجود عملية تفريق. */ pendingSeveranceContext: PendingSeveranceContext | null; setBasicField: <K extends keyof Crimin",
+      "file": "src/app/components/lawyer/criminal-system/criminalStoreState.types.ts",
+      "snippet": "/** * Criminal Zustand store state surface — extracted from criminalStore.ts. */ import type { JudicialAppellantType, JudicialCassationAppealPath, JudicialDecis",
       "deferred": true
     },
     {
@@ -71,6 +101,11 @@
     {
       "file": "src/app/components/lawyer/criminal-system/proceduralContainersEngine.ts",
       "snippet": "/** ربط سياقي اختياري — نص حر (جلسة، طلب، طرف…) */ export type ProceduralContextRef = string; export type ProceduralNoteItem = { type: 'note'; id: string; title",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/criminal-system/proceduralContainersModel.ts",
+      "snippet": "/** @deprecated — يُقرأ للترحيل؛ استخدم link */",
       "deferred": true
     },
     {
@@ -117,6 +152,11 @@
       "file": "src/app/components/lawyer/criminal-system/trialDepositionsEngine.ts",
       "snippet": "/** @deprecated ترحيل — مقارنة نصية قديمة */",
       "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/executionDashboardPortalLazy.ts",
+      "snippet": "/** * بوابة إضبارة التنفيذ — preload-aware ومشتركة بين deep warm والـ overlays: * بعد التسخين تُرسم البوابة مباشرة في نفس commit النقرة بلا تعليق Suspense * (كا",
+      "deferred": false
     },
     {
       "file": "src/app/components/lawyer/dashboard/lawyerHomeTheme.ts",
@@ -174,6 +214,11 @@
       "deferred": true
     },
     {
+      "file": "src/app/components/lawyer/ExecutionDashboard/components/DossierLifecyclePanel.tsx",
+      "snippet": "/** @deprecated alias — callers may pass dossierLifecyclePopoverRef */",
+      "deferred": true
+    },
+    {
       "file": "src/app/components/lawyer/ExecutionDashboard/components/LawReferencePanel.tsx",
       "snippet": "/** @deprecated الحالة من Zustand — يُتجاهل */",
       "deferred": true
@@ -184,13 +229,23 @@
       "deferred": true
     },
     {
+      "file": "src/app/components/lawyer/ExecutionDashboard/components/VisitationCalendarModal.tsx",
+      "snippet": "/** @deprecated يُفضّل فتح التقويم من VisitationScheduleModule — يُبقى للتوافق */",
+      "deferred": true
+    },
+    {
       "file": "src/app/components/lawyer/ExecutionDashboard/executionFollowupTabPrefetch.ts",
-      "snippet": "/** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */ export type ExecutionFollowupTabPrefetchId = | 'personal' | 'coercive' | 'fi",
+      "snippet": "/** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */ import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefet",
       "deferred": true
     },
     {
       "file": "src/app/components/lawyer/ExecutionDashboard/followupModalContext.tsx",
       "snippet": "/** Snapshot passed from ExecutionDashboard while محضر المتابعة is open. */ export type FollowupModalSnapshot = Record<string, any>; const FollowupModalStoreCon",
+      "deferred": true
+    },
+    {
+      "file": "src/app/components/lawyer/ExecutionDashboard/helpers/executionDeviceStorageScope.ts",
+      "snippet": "/** @deprecated استورد من `@/app/utils/executionDeviceStorageScope` */",
       "deferred": true
     },
     {
@@ -215,7 +270,7 @@
     },
     {
       "file": "src/app/components/lawyer/hooks/smartVault/types.ts",
-      "snippet": "/** @deprecated use docMatchesCategoryFilter from vaultCustomCategories */",
+      "snippet": "/** إبطال blob URL عند الإغلاق فقط إذا أنشأناه هنا وليس من signedUrl المخزّن */ revokeOnClose?: boolean; } | null; /** @deprecated use docMatchesCategoryFilter ",
       "deferred": false
     },
     {
@@ -259,6 +314,11 @@
       "deferred": false
     },
     {
+      "file": "src/app/components/lawyer/RoyalLawyerProfile/components/ProfileFloatingPortrait.tsx",
+      "snippet": "/** @deprecated لم يعد هناك حركة عائمة — يُتجاهل للتوافق */",
+      "deferred": false
+    },
+    {
       "file": "src/app/components/lawyer/smart-modal/smartFile/judgmentTypes.ts",
       "snippet": "/** Payload from SmartJudgmentModal / validation pipeline. */ export type JudgmentPayload = { date?: string; type?: string; form?: string; decision?: string; ac",
       "deferred": false
@@ -274,18 +334,33 @@
       "deferred": false
     },
     {
-      "file": "src/app/components/lawyer/SmartLegalRadar/radarTheme.ts",
-      "snippet": "/** رادار المواعيد — كريمي · كاكاوي · كراميل (لون وسيط) */ export const RADAR_COCOA_DEEP = '#14100c'; export const RADAR_COCOA = '#1f1712'; export const RADAR_C",
-      "deferred": false
-    },
-    {
       "file": "src/app/components/lawyer/SmartRepository/entryCards/universalEntryCardTypes.ts",
       "snippet": "/** @deprecated — استخدم feedLayout */",
       "deferred": false
     },
     {
+      "file": "src/app/components/lawyer/SmartRepository/smartRepositoryTheme.ts",
+      "snippet": "/** هدف لمس أيقونة — 44×44 (Apple HIG / Material) */ export const REPO_TOUCH_ICON = 'inline-flex items-center justify-center shrink-0 min-h-[44px] min-w-[44px] ",
+      "deferred": false
+    },
+    {
       "file": "src/app/components/lawyer/SmartVaultModal/vaultDustyRoseTheme.ts",
       "snippet": "/** المخزن الذكي — كتان كحلي · ترافرتين · نحاس مطفي */ export const VAULT_NAVY = '#0E1B2E'; export const VAULT_NAVY_MID = '#132238'; export const VAULT_TRAVERTI",
+      "deferred": false
+    },
+    {
+      "file": "src/app/domain/execution/visitation/visitationScheduleEngine.ts",
+      "snippet": "/** أزرار التوثيق — مشتقة من نوع القرار المحكوم به */ export function getVisitationDocumentationActions(mode: VisitationDecisionMode): { successLabel: string; a",
+      "deferred": false
+    },
+    {
+      "file": "src/app/domain/execution/visitation/visitationScheduleEngine.ts",
+      "snippet": "/** أول تاريخ ≥ executionStartDate يطابق أيام الأسبوع وترتيب أسابيع الشهر */ export function resolveFirstMatchingAppointmentDate( executionStartDate: string, we",
+      "deferred": false
+    },
+    {
+      "file": "src/app/hooks/lawyerDashboard/dashboardViewFingerprint.ts",
+      "snippet": "/** تغيّرات الحذف الناعم/الأرشفة لا تغيّر طول القائمة — يجب تضمينها في البصمة */ function executionFilesLifecycleFingerprint( files: Orchestration['workspace'][",
       "deferred": false
     },
     {
@@ -314,8 +389,13 @@
       "deferred": false
     },
     {
-      "file": "src/app/runtime/executionDashboardLoader.ts",
-      "snippet": "/** * تحميل مرحلي لإضبارة التنفيذ — chunk رئيسي أولاً، ثم shell عند الخمول أو النية. */ import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork'; type Ex",
+      "file": "src/app/runtime/fieldTasksHubLoader.ts",
+      "snippet": "/** * تحميل قسم المهام مقسوم إلى chunk‌ين مستقلين: * - الستارة (sheet): خفيفة، تُفتح فوراً عند نقر «مهام». * - الأجندة (manager overlay): أثقل، تُحمّل فقط عند «",
+      "deferred": false
+    },
+    {
+      "file": "src/app/runtime/fieldTasksInstantPaint.ts",
+      "snippet": "/** كشف/إخفاء ستارة الميدان فوراً في الـ DOM — مستقل عن إطار React */ const INSTANT_ROOT_ID = 'hami-field-tasks-instant-root'; const LAYER_SELECTOR = '[data-fie",
       "deferred": false
     },
     {
@@ -379,8 +459,18 @@
       "deferred": false
     },
     {
+      "file": "src/app/services/forumAttachmentService.ts",
+      "snippet": "/** معاينة فورية — لا تنتظر IDB أو FileReader */ export function createInstantForumAttachmentPreview(file: File): { url: string; storagePath: string; } { return",
+      "deferred": false
+    },
+    {
       "file": "src/app/services/profile/profilePageTypes.ts",
-      "snippet": "/** قنوات مخفية عن الزوار فقط */ hiddenContactIds: string[]; } export interface ProfileAppearanceSettings { accentColor: ProfileAppearanceColor; material: Profi",
+      "snippet": "/** من يمكنه زيارة الصفحة الشخصية — مرتبط بمتابعة المنتدى عند followers */ export type ProfilePageAccess = 'public' | 'followers' | 'private'; export interface ",
+      "deferred": false
+    },
+    {
+      "file": "src/app/services/profile/profilePageTypes.ts",
+      "snippet": "/** تنسيق مقطع/كلمة داخل سطر */ export interface ProfileTextSpanStyle { id: string; lineIndex: number; start: number; end: number; style: ProfileBlockTextStyle;",
       "deferred": false
     },
     {
@@ -395,7 +485,7 @@
     },
     {
       "file": "src/app/services/SecureStoreService.ts",
-      "snippet": "/** تحديد ما إذا كان المفتاح حساساً ويحتاج تشفير */ function isSensitiveKey(key: string): boolean { return isSensitiveStorageKey(key); } function touchDecrypted",
+      "snippet": "/** lawyer_files — كتابة فورية؛ التأجيل 1.2s كان يفقد الملفات عند إعادة التحميل السريعة */ 'lawyer_notes', 'hami:criminal:meta', ]); const HEAVY_PERSIST_PREFIXE",
       "deferred": false
     },
     {
@@ -425,12 +515,7 @@
     },
     {
       "file": "src/app/services/settings/types.ts",
-      "snippet": "/** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */ homeContainerBorder: boolean; /** @deprecated — تُخزَّن في lawyer_wallpaper فقط،",
-      "deferred": false
-    },
-    {
-      "file": "src/app/services/SupabaseService.ts",
-      "snippet": "/** * SupabaseService — Wrapper مبسط جداً * * المرحلة الحالية: Deprecation تدريجي. * - جميع دوال CRUD تعمل على LocalStorage فقط. * - عند تفعيل الجداول الحقيقية ",
+      "snippet": "/** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */ homeContainerBorder: boolean; /** تطبيق السمة على الواجهة و/أو الوثائق */ themeA",
       "deferred": false
     },
     {
@@ -457,6 +542,26 @@
       "file": "src/app/types/criminal.ts",
       "snippet": "/** هندسة السهم في الحاوية العلوية. */ transitionKind?: JourneyTransitionKind; /** تاريخ بدء الحقبة — فلترة Time-Tenure. */ startedAt?: string; /** تاريخ إغلاق ",
       "deferred": true
+    },
+    {
+      "file": "src/app/types/execution/executionFile.ts",
+      "snippet": "/** سنة الإضبارة في العرض (مثل 1540/2026) */ fileYear?: string; executionDate: string; submissionDate: string; // Claim Info claimType: ClaimType; documentType:",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution/executionFile.ts",
+      "snippet": "/** * تكليف حضور لكل مدين (ذمة مقسومة) — المفتاح يطابق مفاتيح `debtorWorkspaceEntries`. */ employee_summons_assignments_by_debtor?: Record<string, EmployeeSummo",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution/executionFile.ts",
+      "snippet": "/** صفة كل مدين في تعدّد الخصوم */ debtor_entity_kind_by_debtor?: Record<string, 'natural_person' | 'legal_entity'>; /** وفاة الدائن — للعرض والتوافق */ is_cred",
+      "deferred": false
+    },
+    {
+      "file": "src/app/types/execution/executionShared.ts",
+      "snippet": "/** * ═══════════════════════════════════════════════════════════════════════════ * 📝 EXECUTION TYPES - النماذج النوعية للتنفيذ * ═════════════════════════════",
+      "deferred": false
     },
     {
       "file": "src/app/types/execution.ts",
@@ -525,26 +630,204 @@
     },
     {
       "file": "src/app/utils/visitationScheduleEngine.ts",
-      "snippet": "/** أزرار التوثيق — مشتقة من نوع القرار المحكوم به */ export function getVisitationDocumentationActions(mode: VisitationDecisionMode): { successLabel: string; a",
+      "snippet": "/** اختصارات أيام الأسبوع — للتقويم والبطاقات المدمجة */ export const ARABIC_WEEKDAY_SHORT_LABELS = [ 'أحد', 'إثن', 'ثل', 'أرب', 'خم', 'جم', 'سب', ] as const; f",
+      "deferred": false
+    },
+    {
+      "file": "src/app/utils/visitationScheduleEngine.ts",
+      "snippet": "/** تاريخ إرجاع الطفل بعد المبيت — null إذا ليس وضع مبيت */ export function computeVisitationSessionReturnYmd( config: VisitationScheduleConfig, pickupYmd: stri",
       "deferred": false
     }
   ],
-  "unusedLazyExports": [],
+  "unusedLazyExports": [
+    {
+      "export": "LazyViewUrgentAndOrdersDashboard",
+      "confidence": "high"
+    },
+    {
+      "export": "LazySmartRepositoryModal",
+      "confidence": "high"
+    },
+    {
+      "export": "LazySmartLegalRadar",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyTransactionsThreadingSystem",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyTasksManagerOverlay",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyFieldTasksBottomSheet",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyTasksManager",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyNotificationPanel",
+      "confidence": "high"
+    },
+    {
+      "export": "LazyCommunityScreen",
+      "confidence": "high"
+    }
+  ],
   "orphanCandidates": [
     {
-      "file": "src/app/bootstrap/SecurityInitializerGate.dev.tsx",
+      "file": "src/app/api/security/bffAuth.test.js",
       "bucket": "other"
     },
     {
-      "file": "src/app/bootstrap/SecurityInitializerGate.prod.tsx",
+      "file": "src/app/api/security/contentSecurityPolicy.test.js",
       "bucket": "other"
     },
     {
-      "file": "src/app/components/lawyer/Dashboard_Active_Order_File/utils/ymd.ts",
+      "file": "src/app/api/security/cryptoWrapServer.test.js",
       "bucket": "other"
     },
     {
-      "file": "src/app/modules/transactionsThreading/ids.ts",
+      "file": "src/app/api/security/csrfServerStore.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/fileValidator.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/roleResolver.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/sanitizer.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/stolenTokenServer.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/wifeRateLimitStore.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/wifeSecurityMonitor.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/wifeSignInflight.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/wifeSignPolicy.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/api/security/wifeValidator.test.js",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/bootstrap/bootLawyerShellPrefetch.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/DeferredHeavyMount.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/homeTabForumSignalsBridge.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/LawyerDashboardAlertsBackgroundRuntime.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/LawyerDashboardScheduleTabContent.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/profile/ProfileTabHost.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/profile/RoyalLawyerProfileHost.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/useHomeBlockOverridePatch.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/dashboard/useHomeTabPinnedCount.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/FinancialOperationsCenter/focLazyModals.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/GlobalSearchOverlay/components/SearchStatusAnnouncer.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/smart-modal/parts/FinancialCard.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartLegalRadar/EventFormInstantShell.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartLegalRadar/RadarAiBriefing.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartRepository/RepositoryActionToolbar.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartRepository/RepositoryCustomCategoryRow.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartRepository/RepositoryNotePinButton.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/SmartRepository/RepositoryRoomsRow.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/components/lawyer/TransactionsThreading/FinancesTabView.tsx",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/domain/execution/dossier/ExecutionDelegationViewBuilder.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/lib/motionDragControls.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/observability/sentryClient.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/runtime/clientRequestsHubLoader.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/runtime/lawyerDashboardWarmPolicy.ts",
+      "bucket": "other"
+    },
+    {
+      "file": "src/app/runtime/nativeScreenshotGuard.ts",
       "bucket": "other"
     },
     {
@@ -552,31 +835,47 @@
       "bucket": "legacy-service"
     },
     {
+      "file": "src/app/services/calendar/calendarRuntime.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/services/cloud/lawyerCommunityCloudApi.ts",
+      "bucket": "legacy-service"
+    },
+    {
       "file": "src/app/services/forum/forumPerfBudget.ts",
       "bucket": "legacy-service"
     },
     {
-      "file": "src/app/services/settings/nav.ts",
+      "file": "src/app/services/notifications/notificationPerfBudget.ts",
       "bucket": "legacy-service"
     },
     {
-      "file": "src/types/shims.d.ts",
+      "file": "src/app/services/search/globalSearchPerfBudget.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/services/secureStoreKeyDeleteBus.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/services/transactions/transactionsRuntime.ts",
+      "bucket": "legacy-service"
+    },
+    {
+      "file": "src/app/utils/executionFileNormalize.ts",
       "bucket": "other"
     },
     {
-      "file": "src/types/supabase-js-shim.d.ts",
+      "file": "src/app/utils/executorHeirSubstitutionStatus.ts",
       "bucket": "other"
     },
     {
-      "file": "src/vite-env.d.ts",
+      "file": "src/app/utils/securityLogRedaction.ts",
       "bucket": "other"
     },
     {
-      "file": "src/vite-plugins/preferFileOverDirectory.ts",
-      "bucket": "other"
-    },
-    {
-      "file": "src/vitest-globals.d.ts",
+      "file": "src/app/workspace/useWorkspacePinPrune.ts",
       "bucket": "other"
     }
   ],

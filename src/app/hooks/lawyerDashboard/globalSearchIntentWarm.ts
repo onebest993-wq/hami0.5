@@ -1,12 +1,6 @@
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
-import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { WarmGlobalSearchInput } from '@/app/services/globalSearchWarm';
-import {
-    prefetchGlobalSearchOverlay,
-    prefetchGlobalSearchOverlayChunk,
-    prefetchGlobalSearchSearchEngine,
-} from '@/app/runtime/globalSearchLoader';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { shouldAllowIntentWarmFromDom } from '@/app/services/settings/intentWarmGate';
 
 export type GlobalSearchWarmSnapshot = WarmGlobalSearchInput;
 
@@ -18,8 +12,23 @@ function resolveWarmSnapshot(): GlobalSearchWarmSnapshot | null {
 
 function canWarmGlobalSearchExtras(): boolean {
     if (typeof document !== 'undefined' && document.hidden) return false;
+    if (!shouldAllowIntentWarmFromDom()) return false;
     if (isLitePerformanceActive()) return false;
     return true;
+}
+
+function warmExtras(uid: string): void {
+    void import('@/app/services/globalSearchLoad')
+        .then((m) => m.warmGlobalSearchExtras(uid))
+        .catch(() => undefined);
+}
+
+function loadGlobalSearchLoader() {
+    return import('@/app/runtime/globalSearchLoader');
+}
+
+function loadGlobalSearchWarm() {
+    return import('@/app/services/globalSearchWarm');
 }
 
 /** يُحدَّث من runtime effects — لقطة حية عبر provider بدون effect عند كل تغيير ملف */
@@ -37,16 +46,27 @@ export function clearGlobalSearchWarmSnapshot(): void {
     snapshotProvider = null;
 }
 
-/** عند hover/لمس أيقونة البحث: chunk + محرك مؤجَّل + فهرس idle. */
+/** عند hover/لمس أيقونة البحث: chunk فوراً؛ المحرك/الفهرس فقط خارج وضع lite. */
 export function warmGlobalSearchOnHover(): void {
-    prefetchGlobalSearchOverlay();
+    if (typeof window === 'undefined') return;
+    if (!shouldAllowIntentWarmFromDom()) return;
+    const lite = isLitePerformanceActive();
+    void loadGlobalSearchLoader()
+        .then((m) => {
+            m.prefetchGlobalSearchOverlayChunk();
+            if (!lite) m.prefetchGlobalSearchSearchEngine();
+        })
+        .catch(() => undefined);
+    if (lite) return;
     const snap = resolveWarmSnapshot();
     const uid = snap?.userId;
     if (uid && canWarmGlobalSearchExtras()) {
-        void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
+        warmExtras(uid);
     }
     if (snap) {
-        void import('@/app/services/globalSearchWarm').then((m) => m.warmGlobalSearchPipeline(snap, false));
+        void loadGlobalSearchWarm()
+            .then((m) => m.warmGlobalSearchPipeline(snap, false))
+            .catch(() => undefined);
     }
 }
 
@@ -55,18 +75,23 @@ export function warmGlobalSearchOnHover(): void {
  * الفهرس الكامل يُكمَّل داخل GlobalSearchRuntimeProvider عند الحاجة.
  */
 export function warmGlobalSearchOnOpen(): void {
-    prefetchGlobalSearchOverlayChunk();
+    void loadGlobalSearchLoader()
+        .then((m) => {
+            m.prefetchGlobalSearchOverlayChunk();
+            m.prefetchGlobalSearchSearchEngine();
+        })
+        .catch(() => undefined);
     const snap = resolveWarmSnapshot();
     const uid = snap?.userId;
     if (uid && canWarmGlobalSearchExtras()) {
-        void import('@/app/services/globalSearchLoad').then((m) => m.warmGlobalSearchExtras(uid));
+        warmExtras(uid);
     }
+    /* فهرس أساسي idle — لا يحجب أول لمسة للـ shell */
     queueMicrotask(() => {
-        prefetchGlobalSearchSearchEngine();
         const live = resolveWarmSnapshot();
         if (!live || (typeof document !== 'undefined' && document.hidden)) return;
-        void import('@/app/services/globalSearchWarm').then((m) =>
-            m.warmGlobalSearchPipeline(live, false),
-        );
+        void loadGlobalSearchWarm()
+            .then((m) => m.warmGlobalSearchPipeline(live, false))
+            .catch(() => undefined);
     });
 }

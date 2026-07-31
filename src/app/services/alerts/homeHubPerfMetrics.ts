@@ -16,6 +16,12 @@ export type HomeHubPerfReportContext = {
     hadAlertsCache?: boolean;
 };
 
+let homeHubPerfReported = false;
+
+export function resetHomeHubPerfReportSession(): void {
+    homeHubPerfReported = false;
+}
+
 export function markHomeHubPerfPhase(phase: HomeHubPerfPhase): void {
     if (typeof performance === 'undefined' || typeof performance.mark !== 'function') return;
     try {
@@ -34,6 +40,7 @@ export function clearHomeHubPerfMarks(): void {
     } catch {
         /* ignore */
     }
+    resetHomeHubPerfReportSession();
 }
 
 /** ms من open-request → interactive (null إذا لم تُسجَّل المرحلتان) */
@@ -42,7 +49,9 @@ export function getHomeHubOpenToInteractiveMs(): number | null {
     const open = performance.getEntriesByName(`${MARK_PREFIX}open-request`, 'mark')[0];
     const interactive = performance.getEntriesByName(`${MARK_PREFIX}interactive`, 'mark')[0];
     if (!open || !interactive) return null;
-    return Math.round(interactive.startTime - open.startTime);
+    const ms = interactive.startTime - open.startTime;
+    if (!Number.isFinite(ms) || ms < 0) return null;
+    return Math.round(ms);
 }
 
 export function reportHomeHubPerfIfDev(context?: HomeHubPerfReportContext | string): void {
@@ -53,8 +62,10 @@ export function reportHomeHubPerfIfDev(context?: HomeHubPerfReportContext | stri
 }
 
 export function reportHomeHubPerf(context: HomeHubPerfReportContext = {}): void {
+    if (homeHubPerfReported) return;
     const ms = getHomeHubOpenToInteractiveMs();
     if (ms == null) return;
+    homeHubPerfReported = true;
     if (import.meta.env.DEV) {
         debug.log('[HomeHubPerf] open→interactive', ms, 'ms', context);
     }

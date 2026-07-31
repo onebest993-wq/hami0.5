@@ -122,6 +122,7 @@ export type SaveVaultFileOptions = {
     lawyerNote?: string | null;
     customCategory?: string | null;
     fileName?: string;
+    roomId?: string | null;
 };
 
 export async function saveFileToVault(
@@ -455,4 +456,22 @@ export function reportVaultPersistFailure(err: unknown, fileLabel: string): stri
         return 'يتجاوز الحد الأقصى 50MB';
     }
     return `فشل حفظ ${fileLabel}`;
+}
+
+/** تحميل مستند Vault إلى الجهاز — thin shim للم viewer */
+export async function downloadVaultDocToDevice(
+    doc: SmartVaultDoc,
+    opts?: { fileUrl?: string | null; fileBlob?: Blob | null },
+): Promise<void> {
+    const blob =
+        opts?.fileBlob ??
+        (opts?.fileUrl ? await fetch(opts.fileUrl).then((r) => r.blob()).catch(() => null) : null) ??
+        (await resolveVaultDocBlob(doc));
+    if (!blob) throw new Error('vault download unavailable');
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = doc.fileName || doc.title || 'vault-doc';
+    anchor.click();
+    URL.revokeObjectURL(url);
 }

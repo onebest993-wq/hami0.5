@@ -28,13 +28,13 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "noEmitOnError": false,
+    "ignoreDeprecations": "6.0",
     "types": ["vite/client", "vitest/globals"],
-    "baseUrl": ".",
     "paths": {
-      "@/app/bootstrap/LawyerDashboardGate": ["src/app/bootstrap/LawyerDashboardGate.tsx"],
-      "@/app/bootstrap/SecurityInitializerGate": ["src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
-      "@/*": ["src/*"],
-      "@/app/*": ["src/app/*"]
+      "@/app/bootstrap/LawyerDashboardGate": ["./src/app/bootstrap/LawyerDashboardGate.tsx"],
+      "@/app/bootstrap/SecurityInitializerGate": ["./src/app/bootstrap/SecurityInitializerGate.dev.tsx"],
+      "@/*": ["./src/*"],
+      "@/app/*": ["./src/app/*"]
     }
   },
   "include": ["src"],

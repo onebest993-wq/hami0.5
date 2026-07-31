@@ -1,15 +1,22 @@
-// @ts-nocheck
 /** Phase C Slice 16 — حفظ لقطة الإضبارة عند الإغلاق/إجراءات محددة */
-import { useCallback } from 'react';
+import { useCallback, type MutableRefObject } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { persistExecutionDashboardSnapshot } from './persistExecutionDashboardSnapshot';
 import { useExecutionDashboardSaveOnUnmount } from './useExecutionDashboardRuntimeSyncEffects';
+import type { ExecutionDashboardFollowupClusterInput } from './useExecutionDashboardFollowupCluster';
+import type { ExecutionDashboardSaveApprovalClusterInput } from './useExecutionDashboardSaveApprovalCluster';
+import type { EvictionEarnerFeeCollectionSM } from '@/app/utils/evictionEarnerFeeCollectionMachine';
+
+type DebtorSummonsMarkerLocal = ExecutionDashboardFollowupClusterInput['debtorSummonsMarkerLocal'];
+type SaveApprovalCoercionBridge = ExecutionDashboardSaveApprovalClusterInput['coercionOrchestrator'];
+type SaveApprovalFollowupBridge = ExecutionDashboardSaveApprovalClusterInput['followupOrchestrator'];
 
 export type UseExecutionDashboardSaveExecutionDataParams = {
     executionId: string | undefined;
     executionData: ExecutionFile | null | undefined;
+    executionDataRef?: MutableRefObject<ExecutionFile | null | undefined>;
     debtorNotificationDate: string | null | undefined;
-    debtorSummonsMarkerLocal: unknown;
+    debtorSummonsMarkerLocal: DebtorSummonsMarkerLocal;
     lastActionDate: string | null | undefined;
     executionFeeInjected: boolean;
     timelineEvents: ExecutionFile['timelineEvents'];
@@ -28,30 +35,33 @@ export type UseExecutionDashboardSaveExecutionDataParams = {
     arrestWarrantUnlocked: boolean;
     creditorAttended: boolean;
     executionPaused: boolean;
-    activeNoticeState: unknown;
-    debtorAttendedVoluntarily: boolean;
-    debtorForcedToAttend: boolean;
-    debtorArrested: boolean;
-    nonInterferenceIssued: boolean;
+    activeNoticeState: SaveApprovalCoercionBridge['activeNoticeState'];
+    debtorAttendedVoluntarily: SaveApprovalCoercionBridge['debtorAttendedVoluntarily'];
+    debtorForcedToAttend: SaveApprovalCoercionBridge['debtorForcedToAttend'];
+    debtorArrested: SaveApprovalCoercionBridge['debtorArrested'];
+    nonInterferenceIssued: SaveApprovalCoercionBridge['nonInterferenceIssued'];
     paidDebt: number;
     paidCourtFees: number;
     paidDirectorateFees: number;
     paidClientFees: number;
-    summoningRound: number;
-    voluntaryAttendanceCount: number;
-    investigationCourtRequested: boolean;
-    investigationMemoIssued: boolean;
-    investigationPathDebtorPresent: boolean;
-    forcedPathAttendanceSecured: boolean;
-    evictionVacateDeadlineLocal: string | null | undefined;
-    evictionResidentialGracePeriodStart: string | null | undefined;
-    evictionExecutorVacateGrantApproved: boolean | null | undefined;
-    evictionResidentialGraceManuallyEndedAt: string | null | undefined;
-    evictionAssetsTabUnlocked: boolean;
-    evictionCaseExpenses: unknown;
-    encroachmentCaseExpenses: unknown;
-    specificDeliveryCaseExpenses: unknown;
-    earnerFeeCollectionSm: unknown;
+    summoningRound: SaveApprovalCoercionBridge['summoningRound'];
+    voluntaryAttendanceCount: SaveApprovalCoercionBridge['voluntaryAttendanceCount'];
+    investigationCourtRequested: SaveApprovalCoercionBridge['investigationCourtRequested'];
+    investigationMemoIssued: SaveApprovalCoercionBridge['investigationMemoIssued'];
+    investigationPathDebtorPresent: SaveApprovalCoercionBridge['investigationPathDebtorPresent'];
+    forcedPathAttendanceSecured: SaveApprovalCoercionBridge['forcedPathAttendanceSecured'];
+    evictionVacateDeadlineLocal: SaveApprovalFollowupBridge['evictionVacateDeadlineLocal'];
+    evictionResidentialGracePeriodStart:
+        SaveApprovalFollowupBridge['evictionResidentialGracePeriodStart'];
+    evictionExecutorVacateGrantApproved:
+        SaveApprovalFollowupBridge['evictionExecutorVacateGrantApproved'];
+    evictionResidentialGraceManuallyEndedAt:
+        SaveApprovalFollowupBridge['evictionResidentialGraceManuallyEndedAt'];
+    evictionAssetsTabUnlocked: SaveApprovalFollowupBridge['evictionAssetsTabUnlocked'];
+    evictionCaseExpenses: SaveApprovalFollowupBridge['evictionCaseExpenses'];
+    encroachmentCaseExpenses: SaveApprovalFollowupBridge['encroachmentCaseExpenses'];
+    specificDeliveryCaseExpenses: SaveApprovalFollowupBridge['specificDeliveryCaseExpenses'];
+    earnerFeeCollectionSm: EvictionEarnerFeeCollectionSM;
 };
 
 export function useExecutionDashboardSaveExecutionData(
@@ -61,6 +71,7 @@ export function useExecutionDashboardSaveExecutionData(
         persistExecutionDashboardSnapshot({
             executionId: p.executionId,
             executionData: p.executionData,
+            executionDataRef: p.executionDataRef,
             debtorNotificationDate: p.debtorNotificationDate,
             debtorSummonsMarkerLocal: p.debtorSummonsMarkerLocal,
             lastActionDate: p.lastActionDate,
@@ -109,6 +120,7 @@ export function useExecutionDashboardSaveExecutionData(
     }, [
         p.executionId,
         p.executionData,
+        p.executionDataRef,
         p.debtorNotificationDate,
         p.debtorSummonsMarkerLocal,
         p.lastActionDate,
@@ -155,7 +167,10 @@ export function useExecutionDashboardSaveExecutionData(
         p.earnerFeeCollectionSm,
     ]);
 
-    useExecutionDashboardSaveOnUnmount(saveExecutionData);
+    useExecutionDashboardSaveOnUnmount(
+        saveExecutionData,
+        String(p.executionData?.id ?? p.executionId ?? ''),
+    );
 
     return saveExecutionData;
 }

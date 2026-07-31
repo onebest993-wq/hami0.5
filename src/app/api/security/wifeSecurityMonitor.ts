@@ -14,6 +14,8 @@ export type WifeRejectReason =
   | 'actor_binding_failed'
   | 'forum_banned'
   | 'forum_guest_write_denied'
+  | 'forum_guest_read_denied'
+  | 'execution_guest_denied'
   | 'csrf_store_unavailable';
 
 export type WifeRejectMeta = {

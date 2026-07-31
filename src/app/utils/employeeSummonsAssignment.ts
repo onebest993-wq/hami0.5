@@ -4,7 +4,6 @@
 
 import type { EmployeeSummonsAssignmentState } from '@/app/types/execution';
 import {
-    formatDateToLocalYmd,
     parseLocalNotificationDate,
 } from '@/app/utils/executionStateMachine';
 import { addCalendarDaysYmd } from '@/app/utils/executionYmdCalendar';

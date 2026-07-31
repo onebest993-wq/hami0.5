@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { SmartVaultDB, type SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { loadPersistedViewMode, persistViewMode } from '@/app/services/settings/builtInBehavior';
 import {
     addCustomCategory,

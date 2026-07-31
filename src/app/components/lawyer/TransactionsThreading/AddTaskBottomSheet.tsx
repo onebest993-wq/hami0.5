@@ -78,7 +78,7 @@ export function AddTaskBottomSheet({
                             {isSubmitting ? 'جاري الحفظ...' : 'حفظ المهمة'}
                         </button>
                     }
-                >
+            >
                     <div>
                         <TxFieldLabel>عنوان المهمة</TxFieldLabel>
                         <input
@@ -102,7 +102,7 @@ export function AddTaskBottomSheet({
                                 : 'مهلة المهام وتواريخ المصاريف تُزامَن مع التقويم.'}
                         </p>
                     </div>
-                </TxGlassDrawerFrame>
+            </TxGlassDrawerFrame>
         </TransactionsHubSheet>
     );
 }

@@ -8,6 +8,8 @@ import { RequestStatus } from '@/app/types/admin-types';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { buildPinFromSecretaryAlert } from '@/app/workspace/buildPinFromSecretaryAlert';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 import { inferUrgencyTone, urgencyToneStyles } from './alertCardUtils';
 import type { SmartAlert } from './types';
 
@@ -54,19 +56,29 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
     const tone = useMemo(() => inferUrgencyTone(source), [source]);
     const styles = useMemo(() => urgencyToneStyles(tone), [tone]);
     const [showDetails, setShowDetails] = useState(false);
+    useBodyScrollLock(showDetails);
     // قفل anti-double-click لطلبات العميل (in-flight)
     const [isProcessingRequest, setIsProcessingRequest] = useState(false);
     const togglePin = useWorkspaceStore((s) => s.togglePin);
     const isPinned = useWorkspaceStore((s) => s.isPinned);
 
-    // Escape لإغلاق modal التفاصيل (a11y)
+    // Escape/Cap لإغلاق modal التفاصيل (a11y + موبايل)
     useEffect(() => {
         if (!showDetails || typeof window === 'undefined') return undefined;
         const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') setShowDetails(false);
+            if (e.key !== 'Escape') return;
+            e.preventDefault();
+            setShowDetails(false);
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
+        window.addEventListener('keydown', onKey, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => {
+            setShowDetails(false);
+            return true;
+        });
+        return () => {
+            window.removeEventListener('keydown', onKey, true);
+            unregisterNativeBack();
+        };
     }, [showDetails]);
 
     const Icon = alert.icon ?? ShieldAlert;
@@ -159,12 +171,13 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
                                         e.stopPropagation();
                                         togglePin(pinPayload);
                                     }}
-                                    className={`w-6 h-6 rounded-lg flex items-center justify-center border shrink-0 ${
+                                    className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg flex items-center justify-center border shrink-0 touch-manipulation ${
                                         pinned
                                             ? 'border-amber-400/50 bg-amber-500/20 text-amber-300'
                                             : 'border-white/10 bg-white/5 text-white/60'
                                     }`}
                                     title={pinned ? 'إلغاء التثبيت' : 'تثبيت في البطاقة العامة'}
+                                    aria-label={pinned ? 'إلغاء التثبيت' : 'تثبيت في البطاقة العامة'}
                                 >
                                     <Pin size={11} className={pinned ? 'fill-current' : undefined} />
                                 </button>
@@ -176,8 +189,9 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
                                         e.stopPropagation();
                                         setShowDetails(true);
                                     }}
-                                    className="w-6 h-6 rounded-lg flex items-center justify-center border border-white/10 bg-white/5 text-white/70 text-[9px] font-bold shrink-0"
+                                    className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-lg flex items-center justify-center border border-white/10 bg-white/5 text-white/70 text-[9px] font-bold shrink-0 touch-manipulation"
                                     title="تفاصيل"
+                                    aria-label="تفاصيل التنبيه"
                                 >
                                     ؟
                                 </button>
@@ -188,8 +202,9 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
                                     e.stopPropagation();
                                     onDismiss(alert.id);
                                 }}
-                                className="w-5 h-5 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/20 shrink-0"
+                                className="min-w-[44px] min-h-[44px] w-11 h-11 rounded-full flex items-center justify-center bg-white/5 hover:bg-white/20 shrink-0 touch-manipulation"
                                 title="تجاهل"
+                                aria-label="تجاهل التنبيه"
                             >
                                 <X size={10} className="text-white/50" />
                             </button>
@@ -269,7 +284,7 @@ export const AlertCardItem: React.FC<AlertCardItemProps> = React.memo(({
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
-                              className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+                              className="fixed inset-0 z-[400] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]"
                               onClick={() => setShowDetails(false)}
                               role="dialog"
                               aria-modal="true"

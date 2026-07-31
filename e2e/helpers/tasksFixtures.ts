@@ -1,7 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
-import { stripBootFailureLayer, prepareBootE2E, suppressWeeklyBackupReminder } from './bootFixtures';
+import { stripBootFailureLayer, prepareBootE2E, suppressWeeklyBackupReminder, recoverLawyerDashboardBootError } from './bootFixtures';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
+import { seedLawyerFiles } from './civilLawsuitFixtures';
 
 export const QUANTUM_TASKS_STORAGE_KEY = 'hami_quantum_legal_tasks_v1';
 
@@ -45,6 +46,10 @@ async function seedTasksDockLayout(page: Page): Promise<void> {
             }
             homeLayout.overrides = overrides;
             settings.homeLayout = homeLayout;
+            const performance = (settings.performance as Record<string, unknown> | undefined) ?? {};
+            performance.prefetchScreens = true;
+            performance.litePerformance = 'off';
+            settings.performance = performance;
             if (settings.version == null) settings.version = 2;
             localStorage.setItem(key, JSON.stringify(settings));
         } catch {
@@ -125,6 +130,7 @@ export async function prepareTasksE2E(page: Page): Promise<void> {
     await suppressWeeklyBackupReminder(page);
     await installTasksE2EIsolation(page);
     await seedTasksDockLayout(page);
+    await seedLawyerFiles(page);
 }
 
 export async function clearQuantumTasks(page: Page) {
@@ -157,22 +163,6 @@ async function awaitDashboardInteractive(page: Page): Promise<void> {
     });
 }
 
-/** ينتظر prefetch ستارة الميدان بعد الإقلاع */
-async function awaitFieldTasksShellPrefetch(page: Page): Promise<void> {
-    await page.evaluate((eventName) => {
-        return new Promise<void>((resolve) => {
-            const timeout = window.setTimeout(resolve, 15_000);
-            const done = () => {
-                window.clearTimeout(timeout);
-                window.removeEventListener(eventName, done);
-                resolve();
-            };
-            window.addEventListener(eventName, done, { once: true });
-            window.dispatchEvent(new Event('hami:dashboard-interactive'));
-        });
-    }, 'hami:field-tasks-shell-hydrated');
-}
-
 /** ينتظر الدوك بعد الإقلاع — بدون import دائري */
 async function bootToHomeDockForTasks(page: Page): Promise<void> {
     await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 60_000 });
@@ -195,10 +185,10 @@ async function bootToHomeDockForTasks(page: Page): Promise<void> {
 export async function awaitDashboardStableForFieldTasks(page: Page): Promise<void> {
     if (page.isClosed()) return;
 
+    await recoverLawyerDashboardBootError(page);
     await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 60_000 });
     await stripBootFailureLayer(page);
     await awaitDashboardInteractive(page);
-    await page.waitForLoadState('networkidle', { timeout: 12_000 }).catch(() => undefined);
 
     const trigger = dockTasksTrigger(page).first();
 
@@ -218,8 +208,6 @@ export async function bootTasksE2E(page: Page): Promise<void> {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await bootToHomeDockForTasks(page);
     await dismissProductivityBlockers(page);
-    await awaitDashboardStableForFieldTasks(page);
-    await awaitFieldTasksShellPrefetch(page);
 }
 
 export async function resetTasksE2ETransientState(page: Page): Promise<void> {
@@ -262,11 +250,18 @@ export async function waitForFieldTasksSheetReady(page: Page, timeout = 50_000) 
     return sheet;
 }
 
-export async function waitForTasksManagerReady(page: Page, timeout = 50_000) {
+export async function waitForTasksManagerReady(page: Page, timeout = 90_000) {
     const manager = page.getByTestId('tasks-manager');
+    const loadError = page.getByTestId('tasks-manager-load-error');
+    const loading = page.getByTestId('tasks-manager-loading');
+
     await expect(async () => {
-        await expect(manager).toBeVisible({ timeout: 8_000 });
-        await expect(manager).toHaveAttribute('data-tasks-manager-hydrated', 'true', { timeout: 8_000 });
+        if (await loadError.isVisible().catch(() => false)) {
+            await page.getByTestId('tasks-manager-retry').click({ force: true, noWaitAfter: true });
+        }
+        await expect(loading).toBeHidden({ timeout: 6_000 }).catch(() => undefined);
+        await expect(manager).toBeVisible({ timeout: 10_000 });
+        await expect(manager).toHaveAttribute('data-tasks-manager-hydrated', 'true', { timeout: 12_000 });
     }).toPass({ timeout });
     return manager;
 }
@@ -277,45 +272,51 @@ export async function fillTasksFormField(manager: Locator, testId: string, value
         const field = manager.getByTestId(testId);
         await expect(field).toBeVisible();
         await expect(field).toBeEditable();
-        await field.click();
-        await field.fill('');
-        await field.pressSequentially(value, { delay: 12 });
-        await expect(field).toHaveValue(value);
-    }).toPass({ timeout: 30_000 });
+        await field.click({ force: true });
+        await field.fill(value);
+        await expect(field).toHaveValue(value, { timeout: 4_000 });
+    }).toPass({ timeout: 45_000 });
 }
 
 export async function openFieldTasksFromDock(page: Page) {
-    await awaitDashboardStableForFieldTasks(page);
+    await recoverLawyerDashboardBootError(page);
+    await dismissProductivityBlockers(page);
     await resetTasksE2ETransientState(page);
 
     const clickDockTasks = async () => {
         const trigger = dockTasksTrigger(page).first();
         await trigger.scrollIntoViewIfNeeded();
+        await expect(trigger).toBeVisible({ timeout: 12_000 });
+        await trigger.hover().catch(() => undefined);
         await trigger.click({ timeout: 12_000, force: true });
     };
 
     await expect(async () => {
         await clickDockTasks();
-        await expect(page.getByTestId('field-tasks-sheet').or(page.getByTestId('field-tasks-sheet-loading')))
-            .toBeVisible({ timeout: 6_000 });
-    }).toPass({ timeout: 25_000 });
+        await expect(
+            page.getByTestId('field-tasks-sheet').or(page.getByTestId('field-tasks-sheet-loading')),
+        ).toBeVisible({ timeout: 8_000 });
+    }).toPass({ timeout: 35_000 });
 
     try {
         return await waitForFieldTasksSheetReady(page, 50_000);
     } catch {
         await closeTasksManagerIfOpen(page);
         await closeFieldTasksSheetIfOpen(page);
-        await awaitDashboardStableForFieldTasks(page);
+        await recoverLawyerDashboardBootError(page);
+        await dismissProductivityBlockers(page);
         await clickDockTasks();
         return waitForFieldTasksSheetReady(page, 50_000);
     }
 }
 
 export async function openTasksManagerFromSheet(page: Page, sheet: Locator) {
-    await expect(sheet).toHaveAttribute('data-field-tasks-hydrated', 'true', { timeout: 10_000 });
-    await sheet.getByTestId('field-tasks-manage-all').click();
-    await expect(page.getByTestId('field-tasks-sheet')).toBeHidden({ timeout: 8_000 });
-    return waitForTasksManagerReady(page);
+    await expect(sheet).toHaveAttribute('data-field-tasks-hydrated', 'true', { timeout: 12_000 });
+    const manageAll = sheet.getByTestId('field-tasks-manage-all');
+    await expect(manageAll).toBeVisible({ timeout: 12_000 });
+    await manageAll.click({ force: true, noWaitAfter: true });
+    await expect(page.getByTestId('field-tasks-sheet')).toBeHidden({ timeout: 12_000 });
+    return waitForTasksManagerReady(page, 90_000);
 }
 
 export async function closeTasksManagerIfOpen(page: Page): Promise<void> {
@@ -346,5 +347,4 @@ export async function teardownTasksE2E(page: Page): Promise<void> {
     await closeFieldTasksSheetIfOpen(page);
     await resetTasksE2EPageState(page);
     await stripBootFailureLayer(page);
-    await awaitDashboardStableForFieldTasks(page).catch(() => undefined);
 }

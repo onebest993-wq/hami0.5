@@ -123,6 +123,7 @@ export const ecg = {
     modalPanelDanger:
         'rounded-2xl border border-rose-500/40 bg-[#0A0F1C]/95 backdrop-blur-xl p-6 max-w-md w-full',
     modalDialogTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
+    modalTitle: 'text-xl font-bold text-[#E6C673] mb-2 flex items-center gap-2',
     modalBtnPrimary:
         'flex-1 rounded-xl border border-[#E6C673]/45 bg-gradient-to-l from-[#E6C673]/22 to-[#E6C673]/8 py-3 text-sm font-bold text-[#F8EED0] hover:from-[#E6C673]/30 disabled:opacity-40 disabled:cursor-not-allowed transition-all',
     modalBtnGhost:

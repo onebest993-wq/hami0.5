@@ -16,6 +16,8 @@ import {
     buildManualExecutorAppealWonPatch,
     buildManualExecutorAppealLostPatch,
     reconcileTerminatedDecisionArchives,
+    reconcileAppealFinalDecisionArchives,
+    shouldAutoArchiveAppealFinalDecision,
     shouldAutoArchiveTerminatedDecision,
     buildManualExecutorGrievanceOutcomePatch,
     buildManualExecutorCassationFilePatch,
@@ -292,6 +294,31 @@ describe('manual executor ledger (إضافة قرار)', () => {
         const { rows, mutated } = reconcileTerminatedDecisionArchives([terminated]);
         expect(mutated).toBe(true);
         expect(rows[0]!.isArchived).toBe(true);
+    });
+
+    it('auto-archives settled hubs after final cassation affirm', () => {
+        const hub = base({
+            id: 'hub',
+            requestKind: 'personal_coercive',
+            appealRequestOrigin: 'executor_side',
+            executorOutcome: 'approved',
+            activatedByExecutorOrder: true,
+            activeAppealCopyId: 'copy',
+        });
+        const copy = base({
+            id: 'copy',
+            appealSourceDecisionId: 'hub',
+            appealStatus: 'final',
+            appealResult: 'تصديق القرار',
+            appealPhase: 'cassation',
+            appealMethod: 'tamyeez',
+        });
+        const all = [hub, copy];
+        expect(shouldAutoArchiveAppealFinalDecision(hub, all)).toBe(true);
+        const { rows, mutated } = reconcileAppealFinalDecisionArchives(all);
+        expect(mutated).toBe(true);
+        expect(rows.find((r) => r.id === 'hub')?.isArchived).toBe(true);
+        expect(rows.find((r) => r.id === 'copy')?.isArchived).toBe(true);
     });
 
     it('sorts terminated manual cards to the bottom', () => {

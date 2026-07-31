@@ -20,7 +20,9 @@ export function ProfileTextCanvasShell({
     children,
     previewInteractive,
 }: ProfileTextCanvasShellProps) {
-    const interaction = canvas.interaction ?? 'none';
+    const storedInteraction = canvas.interaction ?? 'none';
+    /* بلا تفاعل: لا أقنعة/ضباب يخفي النص في المعاينة أو أثناء السحب */
+    const interaction = previewInteractive ? storedInteraction : 'none';
     const wrapRef = useRef<HTMLDivElement>(null);
     const leafRefs = useRef<(HTMLSpanElement | null)[]>([]);
     const inView = useProfileCanvasInView(wrapRef);

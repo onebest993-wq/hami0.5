@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef } from 'react';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 import { MIST_CLEAR_STROKES } from './constants';
 
 type MistFogLayerProps = {
@@ -16,12 +17,14 @@ export function MistFogLayer({
     onCleared,
     onFirstTouch,
 }: MistFogLayerProps) {
+    const androidLite = isAndroidNativeShell();
     const wrapRef = useRef<HTMLDivElement>(null);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const eraseCountRef = useRef(0);
     const touchedRef = useRef(false);
 
     const paintFog = useCallback(() => {
+        if (androidLite) return;
         const canvas = canvasRef.current;
         const wrap = wrapRef.current;
         if (!canvas || !wrap) return;
@@ -61,15 +64,19 @@ export function MistFogLayer({
             ctx.fillRect(x - r, y - r, r * 2, r * 2);
         }
         eraseCountRef.current = 0;
-    }, []);
+    }, [androidLite]);
 
     useEffect(() => {
-        if (!active) return;
+        if (!active || androidLite) return;
         paintFog();
-        const ro = new ResizeObserver(() => paintFog());
+        const ro = new ResizeObserver(() => {
+            /* لا تُعد رسم الضباب كاملاً أثناء المسح — يمحو تقدّم الإيماءة */
+            if (eraseCountRef.current > 0) return;
+            paintFog();
+        });
         if (wrapRef.current) ro.observe(wrapRef.current);
         return () => ro.disconnect();
-    }, [active, paintFog]);
+    }, [active, androidLite, paintFog]);
 
     const eraseAt = useCallback(
         (clientX: number, clientY: number) => {
@@ -77,6 +84,7 @@ export function MistFogLayer({
                 touchedRef.current = true;
                 onFirstTouch?.();
             }
+            if (androidLite) return;
             const canvas = canvasRef.current;
             const wrap = wrapRef.current;
             if (!canvas || !wrap) return;
@@ -100,24 +108,45 @@ export function MistFogLayer({
             eraseCountRef.current += 1;
             if (eraseCountRef.current >= MIST_CLEAR_STROKES) onCleared();
         },
-        [onCleared, onFirstTouch],
+        [androidLite, onCleared, onFirstTouch],
     );
 
     const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         e.preventDefault();
         e.stopPropagation();
-        e.currentTarget.setPointerCapture(e.pointerId);
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        } catch {
+            /* ignore */
+        }
+        /* Android: طبقة CSS ثابتة — أول لمسة تكشف فوراً بلا canvas */
+        if (androidLite) {
+            if (!touchedRef.current) {
+                touchedRef.current = true;
+                onFirstTouch?.();
+            }
+            onCleared();
+            return;
+        }
         eraseAt(e.clientX, e.clientY);
+        if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+            onCleared();
+        }
     };
 
     const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+        if (androidLite) return;
         if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
         eraseAt(e.clientX, e.clientY);
     };
 
     const onPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-            e.currentTarget.releasePointerCapture(e.pointerId);
+        try {
+            if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+            }
+        } catch {
+            /* ignore */
         }
     };
 
@@ -128,13 +157,27 @@ export function MistFogLayer({
             ref={wrapRef}
             className="profile-text-canvas__mist-canvas-wrap"
             data-interactive={interactive ? 'true' : 'false'}
+            data-android-lite={androidLite ? 'true' : undefined}
             style={{ '--canvas-accent': accent } as React.CSSProperties}
             onPointerDown={interactive ? onPointerDown : undefined}
             onPointerMove={interactive ? onPointerMove : undefined}
             onPointerUp={interactive ? onPointerEnd : undefined}
             onPointerCancel={interactive ? onPointerEnd : undefined}
         >
-            <canvas ref={canvasRef} className="profile-text-canvas__mist-canvas" />
+            {androidLite ? (
+                <div
+                    className="profile-text-canvas__mist-static"
+                    aria-hidden
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background:
+                            'radial-gradient(ellipse 75% 60% at 50% 38%, rgba(32,28,18,0.55), rgba(4,5,10,0.88))',
+                    }}
+                />
+            ) : (
+                <canvas ref={canvasRef} className="profile-text-canvas__mist-canvas" />
+            )}
             <div className="profile-text-canvas__mist-shimmer" aria-hidden />
             <div className="profile-text-canvas__mist-gold-haze" aria-hidden />
         </div>

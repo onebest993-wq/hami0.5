@@ -1,5 +1,4 @@
 import {
-    buildGlobalSearchIndex,
     type BuildGlobalSearchIndexInput,
     type GlobalSearchEntry,
 } from '@/app/services/globalSearchIndex';

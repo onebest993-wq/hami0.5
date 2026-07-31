@@ -1,13 +1,15 @@
-import { FolderOpen, Upload } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { RepositoryCard } from './RepositoryCard';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { ForumDeleteConfirmModal } from './ForumDeleteConfirmModal';
 import { RepositoryPreviewModal } from './RepositoryPreviewModal';
 import { useLegalRepositoryDocuments, type LegalRepositoryFilters } from '../hooks/useLegalRepositoryDocuments';
 import {
-    FORUM_PUBLISH_BTN,
-    FORUM_TEXT_PRIMARY,
+    FORUM_FAB,
+    FORUM_META_BAR,
+    FORUM_PUBLISH_FAB_SLOT,
     FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
 
 export const LegalRepository = ({
@@ -15,53 +17,58 @@ export const LegalRepository = ({
     selectedType = 'الكل',
     sortBy = 'newest',
     selectedTag = null,
+    surfaceOpen = true,
 }: LegalRepositoryFilters = {}) => {
-    const repo = useLegalRepositoryDocuments({ searchTerm, selectedType, sortBy, selectedTag });
+    const repo = useLegalRepositoryDocuments({
+        searchTerm,
+        selectedType,
+        sortBy,
+        selectedTag,
+        surfaceOpen,
+    });
 
     return (
-        <div className="px-4 pb-28 space-y-4 relative" data-testid="forum-legal-repository">
+        <div className="px-4 pb-28 space-y-4" data-testid="forum-legal-repository">
             {repo.canUpload ? (
-                <div className="fixed bottom-6 left-6 z-20">
+                <div className={FORUM_PUBLISH_FAB_SLOT}>
                     <button
                         type="button"
                         onClick={repo.openUploadModal}
-                        className={`flex items-center gap-2 font-bold py-3 px-5 rounded-2xl shadow-lg shadow-black/25 transition-transform active:scale-95 ${FORUM_PUBLISH_BTN}`}
+                        data-testid="forum-repo-upload-fab"
+                        className={`pointer-events-auto ${FORUM_FAB}`}
                     >
-                        <Upload size={18} />
-                        <span>رفع مستند للمستودع</span>
+                        <Upload size={18} className="relative z-[1]" />
+                        <span className="relative z-[1]">رفع مستند</span>
                     </button>
                 </div>
             ) : null}
 
-            <div className="flex items-center justify-between">
-                <p className={`${FORUM_TEXT_MUTED} text-xs`}>
-                    {repo.syncing && repo.filteredDocuments.length === 0
-                        ? 'جاري المزامنة...'
-                        : repo.filteredDocuments.length === 0
-                          ? 'لا توجد نتائج'
-                          : `${repo.filteredDocuments.length} مستند${repo.filteredDocuments.length !== 1 ? 'ات' : ''}`}
-                </p>
-                <p className="text-[#7A747C] text-[10px]">الترتيب: {repo.activeSortLabel}</p>
-            </div>
+            {repo.filteredDocuments.length > 0 || repo.hasActiveFilters || repo.syncing ? (
+                <div className={FORUM_META_BAR} data-testid="forum-repo-meta-bar">
+                    <p className={`${FORUM_TEXT_MUTED} text-[10px] shrink-0`}>
+                        الترتيب: <span className={FORUM_TEXT_PRIMARY}>{repo.activeSortLabel}</span>
+                    </p>
+                    <div className="flex-1 min-w-2" aria-hidden />
+                    <p className={`${FORUM_TEXT_MUTED} text-xs shrink-0 tabular-nums`}>
+                        {repo.syncing && repo.filteredDocuments.length === 0
+                            ? 'جاري المزامنة...'
+                            : repo.filteredDocuments.length === 0
+                              ? 'لا نتائج مطابقة'
+                              : `${repo.filteredDocuments.length} مستند${repo.filteredDocuments.length !== 1 ? 'ات' : ''}`}
+                    </p>
+                </div>
+            ) : null}
 
             {repo.filteredDocuments.length === 0 ? (
-                <div className="py-14 text-center">
-                    <div className="w-20 h-20 rounded-full bg-[#342C3A] border border-[#4A3D52]/40 flex items-center justify-center mx-auto mb-4">
-                        <FolderOpen size={36} className="text-[#F0B896]/30" />
-                    </div>
-                    <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg mb-2`}>
+                <div className="min-h-[min(40vh,22rem)] flex flex-col items-center justify-end text-center px-3 pb-6">
+                    <p className={`${FORUM_TEXT_MUTED} text-sm max-w-xs`}>
                         {repo.hasActiveFilters
-                            ? 'لا توجد مستندات تطابق بحثك'
+                            ? 'لا نتائج لهذا البحث — جرّب كلمة أو تصنيفاً آخر.'
                             : repo.totalDocuments === 0
-                              ? 'المستودع فارغ حالياً'
-                              : 'لا توجد مستندات في هذا التصنيف'}
-                    </h3>
-                    <p className={`${FORUM_TEXT_MUTED} text-sm`}>
-                        {repo.hasActiveFilters
-                            ? 'حاول تغيير كلمة البحث أو اختيار نوع/وسم آخر.'
-                            : repo.canUpload
-                              ? 'ارفع أول مستند قانوني ليستفيد منه زملاؤك.'
-                              : 'ستظهر المستندات هنا عند رفعها من المحامين.'}
+                              ? repo.canUpload
+                                  ? 'المستودع فارغ — ارفع مستنداً من الزر أدناه.'
+                                  : 'المستودع فارغ حالياً.'
+                              : 'لا مستندات في هذا التصنيف.'}
                     </p>
                 </div>
             ) : (

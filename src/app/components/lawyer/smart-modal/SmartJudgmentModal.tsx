@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { motion, AnimatePresence } from 'motion/react';
 import {
     isNonMeritTerminationType,
     isSulhJudgmentType,
     isFirstInstanceStageName,
+    isCassationStageName,
     resolveLawyerSide,
     resolveFirstInstanceHadoriAppealRights,
     resolveJudgmentAppealHintForLawyer,
-    JUDGMENT_TYPE_WAIVER,
 } from './smartFile/judgmentTypes';
 import {
     absentObjectionJudgmentOptions,
@@ -22,6 +21,12 @@ import {
     type JudgmentOptionWithHint,
 } from './smartFile/interpleaderJudgmentEngine';
 import { filterPetitionVoidFromJudgmentOptions } from './smartFile/petitionVoidFlow';
+import {
+    canRequestCassationCorrection,
+    findCassationStageIndex,
+    isCassationCorrectionStageName,
+} from './smartFile/extraordinaryAppealGateway';
+import type { CaseStage } from '../LawyerShared';
 import {
     useJudgmentModalStyles,
     type JudgmentModalStyles,
@@ -50,6 +55,9 @@ interface SmartJudgmentModalProps {
     currentParties: any[];
     currentStage: string;
     representedParty?: string;
+    stages?: CaseStage[];
+    caseStatus?: string;
+    activeStageIndex?: number;
 }
 
 const GLASS_BTN =
@@ -86,6 +94,12 @@ function judgmentOptionsForStage(currentStage: string, parties?: any[]): Judgmen
     if (isAbsentObjectionStageName(currentStage)) {
         return absentObjectionJudgmentOptions();
     }
+    if (isCassationCorrectionStageName(currentStage)) {
+        return [
+            { value: 'قبول طلب التصحيح', label: 'قبول طلب التصحيح' },
+            { value: 'رد طلب التصحيح', label: 'رد طلب التصحيح' },
+        ];
+    }
     if (currentStage === 'التمييز') {
         return [
             { value: 'تصديق الحكم', label: 'تصديق الحكم' },
@@ -95,9 +109,9 @@ function judgmentOptionsForStage(currentStage: string, parties?: any[]): Judgmen
     }
     if (currentStage === 'الاستئناف') {
         return [
-            { value: 'تأييد الحكم المستأنف ورد الاستئناف', label: 'تأييد الحكم المستأنف ورد الاستئناف' },
-            { value: 'فسخ الحكم المستأنف كلياً', label: 'فسخ الحكم المستأنف كلياً' },
-            { value: 'فسخ الحكم المستأنف جزئياً', label: 'فسخ الحكم المستأنف جزئياً' },
+            { value: 'تأييد الحكم البدائي ورد الاستئناف', label: 'تأييد الحكم البدائي ورد الاستئناف' },
+            { value: 'فسخ الحكم البدائي كلياً', label: 'فسخ الحكم البدائي كلياً' },
+            { value: 'فسخ الحكم البدائي جزئياً', label: 'فسخ الحكم البدائي جزئياً' },
             { value: 'رد الاستئناف شكلاً', label: 'رد الاستئناف شكلاً' },
         ];
     }
@@ -300,6 +314,9 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     currentParties,
     currentStage,
     representedParty,
+    stages = [],
+    caseStatus,
+    activeStageIndex = -1,
 }) => {
     const s = useJudgmentModalStyles();
     const [judgmentType, setJudgmentType] = useState<string>('');
@@ -341,31 +358,26 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
     );
     const isAbsentObjectionStage = isAbsentObjectionStageName(currentStage);
     const isFirstInstance = isFirstInstanceStageName(currentStage);
-    const showJudgmentFormToggle = s.isPearl
-        ? isFirstInstance && !isAbsentObjectionStage
-        : Boolean(currentStage?.includes('بداءة'));
+    const isCorrectionStage = isCassationCorrectionStageName(currentStage);
+    const correctionAvailable = useMemo(() => {
+        const cassationIdx =
+            isCassationStageName(currentStage)
+                ? activeStageIndex >= 0
+                    ? activeStageIndex
+                    : findCassationStageIndex(stages)
+                : findCassationStageIndex(stages);
+        return canRequestCassationCorrection(stages, cassationIdx, caseStatus);
+    }, [stages, caseStatus, currentStage, activeStageIndex]);
 
     useEffect(() => {
         if (!isOpen) return;
-        // #region debug-point D:judgment-modal-mounted
-        fetch('http://127.0.0.1:7778/event', {
-            method: 'POST',
-            body: JSON.stringify({
-                sessionId: 'pleadings-close-button',
-                runId: 'pre-fix',
-                hypothesisId: 'D',
-                location: 'SmartJudgmentModal.tsx:mount',
-                msg: '[DEBUG] SmartJudgmentModal mounted',
-                data: {
-                    currentStage,
-                    partyCount: Array.isArray(currentParties) ? currentParties.length : 0,
-                    representedParty: representedParty ?? null,
-                },
-                ts: Date.now(),
-            }),
-        }).catch(() => {});
-        // #endregion
-    }, [isOpen, currentStage, currentParties, representedParty]);
+        setJudgmentType('');
+        setNextStage('');
+        setJudgmentDate(getLocalTodayYmd());
+    }, [isOpen]);
+    const showJudgmentFormToggle = s.isPearl
+        ? isFirstInstance && !isAbsentObjectionStage
+        : Boolean(currentStage?.includes('بداءة'));
 
     const handleJudgmentChange = (value: string) => {
         setJudgmentType(value);
@@ -394,7 +406,7 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
             finalAction = 'waiting_for_cassation';
         } else if (actionType === 'finalize_non_merit') {
             finalAction = 'finalize_non_merit';
-        } else if (actionType === 'final_ratification' || actionType === 'remand_to_lower' || actionType === 'correction_request') {
+        } else if (actionType === 'final_ratification' || actionType === 'remand_to_lower' || actionType === 'correction_request' || actionType === 'correction_complete') {
             finalAction = actionType;
         }
 
@@ -548,27 +560,27 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
+    if (typeof document === 'undefined') return null;
 
-    return (
-        <AnimatePresence>
-            {isOpen && (
-                <div className={s.overlay} dir="rtl">
-                    <motion.div
-                        initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                        className={s.shell}
-                    >
+    return createPortal(
+        <div
+            className={s.overlay}
+            dir="rtl"
+            data-testid="smart-judgment-modal"
+            hidden={!isOpen}
+            aria-hidden={!isOpen}
+            style={isOpen ? undefined : { display: 'none' }}
+        >
+            {isOpen ? (
+            <div className={s.shell}>
                         <div className={s.header}>
                             <div className="flex items-center gap-3 min-w-0">
-                                <span className={s.headerIconWrap}>
-                                    <Gavel size={18} className={s.headerIcon} />
-                                </span>
                                 <h2 className={s.headerTitle}>
                                     {isAbsentObjectionStage
                                         ? 'ختام المرافعة وقرار الاعتراض'
-                                        : 'ختم المرافعة وقرار الحكم'}
+                                        : isCorrectionStage
+                                          ? 'قرار طلب تصحيح القرار التمييزي'
+                                          : 'ختم المرافعة وقرار الحكم'}
                                 </h2>
                             </div>
                             <button type="button" onClick={onClose} className={s.closeBtn} aria-label="إغلاق">
@@ -700,8 +712,8 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
 
                                     {!s.isPearl && currentStage === 'الاستئناف' && judgmentType && (
                                         <div className="flex flex-col gap-3 w-full">
-                                            {(isAppellantLawyer && judgmentType === 'فسخ الحكم المستأنف كلياً') ||
-                                            (isAppelleeLawyer && ['تأييد الحكم المستأنف ورد الاستئناف', 'رد الاستئناف شكلاً'].includes(judgmentType)) ? (
+                                            {(isAppellantLawyer && (judgmentType === 'فسخ الحكم البدائي كلياً' || judgmentType === 'فسخ الحكم المستأنف كلياً')) ||
+                                            (isAppelleeLawyer && ['تأييد الحكم البدائي ورد الاستئناف', 'تأييد الحكم المستأنف ورد الاستئناف', 'رد الاستئناف شكلاً'].includes(judgmentType)) ? (
                                                 <div className="flex flex-col gap-2">
                                                     <p className={`${s.hint} text-emerald-300/85 border-emerald-500/15 justify-center`}>
                                                         <Trophy size={14} className="shrink-0 text-emerald-400/80" />
@@ -730,16 +742,16 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                                             {judgmentType === 'تصديق الحكم' || judgmentType === 'رد الطعن التمييزي شكلاً' ? (
                                                 <div className="flex flex-col gap-2">
                                                     <p className={`${s.hint} text-emerald-300/85 border-emerald-500/15 justify-center`}>
-                                                        <Gavel size={14} className="shrink-0 text-emerald-400/80" />
                                                         اكتسب الحكم الدرجة القطعية (نهاية المطاف)
                                                     </p>
                                                     <button type="button" onClick={() => handleSaveJudgment('final_ratification')} className={GLASS_BTN_EMERALD}>
-                                                        <Stamp size={16} />
                                                         ختم الإضبارة (مكتسبة الدرجة القطعية)
                                                     </button>
-                                                    <button type="button" onClick={() => handleSaveJudgment('correction_request')} className={`${btnNeutral} text-xs py-2.5`}>
-                                                        تقديم طلب تصحيح قرار تمييزي
-                                                    </button>
+                                                    {!correctionAvailable ? null : (
+                                                        <button type="button" onClick={() => handleSaveJudgment('correction_request')} className={`${btnNeutral} text-xs py-2.5`}>
+                                                            تقديم طلب تصحيح قرار تمييزي
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col gap-2">
@@ -755,20 +767,30 @@ export const SmartJudgmentModal: React.FC<SmartJudgmentModalProps> = ({
                                         </div>
                                     )}
 
+                                    {isCorrectionStage && judgmentType ? (
+                                        <div className="flex flex-col gap-2 w-full">
+                                            <p className={`${s.hint} text-[#E6C673]/85 border-[#E6C673]/15 justify-center`}>
+                                                بعد البت في طلب التصحيح، تُعاد الإضبارة لآخر مرحلة تقاضٍ (استئناف أو بداءة).
+                                            </p>
+                                            <button type="button" onClick={() => handleSaveJudgment('correction_complete')} className={btnGold}>
+                                                إتمام التصحيح والعودة للمرحلة السابقة
+                                            </button>
+                                        </div>
+                                    ) : null}
+
                                     <button type="button" onClick={onClose} className={`${btnNeutral} text-white/50 hover:text-white/75 mt-1`}>
                                         إلغاء
                                     </button>
                                 </div>
                             ) : (
                                 <div className="mt-4 flex flex-col items-center opacity-45 py-4">
-                                    <Gavel className="w-8 h-8 text-white/25 mb-2" />
                                     <p className="text-white/35 text-sm">اختر قرار الحكم أولاً لإظهار الخيارات المتاحة</p>
                                 </div>
                             )}
                         </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
+            </div>
+            ) : null}
+        </div>,
+        document.body,
     );
 };

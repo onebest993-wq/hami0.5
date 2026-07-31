@@ -1,0 +1,542 @@
+/**
+ * Android WebView — surfaces without muddy slate wash / soft-black banding.
+ * Web keeps full glass gradients + multi-layer shadows.
+ * Gated by early boot attrs: data-hami-native + data-hami-platform.
+ *
+ * Cards follow --hami-surface-bg / --hami-primary (theme from settings).
+ * Short elevation only — long rgba(0,0,0) blurs band on 8-bit GPU compositors.
+ */
+
+html[data-hami-native='1'][data-hami-platform='android'] {
+    --hami-android-card-bg: color-mix(
+        in srgb,
+        #ffffff 6%,
+        var(--hami-surface-bg, var(--hami-glass-base, #0b1021))
+    );
+    --hami-android-card-elev:
+        0 1px 0 color-mix(in srgb, var(--hami-primary, #e6c673) 16%, transparent),
+        0 2px 4px rgba(0, 0, 0, 0.42);
+    --hami-android-card-border: color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) 30%,
+        transparent
+    );
+}
+
+/* ── Hub / home glass cards ── */
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-sovereign-glass,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
+    /* كثافة الحاوية (--glass-opacity) تغيّر المزج فعلياً على Android */
+    background-color: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673))
+            calc(4% + (var(--glass-opacity, 0.92) * 16%)),
+        color-mix(
+            in srgb,
+            #ffffff calc((1 - var(--glass-opacity, 0.92)) * 12%),
+            var(--hami-android-card-bg)
+        )
+    ) !important;
+    /* سطح البطاقة صلب؛ الزخرفة من .hami-home-block-pattern */
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673))
+            calc(18% + (var(--glass-opacity, 0.92) * 16%)),
+        var(--hami-android-card-border)
+    ) !important;
+    box-shadow: var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-sovereign-glass::before,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass::before {
+    content: none !important;
+    display: none !important;
+    background: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-sovereign-rim,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent),
+        var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-themed-border,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
+    border-color: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673)) 28%,
+        transparent
+    ) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-solid {
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent) calc(6% + (var(--glass-opacity, 0.92) * 16%)),
+        var(--hami-android-card-bg)
+    ) !important;
+    box-shadow: var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-gradient {
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent) calc(8% + (var(--glass-opacity, 0.92) * 16%)),
+        var(--hami-android-card-bg)
+    ) !important;
+    background-image: none !important;
+    box-shadow: var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-minimal {
+    background: color-mix(
+        in srgb,
+        #ffffff calc(3% + ((1 - var(--glass-opacity, 0.92)) * 10%)),
+        var(--hami-android-card-bg)
+    ) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    box-shadow: none !important;
+}
+
+/* Wallpaper mode — يحترم كثافة الحاوية (--glass-opacity) مثل الوضع العادي */
+html[data-hami-native='1'][data-hami-platform='android'][data-hami-wallpaper='1']
+    [data-hami-lawyer-dashboard]
+    .hami-sovereign-glass,
+html[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard][data-hami-wallpaper='1']
+    .hami-sovereign-glass,
+html[data-hami-native='1'][data-hami-platform='android'][data-hami-wallpaper='1']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-sovereign-glass,
+html[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard][data-hami-wallpaper='1']
+    [data-hami-block].hami-sovereign-glass {
+    background-color: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673))
+            calc(4% + (var(--glass-opacity, 0.92) * 16%)),
+        color-mix(
+            in srgb,
+            #ffffff calc((1 - var(--glass-opacity, 0.92)) * 12%),
+            var(--hami-android-card-bg)
+        )
+    ) !important;
+    background-image: none !important;
+    box-shadow: var(--hami-android-card-elev) !important;
+}
+
+/* توهج الأيقونات فقط — الزخارف (.hami-home-block-pattern) مفعّلة على Android */
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-glass-decor,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-hub-icon-glow,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-hub-glow-orb {
+    display: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-pattern {
+    display: block !important;
+    /* بلا blur — بلاطة SVG؛ الشفافية من inline style حتى يُحسّ الشريط */
+    mix-blend-mode: normal;
+    will-change: auto;
+    transform: translateZ(0);
+    pointer-events: none;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-accent-chip,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-forum-icon {
+    background: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673)) 18%,
+        var(--hami-android-card-bg)
+    ) !important;
+    border-color: color-mix(
+        in srgb,
+        var(--hami-block-accent, var(--hami-primary, #e6c673)) 34%,
+        transparent
+    ) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='header-toolbar-nav'] {
+    background-color: color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) 8%,
+        var(--hami-android-card-bg)
+    ) !important;
+    background-image: none !important;
+    border-color: color-mix(in srgb, var(--hami-primary, #e6c673) 24%, transparent) !important;
+    box-shadow: var(--hami-android-card-elev) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* الهيدر يملك الـ safe-area — بلا padding علوي مزدوج من SafeView */
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='lawyer-dashboard-ready'] {
+    padding-top: 0 !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-lawyer-header {
+    background-color: #0a0f1c !important;
+    background-image: none !important;
+    isolation: isolate;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-below-lawyer-header {
+    top: var(--hami-lawyer-header-offset, calc(84px + env(safe-area-inset-top, 0px))) !important;
+}
+
+/* Dashboard canvas follows theme surface (fixes “لون الخلفية لا يُطبَّق”) */
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] {
+    background-color: var(--hami-surface-bg, #0a0f1c) !important;
+}
+
+/* إعدادات على Android — زجاج صلب شفاف بلا blur مكلف وبلا إطار أبيض */
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-settings-shell] .hami-setting-glass {
+    background: color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) 7%,
+        var(--hami-android-card-bg)
+    ) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 18%, transparent),
+        var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-settings-shell] .hami-setting-glass-inner {
+    background: color-mix(in srgb, #ffffff 5%, var(--hami-android-card-bg)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* أزرار تحرير الواجهة — زجاج ذهبي خفيف بلا إطار أبيض صلب */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-edit-widget-drag,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-edit-palette-btn {
+    border: none !important;
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) 14%, rgba(8, 10, 16, 0.82)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 28%, transparent),
+        var(--hami-android-card-elev) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* وضع التحرير — لا will-change/transitions دائمة على كل البطاقات */
+html[data-hami-native='1'][data-hami-platform='android']
+    .hami-home-layout-editing
+    [data-testid='home-main-grid']
+    [data-hami-widget-slot] {
+    transition: none !important;
+    will-change: auto !important;
+}
+
+/* إعدادات — تبويبات/إغلاق بلا ظل ذهبي ضبابي */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tab--active,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-close,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-settings-tabs {
+    box-shadow: none !important;
+}
+
+/* شريط الأدوات / الدوك — ظل قصير صلب؛ سطح أوضح من خلفية الصفحة */
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='header-toolbar-nav'] {
+    box-shadow: var(--hami-android-card-elev) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'].hami-sovereign-glass,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block='dockShell'] {
+    background-color: color-mix(
+        in srgb,
+        #ffffff calc(4% + ((1 - var(--glass-opacity, 0.92)) * 14%)),
+        color-mix(
+            in srgb,
+            var(--hami-primary, #e6c673) calc(var(--glass-opacity, 0.92) * 10%),
+            #0e1528
+        )
+    ) !important;
+    background-image: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-color: color-mix(
+        in srgb,
+        var(--hami-primary, #e6c673) calc(22% + (var(--glass-opacity, 0.92) * 18%)),
+        transparent
+    ) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
+        0 2px 0 rgba(0, 0, 0, 0.38),
+        0 4px 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        inset 0 0 0 1px color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent),
+        0 2px 0 rgba(0, 0, 0, 0.38),
+        0 4px 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'] .hami-dock-item-label {
+    color: rgba(255, 255, 255, 0.78);
+    text-shadow: none;
+}
+
+/* آبار أيقونات الدوك — تجاوز الأنماط المضمّنة الباهتة على Android */
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'] .hami-dock-icon-well,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'] .hami-dock-item > div > div.relative {
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) 14%, #141a2c) !important;
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 30%, rgba(255, 255, 255, 0.1)) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 1px 2px rgba(0, 0, 0, 0.4) !important;
+    filter: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'] .hami-dock-icon-well svg,
+html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockShell'] .hami-dock-item > div > div.relative svg {
+    filter: none !important;
+    color: rgba(255, 255, 255, 0.92) !important;
+}
+
+/* أجندة المهام — كحلي صلب مثل المتصفح المقصود (لا تدرج أخضر يتحوّل لطين على WebView) */
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager-overlay'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager-loading'] {
+    background-image: none !important;
+    background-color: #0a0f1c !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'] > header,
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'] header {
+    background-color: #0a0f1c !important;
+    background-image: none !important;
+    box-shadow: inset 0 -1px 0 rgba(166, 124, 82, 0.22) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-distant-panel'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-week-day-'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-fatal-section'] {
+    background-color: #0c1218 !important;
+    background-image: none !important;
+    border-color: rgba(166, 124, 82, 0.28) !important;
+    box-shadow:
+        inset 0 1px 0 rgba(230, 198, 115, 0.08),
+        0 2px 6px rgba(0, 0, 0, 0.35) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-week-add-'],
+html[data-hami-native='1'][data-hami-platform='android'] .hami-tasks-btn-bronze {
+    background-color: color-mix(in srgb, #a67c52 24%, #0c1218) !important;
+    border-color: rgba(230, 198, 115, 0.42) !important;
+    color: #e6c673 !important;
+    box-shadow: 0 1px 0 rgba(230, 198, 115, 0.12) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-task-card-'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-snoozed-card-'] {
+    background-color: #0c1218 !important;
+    background-image: none !important;
+    box-shadow:
+        inset 0 1px 0 rgba(230, 198, 115, 0.06),
+        0 2px 6px rgba(0, 0, 0, 0.32) !important;
+}
+
+/* المستودع — تدرجات سفلية تتحول لسواد موحّل على WebView */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-panel {
+    background-color: #0a101c !important;
+    background-image: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-header,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-controls,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-grid {
+    background-image: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-header {
+    background-color: color-mix(in srgb, #e6c673 10%, #0c1220) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-controls {
+    background-color: #0c1220 !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-grid {
+    background-color: color-mix(in srgb, #e6c673 6%, #0b111c) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-repository-action-btn {
+    background-image: none !important;
+    background-color: color-mix(in srgb, #ffffff 6%, #10182a) !important;
+    border-color: color-mix(in srgb, #e6c673 22%, rgba(255, 255, 255, 0.1)) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+/* إشعارات — طبقة توهج مكلفة */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-fx-orb {
+    display: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-notif-overlay-btn {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* رادار المواعيد — blur/backdrop يكلّف WebView عند أول فتح */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-bg-orb {
+    display: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-glass-panel,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-page header,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-scroll {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+/* منتدى — زجاج حريري على Android بدون blur مكلف */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-publish-fab,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-ghost-btn,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-app-bar,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-panel,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-input,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-search-bar,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-search-chrome,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-modal-glass,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-section-rail {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-app-bar {
+    background: rgba(12, 18, 32, 0.92) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-publish-fab {
+    background-color: #c9a86c !important;
+    color: #1a150c !important;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-ghost-btn {
+    background: rgba(22, 30, 44, 0.75) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-overlay-host'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-instant-shell'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-boot-shell'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-screen-shell'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-screen'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='forum-search-overlay'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-forum-silk='1'] {
+    background-color: #0a0f1c !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card {
+    background: rgba(22, 30, 44, 0.82) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-skeleton-card {
+    background: rgba(22, 30, 44, 0.75) !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-panel,
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-modal-glass {
+    background: rgba(14, 20, 34, 0.92) !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-input {
+    background: rgba(20, 28, 42, 0.88) !important;
+    border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-surface-enter {
+    animation: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card--pending {
+    opacity: 1 !important;
+    transform: none !important;
+    background: rgba(22, 30, 44, 0.82) !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-forum-feed-card--ready {
+    transition: none !important;
+    transform: none !important;
+}
+
+/*
+ * تباين أعلى — يجب أن يتفوّق على قواعد الزجاج الصلب أعلاه
+ * (نفس !important + محدد أطول: html.hami-high-contrast + native + android).
+ */
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    .hami-sovereign-glass,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-sovereign-glass {
+    border: 1px solid var(--hami-hc-border, color-mix(in srgb, var(--hami-primary, #e6c673) 42%, rgba(255, 255, 255, 0.35))) !important;
+    box-shadow:
+        0 8px 28px rgba(0, 0, 0, 0.42),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-settings-shell]
+    .hami-setting-glass {
+    border: 1px solid var(--hami-hc-border, color-mix(in srgb, var(--hami-primary, #e6c673) 42%, rgba(255, 255, 255, 0.35))) !important;
+    box-shadow:
+        0 6px 20px rgba(0, 0, 0, 0.36),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    .hami-home-themed-border,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-home-themed-border {
+    border-color: var(--hami-hc-border, color-mix(in srgb, var(--hami-primary, #e6c673) 55%, #fff)) !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    .text-white\/45,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    .text-white\/50,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-settings-shell]
+    .text-white\/45,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-settings-shell]
+    .text-white\/50 {
+    color: var(--hami-hc-muted, rgba(255, 248, 232, 0.78)) !important;
+}
+
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    .hami-sovereign-rim,
+html.hami-high-contrast[data-hami-native='1'][data-hami-platform='android']
+    [data-hami-lawyer-dashboard]
+    [data-hami-block].hami-sovereign-rim {
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 0 1px color-mix(in srgb, var(--hami-hc-border, color-mix(in srgb, var(--hami-primary, #e6c673) 42%, #fff)) 55%, transparent) !important;
+}

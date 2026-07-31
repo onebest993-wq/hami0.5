@@ -14,7 +14,7 @@ import {
     type PersonalCoerciveSubtype,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { resolveExecutorRequestAppealSyncFromRow } from '@/app/utils/executorRequestAppealSync';
-import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
+import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
 import { hasActiveFinancialGuarantorFollowup } from './guarantorExternalUtils';
 import type { ExecutionFile } from '@/app/types/execution';
 

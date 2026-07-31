@@ -1,5 +1,6 @@
 import React from 'react';
-import { Briefcase, Coins, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
+import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
 import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import { NC_FIELD, NC_LABEL, NC_SECTION, NC_SECTION_TITLE, ncFieldClass } from '../newCaseGlassTheme';
 import { CaseFieldSelect } from './CaseFieldSelect';
@@ -20,6 +21,7 @@ export interface CaseBasicsFormProps {
         court: string;
         type: string;
         judge: string;
+        firstHearingDate: string;
         stage: string;
         claimValue: string;
         totalAgreedFees: string;
@@ -30,6 +32,7 @@ export interface CaseBasicsFormProps {
         court: string;
         type: string;
         judge: string;
+        firstHearingDate: string;
         stage: string;
         claimValue: string;
         totalAgreedFees: string;
@@ -54,18 +57,15 @@ export interface CaseBasicsFormProps {
 
 export const CaseBasicsForm = ({
     caseDetails, setCaseDetails,
-    errorMap, caseNumberError, labels,
+    errorMap, caseNumberError,
     stageOptions,
     isUndeterminedValue, setIsUndeterminedValue,
     isFixedFee, setIsFixedFee,
-    valuePlaceholder, exceptionWarning,
+    exceptionWarning,
     courtRef, typeRef, stageRef, numberRef, retrialTargetRef
 }: CaseBasicsFormProps) => {
     const isExtraordinary = isExtraordinaryProcedureStage(caseDetails.stage);
     const underlyingStageOptions = getUnderlyingStageOptions(caseDetails.stage);
-    const numberPlaceholder = isExtraordinary
-        ? (caseDetails.retrialTargetStage?.includes('استئناف') ? '15/س/2026' : '15/ب/2026')
-        : (caseDetails.stage.includes('استئناف') ? '15/س/2026' : '15/ب/2026');
     const valueLocked = isUndeterminedValue || isFixedFee;
 
     const numberHasError = Boolean(errorMap['number'] || caseNumberError);
@@ -84,9 +84,7 @@ export const CaseBasicsForm = ({
 
     return (
         <div className={NC_SECTION}>
-            <h4 className={`flex items-center gap-2 ${NC_SECTION_TITLE}`}>
-                <Briefcase size={12} /> أساسيات الدعوى
-            </h4>
+            <h4 className={NC_SECTION_TITLE}>أساسيات الدعوى</h4>
 
             <div className="space-y-4">
                 <div>
@@ -101,7 +99,6 @@ export const CaseBasicsForm = ({
                             value={caseDetails.number}
                             onChange={(e) => setCaseDetails({ ...caseDetails, number: e.target.value })}
                             className={`${NC_FIELD} text-left [unicode-bidi:plaintext] ${numberHasError ? 'border-amber-500/60 ring-1 ring-amber-500/20' : ''}`}
-                            placeholder={numberPlaceholder}
                         />
                     </div>
                     {caseNumberError && <p className="text-amber-500/80 text-[10px] mt-1.5 font-bold">{caseNumberError}</p>}
@@ -115,7 +112,6 @@ export const CaseBasicsForm = ({
                         value={caseDetails.court}
                         onChange={(e) => setCaseDetails({ ...caseDetails, court: e.target.value })}
                         className={ncFieldClass(Boolean(errorMap['court']))}
-                        placeholder={labels.courtPlaceholder}
                     />
                     {errorMap['court'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['court']}</p>}
                 </div>
@@ -129,7 +125,6 @@ export const CaseBasicsForm = ({
                             value={caseDetails.type}
                             onChange={(e) => setCaseDetails({ ...caseDetails, type: e.target.value })}
                             className={ncFieldClass(Boolean(errorMap['type']))}
-                            placeholder={labels.typePlaceholder}
                         />
                         {errorMap['type'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['type']}</p>}
                     </div>
@@ -148,7 +143,7 @@ export const CaseBasicsForm = ({
                         {errorMap['stage'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['stage']}</p>}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 items-start">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
                     <div>
                         <label className={NC_LABEL}>اسم السيد القاضي</label>
                         <input
@@ -156,9 +151,20 @@ export const CaseBasicsForm = ({
                             value={caseDetails.judge}
                             onChange={(e) => setCaseDetails({ ...caseDetails, judge: e.target.value })}
                             className={ncFieldClass()}
-                            placeholder="اختياري"
                         />
                     </div>
+                    <div>
+                        <label className={NC_LABEL}>تاريخ أول مرافعة</label>
+                        <HamiDateInput
+                            value={caseDetails.firstHearingDate}
+                            onValueChange={(v) => setCaseDetails({ ...caseDetails, firstHearingDate: v })}
+                            className={NC_FIELD}
+                            placeholder="اختر التاريخ من التقويم"
+                        />
+                    </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                    <div className="hidden sm:block" aria-hidden />
                     <div>
                         {isExtraordinary ? (
                             <>
@@ -184,15 +190,16 @@ export const CaseBasicsForm = ({
                             </>
                         ) : (
                             <>
-                                <label className="text-[10px] text-[#E6C673] font-bold mb-1 block flex items-center gap-1"><Coins size={10} /> القيمة التقديرية للدعوى</label>
+                                <label className="text-[10px] text-[#E6C673] font-bold mb-1 block">القيمة التقديرية للدعوى</label>
                                 <input
                                     type="text"
                                     inputMode="numeric"
+                                    data-testid="lawyer-new-case-claim-value"
                                     value={caseDetails.claimValue}
                                     disabled={valueLocked}
                                     onChange={(e) => setCaseDetails({ ...caseDetails, claimValue: formatNumberInput(e.target.value) })}
                                     className={`${ncFieldClass(Boolean(errorMap['claimValue']) || Boolean(exceptionWarning))} disabled:opacity-50 text-left`}
-                                    placeholder={valueLocked ? '----' : valuePlaceholder}
+                                    placeholder={valueLocked ? '----' : undefined}
                                 />
                                 <div className="mt-2 flex flex-col gap-1.5">
                                     {VALUE_MODE_OPTIONS.map(({ id, label }) => {

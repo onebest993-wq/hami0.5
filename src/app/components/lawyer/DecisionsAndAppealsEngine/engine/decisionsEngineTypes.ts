@@ -28,7 +28,7 @@ export interface DecisionsDispatcherHubProps {
     seizedAssets: SeizedAsset[];
     seizureDraftsByDecisionId?: Record<string, SeizedAsset>;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    pushTimeline: (e: TimelineEvent) => void;
+    pushTimeline: (e: TimelineEvent, opts?: unknown) => void;
     nextTimelineId: () => string;
     syncSeizedAssets?: (assets: SeizedAsset[]) => void;
     syncSeizureDrafts?: (drafts: Record<string, SeizedAsset>) => void;

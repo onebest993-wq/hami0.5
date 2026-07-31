@@ -40,6 +40,8 @@ export type TrialSessionPreparatoryDecision = {
     sessionId?: string;
 };
 
+export type TrialSessionOrigin = 'user' | 'hearing_schedule_placeholder';
+
 export type TrialSession = {
     id: string;
     date: string;
@@ -56,6 +58,8 @@ export type TrialSession = {
     preparatoryDecision?: TrialSessionPreparatoryDecision;
     /** يُميّز جلسات جولة إعادة المحاكمة بعد نقض التمييز. */
     trialRound?: TrialSessionRound;
+    /** مصدر الجلسة — يفصل المرافعة الفعلية عن وضع موعد فقط */
+    origin?: TrialSessionOrigin;
 };
 
 export type TrialSessionPreparatoryDecisionInput = {
@@ -442,6 +446,10 @@ export function normalizeTrialSession(raw: unknown): TrialSession | null {
             o.trialRound === 'post_cassation_remand' || o.trialRound === 'initial'
                 ? o.trialRound
                 : undefined,
+        origin:
+            o.origin === 'user' || o.origin === 'hearing_schedule_placeholder'
+                ? o.origin
+                : undefined,
     };
 }
 
@@ -502,6 +510,55 @@ export function isTrialSessionNumberTaken(
 
 export function hasPendingTrialSession(existing: TrialSession[]): boolean {
     return existing.some((s) => s.status === 'pending');
+}
+
+/** جلسة وُضعت تلقائياً عند تسجيل موعد فقط — ليست مرافعة فعلية */
+export function isPhantomScheduledTrialSession(
+    session: TrialSession,
+    nextHearingDate: string,
+    _allSessions: TrialSession[],
+): boolean {
+    if (session.origin === 'user') return false;
+    if (session.origin === 'hearing_schedule_placeholder') {
+        const sessionDate = String(session.date ?? '').trim().slice(0, 10);
+        const scheduled = String(nextHearingDate ?? '').trim().slice(0, 10);
+        return Boolean(sessionDate && scheduled && sessionDate === scheduled);
+    }
+    if (session.status !== 'pending') return false;
+    if (parseTrialSessionNumber(String(session.sessionNumber ?? '')) !== 1) return false;
+    if (session.verdict) return false;
+    if (session.preparatoryDecision) return false;
+    const notes = String(session.sessionNotes ?? '').trim();
+    const autoScheduleNotes = new Set(['موعد المحاكمة', 'جلسة محاكمة', 'تاريخ المحاكمة']);
+    if (notes && !autoScheduleNotes.has(notes)) return false;
+    const sessionDate = String(session.date ?? '').trim().slice(0, 10);
+    const scheduled = String(nextHearingDate ?? '').trim().slice(0, 10);
+    if (!sessionDate || !scheduled || sessionDate !== scheduled) return false;
+    return true;
+}
+
+export function prunePhantomScheduledTrialSessions(
+    trials: TrialSession[] | undefined,
+    nextHearingDate: string,
+): TrialSession[] {
+    return filterTrialSessionsForDisplay(trials, nextHearingDate);
+}
+
+export function hasEffectivePendingTrialSession(
+    existing: TrialSession[],
+    nextHearingDate?: string,
+): boolean {
+    return filterTrialSessionsForDisplay(existing, nextHearingDate).some((s) => s.status === 'pending');
+}
+
+export function filterTrialSessionsForDisplay(
+    trials: TrialSession[] | undefined,
+    nextHearingDate?: string,
+): TrialSession[] {
+    const scheduled = String(nextHearingDate ?? '').trim();
+    const list = normalizeTrialSessions(trials);
+    if (!scheduled) return list;
+    return list.filter((s) => !isPhantomScheduledTrialSession(s, scheduled, list));
 }
 
 export function validateTrialSessionNumberUnique(

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { JourneyNode, SeveranceReason, TimelineEvent } from '@/app/types/criminal';
 import type { CriminalCase, Statement } from './criminalStore';
 import { resolveOfficialCaseNumber } from './criminalStore';

@@ -62,7 +62,7 @@ describe('fieldCurtainTasks', () => {
         expect(sortFieldCurtainTasks([older, newer]).map((t) => t.id)).toEqual(['b', 'a']);
     });
 
-    it('sheet list includes only pinned tasks', () => {
+    it('sheet list includes pinned and today-due (non-fatal) tasks', () => {
         const today = new Date('2026-06-21T10:00:00');
         const tasks = [
             task({
@@ -76,9 +76,15 @@ describe('fieldCurtainTasks', () => {
                 pinnedToFieldCurtain: true,
                 fieldCurtainPinnedAt: new Date('2026-06-21T08:00:00'),
             }),
+            task({
+                id: '3',
+                title: 'حتمية غير مثبتة',
+                isFatalDeadline: true,
+                parsedDate: new Date('2026-06-21T09:00:00'),
+            }),
         ];
-        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['2']);
-        expect(countFieldDaySheetTasks(tasks, today)).toBe(1);
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['2', '1']);
+        expect(countFieldDaySheetTasks(tasks, today)).toBe(2);
     });
 
     it('sheet list sorts pinned tasks by pin time', () => {

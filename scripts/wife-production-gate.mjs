@@ -173,6 +173,19 @@ if (isProd && env('VITE_BFF_AUTH') !== 'true') {
   record('env:VITE_BFF_AUTH', false, 'not true — enable for production HttpOnly sessions', false);
 }
 
+if (isProd && env('VITE_SHELL_AUTH_OPEN') === 'true') {
+  record(
+    'env:VITE_SHELL_AUTH_OPEN',
+    false,
+    'must not be "true" in production — guest/demo shell bypass',
+    true,
+  );
+} else if (env('VITE_SHELL_AUTH_OPEN') === 'true') {
+  record('env:VITE_SHELL_AUTH_OPEN', true, 'open (non-prod / demo only)', false);
+} else {
+  record('env:VITE_SHELL_AUTH_OPEN', true, 'closed or unset');
+}
+
 // ─── 2. Migrations present locally ──────────────────────────────────────────
 const migrations = [
   'supabase/migrations/20260423000000_create_wife_nonce_store.sql',
@@ -214,6 +227,9 @@ for (const routePath of routes) {
     text.includes('requireWifeUser') ||
     text.includes('requirePlatformAdmin') ||
     text.includes('requireForumAuth') ||
+    text.includes('requireExecutionFilesAuth') ||
+    text.includes('requireTaskHelpAuth') ||
+    text.includes('requireNotificationsAuth') ||
     rel.includes('/api/public/');
   if (!protected_) unprotected.push(rel);
 }
@@ -335,6 +351,12 @@ if (fileExists('src/app/api/security/wifeValidator.ts')) {
     wifeValidatorText.includes('isValidWifeDeviceId') && wifeValidatorText.includes('isProductionNodeEnv()'),
     'mutating requests require x-wife-device-id in production',
   );
+  record(
+    'code:csrf-prod-fail-closed',
+    wifeValidatorText.includes('if (isProductionNodeEnv()) return false') &&
+      wifeValidatorText.includes('verifiedSubject'),
+    'production CSRF requires server registry for authenticated subjects',
+  );
 }
 
 const cspPath = path.join(SRC, 'app', 'api', 'security', 'contentSecurityPolicy.ts');
@@ -363,15 +385,27 @@ record(
   'server-side WIFE rejection telemetry module present',
 );
 
-const appTsx = path.join(SRC, 'app', 'App.tsx');
-if (fileExists('src/app/App.tsx')) {
-  const appText = fs.readFileSync(appTsx, 'utf8');
-  record(
-    'boot:SecurityInitializer',
-    appText.includes('SecurityInitializer'),
-    appText.includes('SecurityInitializer') ? 'mounted in App.tsx' : 'wifeFetchGuard may not install',
-  );
-}
+const securityRuntimeCandidates = [
+  'src/app/App.tsx',
+  'src/app/AppResolvedRuntime.tsx',
+  'src/app/bootstrap/SecurityInitializerGate.dev.tsx',
+  'src/app/bootstrap/SecurityInitializerGate.prod.tsx',
+  'src/app/security/SecurityInitializer.tsx',
+];
+const securityRuntimeText = securityRuntimeCandidates
+  .filter((rel) => fileExists(rel))
+  .map((rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8'))
+  .join('\n');
+const securityInitializerMounted =
+  securityRuntimeText.includes('SecurityInitializerGate') &&
+  securityRuntimeText.includes('installWifeFetchGuard');
+record(
+  'boot:SecurityInitializer',
+  securityInitializerMounted,
+  securityInitializerMounted
+    ? 'SecurityInitializerGate mounted and wifeFetchGuard installation present'
+    : 'wifeFetchGuard may not install',
+);
 
 // ─── 7. Static audit ────────────────────────────────────────────────────────
 const audit = spawnSync('node', ['scripts/security-audit.mjs'], { cwd: ROOT, encoding: 'utf8' });

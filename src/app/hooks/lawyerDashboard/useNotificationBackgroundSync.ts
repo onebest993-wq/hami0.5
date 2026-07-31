@@ -1,12 +1,29 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useVisibilityAwareInterval } from '@/app/hooks/useVisibilityAwareInterval';
 import { TIMING } from '@/app/utils/constants';
-import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationBridge';
-import { refreshNotificationShellBadge } from '@/app/services/notifications/notificationBackgroundSync';
+import { FORUM_UNREAD_CHANGED_EVENT } from '@/app/services/forum/forumNotificationEvents';
 import { dispatchCaseShareChanged } from '@/app/services/caseShare/caseShareSession';
-import { probeNotificationProductionReadinessOnce } from '@/app/services/notifications/notificationProductionReadiness';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
-import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootOrchestrator';
+import { STAGGERED_BOOT_IDLE_EVENT } from '@/app/bootstrap/staggeredBootEvents';
+
+type RefreshBadgeOpts = {
+    includeStoreFetch?: boolean;
+    includeForumSync?: boolean;
+};
+
+function loadNotificationBackgroundSync() {
+    return import('@/app/services/notifications/notificationBackgroundSync');
+}
+
+function loadNotificationProductionReadiness() {
+    return import('@/app/services/notifications/notificationProductionReadiness');
+}
+
+function refreshBadgeDynamic(userId: string, opts: RefreshBadgeOpts) {
+    return loadNotificationBackgroundSync().then((m) =>
+        m.refreshNotificationShellBadge(userId, opts),
+    );
+}
 
 export function useNotificationBackgroundSync(
     userId: string | null,
@@ -20,7 +37,7 @@ export function useNotificationBackgroundSync(
 
     const refreshBadge = useCallback(() => {
         if (!userId) return;
-        void refreshNotificationShellBadge(userId, {
+        void refreshBadgeDynamic(userId, {
             includeStoreFetch: !panelOpen,
             includeForumSync: true,
         }).finally(() => {
@@ -44,13 +61,15 @@ export function useNotificationBackgroundSync(
             if (armed) return;
             armed = true;
             setBootSyncArmed(true);
-            void refreshNotificationShellBadge(userId, {
+            void refreshBadgeDynamic(userId, {
                 includeStoreFetch: !panelOpen,
                 includeForumSync: true,
             }).finally(() => {
                 dispatchCaseShareChanged();
             });
-            void probeNotificationProductionReadinessOnce();
+            void loadNotificationProductionReadiness()
+                .then((m) => m.probeNotificationProductionReadinessOnce())
+                .catch(() => undefined);
         };
 
         window.addEventListener(STAGGERED_BOOT_IDLE_EVENT, armSync, { once: true });
@@ -64,7 +83,9 @@ export function useNotificationBackgroundSync(
 
     useEffect(() => {
         if (!enabled || !userId || deferUntilBootIdle) return;
-        void probeNotificationProductionReadinessOnce();
+        void loadNotificationProductionReadiness()
+            .then((m) => m.probeNotificationProductionReadinessOnce())
+            .catch(() => undefined);
     }, [deferUntilBootIdle, enabled, userId]);
 
     useEffect(() => {
@@ -73,7 +94,7 @@ export function useNotificationBackgroundSync(
         const onForumUnread = (e: Event) => {
             const detail = (e as CustomEvent<{ refresh?: boolean }>).detail;
             if (detail?.refresh !== true) return;
-            void refreshNotificationShellBadge(userId, {
+            void refreshBadgeDynamic(userId, {
                 includeStoreFetch: !panelOpen,
                 includeForumSync: true,
             }).finally(() => {

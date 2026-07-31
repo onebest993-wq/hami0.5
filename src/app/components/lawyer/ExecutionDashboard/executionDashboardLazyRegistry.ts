@@ -1,7 +1,9 @@
 /**
  * Lazy registry — بلا استيراد phone body / shell overlays / followup portal (يكسر circular chunks).
+ * PartyEdit / DossierMetaEdit: dynamic import حقيقي (لا static) حتى لا يثقل chunk الفتح البارد.
  */
 import { lazy } from 'react';
+import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
 import { prefetchExecutionLawArticlesRemote } from '@/app/utils/executionLawRemoteCache';
 import { loadExecutionLawSeedData } from '@/data/executionLawsLoader';
 
@@ -17,19 +19,50 @@ const timelineSectionImport = () =>
     import('./components/TimelineSection').then((m) => ({ default: m.TimelineSection }));
 const dossierLifecyclePanelImport = () =>
     import('./components/DossierLifecyclePanel').then((m) => ({ default: m.DossierLifecyclePanel }));
+const dossierSwitcherImport = () =>
+    import('./components/DossierSwitcher').then((m) => ({ default: m.DossierSwitcher }));
+const unifiedSeizureLogHostImport = () =>
+    import('./components/UnifiedSeizureLogHost').then((m) => ({ default: m.UnifiedSeizureLogHost }));
+const colleagueConsultationHeaderButtonImport = () =>
+    import('@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton').then((m) => ({
+        default: m.ColleagueConsultationHeaderButton,
+    }));
 
-/** جسم الإضبارة — lazy فقط (لا static import في orchestrator) */
-export const LazyDashboardHeaderSection = lazy(dashboardHeaderImport);
-export const LazyPartiesSection = lazy(partiesSectionImport);
-export const LazyDebtorsSection = lazy(debtorsSectionImport);
-export const LazyActionGridSection = lazy(actionGridSectionImport);
-export const LazyTimelineSection = lazy(timelineSectionImport);
-export const LazyDossierLifecyclePanel = lazy(dossierLifecyclePanelImport);
+/**
+ * جسم الإضبارة — preload-aware lazy: بعد التسخين تُرسم الأقسام مباشرة في نفس
+ * الـ commit بدون دورة تعليق Suspense (كانت تسبب وميض هياكل عند أول فتح بارد).
+ */
+export const LazyDashboardHeaderSection = createPreloadableLazyComponent(dashboardHeaderImport);
+export const LazyPartiesSection = createPreloadableLazyComponent(partiesSectionImport);
+export const LazyDebtorsSection = createPreloadableLazyComponent(debtorsSectionImport);
+export const LazyActionGridSection = createPreloadableLazyComponent(actionGridSectionImport);
+export const LazyTimelineSection = createPreloadableLazyComponent(timelineSectionImport);
+export const LazyDossierLifecyclePanel = createPreloadableLazyComponent(dossierLifecyclePanelImport);
+export const LazyDossierSwitcher = lazy(dossierSwitcherImport);
+export const LazyUnifiedSeizureLogHost = lazy(unifiedSeizureLogHostImport);
+export const LazyColleagueConsultationHeaderButton = lazy(colleagueConsultationHeaderButtonImport);
+
+export function prefetchUnifiedSeizureLogHost(): void {
+    void unifiedSeizureLogHostImport().catch(() => {});
+}
+
+/** سطح الإضبارة العميق (سويتشر/استشارة/موضوع الحجز) — يسخَّن idle حتى يصبح الفتح البارد بلا شبكة */
+export function prefetchExecutionDossierDeepSurface(): void {
+    void dossierSwitcherImport().catch(() => {});
+    void colleagueConsultationHeaderButtonImport().catch(() => {});
+    void seizureRequestSubjectModalImport().catch(() => {});
+}
 
 export function prefetchExecutionDashboardShell(): void {
-    void dashboardHeaderImport().catch(() => {});
-    void partiesSectionImport().catch(() => {});
-    void debtorsSectionImport().catch(() => {});
+    // preload (لا import خام) — يثبّت المكوّن للرسم المباشر بلا تعليق Suspense
+    void LazyDashboardHeaderSection.preload();
+    void LazyPartiesSection.preload();
+    void LazyDebtorsSection.preload();
+    // أول paint للإضبارة يشمل أيضاً شبكة الإجراءات والسجل الزمني ولوحة دورة الحياة —
+    // تركها خارج التسخين كان يسبب pop-in محسوس عند أول فتح بارد فقط.
+    void LazyActionGridSection.preload();
+    void LazyTimelineSection.preload();
+    void LazyDossierLifecyclePanel.preload();
 }
 
 const personalCoerciveFollowupPanelImport = () =>
@@ -37,19 +70,23 @@ const personalCoerciveFollowupPanelImport = () =>
         default: m.PersonalCoerciveFollowupPanel,
     }));
 
-export const LazyPersonalCoerciveFollowupPanel = lazy(personalCoerciveFollowupPanelImport);
+export const LazyPersonalCoerciveFollowupPanel = createPreloadableLazyComponent(
+    personalCoerciveFollowupPanelImport,
+);
 
 const employeeAssignmentCoerciveImport = () =>
     import('@/app/components/lawyer/execution/EmployeeAssignmentCoerciveFollowupBlock').then((m) => ({
         default: m.EmployeeAssignmentCoerciveFollowupBlock,
     }));
 
-export const LazyEmployeeAssignmentCoerciveFollowupBlock = lazy(employeeAssignmentCoerciveImport);
+export const LazyEmployeeAssignmentCoerciveFollowupBlock = createPreloadableLazyComponent(
+    employeeAssignmentCoerciveImport,
+);
 
-/** تحميل مسبق لمحضر المتابعة — يقلّل انتظار أول فتح */
+/** تحميل مسبق لمحضر المتابعة — preload يثبّت المكوّنين للرسم المباشر بلا تعليق */
 export function prefetchFollowupMemoPanels(): void {
-    void personalCoerciveFollowupPanelImport().catch(() => {});
-    void employeeAssignmentCoerciveImport().catch(() => {});
+    void LazyPersonalCoerciveFollowupPanel.preload();
+    void LazyEmployeeAssignmentCoerciveFollowupBlock.preload();
 }
 
 export const LazyJudicialCustodianCardMenu = lazy(() =>
@@ -62,11 +99,15 @@ export const LazyEvictionFieldProceduresPanel = lazy(() =>
         default: m.EvictionFieldProceduresPanel,
     }))
 );
-export const LazyOtherPartyActionsLog = lazy(() =>
+export const LazyOtherPartyActionsLog = createPreloadableLazyComponent(() =>
     import('../execution/OtherPartyActionsLog').then((m) => ({
         default: m.OtherPartyActionsLog,
     }))
 );
+
+export function prefetchOtherPartyActionsLog(): void {
+    void LazyOtherPartyActionsLog.preload();
+}
 
 export const LazyDocumentVault = lazy(() =>
     import('../DocumentVault').then((m) => ({ default: m.DocumentVault }))
@@ -74,11 +115,11 @@ export const LazyDocumentVault = lazy(() =>
 const decisionsHubImport = () =>
     import('../DecisionsHub').then((m) => ({ default: m.DecisionsHub }));
 
-export const LazyDecisionsAndAppealsEngine = lazy(decisionsHubImport);
-export const LazyDecisionsHub = LazyDecisionsAndAppealsEngine;
+/** preload-aware — بعد التسخين يُرسم المحرك مباشرة بلا «جاري التحميل…» */
+export const LazyDecisionsAndAppealsEngine = createPreloadableLazyComponent(decisionsHubImport);
 
 export function prefetchDecisionsAndAppealsEngine(): void {
-    void decisionsHubImport().catch(() => {});
+    void LazyDecisionsAndAppealsEngine.preload();
 }
 export const LazyModalSeizedAssetsManager = lazy(() =>
     import('../Modal_Seized_Assets_Manager').then((m) => ({ default: m.ModalSeizedAssetsManager }))
@@ -86,11 +127,11 @@ export const LazyModalSeizedAssetsManager = lazy(() =>
 const financialOperationsCenterImport = () =>
     import('../FinancialOperationsCenter').then((m) => ({ default: m.FinancialOperationsCenter }));
 
-export const LazyFinancialOperationsCenter = lazy(financialOperationsCenterImport);
+export const LazyFinancialOperationsCenter = createPreloadableLazyComponent(financialOperationsCenterImport);
 
 /** تحميل مسبق عند ظهور شبكة الأدوات — يقلّل انتظار أول فتح للمركز المالي */
 export function prefetchFinancialOperationsCenter(): void {
-    void financialOperationsCenterImport().catch(() => {});
+    void LazyFinancialOperationsCenter.preload();
 }
 export const LazyUnifiedSummonsHub = lazy(() =>
     import('../Modal_Unified_Summons_Hub').then((m) => ({ default: m.UnifiedSummonsHub }))
@@ -171,6 +212,12 @@ export const LazyVisitationScheduleModule = lazy(() =>
     }))
 );
 
+export const LazyCustodyRemovalWardsModule = lazy(() =>
+    import('./components/CustodyRemovalWardsModule').then((m) => ({
+        default: m.CustodyRemovalWardsModule,
+    }))
+);
+
 export const LazyMaritalFurnitureModule = lazy(() =>
     import('./components/MaritalFurnitureModule').then((m) => ({
         default: m.MaritalFurnitureModule,
@@ -183,46 +230,57 @@ export const LazyExecutionFullTimelineModalContainer = lazy(() =>
     }))
 );
 
-export const LazyPersonalTab = lazy(() =>
+/**
+ * تبويبات محضر المتابعة — preload-aware: بعد التسخين يُرسم التبويب مباشرة
+ * في نفس commit التبديل بلا تعليق Suspense (كان أول دخول لكل تبويب يومض هيكلاً).
+ */
+export const LazyPersonalTab = createPreloadableLazyComponent(() =>
     import('./components/PersonalTab').then((m) => ({ default: m.PersonalTab }))
 );
-export const LazyCoerciveTab = lazy(() =>
+export const LazyCoerciveTab = createPreloadableLazyComponent(() =>
     import('./components/CoerciveTab').then((m) => ({ default: m.CoerciveTab }))
 );
-export const LazyFinancialTab = lazy(() =>
+export const LazyFinancialTab = createPreloadableLazyComponent(() =>
     import('./components/FinancialTab').then((m) => ({ default: m.FinancialTab }))
 );
-export const LazyOtherPartyTab = lazy(() =>
+export const LazyOtherPartyTab = createPreloadableLazyComponent(() =>
     import('./components/OtherPartyTab').then((m) => ({ default: m.OtherPartyTab }))
 );
-export const LazySeizureRequestsTab = lazy(() =>
+export const LazySeizureRequestsTab = createPreloadableLazyComponent(() =>
     import('./components/SeizureRequestsTab').then((m) => ({ default: m.SeizureRequestsTab }))
 );
-export const LazyCommunicationsTab = lazy(() =>
+export const LazyCommunicationsTab = createPreloadableLazyComponent(() =>
     import('./components/CommunicationsTab').then((m) => ({ default: m.CommunicationsTab }))
 );
-export const LazyRequestsTab = lazy(() =>
+export const LazyRequestsTab = createPreloadableLazyComponent(() =>
     import('./components/RequestsTab').then((m) => ({ default: m.RequestsTab }))
 );
-export const LazyDossierControlsTab = lazy(() =>
+export const LazyDossierControlsTab = createPreloadableLazyComponent(() =>
     import('./components/DossierControlsTab').then((m) => ({ default: m.DossierControlsTab }))
 );
 export const LazyPartyEditModal = lazy(() =>
-    import('./components/PartyEditModal').then((m) => ({ default: m.PartyEditModal }))
+    import('./components/PartyEditModal').then((m) => ({ default: m.PartyEditModal })),
 );
 export const LazyDossierMetaEditSection = lazy(() =>
-    import('./components/DossierMetaEditSection').then((m) => ({ default: m.DossierMetaEditSection }))
+    import('./components/DossierMetaEditSection').then((m) => ({
+        default: m.DossierMetaEditSection,
+    })),
 );
 export const LazyPermanentDeleteConfirmDialog = lazy(() =>
     import('./components/PermanentDeleteConfirmDialog').then((m) => ({
         default: m.PermanentDeleteConfirmDialog,
     }))
 );
-export const LazyExecutionDecisionsModalContainer = lazy(() =>
+/** preload-aware — الحاوية كانت باردة كلياً (خارج كل موجات التسخين) */
+export const LazyExecutionDecisionsModalContainer = createPreloadableLazyComponent(() =>
     import('./components/ExecutionDecisionsModalContainer').then((m) => ({
         default: m.ExecutionDecisionsModalContainer,
     }))
 );
+
+export function prefetchExecutionDecisionsModalContainer(): void {
+    void LazyExecutionDecisionsModalContainer.preload();
+}
 const lawReferencePanelImport = () =>
     import('./components/LawReferencePanel').then((m) => ({ default: m.LawReferencePanel }));
 
@@ -236,11 +294,16 @@ export function prefetchLawReferencePanel(): void {
 export const LazyVisitationCalendarModal = lazy(() =>
     import('./components/VisitationCalendarModal').then((m) => ({ default: m.VisitationCalendarModal }))
 );
-export const LazyExecutionFinancialHubPortal = lazy(() =>
+const executionFinancialHubPortalImport = () =>
     import('./components/ExecutionFinancialHubPortal').then((m) => ({
         default: m.ExecutionFinancialHubPortal,
-    }))
-);
+    }));
+
+export const LazyExecutionFinancialHubPortal = createPreloadableLazyComponent(executionFinancialHubPortalImport);
+
+export function prefetchExecutionFinancialHubPortal(): void {
+    void LazyExecutionFinancialHubPortal.preload();
+}
 
 const executionModalsContainerImport = () =>
     import('./components/ExecutionModalsContainer').then((m) => ({ default: m.ExecutionModalsContainer }));
@@ -302,6 +365,10 @@ export const LazyExecutionFinancialLedgerPortalContainer = lazy(executionFinanci
 export function prefetchExecutionModalContainers(): void {
     void executionPaymentModalImport().catch(() => undefined);
     void executionCoerciveActionsModalImport().catch(() => undefined);
+    // القرارات والطعون — حاوية + محرك: كانا خارج كل موجات التسخين رغم أنه
+    // من أكثر الأقسام استخداماً؛ أول فتح كان يُظهر «جاري التحميل…».
+    void LazyExecutionDecisionsModalContainer.preload();
+    prefetchDecisionsAndAppealsEngine();
 }
 
 /** تحميل مسبق لتبويبات محضر المتابعة — يُصدَّر من executionFollowupTabPrefetch (تبويب واحد) */
@@ -340,6 +407,14 @@ export const LazyDossierActionsModal = lazy(dossierActionsModalImport);
 export const LazyLinkedDossierTimelineModal = lazy(linkedDossierTimelineModalImport);
 export const LazySeizureRequestSubjectModal = lazy(seizureRequestSubjectModalImport);
 export const LazyAlimonyBeneficiaryDeathModal = lazy(alimonyBeneficiaryDeathModalImport);
+
+export function prefetchExecutionTrashOverlay(): void {
+    void executionTrashModalImport().catch(() => undefined);
+}
+
+export function prefetchStayOfExecutionModal(): void {
+    void import('../execution/StayOfExecutionModal').catch(() => undefined);
+}
 
 /** تحميل مسبق للنوافذ الأكثر استخداماً بعد فتح الإضبارة */
 export function prefetchExecutionOverlayModals(): void {

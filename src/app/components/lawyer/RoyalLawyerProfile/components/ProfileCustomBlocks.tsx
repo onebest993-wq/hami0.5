@@ -13,6 +13,8 @@ import { ProfileCustomBlockView } from './ProfileCustomBlockView';
 type ProfileCustomBlocksProps = {
     blocks: ProfileCustomBlock[];
     editable?: boolean;
+    /** عند فتح الاستوديو: عطّل تفاعل الصفحة حتى لا ينافس معاينة الـ dock على الـ slot */
+    interactionsEnabled?: boolean;
     onBlocksLayoutChange?: (blocks: ProfileCustomBlock[]) => void;
 };
 
@@ -37,6 +39,7 @@ type DragSession = {
 export function ProfileCustomBlocks({
     blocks,
     editable = false,
+    interactionsEnabled = true,
     onBlocksLayoutChange,
 }: ProfileCustomBlocksProps) {
     const sorted = useMemo(() => sortProfileCustomBlocks(blocks), [blocks]);
@@ -63,10 +66,14 @@ export function ProfileCustomBlocks({
         setCanvasMinHeight(estimateProfileCanvasMinHeight(sorted));
     }, [blocksFingerprint, sorted]);
 
-    useLayoutEffect(() => {
-        const computed = estimateProfileCanvasMinHeight(liveBlocks);
-        setCanvasMinHeight((prev) => Math.max(prev, computed));
-    }, [liveBlocks]);
+    useEffect(() => {
+        if (editable) return;
+        const drag = dragRef.current;
+        if (!drag) return;
+        drag.element.dataset.dragging = 'false';
+        dragRef.current = null;
+        /* إلغاء السحب عند إغلاق التحرير — لا تلتزم بمواضع نصف جاهزة */
+    }, [editable]);
 
     const commitBlocks = useCallback(
         (next: ProfileCustomBlock[]) => {
@@ -76,6 +83,35 @@ export function ProfileCustomBlocks({
         },
         [onBlocksLayoutChange],
     );
+
+    useEffect(() => {
+        if (!editable) return;
+        const onLostCapture = () => {
+            const drag = dragRef.current;
+            if (!drag) return;
+            drag.element.dataset.dragging = 'false';
+            const maxOrder = liveBlocksRef.current.reduce((max, b) => Math.max(max, b.order ?? 0), 0);
+            const next = sortProfileCustomBlocks(
+                liveBlocksRef.current.map((b) =>
+                    b.id === drag.id
+                        ? {
+                              ...b,
+                              posX: drag.pendingPosX,
+                              posY: drag.pendingPosY,
+                              offsetX: 0,
+                              offsetY: 0,
+                              order: maxOrder + 1,
+                          }
+                        : b,
+                ),
+            );
+            dragRef.current = null;
+            commitBlocks(next);
+        };
+        const canvas = canvasRef.current;
+        canvas?.addEventListener('lostpointercapture', onLostCapture);
+        return () => canvas?.removeEventListener('lostpointercapture', onLostCapture);
+    }, [editable, commitBlocks]);
 
     const applyElementPosition = useCallback((el: HTMLDivElement, posX: number, posY: number) => {
         el.style.right = `${posX}%`;
@@ -95,11 +131,21 @@ export function ProfileCustomBlocks({
             const drag = dragRef.current;
             if (!drag || drag.pointerId !== event.pointerId) return;
 
+            /*
+             * صفّر الجلسة قبل releasePointerCapture —
+             * وإلا lostpointercapture يلتزم order مرتين (+1 ثم +1).
+             */
+            dragRef.current = null;
+            drag.element.dataset.dragging = 'false';
+
             if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-                event.currentTarget.releasePointerCapture(event.pointerId);
+                try {
+                    event.currentTarget.releasePointerCapture(event.pointerId);
+                } catch {
+                    /* ignore */
+                }
             }
 
-            drag.element.dataset.dragging = 'false';
             const maxOrder = liveBlocksRef.current.reduce((max, b) => Math.max(max, b.order ?? 0), 0);
             const next = sortProfileCustomBlocks(
                 liveBlocksRef.current.map((b) =>
@@ -115,7 +161,6 @@ export function ProfileCustomBlocks({
                         : b,
                 ),
             );
-            dragRef.current = null;
             commitBlocks(next);
         },
         [commitBlocks],
@@ -132,7 +177,11 @@ export function ProfileCustomBlocks({
 
             const rect = canvas.getBoundingClientRect();
             const { posX, posY } = resolveBlockPosition(block, index);
-            canvas.setPointerCapture(event.pointerId);
+            try {
+                canvas.setPointerCapture(event.pointerId);
+            } catch {
+                return;
+            }
             element.dataset.dragging = 'true';
             dragRef.current = {
                 id: blockId,
@@ -165,7 +214,7 @@ export function ProfileCustomBlocks({
 
     if (sorted.length === 0) return null;
 
-    const blockInteractive = !editable;
+    const blockInteractive = interactionsEnabled && !editable;
 
     return (
         <div className="px-4 mt-5">

@@ -42,14 +42,14 @@ function PrefToggle({
     return (
         <label className="flex items-center justify-between gap-2 py-1.5 cursor-pointer">
             <span className="flex items-center gap-1.5 text-[11px] text-white/55">
-                <Icon size={12} className="text-[#F0B896]/70" aria-hidden />
+                <Icon size={12} className="text-[#C9A86C]/70" aria-hidden />
                 {label}
             </span>
             <input
                 type="checkbox"
                 checked={checked}
                 onChange={(e) => onChange(e.target.checked)}
-                className="w-4 h-4 accent-[#F0B896]"
+                className="w-4 h-4 accent-[#C9A86C]"
             />
         </label>
     );
@@ -101,9 +101,9 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                         aria-modal="true"
                         aria-label="قائمة المتابعة"
                         dir="rtl"
-                    >
+            >
                         <div className="w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-2" aria-hidden />
-                        <div className="px-4 pb-3 flex items-center justify-between gap-3 border-b border-[#4A3D52]/40">
+                        <div className="px-4 pb-3 flex items-center justify-between gap-3 border-b border-[#2A3344]/40">
                             <div>
                                 <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-sm`}>المتابعة</h3>
                                 <p className={`${FORUM_TEXT_MUTED} text-[11px] mt-0.5`}>
@@ -120,7 +120,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                             onOpenFollowingFeed();
                                             requestClose();
                                         }}
-                                        className={`${FORUM_TEXT_APRICOT} text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#F0B896]/10 border border-[#F0B896]/25`}
+                                        className={`${FORUM_TEXT_APRICOT} text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#C9A86C]/10 border border-[#C9A86C]/25`}
                                     >
                                         عرض منشوراتهم
                                     </button>
@@ -144,7 +144,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                     onClick={() => setTab(key)}
                                     className={`flex-1 py-2 rounded-lg text-[11px] font-bold transition-colors ${
                                         tab === key
-                                            ? 'bg-[#F0B896]/14 text-[#F0B896] border border-[#F0B896]/25'
+                                            ? 'bg-[#C9A86C]/14 text-[#C9A86C] border border-[#C9A86C]/25'
                                             : 'text-white/45 border border-transparent'
                                     }`}
                                 >
@@ -157,7 +157,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                             {tab === 'following' ? (
                             following.length === 0 ? (
                                 <div className="py-10 text-center">
-                                    <UserCheck size={32} className="text-[#F0B896]/30 mx-auto mb-3" />
+                                    <UserCheck size={32} className="text-[#C9A86C]/30 mx-auto mb-3" />
                                     <p className={`${FORUM_TEXT_PRIMARY} text-sm font-bold mb-1`}>لا تتابع أحداً بعد</p>
                                     <p className={`${FORUM_TEXT_MUTED} text-xs`}>
                                         اضغط «متابعة» على بطاقة أي محامٍ لتصلك تنبيهات نشاطه
@@ -170,10 +170,10 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                     return (
                                         <div
                                             key={row.followingId}
-                                            className="rounded-xl border border-[#4A3D52]/45 bg-[#342C3A]/60 overflow-hidden"
+                                            className="rounded-xl hami-forum-panel overflow-hidden"
                                         >
                                             <div className="flex items-center gap-2 px-3 py-2.5">
-                                                <div className="w-9 h-9 rounded-full bg-[#F0B896]/12 border border-[#F0B896]/25 flex items-center justify-center text-[#F0B896] text-xs font-bold shrink-0">
+                                                <div className="w-9 h-9 rounded-full bg-[#C9A86C]/12 border border-[#C9A86C]/25 flex items-center justify-center text-[#C9A86C] text-xs font-bold shrink-0">
                                                     {name.slice(0, 1)}
                                                 </div>
                                                 <button
@@ -222,7 +222,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                                 </button>
                                             </div>
                                             {expanded ? (
-                                                <div className="px-3 pb-3 pt-1 border-t border-[#4A3D52]/30">
+                                                <div className="px-3 pb-3 pt-1 border-t border-[#2A3344]/30">
                                                     <PrefToggle
                                                         label="منشورات جديدة"
                                                         icon={Bell}
@@ -255,7 +255,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                             )
                             ) : followers.length === 0 ? (
                                 <div className="py-10 text-center">
-                                    <UserCheck size={32} className="text-[#F0B896]/30 mx-auto mb-3" />
+                                    <UserCheck size={32} className="text-[#C9A86C]/30 mx-auto mb-3" />
                                     <p className={`${FORUM_TEXT_PRIMARY} text-sm font-bold mb-1`}>لا متابعين بعد</p>
                                     <p className={`${FORUM_TEXT_MUTED} text-xs`}>عندما يتابعك محامٍ سيظهر هنا</p>
                                 </div>
@@ -265,9 +265,9 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                     return (
                                         <div
                                             key={row.followerId}
-                                            className="rounded-xl border border-[#4A3D52]/45 bg-[#342C3A]/60 px-3 py-2.5 flex items-center gap-2"
+                                            className="rounded-xl hami-forum-panel px-3 py-2.5 flex items-center gap-2"
                                         >
-                                            <div className="w-9 h-9 rounded-full bg-[#F0B896]/12 border border-[#F0B896]/25 flex items-center justify-center text-[#F0B896] text-xs font-bold shrink-0">
+                                            <div className="w-9 h-9 rounded-full bg-[#C9A86C]/12 border border-[#C9A86C]/25 flex items-center justify-center text-[#C9A86C] text-xs font-bold shrink-0">
                                                 {name.slice(0, 1)}
                                             </div>
                                             <div className="flex-1 min-w-0">
@@ -294,7 +294,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                                 <button
                                                     type="button"
                                                     onClick={() => onFollowBack(row.followerId)}
-                                                    className={`${FORUM_TEXT_APRICOT} text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-[#F0B896]/10 border border-[#F0B896]/25`}
+                                                    className={`${FORUM_TEXT_APRICOT} text-[10px] font-bold px-2.5 py-1.5 rounded-lg bg-[#C9A86C]/10 border border-[#C9A86C]/25`}
                                                 >
                                                     متابعة
                                                 </button>
@@ -304,7 +304,7 @@ export const ForumFollowingPanel = function ForumFollowingPanel({
                                 })
                             )}
                         </div>
-                    </motion.div>
+            </motion.div>
         </>
     );
 

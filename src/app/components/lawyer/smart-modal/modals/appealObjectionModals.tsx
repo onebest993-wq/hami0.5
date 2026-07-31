@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useState } from 'react';
-import { Bell, Calendar, Check, Gavel, Shield, X } from 'lucide-react';
+import { Bell, Calendar, Check, Gavel, X } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
 import { AppealTransitionModal } from '../AppealTransitionModal';
@@ -14,14 +13,8 @@ import type {
 } from '../smartFile/modalFormTypes';
 import {
     GLASS_BTN,
-    GLASS_CHIP,
-    GLASS_CHIP_ACTIVE,
-    GLASS_CLOSE,
     GLASS_FIELD,
     GLASS_MODAL_HEADER,
-    GLASS_MODAL_OVERLAY,
-    GLASS_MODAL_SHELL,
-    GLASS_SELECT,
     MoroccanCloseButton,
     MoroccanGlassShell,
     MoroccanHeaderDivider,
@@ -250,8 +243,7 @@ export const AbsentJudgmentNotificationModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose}>
             <div className={GLASS_MODAL_HEADER}>
-                <h3 className="font-bold flex items-center gap-2 text-[14px] text-white/95">
-                    <Bell size={17} className="text-amber-300 shrink-0" strokeWidth={1.75} />
+                <h3 className="font-bold text-[14px] text-white/95">
                     التبليغ بالحكم الغيابي
                 </h3>
                 <MoroccanCloseButton onClick={onClose} />
@@ -307,8 +299,7 @@ export const OpponentAbsentObjectionModal = ({
     return (
         <MoroccanGlassShell onOverlayClick={onClose}>
             <div className={GLASS_MODAL_HEADER}>
-                <h3 className="font-bold flex items-center gap-2 text-[14px] text-white/95">
-                    <Shield size={17} className="text-orange-300 shrink-0" strokeWidth={1.75} />
+                <h3 className="font-bold text-[14px] text-white/95">
                     اعتراض المدعى عليه بالحكم الغيابي
                 </h3>
                 <MoroccanCloseButton onClick={onClose} />
@@ -380,8 +371,7 @@ export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: Objec
         <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
             <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-4 text-white flex justify-between items-center">
-                    <h3 className="font-bold flex items-center gap-2">
-                        <Shield size={18}/> 
+                    <h3 className="font-bold">
                         تسجيل اعتراض غيابي
                     </h3>
                     <button type="button" onClick={onClose} className="hover:bg-black/10 rounded-full p-1 text-white/80 hover:text-white">
@@ -390,8 +380,7 @@ export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: Objec
                 </div>
                 
                 <div className="p-5 space-y-4">
-                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3 flex items-start gap-2 text-xs text-teal-200">
-                        <span className="text-teal-400 font-bold">ℹ️</span>
+                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3 text-xs text-teal-200">
                         <p className="leading-relaxed opacity-80">
                             سيتم فتح سجل جديد لمرافعة الاعتراض الغيابي وتجميد الحكم السابق لحين حسم الاعتراض.
                         </p>
@@ -417,7 +406,7 @@ export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: Objec
                         disabled={!objectionDate || !sessionDate} 
                         className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-3 rounded-lg font-bold text-sm hover:from-teal-600 hover:to-emerald-700 transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        بدء مرافعة الاعتراض 🛡️
+                        بدء مرافعة الاعتراض
                     </button>
                 </div>
             </div>

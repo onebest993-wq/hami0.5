@@ -22,6 +22,7 @@ export type TaskCardProps = {
     onEditRequest: (task: LegalTask) => void;
     onDeleteRequest: (task: LegalTask) => void;
     onReminderBadgeClick: (task: LegalTask) => void;
+    onRequestHelp?: (task: LegalTask) => void;
 };
 
 export function taskRevision(task: LegalTask): string {

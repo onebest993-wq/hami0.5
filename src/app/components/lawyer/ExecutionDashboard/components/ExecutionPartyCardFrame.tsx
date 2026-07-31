@@ -58,6 +58,14 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
         }
     };
 
+    const handleHeaderClick = (e: React.MouseEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement;
+        if (target.closest('button, input, textarea, select, a, [data-exec-interactive]')) {
+            return;
+        }
+        onToggle();
+    };
+
     return (
         <div
             className={`relative isolate w-full overflow-visible rounded-2xl border bg-[#0B1120]/38 text-right shadow-[0_10px_32px_rgba(0,0,0,0.38)] ring-1 transition-[border-color,box-shadow] duration-150 ${v.card} ${className}`}
@@ -80,9 +88,9 @@ export const ExecutionPartyCardFrame = React.memo(function ExecutionPartyCardFra
                 tabIndex={0}
                 aria-expanded={isOpen}
                 aria-label={expandAriaLabel}
-                onClick={onToggle}
+                onClick={handleHeaderClick}
                 onKeyDown={handleHeaderKeyDown}
-                className={`relative z-[2] flex w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-3 pb-2 pt-3.5 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
+                className={`relative z-[2] flex w-full cursor-pointer flex-col items-center justify-center gap-0.5 px-3 pb-1.5 pt-2.5 text-center outline-none focus-visible:ring-2 ${v.headerFocus}`}
             >
                 <div className="pointer-events-none flex w-full flex-col items-center justify-center [&_button]:pointer-events-auto [&_input]:pointer-events-auto [&_textarea]:pointer-events-auto [&_select]:pointer-events-auto [&_a]:pointer-events-auto [&_[role=button]]:pointer-events-auto">
                     {children}

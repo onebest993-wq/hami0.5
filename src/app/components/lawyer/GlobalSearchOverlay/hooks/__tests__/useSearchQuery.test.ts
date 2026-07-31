@@ -1,9 +1,17 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useSearchQuery } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchQuery';
 import { TIMING } from '@/app/utils/constants';
+import {
+    resetGlobalSearchDraftQueryForTests,
+    writeGlobalSearchDraftQuery,
+} from '@/app/runtime/globalSearchDraftQuery';
 
 describe('useSearchQuery', () => {
+    beforeEach(() => {
+        resetGlobalSearchDraftQueryForTests();
+    });
+
     it('resets query when a new search session starts', () => {
         const { result, rerender } = renderHook(
             ({ session, seed }: { session: number; seed: string }) =>
@@ -29,6 +37,12 @@ describe('useSearchQuery', () => {
 
         rerender({ session: 1, seed: 'جلسة' });
         expect(result.current.query).toBe('جلسة');
+    });
+
+    it('يعتمد مسودة InstantShell عند غياب seed', () => {
+        writeGlobalSearchDraftQuery('من القشرة');
+        const { result } = renderHook(() => useSearchQuery('', null, false, 3));
+        expect(result.current.query).toBe('من القشرة');
     });
 
     it('لا يعتبر بناء الفهرس isSearching — يظهر في اللوحة فقط', () => {

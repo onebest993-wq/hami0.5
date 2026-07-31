@@ -118,10 +118,15 @@ export function runSaveMaritalFurnitureDeliveryInventoryEntry(
     }
     const decisionId = String(input.decisionId || '').trim();
     if (!decisionId) return;
-    const normalized = normalizeMaritalFurnitureItems(input.items).map((row) => ({
-        ...row,
-        delivered: input.items.find((i) => i.id === row.id)?.delivered === true,
-    }));
+    const normalized = normalizeMaritalFurnitureItems(input.items).map((row) => {
+        const src = input.items.find((i) => i.id === row.id);
+        return {
+            ...row,
+            delivered: src?.delivered === true,
+            deliveryOutcome: src?.deliveryOutcome,
+            deliveryRecordedAt: src?.deliveryRecordedAt,
+        };
+    });
     if (normalized.length === 0) {
         showToast('لا توجد قطع أثاث لحفظ حالة التسليم', 'warning');
         return;

@@ -2,12 +2,24 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
+import { LAWYER_TRANSACTIONS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
         error: vi.fn(),
         info: vi.fn(),
     },
+}));
+
+vi.mock('@/app/services/auth/shellAuth', () => ({
+    isRealSignedIn: (userId: string | null | undefined) => {
+        const id = userId?.trim();
+        if (!id) return false;
+        return id !== 'guest-lawyer-1' && id !== 'demo_user';
+    },
+    resolveShellAuthUserId: (auth?: string | null, display?: string | null) =>
+        auth?.trim() || display?.trim() || null,
+    isShellAuthBypassed: () => false,
 }));
 
 vi.mock('@/app/modules/transactionsThreading/store', () => ({
@@ -30,9 +42,21 @@ vi.mock('@/app/runtime/transactionsHubLoader', () => ({
     prefetchTransactionsHubModule: vi.fn(),
 }));
 
+vi.mock('@/app/runtime/transactionsBootHydrator', () => ({
+    hydrateTransactionsBootShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+    prefetchTransactionsAfterBootReveal: vi.fn(),
+    bindTransactionsBootHydrator: vi.fn(() => () => undefined),
+    dispatchTransactionsPrimeHost: vi.fn(),
+}));
+
 describe('useLawyerDashboardTransactions', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        try {
+            sessionStorage.removeItem(LAWYER_TRANSACTIONS_OPEN_KEY);
+        } catch {
+            /* ignore */
+        }
     });
 
     it('يفتح مركز المعاملات ويُجهّز host', async () => {
@@ -100,7 +124,7 @@ describe('useLawyerDashboardTransactions', () => {
         expect(result.current.showTransactions).toBe(false);
     });
 
-    it('لا يُجهّز host تلقائياً عند تسجيل الدخول ويجهّزه فقط عند intent', () => {
+    it('يُركّب host مخفياً فور تسجيل الدخول (مثل الإعدادات)', () => {
         const { result } = renderHook(() =>
             useLawyerDashboardTransactions({
                 userId: 'lawyer-1',
@@ -109,13 +133,8 @@ describe('useLawyerDashboardTransactions', () => {
             }),
         );
 
-        expect(result.current.transactionsHostMounted).toBe(false);
-
-        act(() => {
-            result.current.primeTransactionsHubMount();
-        });
-
         expect(result.current.transactionsHostMounted).toBe(true);
+        expect(result.current.showTransactions).toBe(false);
     });
 
     it('يغلق ويمسح focus عند dismiss-transient-overlays', () => {

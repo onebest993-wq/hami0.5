@@ -7,6 +7,15 @@ export function buildExecutionDashboardCoreModalScopeInput(p: {
     setExecutionModal: (key: keyof ModalStates, show: boolean) => void;
     showLinkedDossierTimeline: boolean;
     showTransferFileNumberChangeModal: boolean;
+    showEvictionExpenseModal?: boolean;
+    showEvictionLawyerFeeModal?: boolean;
+    showEvictionResidentialGraceModal?: boolean;
+    showGuarantorDetailsModal?: boolean;
+    showHeirsNotificationModal?: boolean;
+    showRealEstateSeizureModal?: boolean;
+    showSolidaryCoerciveTargetModal?: boolean;
+    showStayOfExecutionModal?: boolean;
+    showEditDossierMetaModal?: boolean;
     setShowDecisionsModal: (show: boolean) => void;
     setShowDocumentsModal: (show: boolean) => void;
     setShowTimelineModal: (show: boolean) => void;
@@ -58,16 +67,19 @@ export function buildExecutionDashboardCoreModalScopeInput(p: {
         showSettlementCalculator: modals.showSettlementCalculator,
         showPauseModal: modals.showPauseModal,
         showLedgerModal: modals.showLedgerModal,
-        showEditDossierMetaModal: modals.showEditDossierMetaModal,
-        showEvictionExpenseModal: modals.showEvictionExpenseModal,
-        showEvictionLawyerFeeModal: modals.showEvictionLawyerFeeModal,
-        showEvictionResidentialGraceModal: modals.showEvictionResidentialGraceModal,
-        showGuarantorDetailsModal: modals.showGuarantorDetailsModal,
-        showHeirsNotificationModal: modals.showHeirsNotificationModal,
+        // من workflow المقيم — ليس من Zustand (المفتاح غير موجود في ModalStates)
+        showEditDossierMetaModal: Boolean(p.showEditDossierMetaModal),
+        showEvictionExpenseModal: p.showEvictionExpenseModal ?? modals.showEvictionExpenseModal,
+        showEvictionLawyerFeeModal: p.showEvictionLawyerFeeModal ?? modals.showEvictionLawyerFeeModal,
+        showEvictionResidentialGraceModal:
+            p.showEvictionResidentialGraceModal ?? modals.showEvictionResidentialGraceModal,
+        showGuarantorDetailsModal: p.showGuarantorDetailsModal ?? modals.showGuarantorDetailsModal,
+        showHeirsNotificationModal: p.showHeirsNotificationModal ?? modals.showHeirsNotificationModal,
         showLinkedDossierTimeline: p.showLinkedDossierTimeline,
-        showRealEstateSeizureModal: modals.showRealEstateSeizureModal,
-        showSolidaryCoerciveTargetModal: modals.showSolidaryCoerciveTargetModal,
-        showStayOfExecutionModal: modals.showStayOfExecutionModal,
+        showRealEstateSeizureModal: p.showRealEstateSeizureModal ?? modals.showRealEstateSeizureModal,
+        showSolidaryCoerciveTargetModal:
+            p.showSolidaryCoerciveTargetModal ?? modals.showSolidaryCoerciveTargetModal,
+        showStayOfExecutionModal: p.showStayOfExecutionModal ?? modals.showStayOfExecutionModal,
         showTransferFileNumberChangeModal: p.showTransferFileNumberChangeModal,
         setShowUnifiedExecutionModal: followupOrchestrator.setShowUnifiedExecutionModal,
         setShowDecisionsModal: p.setShowDecisionsModal,

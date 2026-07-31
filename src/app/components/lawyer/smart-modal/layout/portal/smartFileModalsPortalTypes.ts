@@ -110,6 +110,7 @@ export type SmartFileModalsPortalProps = {
     currentStage: CaseStage;
     stages: CaseStage[];
     activeStageIndex: number;
+    viewingStageIndex: number;
     parentData: SmartFileParentData;
     displayStageName?: string;
     consolidationCurrentFileId: number;

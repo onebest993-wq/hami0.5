@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
+import { BookOpen, CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
 import {
   TransactionsDropdownMenu,
   TransactionsDropdownMenuContent,
@@ -11,11 +11,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/app/components/ui/ta
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { listTaskTemplates, saveTaskTemplate, deleteTaskTemplate } from '@/app/modules/transactionsThreading/taskTemplates';
 import { TransactionStatus } from '@/app/modules/transactionsThreading/types';
-import type { Transaction, TransactionTask } from '@/app/modules/transactionsThreading/types';
+import type { Transaction, TransactionDocument, TransactionTask } from '@/app/modules/transactionsThreading/types';
 import { TaskThreadView } from './TaskThreadView';
 import { AddTaskBottomSheet } from './AddTaskBottomSheet';
 import { DocumentsTabView } from './DocumentsTabView';
-import { FinancesTabView } from './FinancesTabView';
 import { generateClientReport } from './generateClientReport';
 import {
     canImportTaskTemplate,
@@ -23,11 +22,19 @@ import {
 } from '@/app/services/transactions/importTaskTemplateToTransaction';
 import { sanitizeTransactionTemplateName } from '@/app/services/transactions/transactionsInputSecurity';
 import {
+    sanitizeTemplateForSharing,
+    sanitizeTransactionForSharing,
+    type ShareProcedureDraft,
+} from '@/app/services/transactions/sanitizeTransactionForSharing';
+import { SmartToast } from '@/app/components/ui/SmartToast';
+import { ShareProcedureModal } from './ShareProcedureModal';
+import {
     TX_ACCENT_SURFACE,
     TX_DROPDOWN_FOCUS,
     TX_GOLD_BTN,
     TX_ICON_BTN,
     TX_OCHRE_BTN,
+    TX_STAGE_DOT,
     TX_TAB_TRIGGER,
     TX_TEXT_MUTED,
     TX_TEXT_OCHRE,
@@ -43,6 +50,7 @@ import { txStatusBadgeClass, txStatusLabelAr } from './transactionDetails/transa
 import { TransactionDetailsDialogs } from './transactionDetails/TransactionDetailsDialogs';
 
 const EMPTY_TASKS: TransactionTask[] = [];
+const EMPTY_DOCS: TransactionDocument[] = [];
 
 export function TransactionDetailsScreen({
   transactionId,
@@ -62,22 +70,27 @@ export function TransactionDetailsScreen({
   const tx = useTransactionsThreadingStore((s) => s.transactions.find((t) => t.id === transactionId));
   const refreshTransactionData = useTransactionsThreadingStore((s) => s.refreshTransactionData);
   const tasks = useTransactionsThreadingStore((s) => s.tasksByTransactionId[transactionId] ?? EMPTY_TASKS);
+  const documents = useTransactionsThreadingStore(
+    (s) => s.documentsByTransactionId[transactionId] ?? EMPTY_DOCS,
+  );
   const setTransactionStatus = useTransactionsThreadingStore((s) => s.setTransactionStatus);
   const addTask = useTransactionsThreadingStore((s) => s.addTask);
   const userId = useTransactionsThreadingStore((s) => s.userId);
 
-  const [tab, setTab] = useState<'path' | 'docs' | 'fin'>('path');
+  const [tab, setTab] = useState<'path' | 'docs'>('path');
   const [sheetOpen, setSheetOpen] = useState(false);
   const [parent, setParent] = useState<TransactionTask | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const [templateName, setTemplateName] = useState('');
   const [templatesVersion, setTemplatesVersion] = useState(0);
+  const [templateName, setTemplateName] = useState('');
   const [completeOpen, setCompleteOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareDraft, setShareDraft] = useState<ShareProcedureDraft | null>(null);
+  const [shareClientName, setShareClientName] = useState<string | null>(null);
   const [taskEscape, setTaskEscape] = useState({
-    taskCompleteOpen: false,
     taskEditOpen: false,
     taskDeleteOpen: false,
   });
@@ -85,17 +98,32 @@ export function TransactionDetailsScreen({
     () => undefined,
   );
 
+  const onTaskEscapeSnapshotChange = useCallback(
+    (next: Pick<TransactionsDetailsEscapeSnapshot, 'taskEditOpen' | 'taskDeleteOpen'>) => {
+      setTaskEscape((prev) =>
+        prev.taskEditOpen === next.taskEditOpen && prev.taskDeleteOpen === next.taskDeleteOpen
+          ? prev
+          : next,
+      );
+    },
+    [],
+  );
+
   const closeOverlay = useCallback((patch: Partial<TransactionsDetailsEscapeSnapshot>) => {
     if (patch.reportOpen === false) setReportOpen(false);
     if (patch.completeOpen === false) setCompleteOpen(false);
     if (patch.saveTemplateOpen === false) setSaveTemplateOpen(false);
     if (patch.templatesOpen === false) setTemplatesOpen(false);
+    if (patch.shareProcedureOpen === false) {
+      setShareOpen(false);
+      setShareDraft(null);
+      setShareClientName(null);
+    }
     if (patch.addTaskSheetOpen === false) {
       setSheetOpen(false);
       setParent(null);
     }
     const taskPatch: Partial<TransactionsDetailsEscapeSnapshot> = {};
-    if (patch.taskCompleteOpen === false) taskPatch.taskCompleteOpen = false;
     if (patch.taskEditOpen === false) taskPatch.taskEditOpen = false;
     if (patch.taskDeleteOpen === false) taskPatch.taskDeleteOpen = false;
     if (Object.keys(taskPatch).length > 0) {
@@ -115,6 +143,7 @@ export function TransactionDetailsScreen({
       completeOpen,
       saveTemplateOpen,
       templatesOpen,
+      shareProcedureOpen: shareOpen,
       ...taskEscape,
     });
   }, [
@@ -123,6 +152,7 @@ export function TransactionDetailsScreen({
     completeOpen,
     saveTemplateOpen,
     templatesOpen,
+    shareOpen,
     taskEscape,
     onEscapeSnapshotChange,
   ]);
@@ -138,8 +168,11 @@ export function TransactionDetailsScreen({
 
   const isReadOnly = tx?.status === TransactionStatus.Completed;
   const templates = useMemo(
-    () => (tx && userId ? listTaskTemplates(userId) : []),
-    [templatesVersion, templatesOpen, userId, tx?.id],
+    () => {
+      void templatesVersion;
+      return tx && userId ? listTaskTemplates(userId) : [];
+    },
+    [templatesVersion, userId, tx],
   );
   const reportText = useMemo(
     () => (tx ? generateClientReport(tx as Transaction, tasks) : ''),
@@ -229,10 +262,35 @@ export function TransactionDetailsScreen({
     setTemplatesOpen(false);
   };
 
+  const openShareFromTransaction = () => {
+    if (!tx) return;
+    if (tasks.length === 0) {
+      SmartToast.warning('أضف خطوة واحدة على الأقل قبل مشاركة الإجراءات');
+      return;
+    }
+    setShareDraft(sanitizeTransactionForSharing(tx, tasks, documents));
+    setShareClientName(tx.clientName);
+    setShareOpen(true);
+  };
+
+  const openShareFromTemplate = (templateId: string) => {
+    if (!userId) return;
+    const template = listTaskTemplates(userId).find((t) => t.id === templateId);
+    if (!template) return;
+    if (template.tasks.length === 0) {
+      SmartToast.warning('القالب فارغ — لا خطوات للمشاركة');
+      return;
+    }
+    setShareDraft(sanitizeTemplateForSharing(template));
+    setShareClientName(null);
+    setTemplatesOpen(false);
+    setShareOpen(true);
+  };
+
   return (
     <div data-testid="transactions-details-screen">
     <TxGlassPage>
-      <Tabs dir="rtl" value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs' | 'fin')} className="w-full">
+      <Tabs dir="rtl" value={tab} onValueChange={(v) => setTab(v as 'path' | 'docs')} className="w-full">
         <TxGlassHeader>
           <TxHeaderRow
             title={tx.title}
@@ -248,18 +306,24 @@ export function TransactionDetailsScreen({
 
           <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
             {isReadOnly ? (
-              <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN}>
+              <button type="button" onClick={reopenTransaction} className={TX_GOLD_BTN} aria-label={`إعادة فتح المعاملة ${tx.title}`}>
                 إعادة فتح
               </button>
             ) : (
-              <button type="button" onClick={() => setCompleteOpen(true)} className={TX_OCHRE_BTN}>
+              <button
+                type="button"
+                onClick={() => setCompleteOpen(true)}
+                className={TX_OCHRE_BTN}
+                aria-haspopup="dialog"
+                aria-label={`إنهاء المعاملة ${tx.title}`}
+              >
                 إنهاء المعاملة
               </button>
             )}
 
             <TransactionsDropdownMenu>
               <TransactionsDropdownMenuTrigger asChild>
-                <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة">
+                <button type="button" className={TX_ICON_BTN} aria-label="قائمة المعاملة" aria-haspopup="menu">
                   <MoreVertical className="w-5 h-5" />
                 </button>
               </TransactionsDropdownMenuTrigger>
@@ -278,22 +342,44 @@ export function TransactionDetailsScreen({
               </TransactionsDropdownMenuContent>
             </TransactionsDropdownMenu>
 
-            <button type="button" onClick={() => setReportOpen(true)} className={TX_ICON_BTN} aria-label="مشاركة تحديث الموكل">
+            <button
+              type="button"
+              onClick={openShareFromTransaction}
+              disabled={tasks.length === 0}
+              data-testid="transactions-share-procedure"
+              className={`${TX_GOLD_BTN} inline-flex items-center gap-1.5 disabled:opacity-45`}
+              aria-label="مشاركة الإجراءات للمنتدى"
+              aria-haspopup="dialog"
+            >
+              <BookOpen className="w-4 h-4" aria-hidden />
+              مشاركة الإجراءات
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className={TX_ICON_BTN}
+              aria-label="مشاركة تحديث الموكل"
+              aria-haspopup="dialog"
+            >
               <Share2 className="w-5 h-5" />
             </button>
           </div>
 
           <div className="mt-4">
             <TxGlassTabsList>
-              <TabsList className="w-full h-auto p-0 bg-transparent border-0 grid grid-cols-3 gap-1">
-                <TabsTrigger value="path" className={TX_TAB_TRIGGER}>
-                  المسار
+              <TabsList className="w-full h-auto p-0 m-0 bg-transparent border-0 shadow-none rounded-none flex flex-row items-stretch gap-1">
+                <TabsTrigger value="path" className={TX_TAB_TRIGGER} data-testid="transactions-tab-path">
+                  <span className={TX_STAGE_DOT} aria-hidden>
+                    1
+                  </span>
+                  <span>الإجراءات</span>
                 </TabsTrigger>
-                <TabsTrigger value="docs" className={TX_TAB_TRIGGER}>
-                  المستمسكات
-                </TabsTrigger>
-                <TabsTrigger value="fin" className={TX_TAB_TRIGGER}>
-                  المصاريف
+                <TabsTrigger value="docs" className={TX_TAB_TRIGGER} data-testid="transactions-tab-docs">
+                  <span className={TX_STAGE_DOT} aria-hidden>
+                    2
+                  </span>
+                  <span>المرفقات</span>
                 </TabsTrigger>
               </TabsList>
             </TxGlassTabsList>
@@ -321,7 +407,7 @@ export function TransactionDetailsScreen({
               onRequestAddTask={requestAddTask}
               onImportFromMyTemplates={() => setTemplatesOpen(true)}
               readOnly={isReadOnly}
-              onTaskEscapeSnapshotChange={setTaskEscape}
+              onTaskEscapeSnapshotChange={onTaskEscapeSnapshotChange}
               registerTaskEscapeCloser={(closer) => {
                 closeTaskOverlayRef.current = closer ?? (() => undefined);
               }}
@@ -329,9 +415,6 @@ export function TransactionDetailsScreen({
           </TabsContent>
           <TabsContent value="docs" className="mt-0 focus-visible:outline-none">
             <DocumentsTabView transaction={tx as Transaction} readOnly={isReadOnly} />
-          </TabsContent>
-          <TabsContent value="fin" className="mt-0 focus-visible:outline-none">
-            <FinancesTabView transaction={tx as Transaction} readOnly={isReadOnly} />
           </TabsContent>
         </div>
       </Tabs>
@@ -373,11 +456,25 @@ export function TransactionDetailsScreen({
           deleteTaskTemplate(userId, templateId);
           setTemplatesVersion((v) => v + 1);
         }}
+        onShareTemplate={openShareFromTemplate}
         reportOpen={reportOpen && hubOpen}
         onReportOpenChange={setReportOpen}
         reportText={reportText}
         copied={copied}
         onCopyReport={copyReport}
+      />
+
+      <ShareProcedureModal
+        open={shareOpen && hubOpen}
+        onOpenChange={(open) => {
+          setShareOpen(open);
+          if (!open) {
+            setShareDraft(null);
+            setShareClientName(null);
+          }
+        }}
+        draft={shareDraft}
+        clientNameForScrub={shareClientName}
       />
     </TxGlassPage>
     </div>

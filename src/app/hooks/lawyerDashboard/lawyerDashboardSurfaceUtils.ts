@@ -1,5 +1,11 @@
 import type { AppearanceSettings } from '@/app/services/settings/types';
-import { resolveLawyerSurfaceBaseColor, resolveWallpaperSrc } from '@/app/services/settings';
+import { resolveWallpaperSrc } from '@/app/services/settings/apply';
+import { resolveLawyerSurfaceBaseColor } from '@/app/services/settings/surfaceAppearance';
+import {
+    appliesToBoard,
+    NEUTRAL_SURFACE_BG,
+    normalizeSurfaceApplyTarget,
+} from '@/app/services/settings/surfaceApplyTarget';
 
 export function hexToRgba(hex: string, alpha: number): string {
     const h = (hex || '').trim();
@@ -23,17 +29,20 @@ export function buildLawyerDashboardSurface({
 }) {
     const wallpaperSrc = resolveWallpaperSrc(appearance);
     const hasWallpaper = !!wallpaperSrc;
-    const dashboardBg = resolveLawyerSurfaceBaseColor(
+    const themeTarget = normalizeSurfaceApplyTarget(appearance.themeApplyTarget);
+    const themedBoardBg = resolveLawyerSurfaceBaseColor(
         appearance.theme,
         appearance.themeMode,
         hasWallpaper,
     );
+    const dashboardBg = appliesToBoard(themeTarget) ? themedBoardBg : NEUTRAL_SURFACE_BG;
+    const navBase = appliesToBoard(themeTarget) ? themeBg : NEUTRAL_SURFACE_BG;
     const dashboardSurfaceStyle = {
         backgroundColor: dashboardBg,
         fontSize: `${appearance.fontSize}px`,
     } as const;
     const navUnderlayStyle = {
-        background: `linear-gradient(to top, ${themeBg} 0%, ${hexToRgba(themeBg, 0.94)} 60%, rgba(0,0,0,0) 100%)`,
+        background: `linear-gradient(to top, ${navBase} 0%, ${hexToRgba(navBase, 0.94)} 60%, rgba(0,0,0,0) 100%)`,
     } as const;
 
     return {

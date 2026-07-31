@@ -20,6 +20,10 @@ import {
 import { isSpecificDeliveryClaim } from '@/app/utils/executionModuleStrategies';
 import { isExecutionArchived, isExecutionInTrash } from '@/app/utils/executionTrash';
 import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
+import {
+    normalizeDossierLifecycleStatus,
+    type DossierLifecycleStatus,
+} from '@/app/types/execution/executionShared';
 import type { LooseArchiveFile } from './types';
 import {
     formatExecutionArchiveCreditorLabel,
@@ -51,8 +55,36 @@ function resolvePrimaryDebtorKey(snap: ReturnType<typeof readExecutionFileLiveSn
     ).trim();
 }
 
+/** تصنيف سريع من صف الفهرس — بلا قراءة blob الإضبارة (ثقيل لإضابير المشاهدة) */
+function isShariaExecutionArchiveIndexHint(file: LooseArchiveFile): boolean {
+    const classification = String(file.classification || '').trim();
+    if (classification === 'شرعي' || classification === 'أحوال شخصية') return true;
+
+    const category = String((file as { category?: string }).category || '').trim();
+    if (category === 'sharia' || category === 'personal') return true;
+
+    const claimType = String(file.claimType || file.docType || '').trim();
+    if (!claimType) return false;
+
+    return (
+        claimType.includes('نفقة') ||
+        claimType.includes('مهر') ||
+        claimType.includes('مشاهدة') ||
+        claimType.includes('مطاوعة') ||
+        claimType.includes('أثاث زوجية') ||
+        claimType.includes('استصحاب') ||
+        claimType.includes('مبيت') ||
+        claimType.includes('تسليم طفل') ||
+        claimType.includes('تسليم ولد') ||
+        claimType.includes('شرعي') ||
+        claimType.includes('أحوال')
+    );
+}
+
 /** إضبارة شرعية / أحوال شخصية — لا تُصنَّف مدنياً */
 export function isShariaExecutionArchive(file: LooseArchiveFile): boolean {
+    if (isShariaExecutionArchiveIndexHint(file)) return true;
+
     const snap = readExecutionFileLiveSnapshot(file);
     const data = snap as Record<string, unknown>;
     const debtorKey = resolvePrimaryDebtorKey(snap);
@@ -101,7 +133,7 @@ export function isShariaExecutionArchive(file: LooseArchiveFile): boolean {
 
 /** إضبارة مدنية — تستبعد الشرعي صراحةً لمنع الازدواج */
 export function isCivilExecutionArchive(file: LooseArchiveFile): boolean {
-    if (isShariaExecutionArchive(file)) return false;
+    if (isShariaExecutionArchiveIndexHint(file)) return false;
 
     const snap = readExecutionFileLiveSnapshot(file);
     const data = snap as Record<string, unknown>;
@@ -187,11 +219,51 @@ export type ExecutionArchiveLifecycleMode = 'active' | 'archived' | 'trash';
 
 export type ExecutionViewMode = ExecutionArchiveLifecycleMode;
 
+/** فلتر حالة دورة حياة الإضبارة — نفس قيم DossierLifecyclePanel */
+export type ExecutionDossierStatusFilter = 'all' | DossierLifecycleStatus;
+
+export const EXECUTION_DOSSIER_STATUS_LABELS: Record<ExecutionDossierStatusFilter, string> = {
+    all: 'الكل',
+    active: 'النشطة',
+    paused: 'متوقفة',
+    suspended: 'مستأخرة',
+    finished: 'منتهية',
+};
+
+export const EXECUTION_DOSSIER_STATUS_CHIP_DEFS: {
+    id: ExecutionDossierStatusFilter;
+    label: string;
+}[] = [
+    { id: 'all', label: EXECUTION_DOSSIER_STATUS_LABELS.all },
+    { id: 'active', label: EXECUTION_DOSSIER_STATUS_LABELS.active },
+    { id: 'paused', label: EXECUTION_DOSSIER_STATUS_LABELS.paused },
+    { id: 'suspended', label: EXECUTION_DOSSIER_STATUS_LABELS.suspended },
+    { id: 'finished', label: EXECUTION_DOSSIER_STATUS_LABELS.finished },
+];
+
+export function resolveExecutionDossierLifecycleStatus(
+    file: LooseArchiveFile,
+): DossierLifecycleStatus {
+    const snap = readExecutionFileLiveSnapshot(file);
+    const fromSnap = (snap as { dossier_lifecycle_status?: string }).dossier_lifecycle_status;
+    const fromFile = (file as { dossier_lifecycle_status?: string }).dossier_lifecycle_status;
+    return normalizeDossierLifecycleStatus(fromSnap ?? fromFile);
+}
+
+export function matchesExecutionDossierStatusFilter(
+    file: LooseArchiveFile,
+    statusFilter: ExecutionDossierStatusFilter,
+): boolean {
+    if (statusFilter === 'all') return true;
+    return resolveExecutionDossierLifecycleStatus(file) === statusFilter;
+}
+
 /** مجموعة أساسية منفصلة — نشطة أو مؤرشفة أو مهملات (بدون دمج بينها) */
 export function getExecutionArchiveBasePool(
-    files: LooseArchiveFile[],
+    files: LooseArchiveFile[] | null | undefined,
     mode: ExecutionArchiveLifecycleMode
 ): LooseArchiveFile[] {
+    if (!Array.isArray(files)) return [];
     return files.filter((f) => {
         const inTrash = isExecutionInTrash(f);
         const archived = isExecutionArchived(f);
@@ -277,15 +349,21 @@ export function filterExecutionArchiveFiles(
         mode: ExecutionArchiveLifecycleMode;
         jurisdiction?: ExecutionJurisdictionFilter;
         perspective?: ExecutionPerspectiveFilter;
+        dossierStatus?: ExecutionDossierStatusFilter;
         searchQuery?: string;
     }
 ): LooseArchiveFile[] {
     const jurisdiction = opts.jurisdiction ?? 'all';
     const perspective = opts.perspective ?? 'all';
+    const dossierStatus = opts.dossierStatus ?? 'all';
     let pool = getExecutionArchiveBasePool(files, opts.mode);
 
     if (jurisdiction !== 'all' || perspective !== 'all') {
         pool = pool.filter((f) => matchesExecutionArchiveFilters(f, jurisdiction, perspective));
+    }
+
+    if (dossierStatus !== 'all') {
+        pool = pool.filter((f) => matchesExecutionDossierStatusFilter(f, dossierStatus));
     }
 
     const q = String(opts.searchQuery || '').trim();

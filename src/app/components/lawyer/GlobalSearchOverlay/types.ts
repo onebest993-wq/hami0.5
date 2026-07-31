@@ -4,6 +4,11 @@ import type { GlobalSearchNavigate } from '@/app/services/globalSearchIndex';
 export interface GlobalSearchOverlayProps {
     /** يتحكم في حركة الدخول/الخروج — يبقى المكوّن mounted حتى ينتهي exit */
     open?: boolean;
+    /**
+     * أبقِ DOM الطبقة مركّباً ومخفياً أثناء الإغلاق — الفتح = إظهار فوري بلا إعادة تركيب.
+     * يُمرَّر من Host عند keepAlive.
+     */
+    keepWarm?: boolean;
     onExitComplete?: () => void;
     onClose: () => void;
     onNavigate: (navigate: GlobalSearchNavigate) => void;

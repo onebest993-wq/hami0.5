@@ -5,28 +5,15 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const corePath = path.resolve(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts',
+const RUNTIME_BINDINGS_PATH = path.resolve(
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeRuntimeBindings.ts',
 );
-const scopeChunkPath = path.resolve(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeAndChunk.ts',
+const RUNTIME_ASSEMBLY_PATH = path.resolve(
+    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardRuntimeAssembly.ts',
 );
-const src = fs.readFileSync(corePath, 'utf8');
-const scopeChunkSrc = fs.existsSync(scopeChunkPath) ? fs.readFileSync(scopeChunkPath, 'utf8') : '';
-
-const callStart = Math.max(
-    src.indexOf('buildExecutionDashboardCoreScopeBagsFromFragments('),
-    src.indexOf('buildExecutionDashboardCoreScopeBagAssembly('),
-    src.indexOf('buildExecutionDashboardCoreScopeFromParts('),
-    src.indexOf('buildExecutionDashboardCoreScopeBags('),
-    src.indexOf('useExecutionDashboardCoreScopeAndChunk('),
+const SCOPE_FRAGMENTS_PATH = path.resolve(
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeBagFragments.ts',
 );
-if (callStart < 0) {
-    console.error('buildExecutionDashboardCoreScopeBags call not found');
-    process.exit(1);
-}
-
-const beforeCall = src.slice(0, callStart);
 
 const REQUIRED_RUNTIME_BINDINGS = [
     'evictionExecutorWorkflow',
@@ -38,55 +25,34 @@ const REQUIRED_RUNTIME_BINDINGS = [
     'initialFileNumber',
 ];
 
-const defined = new Set();
-const defRe = /\b(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=/g;
-let m;
-while ((m = defRe.exec(beforeCall))) defined.add(m[1]);
+const bindingsSrc = fs.readFileSync(RUNTIME_BINDINGS_PATH, 'utf8');
+const assemblySrc = fs.readFileSync(RUNTIME_ASSEMBLY_PATH, 'utf8');
+const fragmentsSrc = fs.readFileSync(SCOPE_FRAGMENTS_PATH, 'utf8');
 
-const destructureRe =
-    /useExecutionDashboardCoreScopeRuntimeBindings\(\{[\s\S]*?\}\);\s*/;
-const destructureBlock = beforeCall.match(destructureRe)?.[0] ?? '';
-for (const dm of destructureBlock.matchAll(/^\s+([A-Za-z_$][\w$]*),?\s*$/gm)) {
-    defined.add(dm[1]);
+if (!assemblySrc.includes('useExecutionDashboardCoreScopeAndChunk(')) {
+    console.error('useExecutionDashboardCoreScopeAndChunk call not found in runtime assembly');
+    process.exit(1);
 }
 
-const runtimeHookStart = beforeCall.indexOf(
-    '} = useExecutionDashboardCoreScopeRuntimeBindings({',
+if (!assemblySrc.includes('scopeRuntimeInput')) {
+    console.error('scopeRuntimeInput not found in runtime assembly');
+    process.exit(1);
+}
+
+const missingFromBindings = REQUIRED_RUNTIME_BINDINGS.filter((name) => {
+    const inReturn = new RegExp(`\\b${name}\\b`).test(
+        bindingsSrc.slice(bindingsSrc.indexOf('return {')),
+    );
+    return !inReturn;
+});
+
+const missingFromFragments = REQUIRED_RUNTIME_BINDINGS.filter(
+    (name) => !fragmentsSrc.includes(`"${name}"`) && !fragmentsSrc.includes(`'${name}'`),
 );
-if (runtimeHookStart >= 0) {
-    const openBrace = beforeCall.lastIndexOf('const {', runtimeHookStart);
-    const block = beforeCall.slice(openBrace, runtimeHookStart);
-    for (const dm of block.matchAll(/^\s+([A-Za-z_$][\w$]*),?\s*$/gm)) {
-        defined.add(dm[1]);
-    }
-}
 
-const scopeRuntimeAliasStart = beforeCall.indexOf('} = scopeRuntimeBindings;');
-if (scopeRuntimeAliasStart >= 0) {
-    const openBrace = beforeCall.lastIndexOf('const {', scopeRuntimeAliasStart);
-    const block = beforeCall.slice(openBrace, scopeRuntimeAliasStart);
-    for (const dm of block.matchAll(/^\s+([A-Za-z_$][\w$]*),?\s*$/gm)) {
-        defined.add(dm[1]);
-    }
-}
-
-if (
-    defined.has('scopeRuntimeBindings') ||
-    scopeChunkSrc.includes('useExecutionDashboardCoreScopeRuntimeBindings') ||
-    beforeCall.includes('scopeRuntimeInput:')
-) {
-    defined.add('evictionExecutorWorkflow');
-    defined.add('syncSeizedAssets');
-    defined.add('syncSeizureDrafts');
-    defined.add('syncActiveCoerciveActions');
-    defined.add('seizedAssetsModalExecutionId');
-    defined.add('totalExecutionExpenses');
-    defined.add('initialFileNumber');
-}
-
-const missing = REQUIRED_RUNTIME_BINDINGS.filter((name) => !defined.has(name));
+const missing = [...new Set([...missingFromBindings, ...missingFromFragments])];
 if (missing.length) {
-    console.error('MISSING runtime bindings before scope assembly:');
+    console.error('MISSING critical scope runtime bindings:');
     for (const name of missing) console.error('  -', name);
     process.exit(1);
 }

@@ -22,7 +22,7 @@ export function markSettingsPerfPhase(phase: SettingsPerfPhase): void {
 export function clearSettingsPerfMarks(): void {
     if (typeof performance === 'undefined' || typeof performance.clearMarks !== 'function') return;
     try {
-        for (const phase of ['open-request', 'first-paint', 'interactive'] as const) {
+        for (const phase of ['open-request', 'chunk-ready', 'first-paint', 'interactive'] as const) {
             performance.clearMarks(`${MARK_PREFIX}${phase}`);
         }
     } catch {

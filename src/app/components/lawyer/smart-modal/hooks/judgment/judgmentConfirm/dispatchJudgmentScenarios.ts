@@ -22,7 +22,8 @@ export function dispatchJudgmentScenarios(scope: JudgmentConfirmScope, rt: Judgm
     else if (
         action === 'final_ratification' ||
         action === 'remand_to_lower' ||
-        action === 'correction_request'
+        action === 'correction_request' ||
+        action === 'correction_complete'
     ) {
         applyCassationScenarios(scope, rt);
     }

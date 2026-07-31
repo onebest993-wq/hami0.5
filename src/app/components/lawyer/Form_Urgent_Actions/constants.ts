@@ -14,6 +14,7 @@ export {
     PETITION_ORDERS_DROPDOWN_OPTIONS,
     URGENT_JUDICIARY_DROPDOWN_OPTIONS,
     PETITION_ORDER_MANUAL_OPTION,
+    PROCEDURE_CATEGORY_GROUP_LABELS,
     getUnifiedActionTypeOptions,
     resolveProcedureCategory,
     isPetitionOrdersCategory,

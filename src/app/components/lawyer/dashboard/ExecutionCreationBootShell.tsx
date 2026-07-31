@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { ecg } from '@/app/components/lawyer/ExecutionCreationView/components/executionCreationGlassUi';
 
 /** غلاف فوري أثناء تحميل chunk نموذج الإنشاء — نفس هيكل الرأس بدون تغيير بصري */
@@ -9,7 +9,7 @@ export function ExecutionCreationBootShell({ onClose }: { onClose: () => void })
             <div className={ecg.modalHeader}>
                 <h1 className="text-lg font-bold text-[#E6C673]">فتح إضبارة تنفيذ</h1>
                 <button type="button" onClick={onClose} className={ecg.modalClose} aria-label="إغلاق">
-                    <X size={20} />
+                    <HomeXIcon size={20} />
                     <span className="text-sm font-medium">إغلاق</span>
                 </button>
             </div>

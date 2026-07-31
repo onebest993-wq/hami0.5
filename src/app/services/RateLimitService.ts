@@ -279,7 +279,7 @@ if (typeof window !== 'undefined') {
       w.__hamiRateLimitCleanupInterval = undefined;
     }
   };
-  window.addEventListener('unload', cleanup, { once: true });
+  window.addEventListener('pagehide', cleanup, { once: true });
   import.meta.hot?.dispose(() => cleanup());
 }
 

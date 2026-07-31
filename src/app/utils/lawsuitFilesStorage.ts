@@ -2,8 +2,8 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     loadDossierCollectionSync,
-    persistDossierCollectionSync,
-} from '@/app/services/dossierPersistence/dossierPersistenceService';
+    persistDossierCollectionSyncLite,
+} from '@/app/services/dossierPersistence/dossierCollectionSyncLite';
 import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
@@ -64,7 +64,7 @@ export function saveLawsuitFilesRaw(next: unknown[]): void {
 /** حفظ فوري متزامn — للاختبارات والترحيل */
 export function saveLawsuitFilesRawImmediate(next: unknown[]): void {
     const payload = Array.isArray(next) ? next : [];
-    persistDossierCollectionSync('lawsuit', payload);
+    persistDossierCollectionSyncLite('lawsuit', payload);
     try {
         persistenceRepository.save(LAWSUIT_FILES_STORAGE_KEY, payload);
         persistenceRepository.flushPending(LAWSUIT_FILES_STORAGE_KEY);

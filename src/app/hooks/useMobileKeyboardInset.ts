@@ -4,11 +4,16 @@ import { isTasksDatePickerGraceActive } from '@/app/components/lawyer/dashboard/
 /**
  * ارتفاع لوحة المفاتيح الافتراضية (px) — لرفع bottom sheet فوق الكيبورد على iOS/Android.
  * يعود 0 على سطح المكتب أو عند عدم دعم visualViewport.
+ * @param enabled عطّل المستمعين عندما الطبقة مغلقة/دافئة مخفية (توفير بطارية).
  */
-export function useMobileKeyboardInset(): number {
+export function useMobileKeyboardInset(enabled = true): number {
     const [inset, setInset] = useState(0);
 
     useEffect(() => {
+        if (!enabled) {
+            setInset(0);
+            return;
+        }
         const vv = window.visualViewport;
         if (!vv) return;
 
@@ -26,7 +31,7 @@ export function useMobileKeyboardInset(): number {
             vv.removeEventListener('resize', update);
             vv.removeEventListener('scroll', update);
         };
-    }, []);
+    }, [enabled]);
 
-    return inset;
+    return enabled ? inset : 0;
 }

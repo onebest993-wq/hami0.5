@@ -1,12 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../security/wifeValidator.ts';
+import { readSupabasePrivilegedKey } from '../security/supabasePrivilegedEnv.ts';
+import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
+import { wifeForbiddenResponse } from '../security/wifeValidator.ts';
 import { validateFileBuffer, verifyFileContentHash } from '../security/fileValidator.ts';
 import { scanBufferForMalware } from '../../services/server/MalwareScanService.ts';
 import {
@@ -29,7 +24,7 @@ function json(status: number, payload: Record<string, unknown>): Response {
 
 function getSupabaseAdminClient() {
   const supabaseUrl = (process.env.SUPABASE_URL ?? '').trim();
-  const serviceRoleKey = (process.env.SUPABASE_SERVICE_ROLE_KEY ?? '').trim();
+  const serviceRoleKey = readSupabasePrivilegedKey();
   if (!supabaseUrl || !serviceRoleKey) {
     return null;
   }
@@ -48,15 +43,9 @@ function pickUploadedFile(formData: FormData): File | null {
 
 export async function POST(request: Request): Promise<Response> {
   try {
-    // 1) Ghost/banned-user checkpoint.
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-
-    // 2) WIFE tamper/replay checkpoint.
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     const contentHashHeader =
       request.headers.get('x-wife-content-hash') ??
@@ -113,15 +102,10 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
-    // 6) Secure storage upload via service role.
+    // 6) Secure storage upload via privileged admin client.
     const admin = getSupabaseAdminClient();
     if (!admin) {
       return json(500, { ok: false, error: 'Server storage client is not configured' });
-    }
-
-    const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
     }
 
     const bucket = resolveUploadBucket();

@@ -5,7 +5,12 @@ import {
     saveExecutionFilesRaw,
 } from '@/app/utils/executionFilesStorage';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
-import { executionStorageKey, normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
+import { readScopedDeviceStorageItem, scopeExecutionDeviceStorageKey, stripExecutionDeviceStorageUserScope } from '@/app/utils/executionDeviceStorageScope';
+import {
+    executionDossierIdFromStorageKey,
+    executionStorageKey,
+    normalizeExecutionStorageId,
+} from '@/app/utils/executionStorageKeys';
 
 const EXECUTION_BLOB_SATELLITE_MARKERS = [
     '_decisions_ns_',
@@ -35,7 +40,7 @@ function touchExecutionBlobCache(key: string, value: unknown, touch?: CacheTouch
 
 /** مفتاح الإضبارة الرئيسي execution_{id} — ليس executionFiles ولا مفاتيح قرارات/وثائق */
 export function isExecutionDossierMainBlobKey(key: string): boolean {
-    const k = String(key || '').trim();
+    const k = stripExecutionDeviceStorageUserScope(String(key || '').trim());
     if (!k.startsWith('execution_')) return false;
     if (k === 'executionFiles' || k === 'execution_expenses') return false;
     if (k.startsWith('execution_form_')) return false;
@@ -43,11 +48,13 @@ export function isExecutionDossierMainBlobKey(key: string): boolean {
 }
 
 export function isExecutionSubDossierBlobKey(key: string): boolean {
-    return isExecutionDossierMainBlobKey(key) && key.includes('__sub__');
+    const logical = stripExecutionDeviceStorageUserScope(String(key || '').trim());
+    return isExecutionDossierMainBlobKey(logical) && logical.includes('__sub__');
 }
 
 export function isExecutionParentDossierBlobKey(key: string): boolean {
-    return isExecutionDossierMainBlobKey(key) && !key.includes('__sub__');
+    const logical = stripExecutionDeviceStorageUserScope(String(key || '').trim());
+    return isExecutionDossierMainBlobKey(logical) && !logical.includes('__sub__');
 }
 
 function parseDossierBlob(raw: string | null | undefined): Record<string, unknown> | null {
@@ -173,9 +180,28 @@ export function syncExecutionFileInIndex(updatedFile: Record<string, unknown>): 
     return true;
 }
 
+function readLocalStorageRaw(storageKey: string): string | null {
+    try {
+        if (typeof globalThis.localStorage === 'undefined') return null;
+        return globalThis.localStorage.getItem(storageKey);
+    } catch {
+        return null;
+    }
+}
+
 function readExistingBlobRaw(key: string): string | null {
     try {
-        return SecureStoreService.getItemSync(key);
+        if (isExecutionDossierMainBlobKey(key)) {
+            const logical = stripExecutionDeviceStorageUserScope(key);
+            const fromSecure = readScopedDeviceStorageItem(
+                (k) => SecureStoreService.getItemSync(k),
+                logical,
+            );
+            if (fromSecure != null && fromSecure !== '') return fromSecure;
+            // e2e / زرع مباشر في LS قبل اكتمال مرآة SecureStore
+            return readScopedDeviceStorageItem(readLocalStorageRaw, logical);
+        }
+        return SecureStoreService.getItemSync(key) ?? readLocalStorageRaw(key);
     } catch {
         return null;
     }
@@ -192,12 +218,22 @@ function writeExecutionBlobRaw(
         debug.warn(`[ExecutionPersist] رفض مسح مفتاح "${key}" — البيانات الحالية محفوظة.`);
         return false;
     }
+    const logicalKey = isExecutionDossierMainBlobKey(key)
+        ? stripExecutionDeviceStorageUserScope(key)
+        : key;
+    const writeKey = isExecutionDossierMainBlobKey(key)
+        ? scopeExecutionDeviceStorageKey(logicalKey)
+        : key;
     try {
-        SecureStoreService.setItemSync(key, incomingRaw);
+        SecureStoreService.setItemSync(writeKey, incomingRaw);
+        // ترحيل: إن كُتب المقيّد وما زال القديم موجوداً — أبقِ التوافق عبر القراءة المزدوجة فقط
     } catch {
         return false;
     }
-    touchExecutionBlobCache(key, data, touch);
+    touchExecutionBlobCache(writeKey, data, touch);
+    if (writeKey !== logicalKey) {
+        touchExecutionBlobCache(logicalKey, data, touch);
+    }
     return true;
 }
 
@@ -219,7 +255,7 @@ export function applyExecutionDossierBlobSet(
     if (!writeExecutionBlobRaw(key, data, touch)) return true;
 
     if (isExecutionParentDossierBlobKey(key)) {
-        const id = key.slice('execution_'.length);
+        const id = executionDossierIdFromStorageKey(key);
         syncExecutionFileInIndex({ ...data, id });
     }
     return true;
@@ -279,4 +315,55 @@ export function readExecutionDossierBlob(
     const id = normalizeExecutionStorageId(dossierId);
     if (!id || id === 'default') return null;
     return parseDossierBlob(readExistingBlobRaw(executionStorageKey(id)));
+}
+
+/**
+ * قراءة إضبارة للمصالحة: جلسة الحالي أولاً ثم أي مفتاح :u: لنفس المعرّف
+ * (يغطي زرع e2e / ترحيل / اختلاف نطاق المالك).
+ */
+export function readExecutionDossierBlobScanningScopes(
+    dossierId: string | undefined,
+): Record<string, unknown> | null {
+    const primary = readExecutionDossierBlob(dossierId);
+    if (primary) return primary;
+
+    const id = normalizeExecutionStorageId(dossierId);
+    if (!id || id === 'default') return null;
+
+    const tryKey = (rawKey: string, getItem: (k: string) => string | null): Record<string, unknown> | null => {
+        const k = String(rawKey || '').trim();
+        if (!k || !isExecutionParentDossierBlobKey(k)) return null;
+        if (executionDossierIdFromStorageKey(k) !== id) return null;
+        return parseDossierBlob(getItem(k));
+    };
+
+    try {
+        for (const key of SecureStoreService.listKeysSync()) {
+            const hit = tryKey(key, (k) => SecureStoreService.getItemSync(k));
+            if (hit) return hit;
+        }
+    } catch {
+        /* ignore */
+    }
+
+    try {
+        if (typeof globalThis.localStorage !== 'undefined') {
+            const ls = globalThis.localStorage;
+            for (let i = 0; i < ls.length; i += 1) {
+                const key = String(ls.key(i) || '');
+                const hit = tryKey(key, (k) => {
+                    try {
+                        return ls.getItem(k);
+                    } catch {
+                        return null;
+                    }
+                });
+                if (hit) return hit;
+            }
+        }
+    } catch {
+        /* ignore */
+    }
+
+    return null;
 }

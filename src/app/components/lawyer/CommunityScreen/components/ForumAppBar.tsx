@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ArrowRight, Search, Bell, ChevronDown, Users } from 'lucide-react';
 import { AnimatePresence } from 'motion/react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import { ForumCategoryPanel } from './ForumCategoryPanel';
 import { RepositoryFilterPanel } from './RepositoryFilterPanel';
 import { ForumSectionSwitch, type ForumSectionId } from './ForumSectionSwitch';
@@ -12,11 +11,8 @@ import { FORUM_FILTER_LABELS } from '../forumFilters';
 import {
     FORUM_APP_BAR,
     FORUM_APP_BAR_ICON,
-    FORUM_ACCENT_CHIP,
-    FORUM_PANEL,
     FORUM_REPO_SEARCH_BAR,
     FORUM_TEXT_APRICOT,
-    FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
 import {
@@ -27,6 +23,7 @@ import {
 
 interface ForumAppBarProps {
     onBack?: () => void;
+    forumSurfaceOpen?: boolean;
     activeSection: ForumSectionId;
     onSectionChange: (section: ForumSectionId) => void;
     onSearchOpen: () => void;
@@ -42,6 +39,8 @@ interface ForumAppBarProps {
     onRepositoryTypeChange: (value: string) => void;
     repositorySelectedTag: string | null;
     onRepositoryTagChange: (tag: string | null) => void;
+    groupsSearchQuery?: string;
+    onGroupsSearchQueryChange?: (value: string) => void;
     followingCount?: number;
     onOpenFollowing?: () => void;
     forumFeedScope?: 'all' | 'following';
@@ -53,6 +52,7 @@ interface ForumAppBarProps {
 
 export const ForumAppBar = ({
     onBack,
+    forumSurfaceOpen = true,
     activeSection,
     onSectionChange,
     onSearchOpen,
@@ -68,6 +68,8 @@ export const ForumAppBar = ({
     onRepositoryTypeChange,
     repositorySelectedTag,
     onRepositoryTagChange,
+    groupsSearchQuery = '',
+    onGroupsSearchQueryChange,
     followingCount = 0,
     onOpenFollowing,
     forumFeedScope = 'all',
@@ -84,6 +86,7 @@ export const ForumAppBar = ({
         notificationStreamActive,
         onNavigateToPost,
         onSectionChange,
+        forumSurfaceOpen,
     );
     const activeFilterLabel = FORUM_FILTER_LABELS[selectedFilterIndex] ?? FORUM_FILTER_LABELS[0];
     const hasForumFilter = selectedFilterIndex !== 0;
@@ -103,13 +106,22 @@ export const ForumAppBar = ({
         setShowRepositoryFilterPanel(false);
     }, [activeSection]);
 
+    useEffect(() => {
+        if (forumSurfaceOpen) return;
+        setShowForumFilterPanel(false);
+        setShowRepositoryFilterPanel(false);
+        notif.setShowNotifPanel(false);
+        onAppBarDropdownChange?.(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- إغلاق محلي عند hide السطح فقط
+    }, [forumSurfaceOpen]);
+
     const handleBellClick = () => {
         setShowForumFilterPanel(false);
         setShowRepositoryFilterPanel(false);
         notif.handleBellClick(onAppBarDropdownChange);
     };
 
-    const handleForumSearchClick = () => {
+    const handleForumSearchOpen = () => {
         setShowForumFilterPanel(false);
         setShowRepositoryFilterPanel(false);
         notif.setShowNotifPanel(false);
@@ -160,6 +172,13 @@ export const ForumAppBar = ({
         };
     }, [closeAppBarDropdownsRef, closeAppBarDropdowns]);
 
+    const searchPlaceholder =
+        activeSection === 'forum'
+            ? 'ابحث في المنتدى والمستودع...'
+            : activeSection === 'groups'
+              ? 'ابحث عن مجموعة...'
+              : 'ابحث في المستندات، الوسوم، المؤلف...';
+
     return (
         <div className={FORUM_APP_BAR} data-testid="forum-app-bar">
             <div className="px-4 pt-3 pb-2 flex items-center justify-between gap-3">
@@ -169,7 +188,7 @@ export const ForumAppBar = ({
                             type="button"
                             data-testid="forum-back"
                             onClick={onBack}
-                            className={`${FORUM_APP_BAR_ICON} bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] hover:shadow-[inset_0_0_16px_rgba(240,184,150,0.1)] shrink-0`}
+                            className={`${FORUM_APP_BAR_ICON} text-[#9AA3B2] hover:text-[#C9A86C] shrink-0`}
                             aria-label="رجوع"
                         >
                             <ArrowRight size={20} />
@@ -189,13 +208,13 @@ export const ForumAppBar = ({
                             aria-label="المتابَعون"
                             className={`${FORUM_APP_BAR_ICON} relative ${
                                 forumFeedScope === 'following'
-                                    ? 'bg-[#F0B896]/14 text-[#F0B896] border border-[#F0B896]/30'
-                                    : 'bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
+                                    ? 'bg-[#C9A86C]/14 text-[#C9A86C] border border-[#C9A86C]/30'
+                                    : 'text-[#9AA3B2] hover:text-[#C9A86C]'
                             }`}
                         >
                             <Users size={18} />
                             {followingCount > 0 ? (
-                                <span className="absolute -bottom-0.5 -left-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-[#F0B896] text-[#2A1520] text-[9px] font-bold rounded-full">
+                                <span className="absolute -bottom-0.5 -left-0.5 min-w-[16px] h-4 px-0.5 flex items-center justify-center bg-[#C9A86C] text-[#0A0F1C] text-[9px] font-bold rounded-full">
                                     {followingCount > 9 ? '9+' : followingCount}
                                 </span>
                             ) : null}
@@ -208,7 +227,7 @@ export const ForumAppBar = ({
                             onClick={handleBellClick}
                             aria-label="التنبيهات"
                             aria-expanded={notif.showNotifPanel}
-                            className={`${FORUM_APP_BAR_ICON} bg-[#2C2434] text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E] relative`}
+                            className={`${FORUM_APP_BAR_ICON} text-[#9AA3B2] hover:text-[#C9A86C] relative`}
                         >
                             <Bell size={20} />
                             {notif.unreadCount > 0 ? (
@@ -232,142 +251,152 @@ export const ForumAppBar = ({
                             onNotificationDismiss={(n) => void notif.handleNotificationDismiss(n)}
                         />
                     </div>
+                </div>
+            </div>
 
-                    {activeSection === 'forum' ? (
-                        <div className="relative">
-                            <div className="flex items-center min-h-[44px] rounded-full bg-[#2C2434] border border-[#4A3D52]/50 overflow-hidden">
+            <div className="px-4 pb-2">
+                <ForumSectionSwitch activeSection={activeSection} onSectionChange={onSectionChange} />
+            </div>
+
+            <div className="px-4 pb-3 relative">
+                <div className="flex items-center gap-2">
+                    <div className={`${FORUM_REPO_SEARCH_BAR} flex-1 min-w-0`}>
+                        <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
+                            <Search size={17} className="text-[#9AA3B2] shrink-0" aria-hidden />
+                            {activeSection === 'forum' ? (
                                 <button
                                     type="button"
                                     data-testid="forum-search-trigger"
-                                    onClick={handleForumSearchClick}
+                                    onClick={handleForumSearchOpen}
                                     onPointerEnter={prefetchCommunitySearchOverlay}
+                                    onFocus={prefetchCommunitySearchOverlay}
+                                    className="w-full text-right text-sm text-[#9AA3B2] truncate py-2"
                                     aria-label="بحث في المنتدى والمستودع"
-                                    className={`${FORUM_APP_BAR_ICON} text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]`}
                                 >
-                                    <Search size={18} />
+                                    {searchPlaceholder}
                                 </button>
-                                <div
-                                    className="w-px h-5 bg-gradient-to-b from-transparent via-white/15 to-transparent"
-                                    aria-hidden
+                            ) : activeSection === 'groups' ? (
+                                <input
+                                    type="search"
+                                    value={groupsSearchQuery}
+                                    onChange={(e) => onGroupsSearchQueryChange?.(e.target.value)}
+                                    placeholder={searchPlaceholder}
+                                    aria-label="بحث في المجموعات"
+                                    data-testid="forum-groups-search"
+                                    className="w-full bg-transparent text-[#F3F0EA] text-sm placeholder-[#9AA3B2]/55 outline-none"
                                 />
+                            ) : (
+                                <input
+                                    type="search"
+                                    value={repositorySearchTerm}
+                                    onChange={(e) => onRepositorySearchTermChange(e.target.value)}
+                                    placeholder={searchPlaceholder}
+                                    aria-label="بحث في المستودع"
+                                    data-testid="forum-repository-search"
+                                    className="w-full bg-transparent text-[#F3F0EA] text-sm placeholder-[#9AA3B2]/55 outline-none"
+                                />
+                            )}
+                        </div>
+
+                        {activeSection === 'forum' ? (
+                            <>
+                                <div className="w-px h-6 bg-slate-800/80 shrink-0" aria-hidden />
                                 <button
                                     ref={forumFilterTriggerRef}
                                     type="button"
                                     onClick={handleForumFilterToggle}
                                     aria-label="تصنيفات المنتدى"
                                     aria-expanded={showForumFilterPanel}
-                                    className={`relative flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-bold transition-all duration-150 ${
+                                    className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${
                                         showForumFilterPanel || hasForumFilter
-                                            ? `${FORUM_TEXT_APRICOT} border-[#F0B896]/35 bg-[#F0B896]/12`
-                                            : 'border-transparent text-[#9A9098] hover:border-[#F0B896]/18 hover:text-[#F0B896] hover:bg-[#342C3E]'
+                                            ? `${FORUM_TEXT_APRICOT} bg-[#C9A86C]/10`
+                                            : 'text-[#9AA3B2] hover:text-[#C9A86C] hover:bg-[#C9A86C]/08'
                                     }`}
                                 >
-                                    <span className="truncate">التصنيف</span>
+                                    <span className="truncate text-xs font-bold">التصنيف</span>
                                     {hasForumFilter ? (
-                                        <span className="max-w-[72px] truncate rounded-full bg-[#F0B896]/12 px-2 py-0.5 text-[10px] leading-none">
+                                        <span className="max-w-[64px] truncate rounded-full bg-[#C9A86C]/12 px-2 py-0.5 text-[10px] leading-none">
                                             {activeFilterLabel}
                                         </span>
                                     ) : null}
                                     <ChevronDown
-                                        size={16}
+                                        size={14}
                                         className={`transition-transform duration-200 ${showForumFilterPanel ? 'rotate-180' : ''}`}
                                     />
                                 </button>
-                            </div>
+                            </>
+                        ) : null}
 
-                            <AnimatePresence>
-                                {showForumFilterPanel ? (
-                                    <>
-                                        <div
-                                            className="fixed inset-0 z-40"
-                                            onClick={() => setShowForumFilterPanel(false)}
-                                            aria-hidden
-                                        />
-                                        <ForumCategoryPanel
-                                            key="forum-category-panel"
-                                            selectedFilterIndex={selectedFilterIndex}
-                                            onFilterSelect={onFilterSelect}
-                                            onClose={() => setShowForumFilterPanel(false)}
-                                            anchorRef={forumFilterTriggerRef}
-                                        />
-                                    </>
-                                ) : null}
-                            </AnimatePresence>
-                        </div>
-                    ) : null}
-                </div>
-            </div>
-
-            <div className="px-4 pb-3">
-                <ForumSectionSwitch activeSection={activeSection} onSectionChange={onSectionChange} />
-            </div>
-
-            {activeSection === 'repository' ? (
-                <div className="px-4 pb-3">
-                    <div className="relative">
-                        <div className={FORUM_REPO_SEARCH_BAR}>
-                            <div className="flex flex-1 items-center gap-2 px-3 min-w-0">
-                                <Search size={17} className="text-[#9A9098] shrink-0" />
-                                <input
-                                    type="search"
-                                    value={repositorySearchTerm}
-                                    onChange={(e) => onRepositorySearchTermChange(e.target.value)}
-                                    placeholder="ابحث في المستندات، الوسوم، المؤلف..."
-                                    aria-label="بحث في المستودع"
-                                    className="w-full bg-transparent text-[#E6E0E4] text-sm placeholder-[#9A9098]/55 outline-none"
-                                />
-                            </div>
-                            <div
-                                className="w-px h-6 bg-gradient-to-b from-transparent via-[#4A3D52]/60 to-transparent shrink-0"
-                                aria-hidden
-                            />
-                            <button
-                                type="button"
-                                onClick={handleRepositoryFilterToggle}
-                                aria-label="ترتيب وتصفية المستودع"
-                                aria-expanded={showRepositoryFilterPanel}
-                                className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${
-                                    showRepositoryFilterPanel || hasRepositoryFilter
-                                        ? `${FORUM_TEXT_APRICOT} bg-[#F0B896]/10`
-                                        : 'text-[#9A9098] hover:text-[#F0B896] hover:bg-[#342C3E]'
-                                }`}
-                            >
-                                <ChevronDown
-                                    size={16}
-                                    className={`transition-transform duration-200 ${showRepositoryFilterPanel ? 'rotate-180' : ''}`}
-                                />
-                                {hasRepositoryFilter ? (
-                                    <span className="max-w-[88px] truncate text-[10px] font-bold leading-none">
-                                        {repositoryFilterHint}
-                                    </span>
-                                ) : null}
-                            </button>
-                        </div>
-
-                        <AnimatePresence>
-                            {showRepositoryFilterPanel ? (
-                                <>
-                                    <div
-                                        className="fixed inset-0 z-40"
-                                        onClick={() => setShowRepositoryFilterPanel(false)}
-                                        aria-hidden
+                        {activeSection === 'repository' ? (
+                            <>
+                                <div className="w-px h-6 bg-slate-800/80 shrink-0" aria-hidden />
+                                <button
+                                    type="button"
+                                    onClick={handleRepositoryFilterToggle}
+                                    aria-label="ترتيب وتصفية المستودع"
+                                    aria-expanded={showRepositoryFilterPanel}
+                                    className={`relative h-11 px-3 flex items-center gap-1.5 shrink-0 transition-colors ${
+                                        showRepositoryFilterPanel || hasRepositoryFilter
+                                            ? `${FORUM_TEXT_APRICOT} bg-[#C9A86C]/10`
+                                            : 'text-[#9AA3B2] hover:text-[#C9A86C] hover:bg-[#C9A86C]/08'
+                                    }`}
+                                >
+                                    <ChevronDown
+                                        size={16}
+                                        className={`transition-transform duration-200 ${showRepositoryFilterPanel ? 'rotate-180' : ''}`}
                                     />
-                                    <RepositoryFilterPanel
-                                        key="repository-filter-panel"
-                                        sortBy={repositorySortBy}
-                                        selectedType={repositorySelectedType}
-                                        selectedTag={repositorySelectedTag}
-                                        onSortChange={onRepositorySortChange}
-                                        onTypeChange={onRepositoryTypeChange}
-                                        onTagChange={onRepositoryTagChange}
-                                        onClose={() => setShowRepositoryFilterPanel(false)}
-                                    />
-                                </>
-                            ) : null}
-                        </AnimatePresence>
+                                    {hasRepositoryFilter ? (
+                                        <span className="max-w-[88px] truncate text-[10px] font-bold leading-none">
+                                            {repositoryFilterHint}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            </>
+                        ) : null}
                     </div>
                 </div>
-            ) : null}
+
+                <AnimatePresence>
+                    {showForumFilterPanel ? (
+                        <>
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setShowForumFilterPanel(false)}
+                                aria-hidden
+                            />
+                            <ForumCategoryPanel
+                                key="forum-category-panel"
+                                selectedFilterIndex={selectedFilterIndex}
+                                onFilterSelect={onFilterSelect}
+                                onClose={() => setShowForumFilterPanel(false)}
+                                anchorRef={forumFilterTriggerRef}
+                            />
+                        </>
+                    ) : null}
+                </AnimatePresence>
+
+                <AnimatePresence>
+                    {showRepositoryFilterPanel ? (
+                        <>
+                            <div
+                                className="fixed inset-0 z-40"
+                                onClick={() => setShowRepositoryFilterPanel(false)}
+                                aria-hidden
+                            />
+                            <RepositoryFilterPanel
+                                key="repository-filter-panel"
+                                sortBy={repositorySortBy}
+                                selectedType={repositorySelectedType}
+                                selectedTag={repositorySelectedTag}
+                                onSortChange={onRepositorySortChange}
+                                onTypeChange={onRepositoryTypeChange}
+                                onTagChange={onRepositoryTagChange}
+                                onClose={() => setShowRepositoryFilterPanel(false)}
+                            />
+                        </>
+                    ) : null}
+                </AnimatePresence>
+            </div>
         </div>
     );
 };

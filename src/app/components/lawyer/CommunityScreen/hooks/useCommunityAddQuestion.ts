@@ -63,6 +63,7 @@ export function useCommunityAddQuestion({
     const imageInputRef = useRef<HTMLInputElement>(null);
     const docInputRef = useRef<HTMLInputElement>(null);
     const pendingAttachmentFileRef = useRef<File | null>(null);
+    const submitInFlightRef = useRef(false);
     const newAttachmentRef = useRef(newAttachment);
     newAttachmentRef.current = newAttachment;
 
@@ -318,6 +319,7 @@ export function useCommunityAddQuestion({
     }, [handleUploadAttachment, isRecordingVoice, stopVoiceRecording]);
 
     const handleAddPost = useCallback(async () => {
+        if (submitInFlightRef.current) return;
         if (!currentUserId) {
             SmartToast.warning('سجّل الدخول للنشر');
             return;
@@ -338,6 +340,7 @@ export function useCommunityAddQuestion({
             SmartToast.warning('اكتب تفاصيل أوضح (10 أحرف على الأقل) أو سجّل مقطعاً صوتياً');
             return;
         }
+        submitInFlightRef.current = true;
         setSubmittingPost(true);
         let finalContent = contentForPublish;
         const redaction = applyAutoRedaction(contentForPublish);
@@ -447,6 +450,7 @@ export function useCommunityAddQuestion({
                     : 'تعذّر نشر الاستشارة';
             SmartToast.error(message);
         } finally {
+            submitInFlightRef.current = false;
             setSubmittingPost(false);
         }
     }, [
@@ -465,11 +469,25 @@ export function useCommunityAddQuestion({
         onForumPostPublished,
     ]);
 
+    const isAddQuestionOpenRef = useRef(false);
+    isAddQuestionOpenRef.current = isAddQuestionOpen;
+
     const openAddQuestion = useCallback(() => {
         prefetchCommunityAddQuestionOverlay();
+        isAddQuestionOpenRef.current = true;
         flushSync(() => setIsAddQuestionOpen(true));
     }, []);
-    const closeAddQuestion = useCallback(() => {
+    const closeAddQuestion = useCallback((options?: { soft?: boolean }) => {
+        if (!isAddQuestionOpenRef.current) {
+            setIsAddQuestionOpen(false);
+            return;
+        }
+        isAddQuestionOpenRef.current = false;
+        /* soft: من useEffect/lifecycle — بلا flushSync (تحذير React) */
+        if (options?.soft) {
+            setIsAddQuestionOpen(false);
+            return;
+        }
         flushSync(() => setIsAddQuestionOpen(false));
     }, []);
 

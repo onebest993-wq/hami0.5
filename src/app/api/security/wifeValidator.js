@@ -1,3 +1,4 @@
+import { readSupabasePrivilegedKey, supabasePrivilegedKeyEnvName } from './supabasePrivilegedEnv.js';
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -464,16 +465,16 @@ function getSupabaseAuthConfig() {
     return { url: supabaseUrl.replace(/\/+$/, ''), key: supabaseKey };
 }
 /**
- * Creates a Supabase admin client (service_role) for internal DB queries.
+ * Creates a Supabase admin client for internal DB queries.
  * لا يُستخدم fetch مباشر—بل مكتبة @supabase/supabase-js الآمنة
  */
 var _adminClient = null;
 function getSupabaseAdminClient() {
-    var _a, _b;
+    var _a;
     if (_adminClient)
         return _adminClient;
     var supabaseUrl = ((_a = process.env.SUPABASE_URL) !== null && _a !== void 0 ? _a : '').trim();
-    var serviceRoleKey = ((_b = process.env.SUPABASE_SERVICE_ROLE_KEY) !== null && _b !== void 0 ? _b : '').trim();
+    var serviceRoleKey = readSupabasePrivilegedKey();
     if (!supabaseUrl || !serviceRoleKey)
         return null;
     var createClient = require('@supabase/supabase-js').createClient;

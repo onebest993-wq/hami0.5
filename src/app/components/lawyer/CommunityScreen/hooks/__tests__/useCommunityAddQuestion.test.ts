@@ -98,7 +98,58 @@ describe('useCommunityAddQuestion', () => {
         expect(result.current.isAddQuestionOpen).toBe(false);
         expect(onForumPostPublished).toHaveBeenCalledTimes(1);
         expect(setPosts).toHaveBeenCalled();
-        expect(createPost).toHaveBeenCalled();
+        expect(createPost).toHaveBeenCalledTimes(1);
+    });
+
+    it('يتجاهل النقر المزدوج أثناء النشر', async () => {
+        const setPosts = vi.fn();
+        let resolveCreate: (value: unknown) => void = () => undefined;
+        createPost.mockImplementation(
+            () =>
+                new Promise((resolve) => {
+                    resolveCreate = resolve;
+                }),
+        );
+
+        const { result } = renderHook(() =>
+            useCommunityAddQuestion({
+                lists: { setPosts, removePostFromList: vi.fn() },
+                currentUserId: 'user-1',
+                authUser: { user_metadata: { fullName: 'محامي' } },
+                isBanned: false,
+                activeGroupId: null,
+                appendPublishedGroupPost: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.setNewPostText('استشارة قانونية تجريبية طويلة');
+        });
+
+        let firstCall: Promise<void> | undefined;
+        act(() => {
+            firstCall = result.current.handleAddPost();
+            void result.current.handleAddPost();
+        });
+
+        await act(async () => {
+            resolveCreate({
+                id: 'post-1',
+                authorId: 'user-1',
+                authorName: 'محامي',
+                content: 'استشارة قانونية تجريبية طويلة',
+                tags: [],
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                attachment: null,
+                upvoterIds: [],
+                comments: [],
+                bestCommentId: null,
+            });
+            await firstCall;
+        });
+
+        expect(createPost).toHaveBeenCalledTimes(1);
     });
 
     it('يرفق الملف فوراً دون انتظار التخزين', async () => {

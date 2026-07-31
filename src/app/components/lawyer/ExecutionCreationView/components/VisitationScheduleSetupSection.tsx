@@ -1,15 +1,12 @@
 import React, { useMemo } from 'react';
-import { Clock, MapPin, Sparkles } from 'lucide-react';
-import type { VisitationDecisionMode, VisitationScheduleConfig } from '@/app/types/visitationSchedule';
-import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { Clock, MapPin } from 'lucide-react';
+import type { VisitationDecisionMode, VisitationScheduleConfig } from '@/app/types/visitationSchedule';import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
     ARABIC_WEEKDAY_LABELS,
     MONTH_WEEK_OPTIONS,
     VISITATION_DECISION_OPTIONS,
     applyAutoResolvedAnchor,
-    formatSmartFirstAppointmentMessage,
     getVisitationFieldLabels,
-    resolveFirstMatchingAppointmentDate,
 } from '@/app/utils/visitationScheduleEngine';
 import { ecg } from './executionCreationGlassUi';
 
@@ -47,16 +44,8 @@ export const VisitationScheduleSetupSection: React.FC<VisitationScheduleSetupSec
 }) => {
     const fieldLabels = useMemo(
         () => getVisitationFieldLabels((draft.decisionMode ?? 'viewing_pickup') as VisitationDecisionMode),
-        [draft.decisionMode]
+        [draft.decisionMode],
     );
-
-    const resolvedPreview = useMemo(() => {
-        const start = String(draft.executionStartDate || getLocalTodayYmd()).trim();
-        const weekDays = draft.weekDays ?? [];
-        const monthWeeks = draft.monthWeeks ?? [];
-        if (weekDays.length === 0 || monthWeeks.length === 0) return null;
-        return resolveFirstMatchingAppointmentDate(start, weekDays, monthWeeks);
-    }, [draft.executionStartDate, draft.weekDays, draft.monthWeeks]);
 
     const patchDraft = (patch: Partial<VisitationScheduleConfig>) => {
         onChange(applyAutoResolvedAnchor({ ...draft, ...patch }));
@@ -129,7 +118,7 @@ export const VisitationScheduleSetupSection: React.FC<VisitationScheduleSetupSec
                         />
                     </div>
                 </div>
-                {fieldLabels.endTime && (
+                {fieldLabels.endTime ? (
                     <div>
                         <label className={ecg.labelGold}>{fieldLabels.endTime}</label>
                         <input
@@ -139,25 +128,8 @@ export const VisitationScheduleSetupSection: React.FC<VisitationScheduleSetupSec
                             className={`${ecg.field} text-sm`}
                         />
                     </div>
-                )}
-                {fieldLabels.sleepoverNights && (
-                    <div>
-                        <label className={ecg.labelGold}>{fieldLabels.sleepoverNights}</label>
-                        <input
-                            type="number"
-                            min={1}
-                            max={30}
-                            value={draft.sleepoverNights ?? 1}
-                            onChange={(e) =>
-                                patchDraft({
-                                    sleepoverNights: Math.max(1, Number(e.target.value) || 1),
-                                })
-                            }
-                            className={`${ecg.field} text-sm`}
-                        />
-                    </div>
-                )}
-                {fieldLabels.returnTime && (
+                ) : null}
+                {fieldLabels.returnTime ? (
                     <div>
                         <label className={ecg.labelGold}>{fieldLabels.returnTime}</label>
                         <input
@@ -167,8 +139,26 @@ export const VisitationScheduleSetupSection: React.FC<VisitationScheduleSetupSec
                             className={`${ecg.field} text-sm`}
                         />
                     </div>
-                )}
+                ) : null}
             </div>
+
+            {fieldLabels.sleepoverNights ? (
+                <div>
+                    <label className={ecg.labelGold}>{fieldLabels.sleepoverNights}</label>
+                    <input
+                        type="number"
+                        min={1}
+                        max={30}
+                        value={draft.sleepoverNights ?? 1}
+                        onChange={(e) =>
+                            patchDraft({
+                                sleepoverNights: Math.max(1, Number(e.target.value) || 1),
+                            })
+                        }
+                        className={`${ecg.field} text-sm`}
+                    />
+                </div>
+            ) : null}
 
             <div>
                 <label className={ecg.labelGold}>تاريخ المباشرة بالتنفيذ</label>
@@ -219,15 +209,6 @@ export const VisitationScheduleSetupSection: React.FC<VisitationScheduleSetupSec
                     ))}
                 </div>
             </div>
-
-            {resolvedPreview && (
-                <div className={`${ecg.resultCard} flex gap-2 flex-row-reverse items-start`}>
-                    <Sparkles className="text-emerald-400 shrink-0 mt-0.5" size={18} />
-                    <p className="text-sm text-emerald-200 font-bold leading-relaxed text-right">
-                        ✨ {formatSmartFirstAppointmentMessage(resolvedPreview)}
-                    </p>
-                </div>
-            )}
 
             {showGenerateButton && onGenerate && (
                 <button type="button" onClick={onGenerate} className={ecg.saveBtn}>

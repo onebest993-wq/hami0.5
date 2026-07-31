@@ -21,12 +21,15 @@ vi.mock('@supabase/supabase-js', () => ({
   }),
 }));
 
+vi.mock('@/app/api/security/bffAuth.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/app/api/security/bffAuth.ts')>();
+  return {
+    ...actual,
+    requireWifeUser: vi.fn(async () => ({ ok: true as const, userId: 'attacker-user-id' })),
+  };
+});
+
 vi.mock('@/app/api/security/wifeValidator.ts', () => ({
-  extractUserTokenFromRequest: vi.fn(() => 'drill-token'),
-  getVerifiedTokenSubject: vi.fn(async () => 'attacker-user-id'),
-  isTokenAuthorized: vi.fn(async () => true),
-  verifyWifeSignature: vi.fn(async () => true),
-  assertWifeSignatureRequest: vi.fn(async () => null),
   wifeForbiddenResponse: () =>
     new Response(JSON.stringify({ ok: false, error: 'Cryptographic verification failed' }), {
       status: 403,

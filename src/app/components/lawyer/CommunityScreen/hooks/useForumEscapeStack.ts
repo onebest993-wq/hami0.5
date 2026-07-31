@@ -1,9 +1,16 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
-import { resolveForumEscapeAction } from '@/app/components/lawyer/CommunityScreen/forumEscapeStack';
+import {
+    resolveForumEscapeAction,
+    type ForumEscapeAction,
+    type ForumEscapeSnapshot,
+} from '@/app/components/lawyer/CommunityScreen/forumEscapeStack';
 import { isForumAddQuestionFilePickerGraceActive } from '@/app/components/lawyer/CommunityScreen/forumAddQuestionFilePickerGrace';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
 export type UseForumEscapeStackParams = {
+    /** keepAlive مغلق: لا تستمع Escape / native back */
+    enabled?: boolean;
     fullscreenImage: string | null;
     profileView: boolean;
     pendingDeletePostId: string | null;
@@ -29,124 +36,138 @@ export type UseForumEscapeStackParams = {
     onLeaveGroupFeed: () => void;
 };
 
-/** Escape يغلق الطبقة الداخلية ثم يخرج من المنتدى */
-export function useForumEscapeStack(params: UseForumEscapeStackParams): void {
-    const {
-        fullscreenImage,
-        profileView,
-        pendingDeletePostId,
-        editingPostId,
-        isCreateGroupOpen,
-        commentingPostId,
-        isAddQuestionOpen,
-        isSearchOpen,
-        showFollowingPanel,
-        activeGroupId,
-        forumAppBarDropdownOpen,
-        onBack,
-        onCloseFullscreenImage,
-        onCloseProfile,
-        onCancelDelete,
-        onCancelEdit,
-        onCloseCreateGroup,
-        onCloseComments,
-        onCloseAddQuestion,
-        onCloseSearch,
-        onCloseFollowingPanel,
-        onCloseAppBarDropdowns,
-        onLeaveGroupFeed,
-    } = params;
+type ForumEscapeHandlers = Pick<
+    UseForumEscapeStackParams,
+    | 'onBack'
+    | 'onCloseFullscreenImage'
+    | 'onCloseProfile'
+    | 'onCancelDelete'
+    | 'onCancelEdit'
+    | 'onCloseCreateGroup'
+    | 'onCloseComments'
+    | 'onCloseAddQuestion'
+    | 'onCloseSearch'
+    | 'onCloseFollowingPanel'
+    | 'onCloseAppBarDropdowns'
+    | 'onLeaveGroupFeed'
+>;
+
+function applyForumEscapeAction(action: ForumEscapeAction, params: ForumEscapeHandlers): void {
+    switch (action) {
+        case 'close-fullscreen-image':
+            params.onCloseFullscreenImage();
+            break;
+        case 'close-profile':
+            params.onCloseProfile();
+            break;
+        case 'cancel-delete':
+            params.onCancelDelete();
+            break;
+        case 'cancel-edit':
+            params.onCancelEdit();
+            break;
+        case 'close-create-group':
+            params.onCloseCreateGroup();
+            break;
+        case 'close-comments':
+            params.onCloseComments();
+            releaseBodyScrollLock();
+            break;
+        case 'close-add-question':
+            params.onCloseAddQuestion();
+            releaseBodyScrollLock();
+            break;
+        case 'close-search':
+            params.onCloseSearch();
+            break;
+        case 'close-following-panel':
+            params.onCloseFollowingPanel();
+            break;
+        case 'close-app-bar-dropdown':
+            params.onCloseAppBarDropdowns();
+            break;
+        case 'leave-group-feed':
+            params.onLeaveGroupFeed();
+            break;
+        case 'exit-forum':
+            params.onBack?.();
+            releaseBodyScrollLock();
+            break;
+        default:
+            break;
+    }
+}
+
+function buildSnapshot(p: UseForumEscapeStackParams): ForumEscapeSnapshot {
+    return {
+        fullscreenImage: p.fullscreenImage,
+        profileView: p.profileView,
+        pendingDeletePostId: p.pendingDeletePostId,
+        editingPostId: p.editingPostId,
+        isCreateGroupOpen: p.isCreateGroupOpen,
+        commentingPostId: p.commentingPostId,
+        isAddQuestionOpen: p.isAddQuestionOpen,
+        isSearchOpen: p.isSearchOpen,
+        showFollowingPanel: p.showFollowingPanel,
+        activeGroupId: p.activeGroupId,
+        forumAppBarDropdownOpen: p.forumAppBarDropdownOpen,
+    };
+}
+
+function buildHandlers(p: UseForumEscapeStackParams): ForumEscapeHandlers {
+    return {
+        onBack: p.onBack,
+        onCloseFullscreenImage: p.onCloseFullscreenImage,
+        onCloseProfile: p.onCloseProfile,
+        onCancelDelete: p.onCancelDelete,
+        onCancelEdit: p.onCancelEdit,
+        onCloseCreateGroup: p.onCloseCreateGroup,
+        onCloseComments: p.onCloseComments,
+        onCloseAddQuestion: p.onCloseAddQuestion,
+        onCloseSearch: p.onCloseSearch,
+        onCloseFollowingPanel: p.onCloseFollowingPanel,
+        onCloseAppBarDropdowns: p.onCloseAppBarDropdowns,
+        onLeaveGroupFeed: p.onLeaveGroupFeed,
+    };
+}
+
+/**
+ * Escape + native back + زر رجوع الشريط — نفس مكدس الطبقات (الداخل أولاً ثم الخروج).
+ */
+export function useForumEscapeStack(params: UseForumEscapeStackParams): {
+    popForumLayer: () => boolean;
+} {
+    const paramsRef = useRef(params);
+    paramsRef.current = params;
+
+    const popForumLayer = useCallback((): boolean => {
+        const p = paramsRef.current;
+        if (p.enabled === false) return false;
+        const action = resolveForumEscapeAction(buildSnapshot(p));
+        if (action === 'close-add-question' && isForumAddQuestionFilePickerGraceActive()) {
+            return true;
+        }
+        applyForumEscapeAction(action, buildHandlers(p));
+        return true;
+    }, []);
 
     useEffect(() => {
+        if (params.enabled === false) return;
+
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
             event.preventDefault();
             event.stopPropagation();
-
-            const action = resolveForumEscapeAction({
-                fullscreenImage,
-                profileView,
-                pendingDeletePostId,
-                editingPostId,
-                isCreateGroupOpen,
-                commentingPostId,
-                isAddQuestionOpen,
-                isSearchOpen,
-                showFollowingPanel,
-                activeGroupId,
-                forumAppBarDropdownOpen,
-            });
-            switch (action) {
-                case 'close-fullscreen-image':
-                    onCloseFullscreenImage();
-                    break;
-                case 'close-profile':
-                    onCloseProfile();
-                    break;
-                case 'cancel-delete':
-                    onCancelDelete();
-                    break;
-                case 'cancel-edit':
-                    onCancelEdit();
-                    break;
-                case 'close-create-group':
-                    onCloseCreateGroup();
-                    break;
-                case 'close-comments':
-                    onCloseComments();
-                    releaseBodyScrollLock();
-                    break;
-                case 'close-add-question':
-                    if (isForumAddQuestionFilePickerGraceActive()) break;
-                    onCloseAddQuestion();
-                    releaseBodyScrollLock();
-                    break;
-                case 'close-search':
-                    onCloseSearch();
-                    break;
-                case 'close-following-panel':
-                    onCloseFollowingPanel();
-                    break;
-                case 'close-app-bar-dropdown':
-                    onCloseAppBarDropdowns();
-                    break;
-                case 'leave-group-feed':
-                    onLeaveGroupFeed();
-                    break;
-                case 'exit-forum':
-                    onBack?.();
-                    releaseBodyScrollLock();
-                    break;
-                default:
-                    break;
-            }
+            popForumLayer();
         };
 
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [
-        fullscreenImage,
-        profileView,
-        pendingDeletePostId,
-        editingPostId,
-        isCreateGroupOpen,
-        commentingPostId,
-        isAddQuestionOpen,
-        isSearchOpen,
-        showFollowingPanel,
-        activeGroupId,
-        forumAppBarDropdownOpen,
-        onBack,
-        onCloseFullscreenImage,
-        onCloseProfile,
-        onCancelDelete,
-        onCancelEdit,
-        onCloseCreateGroup,
-        onCloseComments,
-        onCloseAddQuestion,
-        onCloseSearch,
-        onCloseFollowingPanel,
-        onCloseAppBarDropdowns,
-        onLeaveGroupFeed,
-    ]);
+        const unregisterNativeBack = registerNativeBackHandler(popForumLayer);
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
+    }, [params.enabled, popForumLayer]);
+
+    return { popForumLayer };
 }

@@ -11,38 +11,64 @@ export type QuestionCardAttachmentProps = {
     post: CommunityPost;
     attachmentUrl: string | null;
     attachmentLoading: boolean;
-    onImageClick: (url: string) => void;
+    /** @deprecated لم يعد يُستدعى — المعاينة عبر VaultDocViewer محلياً */
+    onImageClick?: (url: string) => void;
+    onSaveToDevice?: (postId: string) => void;
+    preferEagerImage?: boolean;
+    onMediaReady?: () => void;
 };
 
 export function QuestionCardAttachment({
     post,
     attachmentUrl,
     attachmentLoading,
+    onSaveToDevice,
+    onMediaReady,
 }: QuestionCardAttachmentProps) {
-    if (!post.attachment) return null;
+    const attachment = post.attachment;
     const [showDocumentPreview, setShowDocumentPreview] = useState(false);
     const [showImagePreview, setShowImagePreview] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     const [downloadingDocument, setDownloadingDocument] = useState(false);
-    const attachmentName = post.attachment.name || 'Attachment';
-    const attachmentMime = post.attachment.mimeType?.toLowerCase() ?? '';
+
+    const attachmentName = attachment?.name || 'Attachment';
+    const imageAlt = attachment?.type === 'image' ? 'صورة مرفقة' : attachmentName;
+    const attachmentMime = attachment?.mimeType?.toLowerCase() ?? '';
     const imageContainerClassName = useMemo(
         () =>
             [
-                'w-full rounded-2xl overflow-hidden border border-[#4A3D52]/50 bg-[#18121D]',
+                'w-full rounded-2xl overflow-hidden border border-[#2A3344]/50 bg-[#161E2C]',
                 'transition-all duration-200',
                 attachmentUrl ? 'cursor-zoom-in hover:border-[#6A546F]/70' : '',
             ].join(' '),
         [attachmentUrl],
     );
     const isPdfDocument =
-        post.attachment.type === 'document' &&
+        attachment?.type === 'document' &&
         (attachmentMime.includes('pdf') || /\.pdf$/i.test(attachmentName));
     const canPreviewDocument = Boolean(attachmentUrl) && isPdfDocument;
 
     useEffect(() => {
         setImageLoaded(false);
     }, [attachmentUrl]);
+
+    useEffect(() => {
+        if (!attachment) {
+            onMediaReady?.();
+            return;
+        }
+        if (!attachmentLoading && attachment.type !== 'image') {
+            onMediaReady?.();
+            return;
+        }
+        if (!attachmentLoading && attachment.type === 'image' && (attachmentUrl || imageLoaded)) {
+            onMediaReady?.();
+        }
+    }, [attachment, attachmentLoading, attachmentUrl, imageLoaded, onMediaReady]);
+
+    /** أثناء التحميل بلا URL — لا إطار فارغ (خطوط بيضاء) */
+    if (!attachment) return null;
+    if (attachment.type === 'image' && attachmentLoading && !attachmentUrl) return null;
 
     const handleDownloadDocument = async () => {
         if (!attachmentUrl || downloadingDocument) return;
@@ -58,65 +84,80 @@ export function QuestionCardAttachment({
 
     return (
         <div className="mb-4 mt-2">
-            {post.attachment.type === 'image' ? (
+            {attachment.type === 'image' ? (
                 <>
-                    <button
-                        type="button"
-                        className={imageContainerClassName}
-                        onClick={() => {
-                            if (attachmentUrl) setShowImagePreview(true);
-                        }}
-                    >
-                        <div className="relative flex min-h-[320px] max-h-[70vh] w-full items-center justify-center bg-[#120D15]">
-                            {attachmentLoading || !imageLoaded ? (
-                                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(18,13,21,0.78),rgba(18,13,21,0.45))]">
-                                    <Loader2 size={22} className="animate-spin text-white/45" />
-                                    <span className="text-[11px] font-bold text-white/45">
-                                        {attachmentLoading ? 'جاري تحميل الصورة...' : 'جاري إظهار الصورة...'}
-                                    </span>
-                                </div>
-                            ) : null}
-                            {attachmentUrl ? (
-                                <>
-                                    <ImageWithFallback
-                                        src={attachmentUrl}
-                                        alt={attachmentName}
-                                        className={`w-full max-h-[70vh] object-contain bg-[#120D15] transition-opacity duration-200 ${
-                                            imageLoaded ? 'opacity-100' : 'opacity-0'
-                                        }`}
-                                        loading="eager"
-                                        decoding="async"
-                                        fetchPriority="high"
-                                        onLoad={() => setImageLoaded(true)}
-                                    />
-                                    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-center justify-between bg-gradient-to-t from-black/70 via-black/30 to-transparent px-4 pb-4 pt-10 text-white/85">
-                                        <span className="truncate text-[11px] font-bold">{attachmentName}</span>
-                                        <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[11px] font-bold">
-                                            <ZoomIn size={14} />
-                                            عرض كامل
+                    <div className={`relative ${imageContainerClassName}`}>
+                        <button
+                            type="button"
+                            className="block w-full text-right"
+                            onClick={() => {
+                                if (attachmentUrl) {
+                                    setShowImagePreview(true);
+                                }
+                            }}
+                            disabled={!attachmentUrl}
+                        >
+                            <div className="relative flex min-h-[320px] max-h-[70vh] w-full items-center justify-center bg-[#120D15]">
+                                {attachmentLoading || !imageLoaded ? (
+                                    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(18,13,21,0.78),rgba(18,13,21,0.45))]">
+                                        <Loader2 size={22} className="animate-spin text-white/45" />
+                                        <span className="text-[11px] font-bold text-white/45">
+                                            {attachmentLoading ? 'جاري تحميل الصورة...' : 'جاري إظهار الصورة...'}
                                         </span>
                                     </div>
-                                </>
-                            ) : (
-                                <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-white/40">
-                                    تعذّر تحميل الصورة
-                                </div>
-                            )}
-                        </div>
-                    </button>
+                                ) : null}
+                                {attachmentUrl ? (
+                                    <>
+                                        <ImageWithFallback
+                                            src={attachmentUrl}
+                                            alt={imageAlt}
+                                            className={`w-full max-h-[70vh] object-contain bg-[#120D15] transition-opacity duration-200 ${
+                                                imageLoaded ? 'opacity-100' : 'opacity-0'
+                                            }`}
+                                            loading="eager"
+                                            decoding="async"
+                                            fetchPriority="high"
+                                            onLoad={() => setImageLoaded(true)}
+                                        />
+                                        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex items-end justify-center bg-gradient-to-t from-black/50 via-black/20 to-transparent px-4 pb-4 pt-10">
+                                            <span className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-black/25 px-3 py-1 text-[11px] font-bold text-white/85">
+                                                <ZoomIn size={14} />
+                                                عرض كامل
+                                            </span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="absolute inset-0 flex items-center justify-center px-4 text-center text-xs text-white/40">
+                                        تعذّر تحميل الصورة
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                        {onSaveToDevice && attachmentUrl ? (
+                            <button
+                                type="button"
+                                onClick={() => onSaveToDevice(post.id)}
+                                className="absolute top-3 left-3 z-30 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-white/15 bg-black/45 text-white/85 hover:text-[#C9A86C] hover:border-[#C9A86C]/35 transition-colors touch-manipulation"
+                                title="حفظ في الجهاز"
+                                aria-label="حفظ الصورة في الجهاز"
+                            >
+                                <Download size={18} />
+                            </button>
+                        ) : null}
+                    </div>
 
                     <AppDocumentPreviewOverlay
                         isOpen={showImagePreview && Boolean(attachmentUrl)}
                         onClose={() => setShowImagePreview(false)}
-                        title={attachmentName}
+                        title="صورة مرفقة"
                         fileUrl={attachmentUrl}
                         kind="image"
-                        fileName={attachmentName}
+                        fileName="صورة مرفقة"
                     />
                 </>
             ) : null}
 
-            {post.attachment.type === 'audio' ? (
+            {attachment.type === 'audio' ? (
                 <div className={`w-full ${FORUM_PANEL} p-3`}>
                     <p className="text-white/50 text-[10px] mb-2">مقطع صوتي</p>
                     {attachmentLoading ? (
@@ -132,12 +173,12 @@ export function QuestionCardAttachment({
                 </div>
             ) : null}
 
-            {post.attachment.type === 'document' ? (
+            {attachment.type === 'document' ? (
                 attachmentUrl ? (
                     <div className={`w-full ${FORUM_PANEL} p-3 space-y-3`}>
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-[#F0B896]/10 flex items-center justify-center border border-[#F0B896]/25">
-                                <FileText size={20} className="text-[#F0B896]" />
+                            <div className="w-10 h-10 rounded-lg bg-[#C9A86C]/10 flex items-center justify-center border border-[#C9A86C]/25">
+                                <FileText size={20} className="text-[#C9A86C]" />
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-white/90 text-sm font-medium truncate">{attachmentName}</p>
@@ -159,7 +200,7 @@ export function QuestionCardAttachment({
                                 type="button"
                                 onClick={() => void handleDownloadDocument()}
                                 disabled={downloadingDocument}
-                                className="h-9 px-3 rounded-lg border border-[#F0B896]/20 bg-[#F0B896]/10 text-[#F0B896] hover:bg-[#F0B896]/15 transition-colors inline-flex items-center gap-2"
+                                className="h-9 px-3 rounded-lg border border-[#C9A86C]/20 bg-[#C9A86C]/10 text-[#C9A86C] hover:bg-[#C9A86C]/15 transition-colors inline-flex items-center gap-2"
                             >
                                 {downloadingDocument ? (
                                     <Loader2 size={15} className="animate-spin" />
@@ -172,8 +213,8 @@ export function QuestionCardAttachment({
                     </div>
                 ) : (
                     <div className={`w-full ${FORUM_PANEL} p-3 flex items-center gap-3`}>
-                        <div className="w-10 h-10 rounded-lg bg-[#F0B896]/10 flex items-center justify-center border border-[#F0B896]/25 group-hover/doc:border-[#F0B896]/45 transition-colors">
-                            <FileText size={20} className="text-[#F0B896]" />
+                        <div className="w-10 h-10 rounded-lg bg-[#C9A86C]/10 flex items-center justify-center border border-[#C9A86C]/25 group-hover/doc:border-[#C9A86C]/45 transition-colors">
+                            <FileText size={20} className="text-[#C9A86C]" />
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-white/90 text-sm font-medium truncate">{attachmentName}</p>
@@ -190,7 +231,7 @@ export function QuestionCardAttachment({
                 fileUrl={attachmentUrl}
                 kind="pdf"
                 fileName={attachmentName}
-                mimeType={post.attachment.mimeType ?? 'application/pdf'}
+                mimeType={attachment.mimeType ?? 'application/pdf'}
             />
         </div>
     );

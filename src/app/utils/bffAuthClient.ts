@@ -188,6 +188,7 @@ export async function fetchBffWifeSignedHeaders(input: {
     url: string;
     body: string;
     contentHash?: string;
+    deviceId?: string;
 }): Promise<Record<string, string>> {
     const inflightKey = buildWifeSignInflightKey(input);
     const pending = wifeSignInflight.get(inflightKey);

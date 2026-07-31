@@ -10,7 +10,6 @@ import { PRIVATE_RIGHT_WAIVER_REQUEST_TYPE } from './criminalStageUtils';
 import {
     INVESTIGATION_CLOSURE_FINAL_OBJECTIVE_TEMPLATE,
     INVESTIGATION_CLOSURE_FINAL_PERSONAL_TEMPLATE,
-    INVESTIGATION_CLOSURE_FINAL_TEMPLATE,
     INVESTIGATION_CLOSURE_TEMPORARY_TEMPLATE,
     INVESTIGATION_SEVERANCE_JUDICIAL_TEMPLATE,
     isInvestigationClosureAppealablePurgeTemplate,
@@ -21,7 +20,6 @@ import {
     isInvestigationObjectiveFinalClosureTemplate,
     isInvestigationPurgeDecisionTemplate,
     isInvestigationSeveranceJudicialTemplate,
-    isInvestigationStructuralCassationTemplate,
     normalizeProceduralRequestTemplate,
     purgeDecisionIncludesUnknownDefendants,
 } from './proceduralRequestTypes';

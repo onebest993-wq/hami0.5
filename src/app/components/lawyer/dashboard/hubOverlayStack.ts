@@ -12,3 +12,6 @@ export const HUB_DOSSIER_MODAL_Z_CLASS = 'z-[250]';
 
 /** شريط التنقل عند توحيد/ربط الدعاوى — فوق النوافذ المتداخلة */
 export const HUB_DOSSIER_CHROME_Z_CLASS = 'z-[252]';
+
+/** مسجّل الصوت والنوافذ فوق محضر/ملاحظات الإضبارة */
+export const HUB_TOPMOST_OVERLAY_Z_CLASS = 'z-[280]';

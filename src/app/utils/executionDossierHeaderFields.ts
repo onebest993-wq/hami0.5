@@ -92,12 +92,16 @@ export function resolveDossierHeaderFields(
         };
     }
 
-    const directorate = trimOrEmpty(file.directorate);
+    const directorate =
+        trimOrEmpty(file.directorate) ||
+        trimOrEmpty((file as { court?: string }).court);
     const { fileNumber, fileYear } = parseFileNumberYear(file);
     const fileRefDisplay =
         fileNumber || fileYear ? `${fileNumber || PLACEHOLDER} / ${fileYear || PLACEHOLDER}` : PLACEHOLDER;
 
-    const docType = trimOrEmpty(file.docType);
+    const docType =
+        trimOrEmpty(file.docType) ||
+        trimOrEmpty((file as { documentType?: string }).documentType);
     const claimType = trimOrEmpty(file.claimType);
     const classification = trimOrEmpty(file.classification);
     const category = trimOrEmpty((file as { category?: string }).category);
@@ -132,6 +136,17 @@ export function resolveDossierHeaderFields(
         (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature,
     );
 
+    const docNumber =
+        trimOrEmpty(file.docNumber) ||
+        trimOrEmpty((file as { chequeNumber?: string }).chequeNumber) ||
+        trimOrEmpty((file as { shariaDeedNumber?: string }).shariaDeedNumber) ||
+        trimOrEmpty((file as { documentNumber?: string }).documentNumber);
+    const judgmentDate =
+        trimOrEmpty(file.judgmentDate) ||
+        trimOrEmpty((file as { chequeIssueDate?: string }).chequeIssueDate) ||
+        trimOrEmpty((file as { shariaIssueDate?: string }).shariaIssueDate) ||
+        trimOrEmpty((file as { documentDate?: string }).documentDate);
+
     return {
         directorate,
         fileNumber,
@@ -142,8 +157,8 @@ export function resolveDossierHeaderFields(
         classification,
         classificationDisplay,
         claimTypeDisplay,
-        docNumber: trimOrEmpty(file.docNumber),
-        judgmentDate: trimOrEmpty(file.judgmentDate),
+        docNumber,
+        judgmentDate,
         specificDeliveryItemName: legacyDeliveryName || deliveryNamesFromItems,
         specificDeliveryItemNature: trimOrEmpty(
             (file as { specificDeliveryItemNature?: string }).specificDeliveryItemNature,

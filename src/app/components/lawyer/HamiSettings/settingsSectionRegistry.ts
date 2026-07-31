@@ -1,34 +1,38 @@
 import type { ComponentType } from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
 import { loadSettingsSection } from './settingsSectionLoader';
+import { AppearanceSection } from './appearance/AppearanceSection';
 
 type SectionModule = Awaited<ReturnType<typeof loadSettingsSection>>;
+type SettingsSectionComponent = ComponentType<object>;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const resolved = new Map<SettingsSectionId, ComponentType<any>>();
+const resolved = new Map<SettingsSectionId, SettingsSectionComponent>();
 
-function pickSectionComponent(id: SettingsSectionId, mod: SectionModule): ComponentType<any> | null {
+/* المظهر sync — بلا pulse تحميل داخلي عند فتح مركز الإعدادات */
+resolved.set('appearance', AppearanceSection as SettingsSectionComponent);
+
+function pickSectionComponent(id: SettingsSectionId, mod: SectionModule): SettingsSectionComponent | null {
     switch (id) {
         case 'appearance':
-            return mod.AppearanceSection ?? null;
+            return (mod.AppearanceSection as SettingsSectionComponent | undefined) ?? null;
         case 'security':
-            return mod.SecuritySection ?? null;
+            return (mod.SecuritySection as SettingsSectionComponent | undefined) ?? null;
         case 'data':
-            return mod.DataSection ?? null;
+            return (mod.DataSection as SettingsSectionComponent | undefined) ?? null;
         case 'account':
-            return mod.AccountSection ?? null;
+            return (mod.AccountSection as SettingsSectionComponent | undefined) ?? null;
         default:
             return null;
     }
 }
 
-export function getResolvedSettingsSection(id: SettingsSectionId): ComponentType<any> | null {
+export function getResolvedSettingsSection(id: SettingsSectionId): SettingsSectionComponent | null {
     return resolved.get(id) ?? null;
 }
 
 export async function resolveSettingsSectionComponent(
     id: SettingsSectionId,
-): Promise<ComponentType<any> | null> {
+): Promise<SettingsSectionComponent | null> {
     const cached = resolved.get(id);
     if (cached) return cached;
 
@@ -40,7 +44,6 @@ export async function resolveSettingsSectionComponent(
     return component;
 }
 
-/** تحميل كل أقسام الإعدادات — قبل الفتح أو عند pointerdown */
 export async function preloadAllSettingsSectionComponents(): Promise<void> {
     const ids: SettingsSectionId[] = ['appearance', 'security', 'data', 'account'];
     await Promise.all(ids.map((id) => resolveSettingsSectionComponent(id)));
@@ -48,4 +51,5 @@ export async function preloadAllSettingsSectionComponents(): Promise<void> {
 
 export function resetSettingsSectionRegistryForTests(): void {
     resolved.clear();
+    resolved.set('appearance', AppearanceSection as SettingsSectionComponent);
 }

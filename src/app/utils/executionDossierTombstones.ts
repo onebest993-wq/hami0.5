@@ -1,12 +1,37 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { normalizeExecutionStorageId } from '@/app/utils/executionStorageKeys';
+import { getActiveExecutionFilesStorageOwner } from '@/app/utils/executionFilesStorage';
 
-const EXECUTION_DOSSIER_TOMBSTONES_KEY = 'hami:execution:dossier-tombstones:v1';
+const TOMBSTONES_KEY_BASE = 'hami:execution:dossier-tombstones:v1';
+
+function resolveTombstonesKey(): string {
+    const owner = getActiveExecutionFilesStorageOwner();
+    return owner ? `${TOMBSTONES_KEY_BASE}:${owner}` : TOMBSTONES_KEY_BASE;
+}
 
 function readTombstoneSet(): Set<string> {
     try {
-        const raw = SecureStoreService.getItemSync(EXECUTION_DOSSIER_TOMBSTONES_KEY);
-        if (!raw?.trim()) return new Set();
+        const raw = SecureStoreService.getItemSync(resolveTombstonesKey());
+        if (!raw?.trim()) {
+            // ترحيل لمرة من المفتاح العام عند وجود مالك
+            const owner = getActiveExecutionFilesStorageOwner();
+            if (owner) {
+                const legacy = SecureStoreService.getItemSync(TOMBSTONES_KEY_BASE);
+                if (legacy?.trim()) {
+                    SecureStoreService.setItemSync(resolveTombstonesKey(), legacy);
+                    return parseTombstoneRaw(legacy);
+                }
+            }
+            return new Set();
+        }
+        return parseTombstoneRaw(raw);
+    } catch {
+        return new Set();
+    }
+}
+
+function parseTombstoneRaw(raw: string): Set<string> {
+    try {
         const parsed: unknown = JSON.parse(raw);
         if (!Array.isArray(parsed)) return new Set();
         return new Set(
@@ -21,10 +46,7 @@ function readTombstoneSet(): Set<string> {
 
 function writeTombstoneSet(set: Set<string>): void {
     try {
-        SecureStoreService.setItemSync(
-            EXECUTION_DOSSIER_TOMBSTONES_KEY,
-            JSON.stringify([...set]),
-        );
+        SecureStoreService.setItemSync(resolveTombstonesKey(), JSON.stringify([...set]));
     } catch {
         /* ignore */
     }
@@ -51,4 +73,8 @@ export function markExecutionDossierTombstones(dossierIds: Iterable<string | num
         if (id && id !== 'default') next.add(id);
     }
     writeTombstoneSet(next);
+}
+
+export function listExecutionDossierTombstoneIds(): string[] {
+    return [...readTombstoneSet()];
 }

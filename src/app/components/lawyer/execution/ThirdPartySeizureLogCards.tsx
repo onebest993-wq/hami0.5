@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { formatNumberInput, parseAmount } from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+import { formatNumberInput, parseAmount } from '@/app/utils/execution/amountInput';
 import type { ThirdPartySeizure, ThirdPartySeizureAsset } from '@/app/types/execution';
 import type { TimelineEvent } from '@/app/types/execution';
 

@@ -1,21 +1,22 @@
-import React, { useCallback, useEffect, useMemo } from 'react';
-import { Phone, MapPin } from 'lucide-react';
+import React, { useEffect } from 'react';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
-import type { LawyerProfileHeader, ProfileAction } from '@/app/services/lawyer-cloud';
+import type { LawyerProfileHeader, ProfileAction, ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 import type { EditDraft } from '../types';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
-import { filterActionsForVisitor } from '@/app/services/profile/profilePageCustomization';
+import { useAuthUser } from '@/app/context/AuthContext';
+import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { prefetchProfileSettingsSheet } from '@/app/utils/lazyComponents';
-import { useProfileDisplayCustomization } from '../hooks/useProfileDisplayCustomization';
+import { useProfileContentModel } from '../hooks/useProfileContentModel';
+import { useProfilePageAccess } from '../hooks/useProfilePageAccess';
 import { ProfileCustomBlocks } from './ProfileCustomBlocks';
 import { ProfileHeroSection } from './ProfileHeroSection';
+import { ProfilePageAccessBlocked } from './ProfilePageAccessBlocked';
 import { ProfileContactSection } from './ProfileContactSection';
 import { ProfileGallerySection } from './ProfileGallerySection';
 import { ProfileEditBar } from './ProfileEditBar';
 import { ProfileSettingsSheetHost } from './ProfileSettingsSheetHost';
 
 export interface ProfileContentProps {
-    loading: boolean;
     saving: boolean;
     isEditing: boolean;
     draft: EditDraft | null;
@@ -25,18 +26,15 @@ export interface ProfileContentProps {
     galleryRef: React.RefObject<HTMLInputElement | null>;
     header: LawyerProfileHeader | undefined;
     actions: ProfileAction[];
-    gallery: string[];
+    gallery: ProfileGalleryItem[];
     initials: string;
     displayNamePublic: string;
-    titlePublic: string | undefined;
-    emailPublic: string;
     cityPublic: string | undefined;
     phonePublic: string | undefined;
     syndicateIdPublic: string | undefined;
     startEdit: () => void;
     cancelEdit: () => void;
-    saveProfile: (customizationOverride?: ProfilePageCustomization) => Promise<void>;
-    ensureEditDraft: () => EditDraft | null;
+    saveProfile: (customizationOverride?: ProfilePageCustomization) => Promise<boolean>;
     uploadImage: (file: File, target: 'avatar' | 'gallery') => Promise<void>;
     addContactChannel: (type: ProfileAction['type']) => void;
     readOnly?: boolean;
@@ -47,7 +45,15 @@ export interface ProfileContentProps {
     profileUserId: string;
     openSettings: () => void;
     closeSettings: () => void;
+    registerStudioDiscard?: (fn: (() => void) | null) => void;
     saveCustomization: (next: ProfilePageCustomization, options?: { silent?: boolean }) => Promise<boolean>;
+    setPendingEditCustomization?: (next: ProfilePageCustomization | null) => void;
+    committedGalleryPaths?: Array<string | undefined | null>;
+    onGalleryViewerOpenChange?: (open: boolean) => void;
+    onRegisterCloseGalleryViewer?: (close: (() => void) | null) => void;
+    /** يُمرَّر من الشاشة — يخفي بوابات التعديل/المعرض عند keepAlive */
+    screenActive?: boolean;
+    pageHidden?: boolean;
 }
 
 export function ProfileContent({
@@ -79,55 +85,61 @@ export function ProfileContent({
     profileUserId,
     openSettings,
     closeSettings,
+    registerStudioDiscard,
     saveCustomization,
+    setPendingEditCustomization,
+    committedGalleryPaths = [],
+    onGalleryViewerOpenChange,
+    onRegisterCloseGalleryViewer,
+    screenActive = true,
+    pageHidden = false,
 }: ProfileContentProps) {
-    const isVisitor = readOnly;
+    const user = useAuthUser();
+    const viewerId = resolveCalendarUserId(user?.id ?? null);
 
     const {
-        displayCustomization,
-        previewCustomization,
-        handleSettingsDraftChange,
-        handleSettingsSave,
-        handleBlocksLayoutChange,
-    } = useProfileDisplayCustomization({
+        pageAccess,
+        canView,
+        followCheckPending,
+        accessBusy,
+        cyclePageAccess,
+    } = useProfilePageAccess({
+        isOwnProfile: !readOnly,
+        profileUserId,
+        viewerId,
         customization,
-        isEditing,
-        settingsOpen,
+        forumFollowIsFollowing: forumFollow?.isFollowing,
         saveCustomization,
     });
 
-    const privacy = displayCustomization.privacy;
+    const {
+        displayCustomization,
+        handleSettingsDraftChange,
+        handleSettingsSave,
+        handleBlocksLayoutChange,
+        handleSaveEdit,
+        visibleActions,
+        showContactSection,
+        showGallerySection,
+        showCustomBlocks,
+        metaItems,
+        showSyndicate,
+    } = useProfileContentModel({
+        readOnly,
+        isEditing,
+        settingsOpen,
+        customization,
+        saveCustomization,
+        saveProfile,
+        actions,
+        phonePublic,
+        cityPublic,
+        syndicateIdPublic,
+        onPendingEditCustomizationChange: setPendingEditCustomization,
+    });
+
     const ornatePattern = displayCustomization.appearance.material === 'ornate';
-
-    const handleSaveEdit = useCallback(() => {
-        void saveProfile(isEditing ? previewCustomization : undefined);
-    }, [isEditing, previewCustomization, saveProfile]);
-
-    const visibleActions = useMemo(
-        () =>
-            filterActionsForVisitor(actions, privacy, !isVisitor).filter(
-                (action) => action.value.trim().length > 0,
-            ),
-        [actions, privacy, isVisitor],
-    );
-    const showContactSection = !isVisitor || (privacy.showContactChannels && visibleActions.length > 0);
-    const showGallerySection = !isVisitor || privacy.showGallery;
-    const showCustomBlocks = !isVisitor || privacy.showCustomBlocks;
-
-    const metaItems = useMemo(
-        () =>
-            [
-                phonePublic && (!isVisitor || privacy.showPhoneMeta)
-                    ? { icon: Phone, label: 'الهاتف', value: phonePublic }
-                    : null,
-                cityPublic && (!isVisitor || privacy.showCityMeta)
-                    ? { icon: MapPin, label: 'المدينة', value: cityPublic }
-                    : null,
-            ].filter(Boolean) as { icon: typeof Phone; label: string; value: string }[],
-        [phonePublic, cityPublic, isVisitor, privacy.showPhoneMeta, privacy.showCityMeta],
-    );
-
-    const showSyndicate = syndicateIdPublic && (!isVisitor || privacy.showSyndicate);
+    const showProfileBody = canView && !followCheckPending;
 
     useEffect(() => {
         if (!readOnly) prefetchProfileSettingsSheet();
@@ -144,17 +156,30 @@ export function ProfileContent({
                 initials={initials}
                 displayNamePublic={displayNamePublic}
                 syndicateIdPublic={syndicateIdPublic}
-                showSyndicate={showSyndicate}
-                metaItems={metaItems}
+                showSyndicate={Boolean(showSyndicate)}
+                metaItems={showProfileBody ? metaItems : []}
                 uploading={uploading}
                 avatarRef={avatarRef}
                 ornatePattern={ornatePattern}
                 forumFollow={forumFollow}
-                settingsOpen={settingsOpen}
+                pageAccess={!readOnly ? pageAccess : undefined}
+                pageAccessBusy={accessBusy}
+                onCyclePageAccess={!readOnly ? () => void cyclePageAccess() : undefined}
+                profileViewAllowed={canView}
                 startEdit={startEdit}
                 openSettings={openSettings}
             />
 
+            {!showProfileBody && !followCheckPending ? (
+                <ProfilePageAccessBlocked
+                    pageAccess={pageAccess}
+                    displayName={displayNamePublic}
+                    forumFollow={forumFollow}
+                    ornatePattern={ornatePattern}
+                />
+            ) : null}
+
+            {showProfileBody ? (
             <div className="hami-profile-page-stack">
                 {showContactSection ? (
                     <ProfileContactSection
@@ -176,17 +201,29 @@ export function ProfileContent({
                         draft={draft}
                         setDraft={setDraft}
                         gallery={gallery}
+                        committedGalleryPaths={committedGalleryPaths}
                         uploading={uploading}
                         galleryRef={galleryRef}
                         ornatePattern={ornatePattern}
+                        screenActive={screenActive && !pageHidden}
+                        onViewerOpenChange={onGalleryViewerOpenChange}
+                        onRegisterCloseViewer={onRegisterCloseGalleryViewer}
                     />
                 ) : null}
             </div>
+            ) : null}
 
-            {showCustomBlocks ? (
+            {showProfileBody && showCustomBlocks ? (
                 <ProfileCustomBlocks
                     blocks={displayCustomization.customBlocks}
                     editable={!readOnly && isEditing && !settingsOpen}
+                    interactionsEnabled={
+                        !readOnly &&
+                        !settingsOpen &&
+                        !isEditing &&
+                        screenActive &&
+                        !pageHidden
+                    }
                     onBlocksLayoutChange={handleBlocksLayoutChange}
                 />
             ) : null}
@@ -197,7 +234,7 @@ export function ProfileContent({
                         ref={avatarRef}
                         type="file"
                         accept="image/*"
-                        className="hidden"
+                        className="sr-only"
                         data-testid="lawyer-profile-avatar-input"
                         onChange={(e) => {
                             const f = e.target.files?.[0];
@@ -209,7 +246,7 @@ export function ProfileContent({
                         ref={galleryRef}
                         type="file"
                         accept="image/*"
-                        className="hidden"
+                        className="sr-only"
                         data-testid="lawyer-profile-gallery-input"
                         onChange={(e) => {
                             const f = e.target.files?.[0];
@@ -223,7 +260,9 @@ export function ProfileContent({
             <ProfileEditBar
                 isEditing={isEditing}
                 saving={saving}
+                uploading={Boolean(uploading)}
                 savingSettings={savingSettings}
+                screenActive={screenActive && !pageHidden}
                 onCancel={cancelEdit}
                 onSave={() => void handleSaveEdit()}
             />
@@ -232,8 +271,8 @@ export function ProfileContent({
                 <ProfileSettingsSheetHost
                     open={settingsOpen}
                     onClose={closeSettings}
+                    onRegisterDiscard={registerStudioDiscard}
                     customization={customization}
-                    actions={actions}
                     userId={profileUserId}
                     onSave={handleSettingsSave}
                     onDraftChange={handleSettingsDraftChange}

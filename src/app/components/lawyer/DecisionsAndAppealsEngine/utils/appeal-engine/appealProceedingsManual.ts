@@ -12,7 +12,6 @@ import {
 import type { AppealProceedingRow, ManualAppealAppellantActor } from './appealProceedingsTypes';
 import {
     formatManualAppealAppellantsLabel,
-    hasManualExecutorAppealAppellants,
 } from './appealProceedingsTypes';
 import {
     resolveAppealActorLabel,

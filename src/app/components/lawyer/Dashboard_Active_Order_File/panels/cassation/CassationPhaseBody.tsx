@@ -4,6 +4,7 @@ import { ValidationBanner } from '../../components/ValidationBanner';
 import { DatePickerField } from '../../components/DatePickerField';
 import { formatDateText, cassationDecisionText } from '../../utils/formatters';
 import type { CassationLifecyclePanelProps } from '../CassationLifecyclePanelProps';
+import { URGENT_DOSSIER_BTN_PRIMARY } from '../../layout/urgentDossierUi';
 
 export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
     const {
@@ -309,11 +310,11 @@ export function CassationPhaseBody(props: CassationLifecyclePanelProps) {
                                                                     handleCassationPhaseSubmit(e);
                                                                 }}
                                                                 disabled={isFinalized}
-                                                                className="px-8 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700 text-white font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                                className={`${URGENT_DOSSIER_BTN_PRIMARY} min-h-[44px] py-2.5 px-6 text-xs`}
                                                             >
                                                                 {cassationData.outcome === 'expired'
-                                                                    ? '🔒 حفظ وإنهاء الإضبارة'
-                                                                    : '🔒 تثبيت مرحلة الطعن التمييزي'}
+                                                                    ? 'حفظ وإنهاء الإضبارة'
+                                                                    : 'تثبيت مرحلة الطعن التمييزي'}
                                                             </button>
                                                         )}
                                                     </div>

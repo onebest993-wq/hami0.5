@@ -1,9 +1,9 @@
-import React, { memo, useEffect, useMemo } from 'react';
-import type { Dispatch, ElementType, SetStateAction } from 'react';
+import React, { memo, useMemo } from 'react';
+import type { ElementType } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
-import { prefetchLawReferencePanel, prefetchExecutionDashboardShell } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
-import { prefetchExecutionActionGridTile } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
+import { prefetchLawReferencePanel } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
+import { prefetchExecutionActionGridTile, prefetchExecutionFollowupOverlay } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
 import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
@@ -22,24 +22,16 @@ interface ActionGridSectionProps {
     executionToolsTimelineLockedUi: boolean;
     executionActionsGridLocked: boolean;
     setEmployeeCompulsoryBannerDismissed: (dismissed: boolean) => void;
-    setShowUnifiedExecutionModal: (show: boolean) => void;
-    setUnifiedModalTab: Dispatch<
-        SetStateAction<
-            'personal' | 'coercive' | 'financial' | 'seizure_requests' | 'other_party' | 'correspondences' | 'admin' | 'special' | 'dossier_controls'
-        >
-    >;
     showToast: (
         message: string,
         type: 'success' | 'error' | 'warning' | 'info'
     ) => void;
-    setShowAppointmentModal: (show: boolean) => void;
-    setShowNotesModal: (show: boolean) => void;
-    setShowDocumentsModal: (show: boolean) => void;
-    setShowDecisionsModal: (show: boolean) => void;
+    onOpenAppointmentModal?: () => void;
+    onOpenNotesModal?: () => void;
+    onOpenDocumentsModal?: () => void;
     onOpenDecisionsModal?: () => void;
-    setIsFinancialCenterExpanded: Dispatch<SetStateAction<boolean>>;
-    setShowExecutionFinancialHub: Dispatch<SetStateAction<boolean>>;
-    onMemoFollowupClick: () => void;
+    onOpenFinancialCenter?: () => void;
+    onMemoFollowupClick?: () => void;
     onOpenSeizureLog: () => void;
     showSeizureLogButton: boolean;
     pinnedNotes: CaseNoteLogRow[];
@@ -63,16 +55,12 @@ export const ActionGridSection = memo(function ActionGridSection({
     executionToolsTimelineLockedUi,
     executionActionsGridLocked,
     setEmployeeCompulsoryBannerDismissed,
-    setShowUnifiedExecutionModal,
-    setUnifiedModalTab,
     showToast,
-    setShowAppointmentModal,
-    setShowNotesModal,
-    setShowDocumentsModal,
-    setShowDecisionsModal,
+    onOpenAppointmentModal,
+    onOpenNotesModal,
+    onOpenDocumentsModal,
     onOpenDecisionsModal,
-    setIsFinancialCenterExpanded,
-    setShowExecutionFinancialHub,
+    onOpenFinancialCenter,
     onMemoFollowupClick,
     onOpenSeizureLog,
     showSeizureLogButton,
@@ -84,7 +72,9 @@ export const ActionGridSection = memo(function ActionGridSection({
     showVisitationCalendarButton = false,
     onOpenVisitationCalendar,
 }: ActionGridSectionProps) {
-    const pinnedCount = pinnedNotes.length + pinnedTasks.length;
+    const safePinnedNotes = Array.isArray(pinnedNotes) ? pinnedNotes : [];
+    const safePinnedTasks = Array.isArray(pinnedTasks) ? pinnedTasks : [];
+    const pinnedCount = safePinnedNotes.length + safePinnedTasks.length;
 
     const gridTiles = useMemo(
         () =>
@@ -93,45 +83,57 @@ export const ActionGridSection = memo(function ActionGridSection({
                     key: 'appt',
                     icon: Calendar,
                     label: 'إضافة موعد',
-                    tone: 'border-violet-500/30 bg-violet-500/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-violet-400/50 hover:bg-violet-500/15 hover:shadow-[0_0_22px_-6px_rgba(139,92,246,0.45)] focus-visible:ring-violet-400/30',
-                    iconClass: 'text-violet-300',
-                    onClick: () => setShowAppointmentModal(true),
+                    tone: 'border-violet-400/25 bg-gradient-to-b from-violet-500/[0.14] to-[#0A0F1C]/70 hover:border-violet-300/40 hover:shadow-[0_10px_28px_-14px_rgba(139,92,246,0.55)] focus-visible:ring-violet-400/35',
+                    iconWrapClass: 'group-hover:border-violet-300/35 group-hover:bg-violet-500/15',
+                    iconClass: 'text-violet-200',
+                    onClick: () => {
+                        if (typeof onOpenAppointmentModal === 'function') {
+                            onOpenAppointmentModal();
+                            return;
+                        }
+                        showToast('تعذر فتح نافذة إضافة الموعد لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+                    },
                     locked: executionToolsTimelineLockedUi,
                 },
                 {
                     key: 'notes',
                     icon: FileText,
                     label: 'ملاحظات',
-                    tone: 'border-orange-500/30 bg-orange-500/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-orange-400/45 hover:bg-orange-500/12 hover:shadow-[0_0_22px_-6px_rgba(249,115,22,0.4)] focus-visible:ring-orange-400/30',
-                    iconClass: 'text-orange-300',
-                    onClick: () => setShowNotesModal(true),
+                    tone: 'border-orange-400/25 bg-gradient-to-b from-orange-500/[0.12] to-[#0A0F1C]/70 hover:border-orange-300/40 hover:shadow-[0_10px_28px_-14px_rgba(249,115,22,0.5)] focus-visible:ring-orange-400/35',
+                    iconWrapClass: 'group-hover:border-orange-300/35 group-hover:bg-orange-500/15',
+                    iconClass: 'text-orange-200',
+                    onClick: () => {
+                        if (typeof onOpenNotesModal === 'function') {
+                            onOpenNotesModal();
+                            return;
+                        }
+                        showToast('تعذر فتح الملاحظات لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+                    },
                     locked: executionToolsTimelineLockedUi,
                 },
                 {
                     key: 'documents',
                     icon: FolderOpen,
                     label: 'المستندات',
-                    tone: 'border-sky-500/30 bg-sky-500/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-sky-400/45 hover:bg-sky-500/12 hover:shadow-[0_0_22px_-6px_rgba(56,189,248,0.4)] focus-visible:ring-sky-400/30',
-                    iconClass: 'text-sky-300',
-                    onClick: () => setShowDocumentsModal(true),
+                    tone: 'border-sky-400/25 bg-gradient-to-b from-sky-500/[0.12] to-[#0A0F1C]/70 hover:border-sky-300/40 hover:shadow-[0_10px_28px_-14px_rgba(56,189,248,0.5)] focus-visible:ring-sky-400/35',
+                    iconWrapClass: 'group-hover:border-sky-300/35 group-hover:bg-sky-500/15',
+                    iconClass: 'text-sky-200',
+                    onClick: () => {
+                        if (typeof onOpenDocumentsModal === 'function') {
+                            onOpenDocumentsModal();
+                            return;
+                        }
+                        showToast('تعذر فتح المستندات لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+                    },
                     locked: executionToolsTimelineLockedUi,
                 },
                 {
                     key: 'decisions',
                     icon: Scale,
                     label: 'القرارات والطعون',
-                    tone: 'border-rose-500/35 bg-rose-500/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-rose-400/50 hover:bg-rose-500/14 hover:shadow-[0_0_22px_-6px_rgba(244,63,94,0.38)] focus-visible:ring-rose-400/30',
-                    iconClass: 'text-rose-300',
-                    onClick: () =>
-                        (onOpenDecisionsModal ?? (() => setShowDecisionsModal(true)))(),
-                    locked: executionToolsTimelineLockedUi,
-                },
-                {
-                    key: 'followup',
-                    icon: ClipboardList,
-                    label: 'محضر المتابعة',
-                    tone: 'border-emerald-500/30 bg-emerald-500/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-emerald-400/45 hover:bg-emerald-500/12 hover:shadow-[0_0_22px_-6px_rgba(52,211,153,0.35)] focus-visible:ring-emerald-400/30',
-                    iconClass: 'text-emerald-300',
+                    tone: 'border-rose-400/30 bg-gradient-to-b from-rose-500/[0.16] to-[#0A0F1C]/75 hover:border-rose-300/45 hover:shadow-[0_10px_28px_-14px_rgba(244,63,94,0.48)] focus-visible:ring-rose-400/35',
+                    iconWrapClass: 'group-hover:border-rose-300/40 group-hover:bg-rose-500/15',
+                    iconClass: 'text-rose-200',
                     onClick: () => {
                         if (executionToolsTimelineLockedUi) {
                             showToast(
@@ -142,7 +144,50 @@ export const ActionGridSection = memo(function ActionGridSection({
                             );
                             return;
                         }
-                        onMemoFollowupClick();
+                        if (typeof onOpenDecisionsModal === 'function') {
+                            onOpenDecisionsModal();
+                            return;
+                        }
+                        showToast('تعذر فتح القرارات والطعون لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+                    },
+                    locked: executionToolsTimelineLockedUi,
+                },
+                {
+                    key: 'followup',
+                    icon: ClipboardList,
+                    label: 'محضر المتابعة',
+                    tone: 'border-emerald-400/25 bg-gradient-to-b from-emerald-500/[0.12] to-[#0A0F1C]/70 hover:border-emerald-300/40 hover:shadow-[0_10px_28px_-14px_rgba(52,211,153,0.45)] focus-visible:ring-emerald-400/35',
+                    iconWrapClass: 'group-hover:border-emerald-300/35 group-hover:bg-emerald-500/15',
+                    iconClass: 'text-emerald-200',
+                    onClick: () => {
+                        if (executionToolsTimelineLockedUi) {
+                            showToast(
+                                executionActionsGridLocked
+                                    ? '⚠️ الإضبارة مستأخرة — ارفع الاستئخار من الشريط التنبيهي أعلى الصفحة عند انقضاء السبب.'
+                                    : '⚠️ معاينة تاريخية — لا يمكن فتح الأدوات من الوضع الزمني.',
+                                'warning'
+                            );
+                            return;
+                        }
+                        // افتح العلم فوراً عبر Zustand — لا تعتمد على handler متأخر
+                        let openedViaStore = false;
+                        try {
+                            prefetchExecutionFollowupOverlay();
+                        } catch {
+                            /* ignore */
+                        }
+                        try {
+                            useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
+                            openedViaStore = true;
+                        } catch {
+                            /* ignore */
+                        }
+                        if (typeof onMemoFollowupClick === 'function') {
+                            onMemoFollowupClick();
+                            return;
+                        }
+                        if (openedViaStore) return;
+                        showToast('تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
                     },
                     locked: executionToolsTimelineLockedUi,
                 },
@@ -150,8 +195,9 @@ export const ActionGridSection = memo(function ActionGridSection({
                     key: 'finance',
                     icon: CreditCard,
                     label: 'المركز المالي',
-                    tone: 'border-amber-500/35 bg-amber-500/[0.07] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-amber-400/45 hover:bg-amber-500/12 hover:shadow-[0_0_22px_-6px_rgba(245,158,11,0.38)] focus-visible:ring-amber-400/30',
-                    iconClass: 'text-amber-300',
+                    tone: 'border-amber-400/30 bg-gradient-to-b from-amber-500/[0.14] to-[#0A0F1C]/75 hover:border-amber-300/45 hover:shadow-[0_10px_28px_-14px_rgba(245,158,11,0.48)] focus-visible:ring-amber-400/35',
+                    iconWrapClass: 'group-hover:border-amber-300/40 group-hover:bg-amber-500/15',
+                    iconClass: 'text-amber-200',
                     onClick: () => {
                         if (executionToolsTimelineLockedUi) {
                             showToast(
@@ -162,8 +208,13 @@ export const ActionGridSection = memo(function ActionGridSection({
                             );
                             return;
                         }
-                        setIsFinancialCenterExpanded(true);
-                        setShowExecutionFinancialHub(true);
+                        (
+                            onOpenFinancialCenter
+                        )?.();
+                        if (typeof onOpenFinancialCenter === 'function') {
+                            return;
+                        }
+                        showToast('تعذر فتح المركز المالي لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
                     },
                     locked: executionToolsTimelineLockedUi,
                 },
@@ -173,7 +224,8 @@ export const ActionGridSection = memo(function ActionGridSection({
                               key: 'visitation_cal',
                               icon: Calendar,
                               label: 'تقويم المواعيد',
-                              tone: 'border-[#E6C673]/35 bg-[#E6C673]/[0.08] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] hover:border-[#E6C673]/50 hover:bg-[#E6C673]/15 focus-visible:ring-[#E6C673]/30',
+                              tone: 'border-[#E6C673]/30 bg-gradient-to-b from-[#E6C673]/[0.12] to-[#0A0F1C]/75 hover:border-[#E6C673]/45 hover:shadow-[0_10px_28px_-14px_rgba(230,198,115,0.42)] focus-visible:ring-[#E6C673]/35',
+                              iconWrapClass: 'group-hover:border-[#E6C673]/40 group-hover:bg-[#E6C673]/15',
                               iconClass: 'text-[#E6C673]',
                               onClick: onOpenVisitationCalendar,
                               locked: executionToolsTimelineLockedUi,
@@ -191,13 +243,12 @@ export const ActionGridSection = memo(function ActionGridSection({
             executionActionsGridLocked,
             executionToolsTimelineLockedUi,
             onMemoFollowupClick,
+            onOpenAppointmentModal,
+            onOpenDocumentsModal,
+            onOpenDecisionsModal,
+            onOpenFinancialCenter,
+            onOpenNotesModal,
             onOpenVisitationCalendar,
-            setIsFinancialCenterExpanded,
-            setShowAppointmentModal,
-            setShowDecisionsModal,
-            setShowDocumentsModal,
-            setShowExecutionFinancialHub,
-            setShowNotesModal,
             showToast,
             showVisitationCalendarButton,
         ]
@@ -217,8 +268,22 @@ export const ActionGridSection = memo(function ActionGridSection({
                                 disabled={executionToolsTimelineLockedUi}
                                 onClick={() => {
                                     setEmployeeCompulsoryBannerDismissed(true);
-                                    setShowUnifiedExecutionModal(true);
-                                    setUnifiedModalTab('personal');
+                                    let openedViaStore = false;
+                                    try {
+                                        useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
+                                        openedViaStore = true;
+                                    } catch {
+                                        /* ignore */
+                                    }
+                                    if (typeof onMemoFollowupClick === 'function') {
+                                        onMemoFollowupClick();
+                                        return;
+                                    }
+                                    if (openedViaStore) return;
+                                    showToast(
+                                        'تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.',
+                                        'error',
+                                    );
                                 }}
                                 className="rounded-lg border border-amber-400/50 bg-amber-600/80 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-amber-500/90 disabled:opacity-40"
                             >
@@ -249,17 +314,27 @@ export const ActionGridSection = memo(function ActionGridSection({
                                 tile.key === 'followup' ? EXECUTION_DOSSIER_TEST_IDS.followupMemo : undefined
                             }
                             onPointerEnter={() => prefetchExecutionActionGridTile(tile.key)}
+                            // pointerdown يغطّي اللمس — pointerenter وحده لا يسخّن قبل النقر على الموبايل
+                            onPointerDown={() => prefetchExecutionActionGridTile(tile.key)}
                             onClick={tile.onClick}
-                            className={`group flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border px-2 py-4 text-center backdrop-blur-md transition-all duration-200 focus:outline-none focus-visible:ring-2 ${tile.tone} ${
+                            className={`group relative flex min-h-[108px] w-full flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border px-2.5 py-4 text-center backdrop-blur-xl transition-all duration-300 focus:outline-none focus-visible:ring-2 ${tile.tone} ${
                                 tile.locked ? 'cursor-not-allowed opacity-40 hover:shadow-none' : ''
                             }`}
                         >
-                            <Ico
-                                size={32}
-                                strokeWidth={2}
-                                className={`shrink-0 ${tile.iconClass} transition-transform duration-200 group-hover:scale-105`}
+                            <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-0 bg-gradient-to-br from-white/[0.07] via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                             />
-                            <span className="text-center text-[10px] font-bold leading-tight text-white sm:text-[11px]">
+                            <span
+                                className={`relative flex h-11 w-11 items-center justify-center rounded-xl border border-white/[0.10] bg-[#0B1120]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-[1.04] ${tile.iconWrapClass}`}
+                            >
+                                <Ico
+                                    size={22}
+                                    strokeWidth={2}
+                                    className={`shrink-0 ${tile.iconClass}`}
+                                />
+                            </span>
+                            <span className="relative text-center text-[11px] font-bold leading-snug text-[#F8FAFC] sm:text-xs">
                                 {tile.label}
                             </span>
                         </button>
@@ -278,8 +353,8 @@ export const ActionGridSection = memo(function ActionGridSection({
                                 {pinnedCount > 0 ? (
                                     <ExecutionPinnedNotesTray
                                         variant="dock"
-                                        pinnedNotes={pinnedNotes}
-                                        pinnedTasks={pinnedTasks}
+                                        pinnedNotes={safePinnedNotes}
+                                        pinnedTasks={safePinnedTasks}
                                         onToggleNotePin={onToggleNotePin}
                                         onToggleTaskPin={onToggleTaskPin}
                                         onTrashNote={onTrashPinnedNote}
@@ -292,16 +367,22 @@ export const ActionGridSection = memo(function ActionGridSection({
                 {showSeizureLogButton ? (
                     <button
                         type="button"
+                        onPointerEnter={() => prefetchExecutionActionGridTile('seizure-log')}
                         onClick={onOpenSeizureLog}
                         dir="rtl"
-                        className="flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-[#E6C673]/40 bg-gradient-to-br from-[#E6C673]/10 via-slate-900/25 to-[#0A0F1C]/55 px-3 py-4 text-center shadow-[0_0_24px_-10px_rgba(230,198,115,0.28)] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/60 hover:shadow-[0_0_28px_-10px_rgba(230,198,115,0.42)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40"
+                        className="group relative flex min-h-[108px] w-full flex-col items-center justify-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6C673]/35 bg-gradient-to-b from-[#E6C673]/[0.14] to-[#0A0F1C]/75 px-3 py-4 text-center shadow-[0_10px_28px_-16px_rgba(230,198,115,0.35)] backdrop-blur-xl transition-all duration-300 hover:border-[#E6C673]/55 hover:shadow-[0_14px_32px_-14px_rgba(230,198,115,0.5)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 touch-manipulation"
                     >
-                        <ClipboardList size={32} className="text-[#E6C673]" strokeWidth={2} />
-                        <span className="text-center text-[11px] font-bold leading-tight text-[#F5E6B8] sm:text-xs" dir="rtl">
+                        <span className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-[#E6C673]/30 bg-[#0B1120]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition-transform duration-300 group-hover:scale-[1.04] group-hover:border-[#E6C673]/45 group-hover:bg-[#E6C673]/15">
+                            <ClipboardList size={22} className="text-[#E6C673]" strokeWidth={2} />
+                        </span>
+                        <span className="relative text-center text-[11px] font-bold leading-snug text-[#F5E6B8] sm:text-xs" dir="rtl">
                             سجل الحجز
                         </span>
                     </button>
                 ) : null}
+            </div>
+
+            <div className="mt-3 border-t border-white/[0.06] pt-3">
                 <button
                     type="button"
                     onPointerEnter={() => prefetchLawReferencePanel()}
@@ -310,14 +391,13 @@ export const ActionGridSection = memo(function ActionGridSection({
                         useExecutionDashboardStore.getState().openModal('showLawReferencePanel');
                     }}
                     dir="rtl"
-                    className="col-span-2 flex min-h-[100px] w-full flex-col items-center justify-center gap-2 rounded-xl border border-[#E6C673]/40 bg-gradient-to-br from-[#E6C673]/12 via-amber-500/10 to-[#0A0F1C]/50 px-4 py-4 text-center shadow-[0_0_28px_-8px_rgba(230,198,115,0.35)] backdrop-blur-md transition-all duration-200 hover:border-[#E6C673]/60 hover:shadow-[0_0_32px_-6px_rgba(230,198,115,0.5)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/40"
+                    className="group relative flex min-h-[52px] w-full items-center justify-center gap-2.5 overflow-hidden rounded-2xl border border-[#E6C673]/28 bg-gradient-to-b from-[#E6C673]/[0.10] to-[#0A0F1C]/70 px-4 py-3 text-center shadow-[0_8px_24px_-16px_rgba(230,198,115,0.35)] backdrop-blur-xl transition-all duration-300 hover:border-[#E6C673]/45 hover:shadow-[0_12px_28px_-14px_rgba(230,198,115,0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/35"
                     data-testid="execution-law-reference-open"
                 >
-                    <Book size={32} className="shrink-0 text-[#E6C673]" strokeWidth={2} />
-                    <span
-                        className="text-center text-[11px] font-bold leading-tight text-[#F5E6B8] sm:text-xs"
-                        dir="rtl"
-                    >
+                    <span className="relative flex h-9 w-9 items-center justify-center rounded-lg border border-[#E6C673]/25 bg-[#0B1120]/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] transition-transform duration-300 group-hover:scale-[1.04]">
+                        <Book size={18} className="shrink-0 text-[#E6C673]" strokeWidth={2} />
+                    </span>
+                    <span className="relative text-[11px] font-bold leading-snug text-[#F5E6B8] sm:text-xs">
                         قانون التنفيذ
                     </span>
                 </button>

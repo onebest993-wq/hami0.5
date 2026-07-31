@@ -1,5 +1,5 @@
 const GOOGLE_FONTS_HREF =
-    'https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;500;700&display=swap';
+    'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;500;700&family=Changa:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;700&family=Reem+Kufi:wght@400;700&family=Tajawal:wght@400;500;700;800&display=swap';
 
 let scheduled = false;
 

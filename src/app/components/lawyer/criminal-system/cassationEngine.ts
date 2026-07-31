@@ -1,10 +1,8 @@
-// @ts-nocheck
 import type {
     CassationAppealRemandTarget,
     CassationAppealResult,
     CassationOutcome,
     CassationProceeding,
-    CassationProceedingStatus,
     CassationType,
     CaseStage,
     JourneyNode,

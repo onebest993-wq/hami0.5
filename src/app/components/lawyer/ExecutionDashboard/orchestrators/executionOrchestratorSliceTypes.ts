@@ -55,7 +55,7 @@ export type ExecutionDossierLifecycleActionsOrchestratorSlice = {
         date: string,
     ) => boolean;
     handleDossierLifecyclePick: (picked: DossierLifecycleStatus) => void;
-    handleDossierLifecycleConfirmDetails: () => void;
+    handleDossierLifecycleConfirmDetails: (reasonOverride?: string, dateOverride?: string) => void;
 };
 
 export type ExecutionPartiesOrchestratorSlice = {

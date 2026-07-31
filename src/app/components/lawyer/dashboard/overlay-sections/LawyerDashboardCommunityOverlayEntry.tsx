@@ -3,15 +3,20 @@ import { FORUM_LAYER } from '@/app/components/lawyer/CommunityScreen/forumPlumTh
 import { CommunityErrorBoundary } from '@/app/components/lawyer/CommunityScreen/CommunityErrorBoundary';
 import { CommunityScreenHost } from '@/app/components/lawyer/CommunityScreen/CommunityScreenHost';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
-import type { LawyerDashboardOverlaysHostProps } from '../lawyerDashboardOverlaysHostBundles';
+import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
+/**
+ * منتدى الزملاء — Entry sync في MainView (مثل الإعدادات).
+ * Host يُركَّب عند الفتح أو keepAlive؛ المحتوى عبر isOpen.
+ */
 export function LawyerDashboardCommunityOverlayEntry({
     shell,
     overlays,
-}: Pick<LawyerDashboardOverlaysHostProps, 'shell' | 'overlays'>) {
+}: Pick<LawyerDashboardOverlaysBundleProps, 'shell' | 'overlays'>) {
     const { userId, authUserId, lawyerShellAccess } = shell;
     const {
         showCommunity,
+        communityHostMounted,
         communitySessionKey,
         resetCommunityScreen,
         communityDeepLink,
@@ -20,14 +25,23 @@ export function LawyerDashboardCommunityOverlayEntry({
     } = overlays;
 
     const forumUserId = resolveShellAuthUserId(authUserId, userId);
+    const shouldMount = Boolean(forumUserId) && (showCommunity || communityHostMounted);
 
-    if (!showCommunity || !forumUserId) return null;
+    if (!shouldMount || !forumUserId) return null;
 
     return (
-        <div className={FORUM_LAYER} aria-hidden={false}>
+        <div
+            className={`${FORUM_LAYER}${showCommunity ? '' : ' pointer-events-none'}`}
+            aria-hidden={!showCommunity}
+            hidden={!showCommunity}
+            data-forum-layer-open={showCommunity ? '1' : '0'}
+            data-testid="forum-overlay-host"
+        >
             <CommunityErrorBoundary onReset={resetCommunityScreen}>
                 <CommunityScreenHost
                     key={`forum-community-${communitySessionKey}`}
+                    isOpen={showCommunity}
+                    keepAlive={communityHostMounted}
                     onBack={closeCommunity}
                     initialPostId={communityDeepLink?.postId ?? null}
                     initialOpenComments={communityDeepLink?.openComments ?? false}

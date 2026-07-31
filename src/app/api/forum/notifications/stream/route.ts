@@ -1,16 +1,4 @@
-import {
-
-    extractUserTokenFromRequest,
-
-    getVerifiedTokenSubject,
-
-    isTokenAuthorized,
-
-    assertWifeSignatureRequest,
-
-    wifeUnauthorizedResponse,
-
-} from '../../../security/wifeValidator.ts';
+import { requireForumAuth } from '../../_auth.ts';
 
 import { ServerNotificationDB } from '../../../../services/notifications/notificationForumStorage.server.ts';
 
@@ -52,23 +40,9 @@ export async function GET(request: Request): Promise<Response> {
 
     try {
 
-        const userToken = extractUserTokenFromRequest(request);
-
-        if (!userToken || !(await isTokenAuthorized(userToken))) {
-
-            return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-
-        }
-
-        const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-
-        if (wifeBlock) return wifeBlock;
-
-
-
-        const userId = await getVerifiedTokenSubject(userToken);
-
-        if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+        const auth = await requireForumAuth(request);
+        if ('response' in auth) return auth.response;
+        const { userId } = auth;
 
 
 

@@ -2,8 +2,22 @@ import React, { lazy, Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
-import { DossierLawArticleRichEditor } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
-import { SmartVaultScannerPanel } from '@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel';
+
+/**
+ * لوحات ثقيلة — lazy معزول داخل Suspense محلي.
+ * لا تُسحَب إلى chunk المستودع الأساسي عند أول paint.
+ */
+const LazyDossierLawArticleRichEditor = lazy(() =>
+    import('@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor').then((m) => ({
+        default: m.DossierLawArticleRichEditor,
+    })),
+);
+
+const LazySmartVaultScannerPanel = lazy(() =>
+    import('@/app/components/lawyer/SmartVaultModal/SmartVaultScannerPanel').then((m) => ({
+        default: m.SmartVaultScannerPanel,
+    })),
+);
 
 const LazyVoiceRecorderModal = lazy(() =>
     import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((m) => ({
@@ -27,13 +41,15 @@ type RepositoryRichEditorProps = {
 
 export function RepositoryRichEditor({ editorRef, value, onChange }: RepositoryRichEditorProps) {
     return (
-        <DossierLawArticleRichEditor
-            ref={editorRef}
-            value={value}
-            onChange={onChange}
-            context={{ kind: 'repository' }}
-            testId="repository-rich-editor"
-        />
+        <Suspense fallback={<PanelFallback />}>
+            <LazyDossierLawArticleRichEditor
+                ref={editorRef}
+                value={value}
+                onChange={onChange}
+                context={{ kind: 'repository' }}
+                testId="repository-rich-editor"
+            />
+        </Suspense>
     );
 }
 
@@ -47,7 +63,11 @@ type RepositoryScannerPanelProps = {
 };
 
 export function RepositoryScannerPanel(props: RepositoryScannerPanelProps) {
-    return <SmartVaultScannerPanel {...props} />;
+    return (
+        <Suspense fallback={<PanelFallback />}>
+            <LazySmartVaultScannerPanel {...props} />
+        </Suspense>
+    );
 }
 
 type RepositoryVoiceRecorderProps = {
@@ -65,7 +85,11 @@ export function RepositoryVoiceRecorder({
 }: RepositoryVoiceRecorderProps) {
     return (
         <Suspense fallback={<PanelFallback />}>
-            <LazyVoiceRecorderModal key={recorderKey} onClose={onClose} onSaveVoice={onSaveVoice} />
+            <LazyVoiceRecorderModal
+                key={recorderKey}
+                onClose={onClose}
+                onSaveVoice={onSaveVoice}
+            />
         </Suspense>
     );
 }

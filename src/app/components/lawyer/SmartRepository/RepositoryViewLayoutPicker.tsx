@@ -6,7 +6,7 @@ import {
     repositoryFeedLayoutLabel,
     type RepositoryFeedLayoutId,
 } from './repositoryFeedLayout';
-import { REPO_ACTION_BTN } from './smartRepositoryTheme';
+import { REPO_VIEW_BTN } from './smartRepositoryTheme';
 
 const LAYOUT_ICONS: Record<RepositoryFeedLayoutId, React.ReactNode> = {
     grid: <LayoutGrid size={17} strokeWidth={2.25} />,
@@ -150,7 +150,7 @@ export function RepositoryViewLayoutPicker({
                 type="button"
                 onClick={() => setOpen((v) => !v)}
                 disabled={disabled}
-                className={`${REPO_ACTION_BTN} border-white/14 bg-white/[0.05] text-white/65 hover:bg-white/[0.08] hover:border-white/22 hover:text-[#E6C673] ${
+                className={`${REPO_VIEW_BTN} ${
                     open ? 'border-[#E6C673]/35 bg-[#E6C673]/10 text-[#E6C673]' : ''
                 } ${disabled ? 'opacity-40 pointer-events-none' : ''}`}
                 data-testid="repository-view-toggle"

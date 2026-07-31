@@ -87,6 +87,6 @@ export const CriminalCaseTrashModal = ({
                         ))
                     )}
                 </div>
-            </div>
+        </div>
     );
 };

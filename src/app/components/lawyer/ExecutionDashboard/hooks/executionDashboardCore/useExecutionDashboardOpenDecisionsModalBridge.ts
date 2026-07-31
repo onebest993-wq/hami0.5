@@ -1,10 +1,13 @@
 // @ts-nocheck
 /** hami-open-decisions-modal — يحافظ على openDecisionsModalWithBoot (موجة 13) */
 import { useEffect } from 'react';
+import { matchesDecisionsModalOpenTarget } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 
 export function useExecutionDashboardOpenDecisionsModalBridge({
     executionDataId,
     executionId,
+    decisionsStorageExecutionId,
+    executionData,
     setShowExecutionFinancialHub,
     setShowUnifiedExecutionModal,
     setShowUnifiedSummonsModal,
@@ -17,6 +20,8 @@ export function useExecutionDashboardOpenDecisionsModalBridge({
 }: {
     executionDataId: string | undefined;
     executionId: string | undefined;
+    decisionsStorageExecutionId?: string | undefined;
+    executionData?: Record<string, unknown> | null;
     setShowExecutionFinancialHub: (show: boolean) => void;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     setShowUnifiedSummonsModal: (show: boolean) => void;
@@ -30,8 +35,16 @@ export function useExecutionDashboardOpenDecisionsModalBridge({
     useEffect(() => {
         const handler = (e: Event) => {
             const ce = e as CustomEvent<{ executionId?: string; decisionId?: string; tab?: string }>;
-            const myId = String(executionDataId ?? executionId ?? '');
-            if (!myId || String(ce.detail?.executionId ?? '') !== myId) return;
+            if (
+                !matchesDecisionsModalOpenTarget(ce.detail?.executionId, {
+                    executionDataId,
+                    executionId,
+                    decisionsStorageExecutionId,
+                    executionData,
+                })
+            ) {
+                return;
+            }
             setShowExecutionFinancialHub(false);
             setShowUnifiedExecutionModal(false);
             setShowUnifiedSummonsModal(false);
@@ -55,6 +68,8 @@ export function useExecutionDashboardOpenDecisionsModalBridge({
     }, [
         executionDataId,
         executionId,
+        decisionsStorageExecutionId,
+        executionData,
         setShowExecutionFinancialHub,
         setShowUnifiedExecutionModal,
         setShowUnifiedSummonsModal,

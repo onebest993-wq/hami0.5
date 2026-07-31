@@ -2,8 +2,15 @@ import type { ProfileAction, ProfileLocationMode } from '@/app/services/profile/
 
 export type ProfileContactOpenResult = 'opened' | 'invalid' | 'display_only';
 
+/** يحوّل الأرقام العربية/الفارسية إلى لاتينية — لوحة Android العربية تُدخل ٦٧٨ بدل 678 */
+export function normalizeAsciiDigits(value: string): string {
+    return value
+        .replace(/[\u0660-\u0669]/g, (ch) => String(ch.charCodeAt(0) - 0x0660))
+        .replace(/[\u06f0-\u06f9]/g, (ch) => String(ch.charCodeAt(0) - 0x06f0));
+}
+
 function digitsOnlyPhone(value: string): string {
-    return value.replace(/[^\d+]/g, '');
+    return normalizeAsciiDigits(value).replace(/[^\d+]/g, '');
 }
 
 function isLatLngPair(value: string): boolean {
@@ -38,7 +45,7 @@ export function isMobileDevice(): boolean {
     return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
-/** تنسيق رقم للاتصال — يدعم الأرقام العراقية المحلية */
+/** تنسيق رقم للاتصال — يدعم الأرقام العراقية المحلية (07… أو 7…) */
 export function normalizeTelHref(raw: string): string | null {
     let tel = digitsOnlyPhone(raw.trim());
     if (!tel) return null;
@@ -47,6 +54,9 @@ export function normalizeTelHref(raw: string): string | null {
         tel = `+${tel.slice(2)}`;
     } else if (tel.startsWith('0') && !tel.startsWith('+')) {
         tel = `+964${tel.slice(1)}`;
+    } else if (/^7\d{9}$/.test(tel)) {
+        /* موبايل عراقي بلا صفر بادئ */
+        tel = `+964${tel}`;
     } else if (!tel.startsWith('+') && tel.length >= 9) {
         tel = `+${tel}`;
     }
@@ -73,11 +83,12 @@ function buildMapsCoordinateTarget(lat: number, lng: number): string {
     return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
-/** يفتح روابط tel/mailto/geo عبر معالج النظام — احتياطي عند عدم استخدام <a href> */
+/** يفتح روابط tel/mailto عبر معالج النظام — احتياطي عند عدم استخدام <a href> */
 export function openNativeScheme(url: string): void {
     if (typeof window === 'undefined') return;
 
-    if (isMobileDevice()) {
+    // mailto/tel يعملان أفضل عبر location.assign على الموبايل وWebView
+    if (url.startsWith('mailto:') || url.startsWith('tel:') || isMobileDevice()) {
         window.location.assign(url);
         return;
     }
@@ -93,7 +104,7 @@ export function openNativeScheme(url: string): void {
 }
 
 export function buildProfileContactTarget(action: ProfileAction): string | null {
-    const raw = action.value.trim();
+    const raw = String(action.value ?? '').trim();
     if (!raw) return null;
 
     switch (action.type) {
@@ -101,15 +112,18 @@ export function buildProfileContactTarget(action: ProfileAction): string | null 
             return normalizeTelHref(raw);
         case 'email': {
             const email = raw.replace(/\s+/g, '');
-            if (/[\r\n]/.test(email)) return null;
+            /* منع حقن استعلام/مسار في mailto (?bcc=، #، /) */
+            if (/[\r\n?#/\\]/.test(email)) return null;
             if (!email.includes('@')) return null;
             if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
             return `mailto:${email}`;
         }
         case 'whatsapp': {
-            let digits = raw.replace(/\D/g, '');
+            let digits = normalizeAsciiDigits(raw).replace(/\D/g, '');
             if (digits.startsWith('0')) {
                 digits = `964${digits.slice(1)}`;
+            } else if (/^7\d{9}$/.test(digits)) {
+                digits = `964${digits}`;
             }
             if (digits.length < 8) return null;
             return `https://wa.me/${digits}`;

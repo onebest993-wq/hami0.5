@@ -4,42 +4,6 @@
  */
 
 /**
- * ⚡ Screen Transitions - انتقالات الشاشات
- */
-/** Base transition config - used by all screen transitions */
-const baseScreenTransition = {
-  initial: { opacity: 0, scale: 0.95 },
-  animate: { 
-    opacity: 1, 
-    scale: 1,
-    transition: {
-      duration: 0.4,
-      ease: [0.25, 0.1, 0.25, 1] as const, // Smooth easing
-    }
-  },
-  exit: { 
-    opacity: 0, 
-    scale: 0.95,
-    transition: {
-      duration: 0.3,
-      ease: [0.25, 0.1, 0.25, 1] as const,
-    }
-  }
-};
-
-/**
- * Screen transitions - used by App.tsx for AnimatePresence
- * splash, auth, main, secondary are aliases for consistent per-screen animation
- */
-export const screenTransitions = {
-  ...baseScreenTransition,
-  splash: baseScreenTransition,
-  auth: baseScreenTransition,
-  main: baseScreenTransition,
-  secondary: baseScreenTransition,
-};
-
-/**
  * 🌊 Fade Transitions - تلاشي سلس
  */
 export const fadeTransitions = {

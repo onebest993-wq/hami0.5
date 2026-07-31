@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from 'lucide-react';
-import { PageWrapper, GlassCard, GoldButton } from './SharedComponents';
+import { PageWrapper, GlassCard } from './SharedComponents';
 import { cn } from '@/app/components/ui/utils';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useApp } from '@/app/context/AppContext';
@@ -228,7 +227,8 @@ export const AdminDashboard = ({ onLogout, onOpenLawLibrary }: AdminDashboardPro
                                       <div className={cn(
                                           "w-12 h-12 rounded-full flex items-center justify-center border",
                                           user.status === 'banned' ? "bg-red-500/10 border-red-500 text-red-500" : "bg-gray-800 border-gray-600 text-gray-400"
-                                      )}>
+                                      )}
+                                      >
                                           {user.status === 'banned' ? <UserX className="w-6 h-6" /> : <User className="w-6 h-6" />}
                                       </div>
                                       <div>

@@ -14,7 +14,7 @@ import {
     type UnifiedLedgerTotalParams,
 } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import type { LooseArchiveFile } from './types';
-import { executionTotalDemandEstimate, parseLooseAmount } from './utils';
+import { executionTotalDemandEstimate, parseLooseAmount } from './archivePortalAmountUtils';
 
 const NON_FINANCIAL_CLAIMS = [
     'مشاهدة',

@@ -1,10 +1,8 @@
 import React, { memo, useLayoutEffect, useRef } from 'react';
-import { motion } from 'motion/react';
 import { HeaderToolbarNav } from './HeaderToolbarNav';
 import { HeaderProfileTrigger } from './HeaderProfileTrigger';
 import { useAuthUser } from '@/app/context/AuthContext';
-import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 
 export interface HeaderProps {
     shouldShow: boolean;
@@ -12,6 +10,8 @@ export interface HeaderProps {
     onProfileClick: () => void;
     onProfilePointerEnter?: () => void;
     onProfilePointerDown?: () => void;
+    /** تبويب الملف مفتوح — لـ aria-expanded فقط */
+    profileExpanded?: boolean;
     onSearchClick: () => void;
     onSearchPointerEnter?: () => void;
     onSearchPointerDown?: () => void;
@@ -29,6 +29,7 @@ export const Header = memo(function Header({
     onProfileClick,
     onProfilePointerEnter,
     onProfilePointerDown,
+    profileExpanded = false,
     onSearchClick,
     onSearchPointerEnter,
     onSearchPointerDown,
@@ -39,7 +40,6 @@ export const Header = memo(function Header({
     onSettingsPointerEnter,
     onSettingsPointerDown,
 }: HeaderProps) {
-    const reduceMotion = useReduceMotion();
     const user = useAuthUser();
     const meta = (user?.user_metadata ?? {}) as Record<string, unknown>;
     const calendarUserId = resolveCalendarUserId(user?.id ?? null);
@@ -53,19 +53,22 @@ export const Header = memo(function Header({
     }, [shouldShow]);
 
     return (
-        <motion.header
+        <header
             ref={headerRef}
-            initial={false}
-            animate={{ opacity: shouldShow ? 1 : 0 }}
-            transition={{ duration: reduceMotion ? 0 : 0.18 }}
             className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5"
-            style={{ pointerEvents: shouldShow ? 'auto' : 'none' }}
+            data-header-visible={shouldShow ? 'true' : 'false'}
+            style={{
+                opacity: shouldShow ? 1 : 0,
+                visibility: shouldShow ? 'visible' : 'hidden',
+                pointerEvents: shouldShow ? 'auto' : 'none',
+            }}
             aria-hidden={!shouldShow}
         >
             <HeaderProfileTrigger
                 interactive={shouldShow}
                 userId={calendarUserId}
                 userMetadata={meta}
+                expanded={profileExpanded}
                 onClick={onProfileClick}
                 onPointerEnter={onProfilePointerEnter}
                 onPointerDown={onProfilePointerDown}
@@ -84,6 +87,6 @@ export const Header = memo(function Header({
                 onSettingsPointerEnter={onSettingsPointerEnter}
                 onSettingsPointerDown={onSettingsPointerDown}
             />
-        </motion.header>
+        </header>
     );
 });

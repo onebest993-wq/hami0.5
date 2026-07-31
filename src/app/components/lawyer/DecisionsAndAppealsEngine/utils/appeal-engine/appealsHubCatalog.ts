@@ -3,7 +3,6 @@ import type { Decision } from '../../types';
 import type { AppealUiPerspective } from '../../appealUiLabels';
 import { resolveUnderlyingDecisionHub } from '../decisionGraphUtils';
 import {
-    hubWithInferredAppealOrigin,
     inferDecisionAppealRequestOrigin,
     isCreditorInitiatedExecutorRequest,
     resolveRequestProponent,

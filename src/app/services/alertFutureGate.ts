@@ -1,4 +1,4 @@
-import { normalizeDateToYmd } from '@/app/services/calendarBridge';
+import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
 
 /** YYYY-MM-DD محلي */
 export function localTodayYmd(now: Date = new Date()): string {

@@ -1,27 +1,23 @@
-// @ts-nocheck
 import type { SeizedMovable } from '@/app/types/execution';
 import { storageCache } from '@/app/utils/storageCache';
 import {
-    computeTotalOwedUnifiedFromStore,
     emptyStore,
-    notifyUnifiedLedgerUpdated,
     parseUnifiedLedgerFromStorage,
-    recomputeUnifiedLedgerPaymentSnapshots,
     resolveUnifiedLedgerFinancialTotals,
     storageKey,
-    type UnifiedLedgerStore,
     type UnifiedLedgerTotalParams,
-} from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+} from '@/app/slices/financial/ledgerPublic';
+import {
+    persistReconciledTrustStore,
+    pickFirstPositiveIqd,
+    resolveTotalOwedForStore,
+    seizureProceedsLedgerGapIqd,
+    upsertTrustCollectPayment,
+    type SeizureTrustCollectCreditResult,
+} from './seizureFinancialTrustLedgerUtils';
 
 export function resolveMovableSaleProceedsIqd(m: SeizedMovable): number {
-    const pick = (...vals: unknown[]): number => {
-        for (const v of vals) {
-            const n = Number(v);
-            if (Number.isFinite(n) && n > 0) return Math.trunc(n);
-        }
-        return 0;
-    };
-    return pick(
+    return pickFirstPositiveIqd(
         m.finalAwardAmountIqd,
         m.award?.awardAmountIqd,
         m.initialAwardAmountIqd
@@ -32,27 +28,7 @@ export function movableProceedsTrustPaymentId(movableId: string): string {
     return `pay-movable-proceeds-${String(movableId || '').trim()}`;
 }
 
-export type MovableProceedsTrustCreditResult = {
-    ok: boolean;
-    amount: number;
-    created: boolean;
-    updated: boolean;
-    paymentId?: string;
-};
-
-function resolveTotalOwedForStore(
-    store: UnifiedLedgerStore,
-    totalOwedIqd: number | undefined,
-    ledgerParams?: UnifiedLedgerTotalParams
-): number {
-    if (typeof totalOwedIqd === 'number' && Number.isFinite(totalOwedIqd) && totalOwedIqd > 0) {
-        return Math.trunc(totalOwedIqd);
-    }
-    if (ledgerParams) {
-        return Math.max(0, Math.trunc(computeTotalOwedUnifiedFromStore(store, ledgerParams)));
-    }
-    return 0;
-}
+export type MovableProceedsTrustCreditResult = SeizureTrustCollectCreditResult;
 
 function buildProceedsPaymentRow(input: {
     paymentId: string;
@@ -76,24 +52,8 @@ function buildProceedsPaymentRow(input: {
     };
 }
 
-function persistReconciledStore(exId: string, nextStore: UnifiedLedgerStore, paymentRow?: Record<string, unknown>) {
-    storageCache.set(storageKey(exId), nextStore);
-    notifyUnifiedLedgerUpdated(exId);
-    if (paymentRow) {
-        try {
-            window.dispatchEvent(
-                new CustomEvent('hami-unified-ledger-external-collect', {
-                    detail: { executionId: exId, payment: paymentRow },
-                })
-            );
-        } catch {
-            /* ignore */
-        }
-    }
-}
-
 /**
- * مزامنة جذرية: حصيلة البيع = مبلغ الإحالة/الرسو في الأمانات، ويُخصم من المتبقي عبر collect.
+ * مزامنة جذرية: حصيلة البيع = مبلغ الإحالة/الرسo في الأمانات، ويُخصم من المتبقي عبر collect.
  * يُحدّث المبلغ إذا تغيّر سعر البيع في بطاقة المنقول.
  */
 export function creditMovableSaleProceedsToTrustLedger(input: {
@@ -121,45 +81,29 @@ export function creditMovableSaleProceedsToTrustLedger(input: {
     const totalOwed = resolveTotalOwedForStore(store, input.totalOwedIqd, input.ledgerParams);
 
     const desc = String(input.movable.movableDescription || '').trim();
-    const payments = [...(store.payments || [])];
-    const idx = payments.findIndex((p) => String(p.id || '') === paymentId);
-    let created = false;
-    let updated = false;
-
-    if (idx >= 0) {
-        const cur = payments[idx];
-        const curAmt = Math.trunc(Number(cur.amount) || 0);
-        if (curAmt !== amount) {
-            payments[idx] = {
-                ...cur,
-                amount,
-                at: String(cur.at || at),
-            };
-            updated = true;
-        }
-    } else {
-        payments.unshift(
+    const upsert = upsertTrustCollectPayment({
+        store,
+        paymentId,
+        amount,
+        at,
+        totalOwed,
+        findExistingIndex: (payments) => payments.findIndex((p) => String(p.id || '') === paymentId),
+        buildNewRow: () =>
             buildProceedsPaymentRow({
                 paymentId,
                 amount,
                 at,
                 movableId,
                 description: desc ? `حصيلة بيع: ${desc}` : undefined,
-            }) as (typeof payments)[number]
-        );
-        created = true;
-    }
+            }),
+    });
 
-    if (!created && !updated) {
+    if (upsert.unchanged) {
         return { ok: true, amount, created: false, updated: false, paymentId };
     }
 
-    let nextStore: UnifiedLedgerStore = { ...store, payments };
-    nextStore = recomputeUnifiedLedgerPaymentSnapshots(nextStore, totalOwed);
-    const row = nextStore.payments.find((p) => String(p.id || '') === paymentId);
-    persistReconciledStore(exId, nextStore, row as Record<string, unknown> | undefined);
-
-    return { ok: true, amount, created, updated, paymentId };
+    persistReconciledTrustStore(exId, upsert.store, upsert.paymentRow as Record<string, unknown> | undefined);
+    return { ok: true, amount, created: upsert.created, updated: upsert.updated, paymentId };
 }
 
 /** مزامنة كل المنقولات المباعة — إنشاء أو تصحيح حصيلة البيع */
@@ -211,11 +155,9 @@ export function movableProceedsLedgerGapIqd(
     movable: SeizedMovable
 ): { expected: number; credited: number; gap: number } {
     const expected = resolveMovableSaleProceedsIqd(movable);
-    const exId = String(executionId || '').trim();
-    if (!exId || expected <= 0) return { expected, credited: 0, gap: expected };
-    const store = parseUnifiedLedgerFromStorage(storageCache.get(storageKey(exId))) ?? emptyStore();
-    const pid = movableProceedsTrustPaymentId(String(movable.id || ''));
-    const row = (store.payments || []).find((p) => String(p.id || '') === pid);
-    const credited = row ? Math.trunc(Number(row.amount) || 0) : 0;
-    return { expected, credited, gap: Math.max(0, expected - credited) };
+    return seizureProceedsLedgerGapIqd(
+        executionId,
+        expected,
+        movableProceedsTrustPaymentId(String(movable.id || ''))
+    );
 }

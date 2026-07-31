@@ -1,102 +1,65 @@
-// @ts-nocheck
-
 import React, { Suspense } from 'react';
+import type { DossierMetaEditSectionProps } from './DossierMetaEditSection';
+import type { PartyEditModalProps } from './PartyEditModal';
+import type { TimelineEvent } from '@/app/types/execution';
+import type { ExecutionTrashModalProps } from './ExecutionTrashModal';
+import type { ExecutionHeirsQuickViewModalProps } from './ExecutionHeirsQuickViewModal';
 
 import {
-
     EXEC_OVERLAY_LAZY_FALLBACK,
-
     LazyDossierMetaEditSection,
-
     LazyExecutionHeirsQuickViewModal,
-
     LazyExecutionTrashModal,
-
     LazyPartyEditModal,
-
     LazyPermanentDeleteConfirmDialog,
-
     LazyTimelineEditModal,
-
 } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
 
 export type ExecutionDashboardEditOverlaysProps = {
-
     showExecutionTrashModal: boolean;
-
-    trashedTimelineEvents: unknown[];
-
-    trashedCaseNotes: unknown[];
-
-    trashedCaseTasks: unknown[];
-
+    trashedTimelineEvents: ExecutionTrashModalProps['trashedTimelineEvents'];
+    trashedCaseNotes: ExecutionTrashModalProps['trashedCaseNotes'];
+    trashedCaseTasks: ExecutionTrashModalProps['trashedCaseTasks'];
     setShowExecutionTrashModal: (open: boolean) => void;
-
     restoreTimelineEventFromTrash: (id: string) => void;
-
     setPermanentDeleteTimelineId: (id: string | null) => void;
-
     restoreCaseNoteFromTrash: (id: string) => void;
-
     permanentlyDeleteCaseNote: (id: string) => void;
-
     restoreCaseTaskFromTrash: (id: string) => void;
-
     permanentlyDeleteCaseTask: (id: string) => void;
-
-    timelineEditDraft: unknown | null;
-
+    timelineEditDraft: TimelineEvent | null;
     setTimelineEditDraft: (draft: unknown | null) => void;
-
     saveTimelineEditDraft: () => void;
-
-    moveTimelineEventToTrash: (event: unknown) => void;
-
+    moveTimelineEventToTrash: (event: TimelineEvent) => void;
     showEditDossierMetaModal: boolean;
-
-    dossierMetaDraft: unknown;
-
+    dossierMetaDraft: DossierMetaEditSectionProps['dossierMetaDraft'];
     isEvictionExecutionModule: boolean;
-
+    dossierMetaEditIsEvictionExecutionModule?: boolean;
     setShowEditDossierMetaModal: (open: boolean) => void;
-
-    setDossierMetaDraft: (draft: unknown) => void;
-
+    setDossierMetaDraft: DossierMetaEditSectionProps['setDossierMetaDraft'];
     saveDossierMetaDraft: () => void;
-
-    editPartyTarget: unknown | null;
-
-    setEditPartyTarget: (target: unknown | null) => void;
-
-    partyEditDraft: unknown;
-
-    setPartyEditDraft: (draft: unknown) => void;
-
+    editPartyTarget: PartyEditModalProps['editPartyTarget'] | null;
+    setEditPartyTarget: PartyEditModalProps['setEditPartyTarget'];
+    partyEditDraft: PartyEditModalProps['partyEditDraft'] | null;
+    setPartyEditDraft: PartyEditModalProps['setPartyEditDraft'];
     partyEditHeirDeleteConfirmIdx: number | null;
-
     setPartyEditHeirDeleteConfirmIdx: (idx: number | null) => void;
-
     savePartyEditDraft: () => void;
-
     togglePartyEditHeirClient: (idx: number) => void;
-
     removeHeirFromPartyEditDraftAtIndex: (idx: number) => void;
-
     decisionsStorageExecutionId: string | null;
-
-    heirsQuickView: unknown | null;
-
-    setHeirsQuickView: (view: unknown | null) => void;
-
+    heirsQuickView: ExecutionHeirsQuickViewModalProps['heirsQuickView'];
+    setHeirsQuickView: (view: ExecutionHeirsQuickViewModalProps['heirsQuickView']) => void;
     X: React.ComponentType<{ className?: string }>;
-
     permanentDeleteTimelineId: string | null;
-
     permanentlyDeleteTimelineEvent: (id: string) => void;
-
+    onCloseExecutionTrashModal?: () => void;
+    onCloseTimelineEditModal?: () => void;
+    onCloseEditDossierMetaModal?: () => void;
+    onCloseEditPartyModal?: () => void;
+    onCloseHeirsQuickViewModal?: () => void;
+    onClosePermanentDeleteTimelineConfirm?: () => void;
 };
-
-
 
 /** نوافذ تحرير/سلة المهملات — lazy + prefetch عند أول hover على سلة المهملات */
 
@@ -140,6 +103,8 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
         isEvictionExecutionModule,
 
+        dossierMetaEditIsEvictionExecutionModule,
+
         setShowEditDossierMetaModal,
 
         setDossierMetaDraft,
@@ -176,6 +141,18 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
         permanentlyDeleteTimelineEvent,
 
+        onCloseExecutionTrashModal,
+
+        onCloseTimelineEditModal,
+
+        onCloseEditDossierMetaModal,
+
+        onCloseEditPartyModal,
+
+        onCloseHeirsQuickViewModal,
+
+        onClosePermanentDeleteTimelineConfirm,
+
     } = props;
 
     const showTimelineEditModal = Boolean(timelineEditDraft);
@@ -210,7 +187,13 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
                     trashedCaseTasks={trashedCaseTasks}
 
-                    onClose={() => setShowExecutionTrashModal(false)}
+                    onClose={() => {
+                        if (typeof onCloseExecutionTrashModal === 'function') {
+                            onCloseExecutionTrashModal();
+                            return;
+                        }
+                        setShowExecutionTrashModal(false);
+                    }}
 
                     onRestoreTimelineEvent={restoreTimelineEventFromTrash}
 
@@ -233,21 +216,21 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
 
                 <LazyTimelineEditModal
-
                     visible={!!timelineEditDraft}
-
                     timelineEvent={timelineEditDraft}
-
-                    onClose={() => setTimelineEditDraft(null)}
+                    onClose={() => {
+                        if (typeof onCloseTimelineEditModal === 'function') {
+                            onCloseTimelineEditModal();
+                            return;
+                        }
+                        setTimelineEditDraft(null);
+                    }}
 
                     onSave={saveTimelineEditDraft}
 
                     onDelete={() => {
-
                         if (timelineEditDraft) moveTimelineEventToTrash(timelineEditDraft);
-
                     }}
-
                 />
 
             </Suspense>
@@ -255,34 +238,55 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
             {showEditDossierMetaModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-
                 <LazyDossierMetaEditSection
 
                     showEditDossierMetaModal={showEditDossierMetaModal}
 
                     dossierMetaDraft={dossierMetaDraft}
 
-                    isEvictionExecutionModule={isEvictionExecutionModule}
+                    isEvictionExecutionModule={
+                        dossierMetaEditIsEvictionExecutionModule ?? isEvictionExecutionModule
+                    }
 
-                    setShowEditDossierMetaModal={setShowEditDossierMetaModal}
+                    setShowEditDossierMetaModal={(open) => {
+                        if (open) {
+                            setShowEditDossierMetaModal(true);
+                            return;
+                        }
+                        if (typeof onCloseEditDossierMetaModal === 'function') {
+                            onCloseEditDossierMetaModal();
+                            return;
+                        }
+                        setShowEditDossierMetaModal(false);
+                    }}
 
                     setDossierMetaDraft={setDossierMetaDraft}
 
                     saveDossierMetaDraft={saveDossierMetaDraft}
 
                 />
-
             </Suspense>
             ) : null}
 
             {showPartyEditModal ? (
             <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-
                 <LazyPartyEditModal
 
                     editPartyTarget={editPartyTarget}
 
-                    setEditPartyTarget={setEditPartyTarget}
+                    setEditPartyTarget={(target) => {
+                        if (target != null) {
+                            setEditPartyTarget(target);
+                            return;
+                        }
+                        if (typeof onCloseEditPartyModal === 'function') {
+                            onCloseEditPartyModal();
+                            setPartyEditDraft(null);
+                            return;
+                        }
+                        setEditPartyTarget(null);
+                        setPartyEditDraft(null);
+                    }}
 
                     partyEditDraft={partyEditDraft}
 
@@ -301,7 +305,6 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
                     decisionsStorageExecutionId={decisionsStorageExecutionId}
 
                 />
-
             </Suspense>
             ) : null}
 
@@ -312,7 +315,17 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
                     heirsQuickView={heirsQuickView}
 
-                    setHeirsQuickView={setHeirsQuickView}
+                    setHeirsQuickView={(view) => {
+                        if (view != null) {
+                            setHeirsQuickView(view);
+                            return;
+                        }
+                        if (typeof onCloseHeirsQuickViewModal === 'function') {
+                            onCloseHeirsQuickViewModal();
+                            return;
+                        }
+                        setHeirsQuickView(null);
+                    }}
 
                     X={X}
 
@@ -328,7 +341,17 @@ export function ExecutionDashboardEditOverlays(props: ExecutionDashboardEditOver
 
                     permanentDeleteTimelineId={permanentDeleteTimelineId}
 
-                    setPermanentDeleteTimelineId={setPermanentDeleteTimelineId}
+                    setPermanentDeleteTimelineId={(id) => {
+                        if (id != null) {
+                            setPermanentDeleteTimelineId(id);
+                            return;
+                        }
+                        if (typeof onClosePermanentDeleteTimelineConfirm === 'function') {
+                            onClosePermanentDeleteTimelineConfirm();
+                            return;
+                        }
+                        setPermanentDeleteTimelineId(null);
+                    }}
 
                     permanentlyDeleteTimelineEvent={permanentlyDeleteTimelineEvent}
 

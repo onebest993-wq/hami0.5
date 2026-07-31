@@ -1,14 +1,12 @@
-import {
-  extractUserTokenFromRequest,
-  getVerifiedTokenSubject,
-  isTokenAuthorized,
-  assertWifeSignatureRequest,
-  wifeForbiddenResponse, wifeSignatureFailedResponse,
-  wifeUnauthorizedResponse,
-} from '../security/wifeValidator.ts';
+import { requireWifeUser, unwrapWifeUser } from '../security/bffAuth.ts';
 import { isKeyOwnedBy, isPrefixOwnedBy } from '@/app/security/kvProxyKeyOwnership.ts';
 import { kvDel, kvDelByPrefix, kvGet, kvGetByPrefix, kvKeysByPrefix, kvSet } from '../security/kvStoreAdmin.ts';
 import { wifeJsonResponse } from '../security/wifeSecurityHeaders.ts';
+import {
+    parseProfileKvOwnerId,
+    redactProfileKvValueForViewer,
+} from '@/app/services/profile/profileKvReadRedact';
+import { resignProfileMediaUrlsForOwner } from './resignProfileMediaForKv.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -16,19 +14,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * WIFE-protected KV BFF — same-origin only.
- * Replaces direct Edge kv-proxy calls; uses service_role server-side after ownership checks.
+ * Replaces direct Edge kv-proxy calls; uses privileged Supabase key server-side after ownership checks.
  */
 export async function POST(request: Request): Promise<Response> {
   try {
-    const userToken = extractUserTokenFromRequest(request);
-    if (!userToken || !(await isTokenAuthorized(userToken))) {
-      return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
-    }
-    const wifeBlock = await assertWifeSignatureRequest(request, userToken);
-    if (wifeBlock) return wifeBlock;
-
-    const userId = await getVerifiedTokenSubject(userToken);
-    if (!userId) return wifeUnauthorizedResponse({ request, reason: 'unauthorized_token' });
+    const authGate = unwrapWifeUser(await requireWifeUser(request));
+    if ('response' in authGate) return authGate.response;
+    const { userId } = authGate;
 
     const payload = (await request.json().catch(() => null)) as unknown;
     if (!isRecord(payload) || typeof payload.action !== 'string') {
@@ -49,8 +41,25 @@ export async function POST(request: Request): Promise<Response> {
       if (typeof payload.key !== 'string' || !isKeyOwnedBy(payload.key, userId, 'read')) {
         return wifeJsonResponse(403, { ok: false, error: 'Forbidden: key not readable by current user' });
       }
-      const value = await kvGet(payload.key);
-      return wifeJsonResponse(200, { ok: true, value });
+      let value = await kvGet(payload.key);
+      const ownerId = parseProfileKvOwnerId(payload.key);
+      if (
+        ownerId &&
+        ownerId !== userId.trim() &&
+        value &&
+        typeof value === 'object' &&
+        'header' in (value as object)
+      ) {
+        try {
+          value = await resignProfileMediaUrlsForOwner(value as never, ownerId);
+        } catch {
+          /* احتفظ بالروابط المخزّنة إن فشل إعادة التوقيع */
+        }
+      }
+      return wifeJsonResponse(200, {
+        ok: true,
+        value: redactProfileKvValueForViewer(payload.key, userId, value),
+      });
     }
 
     if (action === 'getByPrefix') {

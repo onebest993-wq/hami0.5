@@ -5,8 +5,8 @@ import { useIncomingNotificationPopups } from '../useIncomingNotificationPopups'
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 
-vi.mock('@/app/services/settings/settingsRuntime', () => ({
-    areInAppNotificationsEnabled: () => true,
+vi.mock('@/app/services/settings/builtInBehavior', () => ({
+    BUILTIN_NOTIFICATIONS_ENABLED: true,
 }));
 
 function makeNotif(id: string): NotificationModel {

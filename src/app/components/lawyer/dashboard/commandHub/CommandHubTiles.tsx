@@ -1,5 +1,4 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { Scale, ArrowLeft } from 'lucide-react';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
 import type { HomeBlockStyleOverride, HomeHubTileId } from '@/app/services/settings/homeLayout';
 import { HOME_HUB_TILE_LABELS } from '@/app/services/settings/homeBlockLabels';
@@ -13,14 +12,20 @@ import {
 import { hubExecutionTitleRem } from '@/app/services/settings/homeBlockScale';
 import { resolveHubRouteTileVisuals } from '@/app/services/settings/resolveHubRouteTileVisuals';
 import { prefetchHubArchiveIntentDebounced } from '@/app/hooks/lawyerDashboard/hubArchivePrefetchGate';
+import { dispatchTransactionsPrimeHost } from '@/app/runtime/transactionsBootHydrator';
+import { dispatchExecutionArchivePrimeHost } from '@/app/runtime/executionArchivePrimeHost';
 import { HomeBlockPatternOverlay } from '../HomeBlockPatternOverlay';
 import { HomeMoroccanGlassDecor } from '../HomeMoroccanGlassDecor';
+import {
+    HomeArrowLeftIcon,
+    type HomeStemIconProps,
+} from '../homeStemIcons';
 
 type HubCard = {
     id: string;
     tileId: HomeHubTileId;
     label: string;
-    icon: typeof Scale;
+    icon: React.ComponentType<HomeStemIconProps>;
     accent: string;
 };
 
@@ -31,7 +36,15 @@ function bindArchivePrefetch(archiveId: string, interactionDisabled: boolean) {
     if (interactionDisabled) {
         return { onPointerEnter: undefined, onPointerDown: undefined };
     }
-    const run = () => prefetchHubArchiveIntentDebounced(archiveId);
+    const run = () => {
+        prefetchHubArchiveIntentDebounced(archiveId);
+        if (archiveId === 'transaction') {
+            dispatchTransactionsPrimeHost();
+        }
+        if (archiveId === 'execution') {
+            dispatchExecutionArchivePrimeHost();
+        }
+    };
     return { onPointerEnter: run, onPointerDown: run };
 }
 
@@ -55,7 +68,7 @@ const HubIconBadge = memo(function HubIconBadge({
     reduceMotion,
     visuals,
 }: {
-    icon: typeof Scale;
+    icon: React.ComponentType<HomeStemIconProps>;
     reduceMotion: boolean;
     visuals: HubRouteVisuals;
 }) {
@@ -153,6 +166,17 @@ export const RouteTile = memo(function RouteTile({
     const handleOpen = useCallback(() => {
         onOpenArchive(card.id);
     }, [card.id, onOpenArchive]);
+    /** المعاملات: فتح عند pointerdown مثل البحث/الإعدادات — يقلّل انتظار click */
+    const activateOnPointerDown = card.id === 'transaction';
+    const armedRef = useRef(false);
+    const armClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const clearArm = useCallback(() => {
+        armedRef.current = false;
+        if (armClearTimerRef.current) {
+            clearTimeout(armClearTimerRef.current);
+            armClearTimerRef.current = null;
+        }
+    }, []);
 
     return (
         <button
@@ -161,8 +185,32 @@ export const RouteTile = memo(function RouteTile({
             data-hami-block-border={containerBorderOn ? '1' : '0'}
             data-testid={`hub-archive-${card.id}`}
             aria-label={`${card.label} — فتح الأرشيف`}
-            {...prefetchHandlers}
-            onClick={interactionDisabled ? undefined : handleOpen}
+            onPointerEnter={prefetchHandlers.onPointerEnter}
+            onPointerDown={
+                interactionDisabled
+                    ? undefined
+                    : (event) => {
+                          if (event.button != null && event.button !== 0) return;
+                          prefetchHandlers.onPointerDown?.();
+                          if (!activateOnPointerDown) return;
+                          armedRef.current = true;
+                          handleOpen();
+                          if (armClearTimerRef.current) clearTimeout(armClearTimerRef.current);
+                          armClearTimerRef.current = setTimeout(clearArm, 400);
+                      }
+            }
+            onPointerCancel={activateOnPointerDown ? clearArm : undefined}
+            onClick={
+                interactionDisabled
+                    ? undefined
+                    : () => {
+                          if (activateOnPointerDown && armedRef.current) {
+                              clearArm();
+                              return;
+                          }
+                          handleOpen();
+                      }
+            }
             disabled={interactionDisabled}
             tabIndex={interactionDisabled ? -1 : 0}
             data-hami-layout-span={layoutSpan}
@@ -312,7 +360,7 @@ export const ExecutionHero = memo(function ExecutionHero({
                             boxShadow: `0 12px 40px ${resolvedAccent}18`,
                         }}
                     >
-                        <ArrowLeft
+                        <HomeArrowLeftIcon
                             className="text-[#FFF8E7]/90 transition-transform duration-300 group-hover:-translate-x-1"
                             strokeWidth={1.75}
                             style={{
@@ -333,7 +381,7 @@ export const ExecutionHero = memo(function ExecutionHero({
                         }}
                         aria-hidden
                     >
-                        <ArrowLeft strokeWidth={1.75} className="w-4 h-4" />
+                        <HomeArrowLeftIcon strokeWidth={1.75} className="w-4 h-4" />
                     </div>
                 )}
             </div>

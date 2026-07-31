@@ -1,6 +1,8 @@
 import { sanitizePayload } from '../../security/sanitizer.ts';
 import { ForumRepository } from '../../../services/forum/forumRepository.ts';
+import { checkForumActionRateLimit } from '../../../services/forum/forumRateLimitServer.ts';
 import { redactAnonymousAuthor } from '../../../services/forum/forumMapper.ts';
+import { assertForumPostGroupAccess } from '../../../services/forum/forumGroupMutationGate.ts';
 import { requireForumAuthAndUnbanned, jsonResponse } from '../_auth.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -12,6 +14,10 @@ export async function POST(request: Request): Promise<Response> {
         const auth = await requireForumAuthAndUnbanned(request);
         if ('response' in auth) {
             return auth.response;
+        }
+
+        if (!(await checkForumActionRateLimit(auth.userId, 'update'))) {
+            return jsonResponse(429, { ok: false, error: 'تجاوزت حد التعديل، انتظر قليلاً' });
         }
 
         let payload: unknown = null;
@@ -30,6 +36,7 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(400, { ok: false, error: 'postId و content مطلوبان' });
         }
 
+        const postId = payload.postId.trim();
         const content = payload.content.trim();
         if (content.length < 5) {
             return jsonResponse(400, { ok: false, error: 'المحتوى قصير جداً' });
@@ -38,8 +45,14 @@ export async function POST(request: Request): Promise<Response> {
             return jsonResponse(413, { ok: false, error: 'المحتوى طويل جداً (الحد 10000 حرف)' });
         }
 
+        const existing = await ForumRepository.getPostById(postId);
+        if (!existing) {
+            return jsonResponse(404, { ok: false, error: 'المنشور غير موجود' });
+        }
+        await assertForumPostGroupAccess(existing, auth.userId, auth.isAdmin);
+
         const updated = await ForumRepository.updatePostContent(
-            payload.postId,
+            postId,
             content,
             auth.userId,
             auth.isAdmin,
@@ -53,7 +66,7 @@ export async function POST(request: Request): Promise<Response> {
     } catch (err) {
         const message = err instanceof Error ? err.message : 'Internal server error';
         const status = (() => {
-            if (message.includes('صلاحية')) return 403;
+            if (message.includes('صلاحية') || message.includes('الانضمام للمجموعة')) return 403;
             if (message.includes('قصير') || message.includes('طويل')) return 400;
             if (message.includes('غير موجود')) return 404;
             return 500;

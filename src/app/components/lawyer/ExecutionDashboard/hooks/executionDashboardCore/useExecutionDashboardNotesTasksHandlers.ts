@@ -1,9 +1,17 @@
 // @ts-nocheck
 /** Phase C — ملاحظات الإضبارة + مهام المتابعة + أحداث الجدول الزمني */
-import { useCallback, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+    useCallback,
+    useMemo,
+    useRef,
+    type Dispatch,
+    type MutableRefObject,
+    type SetStateAction,
+} from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { useStandardSubmit } from '@/app/hooks/useStandardSubmit';
 import { syncExecutionTaskDue } from '@/app/services/calendarDossierSync';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
 export type UseExecutionDashboardNotesTasksHandlersParams = {
     noteTitle: string;
@@ -41,8 +49,8 @@ export type UseExecutionDashboardNotesTasksHandlersParams = {
     >;
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setShowNotesModal: (show: boolean) => void;
-    openFollowupModalPersisted: () => void;
-    closeUnifiedSeizureLog: () => void;
+    openFollowupModalPersisted?: () => void;
+    closeUnifiedSeizureLog?: () => void;
 };
 
 export function useExecutionDashboardNotesTasksHandlers({
@@ -463,20 +471,44 @@ export function useExecutionDashboardNotesTasksHandlers({
     );
 
     const handleMemoFollowupClick = useCallback(() => {
-        closeUnifiedSeizureLog();
-        openFollowupModalPersisted();
-    }, [openFollowupModalPersisted, closeUnifiedSeizureLog]);
+        if (typeof closeUnifiedSeizureLog === 'function') {
+            closeUnifiedSeizureLog();
+        }
+        if (typeof openFollowupModalPersisted === 'function') {
+            openFollowupModalPersisted();
+            return;
+        }
+        try {
+            useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
+        } catch {
+            showToast('تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+        }
+    }, [openFollowupModalPersisted, closeUnifiedSeizureLog, showToast]);
 
-    return {
-        handleSaveNote,
-        commitDossierNote,
-        completePendingTask,
-        beginEditPendingTask,
-        handleSaveTask,
-        handleUpdateTask,
-        handleDeleteTask,
-        handleAddTimelineEvent,
-        handleCompleteTask,
-        handleMemoFollowupClick,
-    };
+    return useMemo(
+        () => ({
+            handleSaveNote,
+            commitDossierNote,
+            completePendingTask,
+            beginEditPendingTask,
+            handleSaveTask,
+            handleUpdateTask,
+            handleDeleteTask,
+            handleAddTimelineEvent,
+            handleCompleteTask,
+            handleMemoFollowupClick,
+        }),
+        [
+            handleSaveNote,
+            commitDossierNote,
+            completePendingTask,
+            beginEditPendingTask,
+            handleSaveTask,
+            handleUpdateTask,
+            handleDeleteTask,
+            handleAddTimelineEvent,
+            handleCompleteTask,
+            handleMemoFollowupClick,
+        ],
+    );
 }

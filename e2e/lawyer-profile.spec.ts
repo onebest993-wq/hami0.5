@@ -38,14 +38,13 @@ test.describe('الملف المهني', () => {
         await expect(profile.getByTestId('lawyer-profile-edit')).toBeVisible();
     });
 
-    test('استوديو الصفحة يفتح ويعرض التبويبات الثلاثة', async ({ page }) => {
+    test('استوديو الصفحة يفتح ويعرض تبويبي المظهر والمحتويات', async ({ page }) => {
         await bootLawyerDashboardForProfile(page);
         const sheet = await openProfileStudio(page);
 
-        await expect(sheet.getByTestId('profile-settings-privacy-tab')).toBeVisible({ timeout: 12_000 });
-
         await sheet.getByTestId('profile-settings-tab-appearance').click({ force: true });
         await expect(sheet.getByTestId('profile-settings-appearance-tab')).toBeVisible({ timeout: 10_000 });
+        await expect(sheet.getByTestId('profile-settings-privacy-section')).toHaveCount(0);
 
         await sheet.getByTestId('profile-settings-tab-containers').click({ force: true });
         await expect(sheet.getByTestId('profile-settings-containers-tab')).toBeVisible({ timeout: 10_000 });

@@ -93,6 +93,7 @@ function basePortal(overrides: Partial<SmartFileModalsPortalProps> = {}): SmartF
         currentStage: { stageName: 'البداءة' } as SmartFileModalsPortalProps['currentStage'],
         stages: [],
         activeStageIndex: 0,
+        viewingStageIndex: 0,
         parentData: { id: 1 } as SmartFileModalsPortalProps['parentData'],
         consolidationCurrentFileId: 1,
         consolidationCurrentCaseNo: '1/2026',

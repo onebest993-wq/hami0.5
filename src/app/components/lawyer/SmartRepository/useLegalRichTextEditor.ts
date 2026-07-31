@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useImperativeHandle, useRef, useState, type Ref } from 'react';
 import { DEFAULT_TEXT_COLOR, FONT_SIZES } from './legalRichTextEditorConstants';
-import { insertFormatResetSpan, sanitizeRichNoteHtml } from './legalRichTextEditorUtils';
+import {
+    applyForeColorToSelection,
+    insertFormatResetSpan,
+    sanitizeRichNoteHtml,
+} from './legalRichTextEditorUtils';
 import {
     applyLegalHighlight,
     getHighlightAtSelection,
@@ -38,7 +42,8 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
         const safe = sanitizeRichNoteHtml(value || '');
         const currentSafe = sanitizeRichNoteHtml(el.innerHTML);
         if (currentSafe !== safe) {
-            el.innerHTML = safe || '';
+            const doc = new DOMParser().parseFromString(`<body>${safe || ''}</body>`, 'text/html');
+            el.replaceChildren(...Array.from(doc.body.childNodes));
         }
     }, [value]);
 
@@ -98,21 +103,61 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
 
     const toggleForeColor = useCallback(
         (color: string) => {
+            const editor = editorRef.current;
+            if (!editor) return;
+
+            // احفظ التحديد قبل التركيز — نقر شريط الأدوات قد يُسقطه في بعض المتصفحات
+            const selBefore = window.getSelection();
+            const savedRange =
+                selBefore &&
+                selBefore.rangeCount > 0 &&
+                nodeInEditor(selBefore.anchorNode, editor)
+                    ? selBefore.getRangeAt(0).cloneRange()
+                    : null;
+
             focusEditor();
+            highlightModeColorRef.current = null;
             setActiveHighlightColor(null);
 
+            if (savedRange) {
+                const sel = window.getSelection();
+                if (sel) {
+                    sel.removeAllRanges();
+                    sel.addRange(savedRange);
+                }
+            }
+
+            const sel = window.getSelection();
+            const hasSelection = Boolean(
+                sel &&
+                    sel.rangeCount > 0 &&
+                    nodeInEditor(sel.anchorNode, editor) &&
+                    !sel.getRangeAt(0).collapsed,
+            );
+
             if (activeForeColor === color) {
-                document.execCommand('styleWithCSS', false, 'true');
-                document.execCommand('foreColor', false, DEFAULT_TEXT_COLOR);
-                if (editorRef.current) insertFormatResetSpan(editorRef.current, DEFAULT_TEXT_COLOR);
+                if (hasSelection) {
+                    applyForeColorToSelection(DEFAULT_TEXT_COLOR);
+                } else {
+                    document.execCommand('styleWithCSS', false, 'true');
+                    document.execCommand('foreColor', false, DEFAULT_TEXT_COLOR);
+                    insertFormatResetSpan(editor, DEFAULT_TEXT_COLOR);
+                }
                 setActiveForeColor(null);
                 emitChange();
                 requestAnimationFrame(() => focusEditor());
                 return;
             }
 
-            document.execCommand('styleWithCSS', false, 'true');
-            document.execCommand('foreColor', false, color);
+            if (hasSelection) {
+                applyForeColorToSelection(color);
+            } else {
+                document.execCommand(
+                    'insertHTML',
+                    false,
+                    `<span style="color:${color}">&#8203;</span>`,
+                );
+            }
             setActiveForeColor(color);
             emitChange();
             requestAnimationFrame(() => focusEditor());

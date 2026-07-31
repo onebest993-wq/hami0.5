@@ -3,8 +3,11 @@ export type ObserveGlobalSearchOverlayInteractiveInput = {
     isDone: () => boolean;
 };
 
-const OVERLAY_SELECTOR = '[data-testid="global-search-overlay"]';
-const INPUT_SELECTOR = '[data-testid="global-search-input"]';
+/** طبقة مفتوحة فقط — لا تُحسب keepWarm المخفية تفاعلاً */
+export const GLOBAL_SEARCH_OPEN_OVERLAY_SELECTOR =
+    '[data-search-open="true"] [data-testid="global-search-overlay"], [data-testid="global-search-overlay"][data-search-open="true"], [data-search-instant-shell="true"]';
+export const GLOBAL_SEARCH_OPEN_INPUT_SELECTOR =
+    '[data-search-open="true"] [data-testid="global-search-input"], [data-search-instant-shell="true"] [data-testid="global-search-input"]';
 const SHELL_ROOT = '[data-hami-global-search-shell]';
 
 /** مراقبة محدودة لطبقة البحث — بلا document.body (أداء موبايل). */
@@ -15,9 +18,9 @@ export function observeGlobalSearchOverlayInteractive({
     let rafId = 0;
 
     const tryMark = () => {
-        if (isDone() || (typeof document !== 'undefined' && document.hidden)) return;
-        const overlay = document.querySelector(OVERLAY_SELECTOR);
-        const input = document.querySelector(INPUT_SELECTOR);
+        if (isDone()) return;
+        const overlay = document.querySelector(GLOBAL_SEARCH_OPEN_OVERLAY_SELECTOR);
+        const input = document.querySelector(GLOBAL_SEARCH_OPEN_INPUT_SELECTOR);
         if (!overlay || !input) return;
         onInteractive();
     };
@@ -40,7 +43,7 @@ export function observeGlobalSearchOverlayInteractive({
     obs?.observe(anchor, { childList: true, subtree: true });
 
     const onVisibility = () => {
-        if (!document.hidden) scheduleTry();
+        if (document.visibilityState !== 'hidden') scheduleTry();
     };
     document.addEventListener('visibilitychange', onVisibility);
 

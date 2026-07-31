@@ -35,6 +35,9 @@ import {
 } from '../communitySectionState';
 
 export type CommunityScreenControllerProps = {
+    /** passed from shell for mount/visibility coordination */
+    isOpen?: boolean;
+    keepAlive?: boolean;
     onBack?: () => void;
     initialPostId?: string | null;
     initialOpenComments?: boolean;
@@ -46,6 +49,7 @@ export type CommunityScreenControllerProps = {
 };
 
 export function useCommunityScreenController({
+    isOpen = true,
     onBack,
     initialPostId = null,
     initialOpenComments = false,
@@ -53,10 +57,14 @@ export function useCommunityScreenController({
     fallbackUserId = null,
     onOpenOwnProfile,
 }: CommunityScreenControllerProps) {
+    const forumSurfaceOpen = isOpen !== false;
     const { authUser, authIsLoading, persistedUser, canAccessLawyerForum, currentUserId, showLoadingShell, isAdmin } =
         useCommunityForumAccess({ lawyerShellAccess, fallbackUserId });
-    useBodyScrollLock(Boolean(onBack));
-    const forumStreamConnected = useForumNotificationStream(currentUserId, Boolean(currentUserId));
+    useBodyScrollLock(Boolean(onBack) && forumSurfaceOpen);
+    const forumStreamConnected = useForumNotificationStream(
+        currentUserId,
+        forumSurfaceOpen && Boolean(currentUserId),
+    );
     useEffect(() => {
         warmForumSocialForUser(currentUserId);
     }, [currentUserId]);
@@ -165,6 +173,7 @@ export function useCommunityScreenController({
         selectedFilterIndex,
         authIsLoading,
         activeSection,
+        surfaceOpen: forumSurfaceOpen,
         initialPostId,
         initialOpenComments,
         onOpenComments: setCommentingPostId,
@@ -370,7 +379,8 @@ export function useCommunityScreenController({
         setCommentingPostId(id);
     }, []);
 
-    useForumEscapeStack({
+    const { popForumLayer } = useForumEscapeStack({
+        enabled: forumSurfaceOpen,
         fullscreenImage,
         profileView: profileView !== null,
         pendingDeletePostId,
@@ -405,13 +415,43 @@ export function useCommunityScreenController({
         onLeaveGroupFeed: () => setActiveGroupId(null),
     });
 
-    useForumLifecycle(currentUserId, loadingPosts, visiblePosts.length);
+    useForumLifecycle(currentUserId, loadingPosts, visiblePosts.length, forumSurfaceOpen);
+
+    /** keepAlive مغلق: أسقط طبقات portal على document.body حتى لا تبقى فوق الـ dock */
+    useEffect(() => {
+        if (forumSurfaceOpen) return;
+        setFullscreenImage(null);
+        setProfileView(null);
+        if (!deletingPost) cancelDeletePostRequest();
+        if (!savingEdit) {
+            setEditingPostId(null);
+            setEditingText('');
+        }
+        if (!submittingGroup) setIsCreateGroupOpen(false);
+        setCommentingPostId(null);
+        closeAddQuestion({ soft: true });
+        closeSearchOverlay();
+        /* بلا flushSync — الاستدعاء من useEffect يُطلق تحذير React */
+        setShowFollowingPanel(false);
+        closeAppBarDropdownsRef.current?.();
+        setForumAppBarDropdownOpen(false);
+    }, [
+        forumSurfaceOpen,
+        deletingPost,
+        cancelDeletePostRequest,
+        savingEdit,
+        submittingGroup,
+        setIsCreateGroupOpen,
+        closeAddQuestion,
+        closeSearchOverlay,
+    ]);
 
     const gateBlocked = showLoadingShell || !canAccessLawyerForum;
 
     const propBuilderCtx = useMemo(
         () => ({
-            onBack,
+            onBack: popForumLayer,
+            forumSurfaceOpen,
             activeSection,
             setActiveSection,
             setIsSearchOpen,
@@ -556,7 +596,8 @@ export function useCommunityScreenController({
             followBusyUserId,
         }),
         [
-            onBack,
+            popForumLayer,
+            forumSurfaceOpen,
             activeSection,
             setActiveSection,
             handleNavigateToPost,

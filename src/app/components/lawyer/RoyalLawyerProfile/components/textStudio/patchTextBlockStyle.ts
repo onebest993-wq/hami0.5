@@ -22,7 +22,7 @@ export const TEXT_STYLE_PRESETS: { id: string; label: string; style: ProfileBloc
         label: 'عريض',
         style: {
             fontFamily: 'cairo',
-            fontSize: 'xl',
+            fontSize: '2xl',
             fontWeight: 'bold',
             align: 'center',
             color: '#ffffff',
@@ -60,36 +60,49 @@ export function patchStyleForScope(
         ...block.bodyStyle,
     };
 
-    if (scope === 'all') {
-        onChange({ bodyStyle: mergeBlockTextStyles(base, stylePatch) });
+    /** بدون تحديد مقطع → طبّق على كامل النص */
+    const effectiveScope: TextStyleScope =
+        scope === 'phrase' && !phraseRange ? 'all' : scope;
+
+    if (effectiveScope === 'all') {
+        onChange({
+            bodyStyle: mergeBlockTextStyles(base, stylePatch),
+            lineStyles: [],
+            textSpans: [],
+        });
         return;
     }
 
-    if (scope === 'line') {
+    if (effectiveScope === 'line') {
         const lineStyles = [...(block.lineStyles ?? [])];
         while (lineStyles.length <= lineIndex) lineStyles.push({});
-        lineStyles[lineIndex] = mergeBlockTextStyles(base, mergeBlockTextStyles(lineStyles[lineIndex], stylePatch));
-        onChange({ lineStyles });
+        /* خزّن فرق السطر فقط — لا تكرار body كامل */
+        lineStyles[lineIndex] = mergeBlockTextStyles(lineStyles[lineIndex], stylePatch);
+        onChange({
+            lineStyles,
+            /* امسح مقاطع نفس السطر حتى لا تغطي تنسيق السطر */
+            textSpans: (block.textSpans ?? []).filter((s) => s.lineIndex !== lineIndex),
+        });
         return;
     }
 
     if (!phraseRange) return;
-    const spans = [...(block.textSpans ?? [])];
-    const existing = spans.findIndex(
-        (s) => s.lineIndex === lineIndex && s.start === phraseRange.start && s.end === phraseRange.end,
+    const spans = [...(block.textSpans ?? [])].filter(
+        (s) =>
+            !(
+                s.lineIndex === lineIndex &&
+                s.start < phraseRange.end &&
+                s.end > phraseRange.start
+            ),
     );
     const entry: ProfileTextSpanStyle = {
-        id: existing >= 0 ? spans[existing].id : `span-${Date.now()}`,
+        id: `span-${Date.now()}`,
         lineIndex,
         start: phraseRange.start,
         end: phraseRange.end,
-        style: mergeBlockTextStyles(
-            base,
-            mergeBlockTextStyles(existing >= 0 ? spans[existing].style : {}, stylePatch),
-        ),
+        style: mergeBlockTextStyles(base, stylePatch),
     };
-    if (existing >= 0) spans[existing] = entry;
-    else spans.push(entry);
+    spans.push(entry);
     onChange({ textSpans: spans });
 }
 

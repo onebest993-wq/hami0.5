@@ -18,12 +18,11 @@ import {
     resetExecutionDashboardModuleCache,
 } from '@/app/runtime/executionDashboardLoader';
 import {
-    loadGlobalSearchOverlayModule,
     prefetchGlobalSearchOverlay as prefetchGlobalSearchOverlayModule,
 } from '@/app/runtime/globalSearchLoader';
 import { prefetchCommunityScreenModule } from '@/app/runtime/communityHubLoader';
 import { loadTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
-import { loadHamiSettingsModule, prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
+import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 import { loadNotificationPanelModule, prefetchNotificationPanel as prefetchNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import {
     loadProfileSettingsSheetModule as loadProfileSettingsSheetLoaderModule,
@@ -44,12 +43,15 @@ import {
     resetSmartFileModalModuleCache,
 } from '@/app/runtime/smartFileModalLoader';
 import { prefetchSmartFileModalShellWidgets } from '@/app/components/lawyer/smart-modal/lazySmartFileModalWidgets';
-import { ForumApiService } from '@/app/services/forumApiService';
 import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
 import { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
-import { prefetchSmartVaultDocs } from '@/app/services/vault/vaultDocsWarmCache';
+import {
+    prefetchArchivePortal,
+    resetArchivePortalPrefetch,
+} from '@/app/runtime/archivePortalPrefetch';
 export { LazyLawyerNewCase, prefetchLawyerNewCase } from '@/app/utils/lazy/lawyerNewCaseModal';
 export { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
+export { prefetchArchivePortal, resetArchivePortalPrefetch } from '@/app/runtime/archivePortalPrefetch';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HEAVY MODALS (Lazy Loaded)
@@ -77,26 +79,6 @@ export const LazyArchivePortal = lazyWithRetry(() =>
     }))
 );
 
-let archivePortalPrefetch: Promise<unknown> | null = null;
-
-export function resetArchivePortalPrefetch(): void {
-    archivePortalPrefetch = null;
-}
-
-/** تحميل مسبق أرشيف الإضابير — يمر عبر hubArchiveLoader لذاكرة موحّدة */
-export function prefetchArchivePortal(): void {
-    if (typeof window === 'undefined') return;
-    if (!archivePortalPrefetch) {
-        archivePortalPrefetch = import('@/app/runtime/hubArchiveLoader')
-            .then((m) => m.loadArchivePortalModule())
-            .catch((err) => {
-                archivePortalPrefetch = null;
-                throw err;
-            });
-    }
-    void archivePortalPrefetch.catch(() => undefined);
-}
-
 export const LazyLawsuitsWorkspace = lazyWithRetry(() =>
     import('@/app/components/lawyer/LawsuitsWorkspace').then((m) => ({ default: m.LawsuitsWorkspace as unknown as LazyComponent }))
 );
@@ -105,17 +87,20 @@ export function resetLawsuitsWorkspacePrefetch(): void {
     /* prefetch يُدار عبر warmLawsuitWorkspace */
 }
 
-/** أرشيف الدعاوى + الإضبارة — يُستدعى قبل/عند فتح قسم الدعاوى */
-export function warmLawsuitWorkspace(): void {
+/** أرشيف الدعاوى — يفوض إلى lawsuitWorkspaceWarm (بلا SmartFile عاجل على أول فتح) */
+export function warmLawsuitWorkspace(options?: {
+    includeSecondary?: boolean;
+    secondaryDelayMs?: number;
+}): void {
     if (typeof window === 'undefined') return;
-    prefetchArchivePortal();
-    prefetchUrgentOrdersView();
-    prefetchLawyerNewCaseModule();
-    void import('@/app/components/lawyer/dashboard/LawsuitsWorkspaceHost').catch(() => undefined);
-    void import('@/app/components/lawyer/SmartFileModal');
-    prefetchSmartFileModalShellWidgets();
-    void loadSmartFileModalModule().catch(() => undefined);
-    prefetchSmartFileModalPhased();
+    void import('@/app/runtime/lawsuitWorkspaceWarm')
+        .then((m) =>
+            m.warmLawsuitWorkspace({
+                includeSecondary: options?.includeSecondary ?? false,
+                secondaryDelayMs: options?.secondaryDelayMs ?? 2_000,
+            }),
+        )
+        .catch(() => undefined);
 }
 
 /** تحميل مسبق مسار الدعاوى — workspace + أرشيف + إضبارة الدعوى */
@@ -200,7 +185,9 @@ export function warmSettingsShell(): void {
 export function warmVaultWorkspace(userId?: string | null): void {
     if (typeof window === 'undefined') return;
     prefetchSmartRepositoryModal();
-    prefetchSmartVaultDocs(userId);
+    void import('@/app/services/vault/vaultDocsWarmCache')
+        .then((m) => m.prefetchSmartVaultDocs(userId))
+        .catch(() => undefined);
 }
 
 /** الإعدادات + المستودع — للمسارات التي تحتاج الاثنين صراحةً */
@@ -291,16 +278,22 @@ export function warmExecutionDossier(mode: ExecutionDashboardPrefetchMode = 'int
     prefetchExecutionDashboard(mode);
 }
 
-/** قسم التنفيذ/الأرشيف — يحمّل المضيفات المؤجلة بدون دفع Chunk الإضبارة بشكل عاجل */
-export function warmExecutionWorkspace(): void {
+/** قسم التنفيذ/الأرشيف — يفوض إلى executionWorkspaceWarm */
+export function warmExecutionWorkspace(options?: {
+    includeSecondary?: boolean;
+    secondaryDelayMs?: number;
+    userId?: string | null;
+}): void {
     if (typeof window === 'undefined') return;
-    prefetchArchivePortal();
-    prefetchExecutionDashboard('deferred');
-    prefetchExecutionCreationView();
-    void import('@/app/runtime/hubArchiveLoader')
-        .then((m) => m.prefetchExecutionArchiveHubModule())
+    void import('@/app/runtime/executionWorkspaceWarm')
+        .then((m) =>
+            m.warmExecutionWorkspace({
+                includeSecondary: options?.includeSecondary ?? false,
+                secondaryDelayMs: options?.secondaryDelayMs ?? 1_200,
+                userId: options?.userId,
+            }),
+        )
         .catch(() => undefined);
-    void import('@/app/components/lawyer/dashboard/ExecutionArchiveOverlayHost').catch(() => undefined);
 }
 
 /** تحميل مسبق كل أنواع الإضابير (مدني + جزائي + تنفيذ) */
@@ -330,11 +323,6 @@ export const LazyCriminalDashboard = lazyWithRetry(() =>
         })),
     ),
 );
-export const LazyHamiSettings = lazyWithRetry(() =>
-    loadHamiSettingsModule().then((mod) => ({
-        default: mod.HamiSettings as unknown as LazyComponent,
-    })),
-);
 export function prefetchHamiSettings(): void {
     if (typeof window === 'undefined') return;
     prefetchHamiSettingsModule();
@@ -362,11 +350,6 @@ export function prefetchExecutionCreationView(): void {
     if (typeof window === 'undefined') return;
     void import('@/app/components/lawyer/ExecutionCreationView.tsx');
 }
-export const LazyGlobalSearchOverlay = lazyWithRetry(() =>
-    loadGlobalSearchOverlayModule().then((mod) => ({
-        default: mod.GlobalSearchOverlay as unknown as LazyComponent,
-    })),
-);
 export function prefetchGlobalSearchOverlay(): void {
     if (typeof window === 'undefined') return;
     prefetchGlobalSearchOverlayModule();
@@ -377,24 +360,6 @@ export function warmTasksWorkspace(): void {
     void import('@/app/components/lawyer/dashboard/FieldTasksBottomSheet');
     void import('@/app/components/lawyer/dashboard/TasksManagerOverlay');
     void import('@/app/components/lawyer/dashboard/TasksManager');
-}
-
-/** overlays الإنتاجية — مهام، معاملات، إشعارات، تقويم */
-export function warmDashboardOverlays(): void {
-    if (typeof window === 'undefined') return;
-    warmTasksWorkspace();
-    prefetchTransactionsHub();
-    void import('@/app/components/lawyer/View_Urgent_And_Orders_Dashboard');
-    void import('@/app/components/lawyer/NotificationPanel');
-    void import('@/app/components/lawyer/SmartLegalRadar.tsx');
-}
-
-export function prefetchProductivityOverlays(): void {
-    if (typeof window === 'undefined') return;
-    warmSettingsShell();
-    warmNotepadAndProfile();
-    prefetchVoiceRecorderModal();
-    warmDashboardOverlays();
 }
 
 let transactionsHubPrefetch: Promise<unknown> | null = null;
@@ -441,12 +406,13 @@ export function prefetchLawyerHomeHubCard(): void {
     void import('@/app/components/lawyer/LawyerHomeHubCard');
 }
 
-/** الحد الأدنى لواجهة الرئيسية — الهيدر وبطاقات الأرشيف الأساسية فقط */
+/** الحد الأدنى لواجهة الرئيسية — الهيدر وبطاقات الأرشيف وبطاقة التنبيهات (أول عنصر) */
 export function warmLawyerHomeShellCritical(): void {
     if (typeof window === 'undefined') return;
     void import('@/app/components/lawyer/LawyerDashboardParts/components/Header').catch(() => undefined);
     void import('@/app/components/lawyer/dashboard/commandHub/CommandHubTiles');
     void import('@/app/components/lawyer/LegalCommandCenterDock').catch(() => undefined);
+    prefetchLawyerHomeHubCard();
 }
 
 /** الطبقات الثانوية للرئيسية — التنبيهات والدوك تُسخّن فقط بعد أن يطلبها المسار */
@@ -488,9 +454,11 @@ export const LazyCommunityScreen = lazyWithRetry(() =>
 export function prefetchCommunityScreen(): void {
     if (typeof window === 'undefined') return;
     prefetchCommunityScreenModule();
-    void ForumApiService.listPostsPaginated(20, 0).catch(() => {
-        /* prefetch اختياري */
-    });
+    void import('@/app/services/forumApiService')
+        .then(({ ForumApiService }) => ForumApiService.listPostsPaginated(20, 0))
+        .catch(() => {
+            /* prefetch اختياري */
+        });
 }
 // ═══════════════════════════════════════════════════════════════════════════
 // LOADING FALLBACKS

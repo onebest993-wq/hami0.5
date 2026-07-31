@@ -3,11 +3,21 @@ import { X } from 'lucide-react';
 import { NC_HEADER } from '../newCaseGlassTheme';
 
 export interface CaseHeaderProps {
-    step: 'gateway' | 'selection' | 'form';
+    step: 'gateway' | 'form';
     onClose: () => void;
+    selectedType?: string | null;
 }
 
-export const CaseHeader = ({ step, onClose }: CaseHeaderProps) => {
+export const CaseHeader = ({ step, onClose, selectedType }: CaseHeaderProps) => {
+    const title =
+        step === 'form'
+            ? selectedType === 'personal'
+              ? 'إضبارة الأحوال الشخصية'
+              : selectedType === 'criminal'
+                ? 'إضبارة جزائية'
+                : 'إضبارة الدعوى'
+            : 'اختر التصنيف القضائي';
+
     return (
         <div className={NC_HEADER}>
             <button
@@ -17,9 +27,7 @@ export const CaseHeader = ({ step, onClose }: CaseHeaderProps) => {
             >
                 <X size={20} />
             </button>
-            <h2 className="text-sm font-bold text-white/90">
-                {step === 'form' ? 'إضبارة الدعوى المدنية' : 'اختر التصنيف القضائي'}
-            </h2>
+            <h2 className="text-sm font-bold text-white/90">{title}</h2>
             <div className="w-9" aria-hidden />
         </div>
     );

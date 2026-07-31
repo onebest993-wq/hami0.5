@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
@@ -14,20 +14,18 @@ import { CommentSheetComposer } from './CommentSheetComposer';
 import { ForumCommentRow } from './ForumCommentRow';
 import { useCommentThreadTree, type CommentSortMode } from '../hooks/useCommentThreadTree';
 import {
-    FORUM_ACCENT_CHIP,
-    FORUM_GHOST_BTN,
     FORUM_ICON_BTN,
-    FORUM_INTERACT_BTN,
-    FORUM_PANEL,
     FORUM_SHEET,
     FORUM_SURFACE_INPUT,
     FORUM_TEXT_APRICOT,
-    FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
 
 /** خيارات ترتيب التعليقات — re-export للتوافق */
 export type { CommentSortMode } from '../hooks/useCommentThreadTree';
+
+const COMMENT_INITIAL_WINDOW = 30;
+const COMMENT_WINDOW_STEP = 20;
 
 export interface CommentBottomSheetProps {
   post: CommunityPost;
@@ -89,6 +87,42 @@ export const CommentBottomSheet = ({
   );
 
   const replyingTo = replyingToCommentId ? commentById.get(replyingToCommentId) ?? null : null;
+
+  // نافذة تدريجية لخيوط التعليقات — تمنع تركيب شجرة ضخمة دفعة واحدة (بدون تغيير بصري)
+  const [topThreadCount, setTopThreadCount] = useState(COMMENT_INITIAL_WINDOW);
+  const commentSentinelRef = useRef<HTMLDivElement | null>(null);
+  const excludedTopIds = useMemo(
+    () => (bestComment ? new Set<string>(bestSubtreeIds) : new Set<string>()),
+    [bestComment, bestSubtreeIds],
+  );
+  const topLevelThreads = useMemo(
+    () => (childrenByParentId.get(null) ?? []).filter((c) => !excludedTopIds.has(c.id)),
+    [childrenByParentId, excludedTopIds],
+  );
+  const windowedTopThreads = useMemo(
+    () => topLevelThreads.slice(0, Math.min(topThreadCount, topLevelThreads.length)),
+    [topLevelThreads, topThreadCount],
+  );
+  const hiddenThreadCount = topLevelThreads.length - windowedTopThreads.length;
+
+  useEffect(() => {
+    setTopThreadCount(COMMENT_INITIAL_WINDOW);
+  }, [post.id, sortMode]);
+
+  useEffect(() => {
+    const node = commentSentinelRef.current;
+    if (!node || hiddenThreadCount <= 0) return undefined;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setTopThreadCount((prev) => prev + COMMENT_WINDOW_STEP);
+        }
+      },
+      { rootMargin: '240px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hiddenThreadCount]);
 
   const renderComment = (c: CommunityComment, depth: number, forceBestStyle: boolean) => (
     <ForumCommentRow
@@ -154,13 +188,13 @@ export const CommentBottomSheet = ({
           exit={reduceMotion ? undefined : { y: '100%' }}
           transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
           style={sheetStyle}
-          className={`${FORUM_SHEET} w-full max-w-2xl h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-[#F0B896]/25 pb-[env(safe-area-inset-bottom)]`}
+          className={`${FORUM_SHEET} w-full max-w-2xl h-[70vh] rounded-t-3xl flex flex-col pointer-events-auto relative z-10 border-t-[#8A4D5C]/25 pb-[env(safe-area-inset-bottom)]`}
         >
           <div className="w-full flex justify-center pt-3 pb-1" onClick={onClose}>
             <div className="w-12 h-1.5 rounded-full bg-white/10" />
           </div>
 
-          <div className="px-6 py-4 border-b border-[#4A3D52]/40 flex items-center justify-between gap-3">
+          <div className="px-6 py-4 border-b border-white/[0.08] flex items-center justify-between gap-3">
             <h3 className={`${FORUM_TEXT_PRIMARY} font-bold text-lg flex items-center gap-2`}>
               <MessageCircle size={20} className={FORUM_TEXT_APRICOT} />
               التعليقات
@@ -181,9 +215,9 @@ export const CommentBottomSheet = ({
                     className={`${FORUM_SURFACE_INPUT} rounded-md px-2 py-1 text-sm`}
                     title="ترتيب التعليقات"
                   >
-                    <option value="oldest" className="bg-[#221A28]">الأقدم</option>
-                    <option value="newest" className="bg-[#221A28]">الأحدث</option>
-                    <option value="top" className="bg-[#221A28]">الأعلى تصويتاً</option>
+                    <option value="oldest" className="bg-[#161E2C]">الأقدم</option>
+                    <option value="newest" className="bg-[#161E2C]">الأحدث</option>
+                    <option value="top" className="bg-[#161E2C]">الأعلى تصويتاً</option>
                   </select>
                 </div>
               )}
@@ -213,11 +247,21 @@ export const CommentBottomSheet = ({
                   </>
                 ) : null}
 
-                {renderThread(
-                  null,
-                  0,
-                  bestComment ? new Set<string>(bestSubtreeIds) : new Set<string>(),
-                )}
+                {windowedTopThreads.map((c) => (
+                  <React.Fragment key={c.id}>
+                    {renderComment(c, 0, false)}
+                    {renderThread(c.id, 1, excludedTopIds)}
+                  </React.Fragment>
+                ))}
+
+                {hiddenThreadCount > 0 ? (
+                  <div
+                    ref={commentSentinelRef}
+                    className="h-1"
+                    aria-hidden
+                    data-testid="forum-comment-window-sentinel"
+                  />
+                ) : null}
               </>
             )}
           </div>

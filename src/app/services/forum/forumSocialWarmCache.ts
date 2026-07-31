@@ -1,6 +1,5 @@
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import { withForumAsyncTimeout } from '@/app/components/lawyer/CommunityScreen/forumAsync';
-import { ForumApiService } from '@/app/services/forumApiService';
 
 export type ForumFollowerRow = { followerId: string; createdAt: string };
 
@@ -9,24 +8,32 @@ let warmedFollowers: ForumFollowerRow[] | null = null;
 let warmPromise: Promise<void> | null = null;
 let warmedUserId: string | null = null;
 
+function loadForumApiService() {
+    return import('@/app/services/forumApiService');
+}
+
 export function warmForumSocialCache(userId: string): void {
     if (!userId) return;
     if (warmPromise && warmedUserId === userId) return;
     warmedUserId = userId;
-    warmPromise = withForumAsyncTimeout(
-        Promise.all([
-            ForumApiService.listFollowing(userId),
-            ForumApiService.listFollowers(userId, userId),
-        ]).then(([following, followers]) => {
-            warmedFollowing = following;
-            warmedFollowers = followers.map((r) => ({
-                followerId: r.followerId,
-                createdAt: r.createdAt,
-            }));
-        }),
-        4_000,
-        undefined,
-    ).catch(() => undefined);
+    warmPromise = loadForumApiService()
+        .then(({ ForumApiService }) =>
+            withForumAsyncTimeout(
+                Promise.all([
+                    ForumApiService.listFollowing(userId),
+                    ForumApiService.listFollowers(userId, userId),
+                ]).then(([following, followers]) => {
+                    warmedFollowing = following;
+                    warmedFollowers = followers.map((r) => ({
+                        followerId: r.followerId,
+                        createdAt: r.createdAt,
+                    }));
+                }),
+                4_000,
+                undefined,
+            ),
+        )
+        .catch(() => undefined);
 }
 
 export function peekForumFollowingCache(): ForumFollowRecord[] | null {

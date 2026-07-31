@@ -38,7 +38,11 @@ describe('normalizeProfilePageCustomization (P0)', () => {
         const next = normalizeProfilePageCustomization({
             appearance: { accentColor: 'invalid' as never, material: 'unknown' as never },
         });
-        expect(next.appearance).toEqual({ accentColor: 'gold', material: 'glass' });
+        expect(next.appearance).toEqual({
+            accentColor: 'gold',
+            material: 'glass',
+            portraitFrame: 'classic',
+        });
     });
 
     it('rejects unsafe image and canvas URLs', () => {
@@ -136,6 +140,25 @@ describe('normalizeProfilePageCustomization (P0)', () => {
         expect(b.blockWidthPct).toBeGreaterThanOrEqual(28);
         expect(b.posX).toBeLessThanOrEqual(94);
         expect(b.posY).toBeGreaterThanOrEqual(0);
+    });
+
+    it('يستبدل posX/posY غير المحدودة (NaN) بموضع افتراضي', () => {
+        const next = normalizeProfilePageCustomization({
+            customBlocks: [
+                {
+                    id: 'nan',
+                    kind: 'text',
+                    title: 'نص',
+                    shape: 'rounded',
+                    width: 'full',
+                    minHeightPx: 120,
+                    posX: Number.NaN,
+                    posY: Number.NaN,
+                },
+            ],
+        });
+        expect(Number.isFinite(next.customBlocks[0]?.posX)).toBe(true);
+        expect(Number.isFinite(next.customBlocks[0]?.posY)).toBe(true);
     });
 
     it('infers image kind from imageUrl when kind missing', () => {

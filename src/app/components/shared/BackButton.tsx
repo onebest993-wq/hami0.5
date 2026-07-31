@@ -14,7 +14,7 @@
 
 import React from 'react';
 import { motion } from 'motion/react';
-import { ChevronRight, ArrowRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 interface BackButtonProps {
   /** دالة تنفذ عند الضغط على الزر */

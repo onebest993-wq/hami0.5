@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import {
     formatNumberInput,
     parseAmount,
-} from '@/app/components/lawyer/ExecutionDashboard/utils/amountInput';
+} from '@/app/utils/execution/amountInput';
 import {
     BADGE_POPOVER_Z_INDEX,
     computeFixedPopoverLayout,

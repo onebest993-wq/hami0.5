@@ -1,4 +1,5 @@
 import type { LawyerProfileData, LawyerProfileSection, ProfileAction } from '@/app/services/profile/profileTypes';
+import type { ProfileGalleryItem } from '@/app/services/cloud/lawyerProfileTypes';
 import {
     filterActionsForVisitor,
     normalizeProfilePageCustomization,
@@ -10,6 +11,32 @@ function stripHeaderPaths<T extends { profileImagePath?: string; coverImagePath?
     delete next.profileImagePath;
     delete next.coverImagePath;
     return next;
+}
+
+function stripStoragePathsFromGallery(
+    data: string[] | ProfileGalleryItem[],
+): string[] | ProfileGalleryItem[] {
+    return data.map((entry) => {
+        if (typeof entry === 'string') return entry;
+        const item = { ...entry };
+        delete item.storagePath;
+        return item;
+    });
+}
+
+function stripStoragePathsFromBlocks(
+    blocks: ProfilePageCustomization['customBlocks'],
+): ProfilePageCustomization['customBlocks'] {
+    return blocks.map((block) => {
+        const next = { ...block };
+        delete next.imageStoragePath;
+        if (next.canvasStyle?.backgroundStoragePath) {
+            const canvasStyle = { ...next.canvasStyle };
+            delete canvasStyle.backgroundStoragePath;
+            next.canvasStyle = canvasStyle;
+        }
+        return next;
+    });
 }
 
 function redactSections(
@@ -24,8 +51,14 @@ function redactSections(
                 data: filterActionsForVisitor(actions, privacy, false),
             };
         }
-        if (section.type === 'gallery' && !privacy.showGallery) {
-            return { ...section, data: [] };
+        if (section.type === 'gallery') {
+            if (!privacy.showGallery) {
+                return { ...section, data: [] };
+            }
+            const galleryData = Array.isArray(section.data)
+                ? (section.data as string[] | ProfileGalleryItem[])
+                : [];
+            return { ...section, data: stripStoragePathsFromGallery(galleryData) };
         }
         return section;
     });
@@ -47,12 +80,21 @@ export function redactProfileForVisitorView(profile: LawyerProfileData): LawyerP
         header.syndicateId = '';
     }
 
+    const customBlocks = privacy.showCustomBlocks
+        ? stripStoragePathsFromBlocks(customization.customBlocks)
+        : [];
+
     return {
         header,
         sections: redactSections(profile.sections, privacy),
         customization: {
             ...customization,
-            customBlocks: privacy.showCustomBlocks ? customization.customBlocks : [],
+            /* لا تُسرَّب قائمة الإخفاء للزائر — يكفي تطبيقها على القنوات */
+            privacy: {
+                ...privacy,
+                hiddenContactIds: [],
+            },
+            customBlocks,
         },
     };
 }

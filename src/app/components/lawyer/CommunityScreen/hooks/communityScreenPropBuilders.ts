@@ -14,6 +14,8 @@ import { prefetchCommunitySearchOverlay } from '../communityOverlayPrefetch';
 
 export type CommunityScreenPropBuilderContext = {
     onBack?: () => void;
+    /** سطح المنتدى ظاهر — يُمرَّر لإيقاف لوحات AppBar/المستودع عند keepAlive */
+    forumSurfaceOpen: boolean;
     activeSection: CommunitySection;
     setActiveSection: (section: CommunitySection) => void;
     setIsSearchOpen: (open: boolean) => void;
@@ -164,6 +166,7 @@ export type CommunityScreenPropBuilderContext = {
 export function buildCommunityScreenBodyProps(ctx: CommunityScreenPropBuilderContext): CommunityScreenBodyProps {
     return {
         onBack: ctx.onBack,
+        forumSurfaceOpen: ctx.forumSurfaceOpen,
         activeSection: ctx.activeSection,
         onSectionChange: ctx.setActiveSection,
         onSearchOpen: () => {

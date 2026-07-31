@@ -1,6 +1,5 @@
-// @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { X, Zap, Shield, Scale, Clock, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
+import { X, Scale, Clock, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
 import {
@@ -118,7 +117,6 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
                 <div className={T.shellCard}>
                     <div className={T.header}>
                         <h3 className={T.headerTitle}>
-                            <Zap size={17} className={T.headerIcon} strokeWidth={1.75} />
                             {editMode ? 'تحديث الطلب' : 'تسجيل طلب جديد'}
                         </h3>
                         <button type="button" onClick={onClose} className={T.closeBtn} aria-label="إغلاق">
@@ -275,7 +273,6 @@ export const FastTrackModal = ({ isOpen, onClose, onSave, editMode = false, edit
                         data-testid={CIVIL_LAWSUIT_TEST_IDS.fastTrackSubmit}
                         className={T.btn}
                     >
-                        <Shield size={16} strokeWidth={1.75} />
                         {editMode ? 'تحديث البيانات' : 'حفظ الطلب'}
                     </button>
                     </div>

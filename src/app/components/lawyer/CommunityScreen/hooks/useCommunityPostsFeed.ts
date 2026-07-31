@@ -37,6 +37,8 @@ export type UseCommunityPostsFeedParams = {
     selectedFilterIndex: number;
     authIsLoading: boolean;
     activeSection: CommunitySection;
+    /** keepAlive مغلق: لا polling */
+    surfaceOpen?: boolean;
     initialPostId?: string | null;
     initialOpenComments?: boolean;
     onOpenComments?: (postId: string) => void;
@@ -52,13 +54,14 @@ export function useCommunityPostsFeed({
     selectedFilterIndex,
     authIsLoading,
     activeSection,
+    surfaceOpen = true,
     initialPostId = null,
     initialOpenComments = false,
     onOpenComments,
     onActivateForumSection,
 }: UseCommunityPostsFeedParams) {
     const { posts, setPosts, postsRef } = lists;
-    const [loadingPosts, setLoadingPosts] = useState(false);
+    const [loadingPosts, setLoadingPosts] = useState(() => !(peekForumPostsCache()?.length));
     const [loadingMore, setLoadingMore] = useState(false);
     const [hasMore, setHasMore] = useState(true);
     const [urgentPriorityTick, setUrgentPriorityTick] = useState(0);
@@ -163,7 +166,8 @@ export function useCommunityPostsFeed({
         [applyPostsUpdate, pageSize, postsRef],
     );
 
-    const forumPollEnabled = !authIsLoading && activeSection === 'forum';
+    const forumPollEnabled =
+        surfaceOpen !== false && !authIsLoading && activeSection === 'forum';
     useVisibilityAwareInterval(() => {
         void refreshPosts(true);
     }, forumPollMs, forumPollEnabled);

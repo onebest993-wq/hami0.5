@@ -41,22 +41,80 @@ for (const plugin of requiredPlugins) {
     }
 }
 
-const manifest = read('android/app/src/main/AndroidManifest.xml') ?? '';
-if (!manifest.includes('android.permission.INTERNET')) {
-    errors.push('AndroidManifest missing INTERNET permission');
-}
-if (!manifest.includes('android.permission.CAMERA')) {
-    errors.push('AndroidManifest missing CAMERA permission (required for vault camera capture)');
+const manifestPath = 'android/app/src/main/AndroidManifest.xml';
+if (fs.existsSync(path.join(root, manifestPath))) {
+    const manifest = read(manifestPath) ?? '';
+    if (!manifest.includes('android.permission.INTERNET')) {
+        errors.push('AndroidManifest missing INTERNET permission');
+    }
+    if (!manifest.includes('android.permission.CAMERA')) {
+        errors.push('AndroidManifest missing CAMERA permission (required for vault camera capture)');
+    }
+    if (
+        !manifest.includes('android.permission.USE_BIOMETRIC') &&
+        !manifest.includes('android.permission.USE_FINGERPRINT')
+    ) {
+        errors.push(
+            'AndroidManifest missing USE_BIOMETRIC (or USE_FINGERPRINT) — required for biometric lock',
+        );
+    }
+} else {
+    warnings.push(
+        'android project not present — copy scripts/native-ready/biometric-android-permissions.xml into Manifest after cap add android',
+    );
 }
 
-const plist = read('ios/App/App/Info.plist') ?? '';
-if (!plist.includes('NSFaceIDUsageDescription')) {
-    warnings.push('Info.plist missing NSFaceIDUsageDescription — iOS biometrics blocked');
+const iosPlistPath = 'ios/App/App/Info.plist';
+if (fs.existsSync(path.join(root, iosPlistPath))) {
+    const plist = read(iosPlistPath) ?? '';
+    if (!plist.includes('NSFaceIDUsageDescription')) {
+        errors.push('Info.plist missing NSFaceIDUsageDescription — iOS Face ID blocked');
+    }
+} else {
+    warnings.push(
+        'ios project not present yet — merge scripts/native-ready/biometric-ios-Info.plist.snippet.xml when running cap add ios',
+    );
+}
+
+const biometricSnippet = read('scripts/native-ready/biometric-android-permissions.xml') ?? '';
+if (!biometricSnippet.includes('USE_BIOMETRIC')) {
+    warnings.push('native-ready biometric Android snippet missing — check scripts/native-ready/');
 }
 
 const capConfig = read('capacitor.config.ts') ?? '';
 if (!capConfig.includes('preventScreenshots')) {
     warnings.push('capacitor.config.ts missing PrivacyScreen.preventScreenshots');
+}
+
+const stylesXml = read('android/app/src/main/res/values/styles.xml') ?? '';
+const colorsXml = read('android/app/src/main/res/values/colors.xml') ?? '';
+const mainActivity = read('android/app/src/main/java/iq/hami/legal/MainActivity.java') ?? '';
+if (!colorsXml.includes('splash_background') || !colorsXml.includes('#0A0F1C')) {
+    errors.push('colors.xml missing splash_background #0A0F1C (native white-flash guard)');
+}
+if (
+    !stylesXml.includes('windowSplashScreenBackground') ||
+    (!stylesXml.includes('splash_icon_blank') && !stylesXml.includes('splash_text_brand'))
+) {
+    errors.push('styles.xml missing dark SplashScreen API config (double-splash guard)');
+}
+if (!stylesXml.includes('postSplashScreenTheme')) {
+    errors.push('styles.xml missing postSplashScreenTheme');
+}
+if (!mainActivity.includes('SplashScreen.installSplashScreen')) {
+    errors.push('MainActivity missing SplashScreen.installSplashScreen(this)');
+}
+if (
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable/splash_icon_blank.xml')) &&
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/splash_text_brand.png'))
+) {
+    errors.push('missing splash_icon_blank.xml or drawable-nodpi/splash_text_brand.png');
+}
+if (
+    stylesXml.includes('splash_text_brand') &&
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/splash_text_brand.png'))
+) {
+    errors.push('styles.xml references splash_text_brand but PNG is missing');
 }
 
 const indexHtml = read('dist/index.html') ?? '';

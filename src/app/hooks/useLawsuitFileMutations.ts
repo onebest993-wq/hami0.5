@@ -16,8 +16,8 @@ import {
     pruneOrphanedBridgeEvents,
     removeAllBridgedEventsForEntity,
     syncLawsuitFileToCalendar,
-} from '@/app/services/calendarDossierSync';
-import { resolveCalendarUserId } from '@/app/services/calendarBridge';
+} from '@/app/services/calendar/dossierSyncLazy';
+import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 
 type ActiveFile = FileData | ExecutionFile | null;
 
@@ -123,7 +123,9 @@ export function useLawsuitFileMutations({
                 setFiles((prev) => persistLawsuitFiles(applyLawsuitHardDeleteFilter(prev, fileToDelete.id)));
             } else {
                 const updated = applyLawsuitSoftDelete(fileToDelete);
-                setFiles((prev) => prev.map((f) => (f.id === fileToDelete.id ? updated : f)));
+                setFiles((prev) =>
+                    persistLawsuitFiles(prev.map((f) => (f.id === fileToDelete.id ? updated : f))),
+                );
                 void removeAllBridgedEventsForEntity('lawsuit', fileToDelete.id, userId);
             }
             unpinWorkspaceForDeletedFile(fileToDelete);
@@ -135,7 +137,9 @@ export function useLawsuitFileMutations({
     const handleRestoreFile = useCallback(
         (fileToRestore: FileData) => {
             const updated: FileData = { ...fileToRestore, status: 'active', deletedAt: undefined };
-            setFiles((prev) => prev.map((f) => (f.id === fileToRestore.id ? updated : f)));
+            setFiles((prev) =>
+                persistLawsuitFiles(prev.map((f) => (f.id === fileToRestore.id ? updated : f))),
+            );
             setActiveFile(updated);
             void refreshAppAlerts();
         },

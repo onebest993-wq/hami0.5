@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -7,28 +7,31 @@ import {
     GLOBAL_SEARCH_SHELL_FEATURE,
     openGlobalSearchFromShell,
 } from '@/app/services/search/globalSearchShellNavigation';
-import {
-    warmGlobalSearchOnHover,
-    warmGlobalSearchOnOpen,
-} from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
-import { loadGlobalSearchOverlayModule, prefetchGlobalSearchSearchEngine } from '@/app/runtime/globalSearchLoader';
-import { hydrateGlobalSearchShellForInstantOpen } from '@/app/runtime/globalSearchBootHydrator';
-import {
-    clearGlobalSearchPerfMarks,
-    markGlobalSearchPerfPhase,
-} from '@/app/services/search/globalSearchPerfMetrics';
-import {
-    dismissTransientOverlays,
-} from '@/app/utils/bodyScrollLock';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
+import {
+    persistGlobalSearchSessionOpen,
+    readInitialGlobalSearchSession,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import {
+    concealGlobalSearchWarmShell,
+} from '@/app/runtime/globalSearchInstantPaint';
+import { clearGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
+import { commitGlobalSearchShellOpen } from '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow';
+import {
+    useGlobalSearchHostLifecycle,
+    usePrimeGlobalSearchShellMount,
+} from '@/app/hooks/lawyerDashboard/globalSearch/useGlobalSearchHostLifecycle';
+import { useGlobalSearchKeyboardShortcut } from '@/app/hooks/lawyerDashboard/globalSearch/useGlobalSearchKeyboardShortcut';
 
 export type UseLawyerDashboardGlobalSearchParams = {
     userId: string | null;
 };
 
 export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlobalSearchParams) {
-    const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-    const showGlobalSearchRef = useRef(false);
+    const [initialSession] = useState(() => readInitialGlobalSearchSession());
+    const [showGlobalSearch, setShowGlobalSearch] = useState(() => initialSession.open);
+    const [searchHostMounted, setSearchHostMounted] = useState(() => initialSession.open);
+    const showGlobalSearchRef = useRef(initialSession.open);
     const openInFlightRef = useRef(false);
     showGlobalSearchRef.current = showGlobalSearch;
     const [globalSearchInitialQuery, setGlobalSearchInitialQuery] = useState('');
@@ -37,15 +40,30 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
 
     const closeGlobalSearch = useCallback(() => {
         showGlobalSearchRef.current = false;
+        concealGlobalSearchWarmShell();
+        clearGlobalSearchDraftQuery();
         setShowGlobalSearch(false);
+        /* لا تُسقط searchHostMounted — الطبقة الدافئة تبقى لفتح تالٍ فوري */
         setGlobalSearchInitialQuery('');
         setGlobalSearchSessionKey((k) => k + 1);
+        persistGlobalSearchSessionOpen(false);
+        /* useBodyScrollLock(open) يحرّر قفل البحث — لا releaseBodyScrollLock العام */
     }, []);
 
-    const primeGlobalSearchShellMount = useCallback(() => {
-        warmGlobalSearchOnHover();
-        void hydrateGlobalSearchShellForInstantOpen().catch(() => undefined);
-    }, []);
+    useEffect(() => {
+        if (isRealSignedIn(userId)) return;
+        if (!showGlobalSearchRef.current && !initialSession.open && !searchHostMounted) return;
+        closeGlobalSearch();
+        setSearchHostMounted(false);
+    }, [userId, initialSession.open, searchHostMounted, closeGlobalSearch]);
+
+    useGlobalSearchHostLifecycle({
+        userId,
+        initialSessionOpen: initialSession.open,
+        setSearchHostMounted,
+    });
+
+    const primeGlobalSearchShellMount = usePrimeGlobalSearchShellMount(setSearchHostMounted);
 
     const openGlobalSearch = useCallback(
         (seed = '') => {
@@ -57,28 +75,19 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
                 onOpen: (querySeed) => {
                     if (showGlobalSearchRef.current || openInFlightRef.current) return;
                     openInFlightRef.current = true;
+                    showGlobalSearchRef.current = true;
                     try {
-                        clearGlobalSearchPerfMarks();
-                        markGlobalSearchPerfPhase('open-request');
-                        warmGlobalSearchOnOpen();
-
-                        flushSync(() => {
-                            setGlobalSearchInitialQuery(querySeed);
-                            setShowGlobalSearch(true);
-                            showGlobalSearchRef.current = true;
+                        commitGlobalSearchShellOpen({
+                            querySeed,
+                            showGlobalSearchRef,
+                            setSearchHostMounted,
+                            setGlobalSearchInitialQuery,
+                            setShowGlobalSearch,
                         });
-
-                        queueMicrotask(() => {
-                            dismissTransientOverlays('global-search');
-                            prefetchGlobalSearchSearchEngine();
-                        });
-
-                        void loadGlobalSearchOverlayModule()
-                            .catch(() => undefined)
-                            .then(() => markGlobalSearchPerfPhase('chunk-ready'));
-                        void hydrateGlobalSearchShellForInstantOpen(true).catch(() => undefined);
                     } finally {
-                        openInFlightRef.current = false;
+                        queueMicrotask(() => {
+                            openInFlightRef.current = false;
+                        });
                     }
                 },
             });
@@ -94,30 +103,20 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
         setGlobalSearchSessionKey((k) => k + 1);
         setShowGlobalSearch(false);
         setGlobalSearchInitialQuery('');
+        persistGlobalSearchSessionOpen(false);
     }, []);
 
     useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-                e.preventDefault();
-                if (showGlobalSearchRef.current) {
-                    closeGlobalSearch();
-                    return;
-                }
-                openGlobalSearch();
-            }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [closeGlobalSearch, openGlobalSearch]);
+        persistGlobalSearchSessionOpen(showGlobalSearch);
+    }, [showGlobalSearch]);
+
+    useGlobalSearchKeyboardShortcut(showGlobalSearchRef, openGlobalSearch, closeGlobalSearch);
 
     useEffect(() => {
         return registerDashboardOverlayCloser('global-search', () => {
-            setShowGlobalSearch(false);
-            setGlobalSearchInitialQuery('');
-            setGlobalSearchSessionKey((k) => k + 1);
+            closeGlobalSearch();
         });
-    }, []);
+    }, [closeGlobalSearch]);
 
     useEffect(() => {
         if (!import.meta.env.DEV || typeof window === 'undefined') return;
@@ -138,6 +137,7 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
     return {
         showGlobalSearch,
         setShowGlobalSearch,
+        searchHostMounted,
         globalSearchInitialQuery,
         setGlobalSearchInitialQuery,
         globalSearchSessionKey,

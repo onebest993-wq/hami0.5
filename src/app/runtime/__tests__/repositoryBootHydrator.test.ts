@@ -8,6 +8,8 @@ import {
 vi.mock('@/app/runtime/repositoryHubLoader', () => ({
     hydrateRepositoryShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
     isRepositoryHubModuleResolved: vi.fn(() => false),
+    prefetchRepositoryHubModule: vi.fn(),
+    prefetchRepositoryFeedModule: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/repositoryIntentWarm', () => ({
@@ -45,7 +47,9 @@ describe('repositoryBootHydrator', () => {
         const ok = await hydrateRepositoryBootShellForInstantOpen('lawyer-1', true);
         expect(ok).toBe(true);
         expect(hydrateRepositoryShellForInstantOpen).toHaveBeenCalled();
-        expect(warmRepositoryDataCache).toHaveBeenCalledWith('lawyer-1');
+        await vi.waitFor(() => {
+            expect(warmRepositoryDataCache).toHaveBeenCalledWith('lawyer-1');
+        });
     });
 
     it('bindRepositoryBootHydrator يُجدول التهيئة عند dashboard-interactive', () => {

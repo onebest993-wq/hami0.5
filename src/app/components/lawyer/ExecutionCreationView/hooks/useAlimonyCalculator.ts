@@ -2,6 +2,26 @@ import { useMemo } from 'react';
 
 export type AlimonyPastLawSystem = 'قانون الأحوال الشخصية 1959' | 'الفقه الجعفري';
 
+export type AlimonyCalculationResult = {
+    baseDurationMonths: number;
+    baseDurationDays: number;
+    baseAccumulation: number;
+    pastDurationDays: number;
+    pastDurationMonths: number;
+    pastDurationMonthsRaw: number;
+    pastYearCapApplied: boolean;
+    pastAccumulation: number;
+    pastMonthlyUsed: number;
+    wifeMonthlyOngoing: number;
+    childrenMonthlyOngoing: number;
+    wifeBaseAccumulation: number;
+    childrenBaseAccumulation: number;
+    totalAccumulated: number;
+    monthlyOngoing: number;
+    legalCapApplied: boolean;
+    explanation: string;
+};
+
 const MS_PER_DAY = 1000 * 60 * 60 * 24;
 const DAYS_PER_MONTH = 30;
 const STATUTORY_PAST_ALIMONY_MAX_MONTHS = 12;

@@ -1184,6 +1184,10 @@ export interface ExecutionFile {
     visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
     /** أثاث زوجية — قائمة القطع المحكوم بها */
     maritalFurnitureItems?: import('@/app/types/maritalFurniture').MaritalFurnitureItem[];
+    maritalFurnitureDeliveryScheduleYmd?: string;
+    maritalFurnitureDeliveryScheduleLabel?: string;
+    maritalFurnitureDeliveryScheduledAt?: string;
+    maritalFurnitureDeliveryRecordedAt?: string;
     /** نزع حضانة (قيمة المطالبة المخزّنة: تسليم ولد) */
     /** وفاة مستحقي النفقة المستمرة — تتبع جزئي دون إحلال ورثة */
     alimony_beneficiary_death?: {
@@ -1192,6 +1196,8 @@ export interface ExecutionFile {
         last_report_at?: string;
     };
     custodyWardNames?: string[];
+    /** مواعيد وتسليم المحضونين — نزع حضانة */
+    custodyWardDelivery?: import('@/app/types/custodyWardDelivery').CustodyWardDeliveryBundle;
     /** تسليم شيء معين — وصف المحكوم به */
     specificDeliveryItemName?: string;
     /** تسليم شيء معين — منقول | غير منقول */

@@ -18,7 +18,8 @@ export function isShellAuthBypassed(): boolean {
     const flag = import.meta.env.VITE_SHELL_AUTH_OPEN;
     if (flag === 'false') return false;
     if (flag === 'true') return true;
-    if (import.meta.env.DEV) return true;
+    // غير الإنتاج (dev/vitest): مفتوح افتراضياً — يعتمد PROD لا DEV (stubEnv)
+    if (import.meta.env.PROD !== true) return true;
     return isStaticSpaProduction();
 }
 

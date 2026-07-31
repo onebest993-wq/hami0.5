@@ -1,4 +1,3 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import type {
     NotificationCategory,
     NotificationModel,
@@ -22,6 +21,7 @@ export async function appendNotificationClient(input: ClientAppendInput): Promis
     if (!isNotificationServerSyncEnabled() || typeof window === 'undefined') return null;
 
     try {
+        const { SecureAPIClient } = await import('@/app/services/SecureAPIClient');
         const res = await SecureAPIClient.fetchSecure<AppendResponse>('/api/notifications/append', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

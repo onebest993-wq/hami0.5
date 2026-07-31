@@ -1,4 +1,4 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useShallow } from 'zustand/react/shallow';
 import { AddTransactionBottomSheet } from './AddTransactionBottomSheet';
@@ -32,18 +32,21 @@ const FILTERS: Array<{ id: StatusFilter; label: string }> = [
 const TransactionsListSearch = memo(function TransactionsListSearch({
     query,
     onQueryChange,
+    describedBy,
 }: {
     query: string;
     onQueryChange: (value: string) => void;
+    describedBy?: string;
 }) {
     return (
         <div className="mt-4 relative">
-            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680]/60 pointer-events-none" />
+            <Search className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680] pointer-events-none" />
             <input
                 value={query}
                 onChange={(e) => onQueryChange(e.target.value)}
                 placeholder="ابحث بعنوان المعاملة أو اسم الموكل..."
                 aria-label="بحث المعاملات"
+                aria-describedby={describedBy}
                 autoComplete="off"
                 enterKeyHint="search"
                 className={`${GLASS_FIELD} h-11 pr-10 pl-3`}
@@ -61,7 +64,11 @@ const TransactionsListStatusFilters = memo(function TransactionsListStatusFilter
     onFilterChange: (next: StatusFilter) => void;
 }) {
     return (
-        <div className="mt-3 flex gap-1.5 overflow-x-auto overscroll-x-contain touch-pan-x pb-0.5 scrollbar-hide">
+        <div
+            className="mt-3 flex gap-1.5 overflow-x-auto overscroll-x-contain touch-pan-x pb-0.5 scrollbar-hide"
+            role="group"
+            aria-label="تصفية المعاملات حسب الحالة"
+        >
             {FILTERS.map((f) => {
                 const active = filter === f.id;
                 return (
@@ -108,6 +115,7 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
     onAddSheetOpenChange,
     hubOpen = true,
     hubUserId,
+    onTransactionCreated,
 }: {
     onBack?: () => void;
     onOpenDetails?: (tx: Transaction) => void;
@@ -115,12 +123,12 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
     onAddSheetOpenChange?: (open: boolean) => void;
     hubOpen?: boolean;
     hubUserId?: string;
+    onTransactionCreated?: (tx: Transaction) => void;
 }) {
     const transactions = useTransactionsThreadingStore(useShallow((s) => s.transactions));
 
     const [query, setQuery] = useState('');
     const [filter, setFilter] = useState<StatusFilter>('all');
-    const deferredQuery = useDeferredValue(query);
     const [localSheetOpen, setLocalSheetOpen] = useState(false);
     const sheetOpen = addSheetOpen ?? localSheetOpen;
     const setSheetOpen = onAddSheetOpenChange ?? setLocalSheetOpen;
@@ -144,9 +152,12 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
     }, []);
 
     const filtered = useMemo(
-        () => filterTransactionsList(transactions, deferredQuery, filter),
-        [transactions, deferredQuery, filter],
+        () => filterTransactionsList(transactions, query, filter),
+        [transactions, query, filter],
     );
+    const resultsSummaryId = 'transactions-results-summary';
+    const resultsSummary =
+        filtered.length === 0 ? 'لا توجد معاملات مطابقة' : `${filtered.length} نتيجة معروضة`;
 
     const onPressTransaction = useCallback(
         (tx: Transaction) => {
@@ -161,8 +172,21 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
                 <TxGlassHeader>
                     <TxHeaderRow title="إدارة المعاملات" onBack={onBack} backTestId="transactions-back" />
 
-                    <TransactionsListSearch query={query} onQueryChange={onQueryChange} />
+                    <TransactionsListSearch
+                        query={query}
+                        onQueryChange={onQueryChange}
+                        describedBy={resultsSummaryId}
+                    />
                     <TransactionsListStatusFilters filter={filter} onFilterChange={onFilterChange} />
+                    <p
+                        id={resultsSummaryId}
+                        data-testid="transactions-results-summary"
+                        className="mt-3 text-[11px] font-medium text-[#8A8680]"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        {resultsSummary}
+                    </p>
                 </TxGlassHeader>
 
                 <div className="px-5 py-5 space-y-3 pb-28 max-w-[520px] mx-auto">
@@ -181,6 +205,7 @@ export const TransactionsListScreen = memo(function TransactionsListScreen({
                     onOpenChange={setSheetOpen}
                     keepMounted={hubOpen || sheetPrimed}
                     hubUserId={hubUserId}
+                    onCreated={onTransactionCreated}
                 />
             </TxGlassPage>
         </div>

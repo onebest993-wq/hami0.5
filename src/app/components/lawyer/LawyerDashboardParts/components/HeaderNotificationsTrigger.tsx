@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell } from 'lucide-react';
+import { HomeBellIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { HeaderToolbarIcon } from './HeaderToolbarIcon';
 import { formatHeaderToolbarBadge } from './headerToolbarUtils';
 
@@ -22,7 +22,7 @@ export function HeaderNotificationsTrigger({
 
     return (
         <HeaderToolbarIcon
-            icon={Bell}
+            icon={HomeBellIcon}
             label={label}
             onClick={onClick}
             onPointerEnter={onPointerEnter}

@@ -1,5 +1,5 @@
-import { resolveAmountGuarantorRequestVisible } from '@/app/components/lawyer/FinancialOperationsCenter/settlementGuarantorGate';
-import type { PendingSettlement } from '@/app/components/lawyer/FinancialOperationsCenter/types';
+import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/specialtyPublic';
+import type { PendingSettlement } from '@/app/slices/financial/specialtyPublic';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import type { ExecutionFile } from '@/app/types/execution';
 

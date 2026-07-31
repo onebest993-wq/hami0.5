@@ -21,6 +21,7 @@ type DossierLawArticleRichEditorProps = {
     context: DossierNoteContext;
     placeholder?: string;
     expanded?: boolean;
+    compact?: boolean;
     testId?: string;
 };
 
@@ -30,7 +31,15 @@ export const DossierLawArticleRichEditor = forwardRef<
     DossierLawArticleRichEditorHandle,
     DossierLawArticleRichEditorProps
 >(function DossierLawArticleRichEditor(
-    { value, onChange, context, placeholder, expanded = true, testId = 'dossier-note-editor' },
+    {
+        value,
+        onChange,
+        context,
+        placeholder,
+        expanded = true,
+        compact = false,
+        testId = 'dossier-note-editor',
+    },
     ref,
 ) {
     const innerRef = useRef<LegalRichTextEditorHandle>(null);
@@ -114,6 +123,7 @@ export const DossierLawArticleRichEditor = forwardRef<
             onBlur={handleBlur}
             placeholder={placeholder}
             expanded={expanded}
+            compact={compact}
             testId={testId}
         />
     );

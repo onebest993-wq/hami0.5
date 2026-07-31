@@ -3,7 +3,17 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { X } from 'lucide-react';
-import { FORUM_PANEL, FORUM_PUBLISH_BTN, FORUM_PUBLISH_BTN_DISABLED, FORUM_SURFACE_INPUT, FORUM_ICON_BTN } from '../forumPlumTheme';
+import {
+    FORUM_FIELD_LABEL,
+    FORUM_ICON_BTN,
+    FORUM_PANEL,
+    FORUM_PUBLISH_BTN,
+    FORUM_PUBLISH_BTN_DISABLED,
+    FORUM_SURFACE_INPUT,
+    FORUM_TEXT_MUTED,
+    FORUM_TEXT_PRIMARY,
+} from '../forumPlumTheme';
+import '../forumPlumChrome.css';
 
 interface CreateGroupModalProps {
     isOpen: boolean;
@@ -44,7 +54,7 @@ export function CreateGroupModal({
                         animate={{ opacity: 1 }}
                         exit={reduceMotion ? undefined : { opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+                        className="fixed inset-0 bg-black/70 z-[100]"
                         aria-hidden
                     />
                     <motion.div
@@ -52,15 +62,15 @@ export function CreateGroupModal({
                         animate={{ y: 0 }}
                         exit={reduceMotion ? undefined : { y: '100%' }}
                         transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 300 }}
-                        className={`fixed bottom-0 left-0 right-0 z-[100] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-[#4A3D52]/50 pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
+                        className={`fixed bottom-0 left-0 right-0 z-[100] ${FORUM_PANEL} rounded-t-[24px] p-6 shadow-2xl border-t border-white/[0.1] pb-[max(1.5rem,env(safe-area-inset-bottom))]`}
                         onClick={(e) => e.stopPropagation()}
                         role="dialog"
                         aria-modal="true"
                         aria-labelledby="create-group-title"
                     >
                         <form onSubmit={handleSubmit}>
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 id="create-group-title" className="text-white text-lg font-bold">
+                            <div className="flex items-center justify-between mb-5">
+                                <h2 id="create-group-title" className={`${FORUM_TEXT_PRIMARY} text-lg font-bold`}>
                                     إنشاء مجموعة تخصصية
                                 </h2>
                                 <button type="button" onClick={onClose} className={FORUM_ICON_BTN} aria-label="إغلاق">
@@ -68,22 +78,35 @@ export function CreateGroupModal({
                                 </button>
                             </div>
 
-                            <div className="space-y-3 mb-5">
-                                <input
-                                    value={name}
-                                    onChange={(e) => onNameChange(e.target.value)}
-                                    className={`w-full h-12 ${FORUM_SURFACE_INPUT} rounded-xl px-4 text-sm`}
-                                    placeholder="اسم المجموعة (مثال: محامو بداءة الديوانية)"
-                                    maxLength={120}
-                                    autoComplete="off"
-                                />
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => onDescriptionChange(e.target.value)}
-                                    className={`w-full h-28 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none text-sm`}
-                                    placeholder="التخصص أو وصف الغرفة النقاشية..."
-                                    maxLength={600}
-                                />
+                            <div className="space-y-4 mb-5">
+                                <div>
+                                    <label htmlFor="forum-create-group-name" className={FORUM_FIELD_LABEL}>
+                                        اسم المجموعة
+                                    </label>
+                                    <input
+                                        id="forum-create-group-name"
+                                        value={name}
+                                        onChange={(e) => onNameChange(e.target.value)}
+                                        className={`w-full h-12 ${FORUM_SURFACE_INPUT} rounded-xl px-4 text-sm`}
+                                        placeholder="مثال: محامو بداءة الديوانية"
+                                        maxLength={120}
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                <div>
+                                    <label htmlFor="forum-create-group-desc" className={FORUM_FIELD_LABEL}>
+                                        وصف المجموعة{' '}
+                                        <span className={`${FORUM_TEXT_MUTED} font-normal`}>(اختياري)</span>
+                                    </label>
+                                    <textarea
+                                        id="forum-create-group-desc"
+                                        value={description}
+                                        onChange={(e) => onDescriptionChange(e.target.value)}
+                                        className={`w-full h-28 ${FORUM_SURFACE_INPUT} rounded-xl p-4 resize-none text-sm`}
+                                        placeholder="التخصص أو موضوع الغرفة النقاشية…"
+                                        maxLength={600}
+                                    />
+                                </div>
                             </div>
 
                             <button

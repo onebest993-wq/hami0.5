@@ -69,6 +69,15 @@ describe('homeHubCardLogic', () => {
         ).toBe(true);
         expect(
             isHomeHubFullyEmpty({
+                alertsTabCount: 0,
+                pinsCount: 0,
+                alertsError: null,
+                showInitialLoad: false,
+                hubInitialPending: true,
+            }),
+        ).toBe(false);
+        expect(
+            isHomeHubFullyEmpty({
                 alertsTabCount: 1,
                 pinsCount: 0,
                 alertsError: null,
@@ -86,6 +95,16 @@ describe('homeHubCardLogic', () => {
                 hasAlerts: false,
                 hasCarouselAlerts: false,
                 hasRadar: false,
+            }),
+        ).toBe('loading');
+        expect(
+            resolveHomeHubAlertsEmptyState({
+                alertsError: null,
+                showInitialLoad: false,
+                hasAlerts: false,
+                hasCarouselAlerts: false,
+                hasRadar: false,
+                radarLoading: true,
             }),
         ).toBe('loading');
         expect(

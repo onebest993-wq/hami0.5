@@ -1,6 +1,6 @@
 // @ts-nocheck
 /** جسم واجهة ExecutionDashboard — chunk lazy منفصل */
-import React, { Suspense, startTransition } from 'react';
+import React, { Suspense, startTransition, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     X, User, DollarSign, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
@@ -13,7 +13,9 @@ import {
     Forward, Shuffle, RefreshCw, MessageSquare,
 } from 'lucide-react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
+import { ExecutionDossierHeaderNavButtons } from './ExecutionDossierHeaderNavButtons';
+import { useExecutionDossierHeaderNavigation } from '../hooks/useExecutionDossierHeaderNavigation';
+import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import { ExecutionToast } from './ExecutionToast';
 import { DossierSwitcher } from './DossierSwitcher';
 import { InlineActionGate } from './InlineActionGate';
@@ -44,7 +46,6 @@ import {
     LazyFinancialOperationsCenter,
     LazyFinancialTab,
     LazyLawReferencePanel,
-    LazyMaritalFurnitureModule,
     LazyOtherPartyTab,
     LazyPartiesSection,
     LazyPartyEditModal,
@@ -54,7 +55,8 @@ import {
     LazySeizureRequestsTab,
     LazyTimelineSection,
     LazyVisitationScheduleModule,
-    LazyVisitationCalendarModal,
+    LazyCustodyRemovalWardsModule,
+    LazyMaritalFurnitureModule,
     LazyPersonalCoerciveFollowupPanel,
     LazyEmployeeAssignmentCoerciveFollowupBlock,
     LazyJudicialCustodianCardMenu,
@@ -94,12 +96,15 @@ import {
     dossierLifecycleTriggerDotClass,
 } from '../helpers';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import {
     readExecutionPhoneBodyScope,
     useExecutionPhoneBodyScopeRef,
 } from '../hooks/executionPhoneBodyScope';
 import { useExecutionDashboardPhoneBodyMountStages } from '../hooks/useExecutionDashboardPhoneBodyMountStages';
+import { useExecutionDashboardPhoneBodyLocalState } from '../hooks/useExecutionDashboardPhoneBodyLocalState';
+import { useExecutionDashboardPhoneBodySafeHandlers } from '../hooks/useExecutionDashboardPhoneBodySafeHandlers';
 import * as PhoneBodyLazyFallback from '../executionDashboardLazyRegistry';
 
 const LazyGuarantorExternalHub = React.lazy(() =>
@@ -249,7 +254,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         activeDebtorHeirsForNotification,
         activeDebtorIsDeceased,
         activeFinancialTab,
-        activeGraceTasks,
+        activeGraceTasks = [],
         activeNoticeState,
         activeSubFileId,
         activeTabId,
@@ -267,7 +272,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         buildPublicationNoticePatchForDebtorKey,
         calculatedExecutionFee,
         cancelThirdPartyReceiveStep,
-        childDossiers,
+        childDossiers = [],
         claimType,
         claimTypeArabicDisplay,
         classificationDisplay,
@@ -380,7 +385,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         hasChildDossiers,
         hasUnifiedSeizureLogContent,
         headerFields,
-        inabaTargets,
+        inabaTargets = [],
         initiator,
         isAlimonyClaim,
         isAssignmentDeadlinePassed,
@@ -418,6 +423,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         openEditDossierMeta,
         openEditParty,
         openEvictionResidentialGraceModal,
+        openFinancialHubLedger,
         openGuarantorDetailsModal,
         openHeirsNotificationCenter,
         openHeirsQuickView,
@@ -536,6 +542,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         showDebtorUnservedMemoBadge,
         showEmployeeCompulsoryProceduresBanner,
         showExecutionFinancialHub,
+        showExecutionTrashModal,
         showExtraCreditors,
         showExtraDebtors,
         showJudgmentMeta,
@@ -547,7 +554,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         statusMetadata,
         statuteStatus,
         stayOfExecutionActive,
-        subFiles,
+        subFiles = [],
         submitMovableSeizureRequest,
         submitPropertySeizureRequest,
         summonsMarkerPopoverOpen,
@@ -570,9 +577,9 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         totalOwed,
         totalWithExecutionFee,
         total_execution_expenses,
-        trashedCaseNotes,
-        trashedCaseTasks,
-        trashedTimelineEvents,
+        trashedCaseNotes = [],
+        trashedCaseTasks = [],
+        trashedTimelineEvents = [],
         unifiedSeizureLogEntries,
         unifiedSeizureLogTab,
         unifiedSeizureTabCounts,
@@ -584,6 +591,54 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         voluntaryEndOptimistic,
     } = props;;
 
+    const phoneBodyLocal = useExecutionDashboardPhoneBodyLocalState(props, scopeRef);
+    const {
+        safeOpenEditDossierMeta,
+        safeOpenParentDossierMetaEdit,
+        safeOpenEditParty,
+        safeOpenAppointmentModal,
+        directOpenNotesModal,
+        directOpenDocumentsModal,
+        directOpenFinancialCenter,
+        directHandleMemoFollowupClick,
+    } = useExecutionDashboardPhoneBodySafeHandlers({
+        scopeRef,
+        debtorsSectionRef,
+        handleDebtorEmploymentToggle,
+        handleMemoFollowupClick,
+        openDecisionsModalWithBoot,
+        openFinancialHubLedger,
+        openGuarantorDetailsModal,
+        primaryDebtorWorkspaceKey,
+        setExecutionDebtorTabIndex,
+        setFinancialHubAutoOpenMode,
+        setFinancialHubSeizedMovableId,
+        setFinancialHubSeizedPropertyId,
+        setIsFinancialCenterExpanded,
+        setShowAppointmentModal,
+        _setShowDecisionsModal: setShowDecisionsModal,
+        setShowEvictionExpenseModal,
+        setShowExecutionFinancialHub,
+        setShowLedgerModal,
+        setShowNotesModal,
+        setShowPaymentCalculator,
+        setShowSettlementCalculator,
+        setShowTimelineModal,
+        setShowUnifiedExecutionModal,
+        setShowUnifiedSummonsModal,
+        setSummonsContextDebtorKey,
+        setSummonsHubInitialMainTab,
+        setTimelineAccordionExpanded,
+        showToast,
+        timelineAccordionExpanded,
+        createModalSetterFallback: phoneBodyLocal.createModalSetterFallback,
+        safeSetShowAppointmentModal: phoneBodyLocal.safeSetShowAppointmentModal,
+        safeSetShowNotesModal: phoneBodyLocal.safeSetShowNotesModal,
+        safeSetShowDocumentsModal: phoneBodyLocal.safeSetShowDocumentsModal,
+        timelineAccordionExpandedFallback: phoneBodyLocal.timelineAccordionExpandedFallback,
+        setTimelineAccordionExpandedFallback: phoneBodyLocal.setTimelineAccordionExpandedFallback,
+    });
+
     const { secondaryStageReady, tertiaryStageReady, quaternaryStageReady } = useExecutionDashboardPhoneBodyMountStages({
         movableSeizureRequestModalOpen,
         propertySeizureRequestModalOpen,
@@ -592,6 +647,104 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
         showVisitationCalendarModal,
     });
 
+    const closeLocalOverlay = useCallback(() => {
+        if (showExecutionTrashModal) {
+            setShowExecutionTrashModal(false);
+            return true;
+        }
+        if (showVisitationCalendarModal) {
+            setShowVisitationCalendarModal(false);
+            return true;
+        }
+        if (showUnifiedSeizureLogModal) {
+            closeUnifiedSeizureLog();
+            return true;
+        }
+        if (propertySeizureRequestModalOpen) {
+            setPropertySeizureRequestModalOpen(false);
+            return true;
+        }
+        if (movableSeizureRequestModalOpen) {
+            setMovableSeizureRequestModalOpen(false);
+            return true;
+        }
+        if (showExecutionFinancialHub) {
+            setShowExecutionFinancialHub(false);
+            return true;
+        }
+        if (dossierActionModalOpen) {
+            setDossierActionModalOpen(false);
+            return true;
+        }
+        return false;
+    }, [
+        showExecutionTrashModal,
+        setShowExecutionTrashModal,
+        showVisitationCalendarModal,
+        setShowVisitationCalendarModal,
+        showUnifiedSeizureLogModal,
+        closeUnifiedSeizureLog,
+        propertySeizureRequestModalOpen,
+        setPropertySeizureRequestModalOpen,
+        movableSeizureRequestModalOpen,
+        setMovableSeizureRequestModalOpen,
+        showExecutionFinancialHub,
+        setShowExecutionFinancialHub,
+        dossierActionModalOpen,
+        setDossierActionModalOpen,
+    ]);
+
+    const dossierContextBack = useCallback(() => {
+        if (dossierLifecyclePanelOpen) {
+            setDossierLifecyclePanelOpen(false);
+            return true;
+        }
+        if (
+            hasChildDossiers &&
+            !isInabaActive &&
+            String(activeTabId) !== String(currentFileId)
+        ) {
+            setActiveTabId(String(currentFileId || ''));
+            return true;
+        }
+        if (isInabaActive && activeSubFileId) {
+            useExecutionDashboardStore.getState().restoreOriginalFile();
+            return true;
+        }
+        return false;
+    }, [
+        dossierLifecyclePanelOpen,
+        setDossierLifecyclePanelOpen,
+        hasChildDossiers,
+        isInabaActive,
+        activeTabId,
+        currentFileId,
+        setActiveTabId,
+        activeSubFileId,
+    ]);
+
+    const { handleDossierBack, handleDossierExit } = useExecutionDossierHeaderNavigation({
+        onClose: () => onClose?.(),
+        closeLocalOverlay,
+        dossierContextBack,
+    });
+
+    const isCustodyRemovalClaimActive = useMemo(
+        () =>
+            isCustodyRemovalExecutionClaim(
+                viewExecutionData as Record<string, unknown> | null | undefined,
+                String(claimType || '').trim() || undefined,
+            ),
+        [viewExecutionData, claimType],
+    );
+    const custodyWardNamesResolved = useMemo(() => {
+        const raw = (viewExecutionData as { custodyWardNames?: unknown } | null | undefined)
+            ?.custodyWardNames;
+        return Array.isArray(raw)
+            ? raw.map((n) => String(n).trim()).filter(Boolean)
+            : [];
+    }, [viewExecutionData]);
+
     return (
             <div
                 className="bg-slate-900/95 w-full max-w-md h-full flex flex-col shadow-2xl border border-slate-700/30"
@@ -599,16 +752,11 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
             >
                 {/* 🆕 V16: PREMIUM DIAMOND GLASS HEADER */}
                 <div className="bg-gradient-to-r from-slate-800/40 via-slate-700/20 to-slate-800/40 backdrop-blur-xl border-t border-white/10 border-b border-black/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] rounded-xl mx-2 mt-2">
-                    <div className="grid w-full grid-cols-[2.25rem_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-1.5 px-2.5 py-2">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            data-testid={EXECUTION_DOSSIER_TEST_IDS.close}
-                            className="inline-flex h-9 w-9 items-center justify-center justify-self-start rounded-xl border border-white/8 bg-hami-navy/45 text-slate-400 backdrop-blur-md transition-all duration-200 hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-                            aria-label="إغلاق"
-                        >
-                            <X size={17} strokeWidth={2} />
-                        </button>
+                    <div className="grid w-full grid-cols-[4.75rem_minmax(0,1fr)_2.25rem_2.25rem] items-center gap-1.5 px-2.5 py-2">
+                        <ExecutionDossierHeaderNavButtons
+                            onBack={handleDossierBack}
+                            onExit={handleDossierExit}
+                        />
 
                         <div className="relative min-w-0 justify-self-center" ref={dossierLifecyclePopoverRef}>
                             <button
@@ -642,7 +790,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                             {dossierLifecyclePanelOpen && dossierLifecyclePopStyle
                                 ? (
                                 <LazyDossierLifecyclePanel dossierLifecyclePanelOpen={dossierLifecyclePanelOpen} dossierLifecyclePopStyle={dossierLifecyclePopStyle} dossierLifecyclePanelPhase={dossierLifecyclePanelPhase} setDossierLifecyclePanelPhase={setDossierLifecyclePanelPhase} dossierStatusDraft={dossierStatusDraft} dossierPendingStatus={dossierPendingStatus} setDossierPendingStatus={setDossierPendingStatus} dossierReasonDraft={dossierReasonDraft} setDossierReasonDraft={setDossierReasonDraft} dossierDateDraft={dossierDateDraft} setDossierDateDraft={setDossierDateDraft}
-                                    dossierLifecycleLabelAr={dossierLifecycleLabelAr} handleDossierLifecyclePick={handleDossierLifecyclePick} handleDossierLifecycleConfirmDetails={handleDossierLifecycleConfirmDetails} dossierLifecyclePanelPortalRef={dossierLifecyclePanelPortalRef}
+                                    dossierLifecycleLabelAr={dossierLifecycleLabelAr} handleDossierLifecyclePick={phoneBodyLocal.safeHandleDossierLifecyclePick} handleDossierLifecycleConfirmDetails={phoneBodyLocal.safeHandleDossierLifecycleConfirmDetails} dossierLifecyclePanelPortalRef={dossierLifecyclePanelPortalRef}
                                 />
                                 )
                                 : null}
@@ -752,7 +900,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                 >
                     
                     <LazyDashboardHeaderSection statuteStatus={statuteStatus} isAlimonyClaim={isAlimonyClaim} executionPaused={executionPaused} handleResumeExecution={handleResumeExecution} stayOfExecutionActive={stayOfExecutionActive} viewExecutionData={viewExecutionData} handleLiftStayOfExecution={handleLiftStayOfExecution}
-                        XCircle={XCircle} isHeaderExpanded={isHeaderExpanded} toggleHeaderExpanded={toggleHeaderExpanded} headerFields={headerFields} openEditDossierMeta={openEditDossierMeta}
+                        XCircle={XCircle} isHeaderExpanded={isHeaderExpanded} toggleHeaderExpanded={toggleHeaderExpanded} headerFields={headerFields} openEditDossierMeta={safeOpenEditDossierMeta}
                         Pencil={Pencil} isEvictionExecutionModule={isEvictionExecutionModule} classificationDisplay={classificationDisplay} showJudgmentMeta={showJudgmentMeta} docNumber={docNumber} judgmentDateDisplay={judgmentDateDisplay} claimTypeArabicDisplay={claimTypeArabicDisplay}
                         evictionPropertyNumber={evictionPropertyNumber}
                         evictionPropertyDistrict={evictionPropertyDistrict}
@@ -839,7 +987,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                                       (parentExecutionFile as { full_address?: string }).full_address ?? ''
                                   ),
                                   isEvictionExecutionModule: parentIsEvictionForExpandedHeader,
-                                  openEditDossierMeta: openParentDossierMetaEdit,
+                                  openEditDossierMeta: safeOpenParentDossierMetaEdit,
                               }
                             : undefined
                     }
@@ -863,7 +1011,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                     {/* Parties / Creditors */}
                     <LazyPartiesSection creditorWorkspaceEntries={creditorWorkspaceEntries} showExtraCreditors={showExtraCreditors} setShowExtraCreditors={setShowExtraCreditors} getExecutionPartyDisplayName={getExecutionPartyDisplayName} viewExecutionData={viewExecutionData} buildPartyHeirsRows={buildPartyHeirsRows} openHeirsQuickView={openHeirsQuickView} effectiveCreditors={effectiveCreditors}
                         heirsDetailsIncludeClient={heirsDetailsIncludeClient} executionAppealBanner={executionAppealBanner}
-                        onOpenDecisionsAppealsTab={() => openDecisionsModalWithBoot({ tab: 'appeals' })} partyBadgesExecutionId={partyBadgesExecutionId} activeCoerciveActions={activeCoerciveActions} seizedAssets={seizedAssets} activeTimelineEvents={activeTimelineEvents} decisionsReloadEpoch={decisionsReloadEpoch} isHistoricalMode={isHistoricalMode} creditorDeathMenuLabel={creditorDeathMenuLabel} handleCreditorDeathMenuAction={handleCreditorDeathMenuAction} creditorExtraMinorNames={creditorExtraMinorNames} creditorExtraMinorLabel={creditorExtraMinorLabel} showToast={showToast} decisionsStorageExecutionId={decisionsStorageExecutionId} openEditParty={openEditParty}
+                        onOpenDecisionsAppealsTab={() => openDecisionsModalWithBoot({ tab: 'appeals' })} partyBadgesExecutionId={partyBadgesExecutionId} activeCoerciveActions={activeCoerciveActions} seizedAssets={seizedAssets} activeTimelineEvents={activeTimelineEvents} decisionsReloadEpoch={decisionsReloadEpoch} isHistoricalMode={isHistoricalMode} creditorDeathMenuLabel={creditorDeathMenuLabel} handleCreditorDeathMenuAction={handleCreditorDeathMenuAction} creditorExtraMinorNames={creditorExtraMinorNames} creditorExtraMinorLabel={creditorExtraMinorLabel} showToast={showToast} decisionsStorageExecutionId={decisionsStorageExecutionId} openEditParty={safeOpenEditParty}
                     />
 
                     <LazyDebtorsSection ref={debtorsSectionRef} {...{
@@ -933,7 +1081,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         isRepresentingDebtor,
                         multiDebtorMode,
                         nextTimelineId,
-                        openEditParty,
+                        openEditParty: safeOpenEditParty,
                         openEvictionResidentialGraceModal,
                         openHeirsNotificationCenter,
                         openHeirsQuickView,
@@ -969,7 +1117,7 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         showToast,
                         smExecutionTarget: executionData?.executionTarget,
                         smHasGuarantorFile: executionData?.hasGuarantor,
-                        hideAllGuarantorPresence: followupSpecialization.hideAllGuarantorPresence,
+                        hideAllGuarantorPresence: followupSpecialization?.hideAllGuarantorPresence,
                         standaloneExecutionMarks,
                         summonsMarkerPopoverOpen,
                         summonsPurposeDraft,
@@ -983,9 +1131,44 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         voluntaryEndOptimistic,
                     }} />
 
+                    {isCustodyRemovalClaimActive ? (
+                        <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
+                            <LazyCustodyRemovalWardsModule
+                                executionId={executionId}
+                                parentDossierId={parentDossierId}
+                                activeSubFileId={activeSubFileId}
+                                isInabaActive={isInabaActive}
+                                executionData={viewExecutionData}
+                                custodyWardNames={custodyWardNamesResolved}
+                                timelineEvents={activeTimelineEvents}
+                                todayYmd={todayYmd}
+                                setTimelineEvents={setTimelineEvents}
+                                persistExecutionMerge={persistExecutionMerge}
+                                nextTimelineId={nextTimelineId}
+                                showToast={showToast}
+                            />
+                        </Suspense>
+                    ) : null}
+
+                    {isMaritalFurnitureClaim ? (
+                        <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
+                            <LazyMaritalFurnitureModule
+                                executionData={viewExecutionData}
+                                persistExecutionMerge={persistExecutionMerge}
+                                pushTimelineEvent={pushTimelineEvent}
+                                setTimelineEvents={setTimelineEvents}
+                                timelineEvents={activeTimelineEvents}
+                                nextTimelineId={nextTimelineId}
+                                todayYmd={todayYmd}
+                                showToast={showToast}
+                                locked={executionToolsTimelineLockedUi || isRepresentingDebtor}
+                            />
+                        </Suspense>
+                    ) : null}
+
                     {quaternaryStageReady &&
                     shouldShowGuarantorExternalHub(viewExecutionData) &&
-                    !followupSpecialization.hideAllGuarantorPresence ? (
+                    !followupSpecialization?.hideAllGuarantorPresence ? (
                         <div className="mx-3 mt-3.5">
                             <Suspense fallback={null}>
                                 <LazyGuarantorExternalHub viewExecutionData={viewExecutionData} openGuarantorDetailsModal={openGuarantorDetailsModal} archiveAndClearGuarantor={archiveAndClearGuarantor} handleGuarantorRequestFromFollowup={handleGuarantorRequestFromFollowup} setSummonsContextDebtorKey={setSummonsContextDebtorKey} setSummonsHubInitialMainTab={setSummonsHubInitialMainTab} setShowUnifiedSummonsModal={setShowUnifiedSummonsModal}
@@ -996,44 +1179,10 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
 
                     {quaternaryStageReady && isVisitationClaim && (
                         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                            <LazyVisitationScheduleModule viewExecutionData={viewExecutionData} visitChildNames={visitChildNames} fileNumber={String(executionData?.fileNumber ?? headerFields?.fileNumber ?? '')} todayYmd={todayYmd} persistExecutionMerge={persistExecutionMerge} pushTimelineEvent={pushTimelineEvent} nextTimelineId={nextTimelineId} showToast={showToast}
+                            <LazyVisitationScheduleModule executionData={viewExecutionData} visitChildNames={visitChildNames} fileNumber={String(executionData?.fileNumber ?? headerFields?.fileNumber ?? '')} todayYmd={todayYmd} persistExecutionMerge={persistExecutionMerge} pushTimelineEvent={pushTimelineEvent} nextTimelineId={nextTimelineId} showToast={showToast}
                             />
                         </Suspense>
                     )}
-
-                    {quaternaryStageReady && isMaritalFurnitureClaim && (
-                        <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                            <LazyMaritalFurnitureModule viewExecutionData={viewExecutionData} persistExecutionMerge={persistExecutionMerge} showToast={showToast}
-                                locked={executionToolsTimelineLockedUi}
-                            />
-                        </Suspense>
-                    )}
-
-                    {quaternaryStageReady &&
-                        isVisitationClaim &&
-                        showVisitationCalendarModal &&
-                        (viewExecutionData as { visitationSchedule?: import('@/app/types/visitationSchedule').VisitationScheduleBundle })
-                            ?.visitationSchedule?.config && (
-                            <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
-                            <LazyVisitationCalendarModal
-                                open={showVisitationCalendarModal} onClose={() => setShowVisitationCalendarModal(false)}
-                                config={
-                                    (
-                                        viewExecutionData as {
-                                            visitationSchedule: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
-                                        }
-                                    ).visitationSchedule.config
-                                }
-                                sessions={
-                                    (
-                                        viewExecutionData as {
-                                            visitationSchedule: import('@/app/types/visitationSchedule').VisitationScheduleBundle;
-                                        }
-                                    ).visitationSchedule.sessions
-                                } todayYmd={todayYmd}
-                            />
-                            </Suspense>
-                        )}
 
                     {quaternaryStageReady && isEvictionExecutionModule && (judicialCustodiansResolved?.length ?? 0) > 0 && (
                         <div className="mx-3 mt-1.5 space-y-1">
@@ -1196,12 +1345,12 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         FolderOpen={FolderOpen}
                         Scale={Scale}
                         ClipboardList={ClipboardList}
-                        CreditCard={CreditCard} showEmployeeCompulsoryProceduresBanner={showEmployeeCompulsoryProceduresBanner} executionToolsTimelineLockedUi={executionToolsTimelineLockedUi} executionActionsGridLocked={executionActionsGridLocked} setEmployeeCompulsoryBannerDismissed={setEmployeeCompulsoryBannerDismissed} setShowUnifiedExecutionModal={setShowUnifiedExecutionModal} setUnifiedModalTab={setUnifiedModalTab} showToast={showToast} setShowAppointmentModal={setShowAppointmentModal} setShowNotesModal={setShowNotesModal} setShowDocumentsModal={setShowDocumentsModal} setShowDecisionsModal={setShowDecisionsModal} onOpenDecisionsModal={() => openDecisionsModalWithBoot({ tab: 'current' })} setIsFinancialCenterExpanded={setIsFinancialCenterExpanded} setShowExecutionFinancialHub={setShowExecutionFinancialHub}
-                        onMemoFollowupClick={handleMemoFollowupClick}
+                        CreditCard={CreditCard} showEmployeeCompulsoryProceduresBanner={showEmployeeCompulsoryProceduresBanner} executionToolsTimelineLockedUi={executionToolsTimelineLockedUi} executionActionsGridLocked={executionActionsGridLocked} setEmployeeCompulsoryBannerDismissed={setEmployeeCompulsoryBannerDismissed} showToast={showToast} onOpenAppointmentModal={safeOpenAppointmentModal} onOpenNotesModal={directOpenNotesModal} onOpenDocumentsModal={directOpenDocumentsModal} onOpenFinancialCenter={directOpenFinancialCenter} onOpenDecisionsModal={() => openDecisionsModalWithBoot({ tab: 'current' })}
+                        onMemoFollowupClick={directHandleMemoFollowupClick ?? handleMemoFollowupClick}
                         showSeizureLogButton={
                             hasUnifiedSeizureLogContent &&
                             !isRepresentingDebtor &&
-                            !followupSpecialization.hideDossierFinancialTools
+                            !followupSpecialization?.hideDossierFinancialTools
                         }
                         onOpenSeizureLog={() => openUnifiedSeizureLog()}
                         pinnedNotes={dockPinnedNotes}
@@ -1209,32 +1358,6 @@ export const ExecutionDashboardPhoneBody = React.memo(function ExecutionDashboar
                         onToggleNotePin={toggleCaseNotePin}
                         onToggleTaskPin={toggleCaseTaskPin}
                         onTrashPinnedNote={moveCaseNoteToTrash}
-                        showVisitationCalendarButton={isVisitationClaim}
-                        onOpenVisitationCalendar={() => {
-                            if (executionToolsTimelineLockedUi) {
-                                showToast('⚠️ لا يمكن فتح التقويم في الوضع الحالي.', 'warning');
-                                return;
-                            }
-                            const bundle = (viewExecutionData as { visitationSchedule?: VisitationScheduleBundle })
-                                ?.visitationSchedule;
-                            if (!bundle?.config) {
-                                showToast('لم يُأسَّس جدول المواعيد بعد.', 'warning');
-                                return;
-                            }
-                            const rolled = syncRollingCalendarSessions(
-                                bundle.config,
-                                bundle.sessions,
-                                todayYmd
-                            );
-                            const prevSig = bundle.sessions.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
-                            const nextSig = rolled.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
-                            if (prevSig !== nextSig) {
-                                persistExecutionMerge({
-                                    visitationSchedule: { config: bundle.config, sessions: rolled },
-                                });
-                            }
-                            setShowVisitationCalendarModal(true);
-                        }}
                     />
                     
                     {/* Timeline */}

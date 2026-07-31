@@ -18,7 +18,11 @@ export type BuildDecisionsAppealsCardPropBundlesParams = {
     renderers: AppealRenderers;
     hubNoteById: Record<string, string>;
     setHubNoteById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-    handleExecutorResolveById: (id: string, resolution: 'approved' | 'rejected') => void;
+    handleExecutorResolveById: (
+        id: string,
+        resolution: 'approved' | 'rejected',
+        options?: import('../hooks/useDecisionsAppealsExecutorResolve').ExecutorResolveOptions,
+    ) => void;
     goToAppealsWithScroll: (id: string) => void;
     canShowAppealInitialForDecision: (d: Decision) => boolean;
     patchDecisionRow: (decisionId: string, patch: Partial<Decision>) => void;

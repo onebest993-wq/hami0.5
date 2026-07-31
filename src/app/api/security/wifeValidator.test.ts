@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./wifeNonceStore', () => ({
+vi.mock('./wifeNonceStore.ts', () => ({
   consumeNonceWithTtl: vi.fn(),
 }));
 
-vi.mock('./stolenTokenServer', () => ({
+vi.mock('./stolenTokenServer.ts', () => ({
   detectStolenTokenServer: vi.fn().mockResolvedValue({ status: 'valid' }),
   registerTokenSessionServer: vi.fn().mockResolvedValue(true),
   extractDeviceIdFromRequest: vi.fn().mockReturnValue(''),
+}));
+
+/** Production fail-closes rate limit without Redis; keep slots open so CSRF/device gates are exercised. */
+vi.mock('./wifeRateLimitStore.ts', () => ({
+  consumeRateLimitSlot: vi.fn().mockResolvedValue(true),
+  resetWifeRateLimitStoreForTests: vi.fn(),
 }));
 
 import { verifyWifeSignature } from './wifeValidator.ts';
@@ -79,7 +85,7 @@ describe('verifyWifeSignature security checks', () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-key';
     process.env.SUPABASE_ANON_KEY = 'anon-key';
 
-    (consumeNonceWithTtl as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    vi.mocked(consumeNonceWithTtl).mockResolvedValue(true);
 
     vi.stubGlobal(
       'fetch',
@@ -160,7 +166,7 @@ describe('verifyWifeSignature security checks', () => {
   });
 
   it('rejects replay when nonce store reports reused nonce', async () => {
-    (consumeNonceWithTtl as unknown as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    vi.mocked(consumeNonceWithTtl).mockResolvedValue(false);
 
     const url = 'https://example.test/api/requests/list';
     const method = 'POST';

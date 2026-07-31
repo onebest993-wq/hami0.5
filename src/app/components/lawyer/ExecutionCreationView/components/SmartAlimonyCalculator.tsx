@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, User, Scale, Sparkles, Heart, Users } from 'lucide-react';
+import { User, Scale, Sparkles, Heart, Users } from 'lucide-react';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 
@@ -129,15 +129,14 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                                 <span className="text-rose-400">*</span>
                             </label>
                             <div className={`${ecg.moneyWrap} focus-within:border-rose-400/35 focus-within:ring-rose-400/10`}>
-                                <DollarSign className="text-slate-500 flex-shrink-0" size={16} />
                                 <input
                                     type="text"
                                     value={formatCurrency(alimonyWifeMonthly)}
                                     onChange={(e) => handleAmountChange(e, onWifeMonthlyChange)}
                                     className={ecg.moneyInput}
-                                    placeholder="0"
+                                    aria-label="مقدار نفقة الزوجة الشهرية (دينار)"
                                 />
-                                <span className="text-slate-500 text-[10px] font-bold">IQD</span>
+                                <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
                             </div>
                         </div>
                     </div>
@@ -152,15 +151,14 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                                 <span className="text-rose-400">*</span>
                             </label>
                             <div className={`${ecg.moneyWrap} focus-within:border-violet-400/35 focus-within:ring-violet-400/10`}>
-                                <DollarSign className="text-slate-500 flex-shrink-0" size={16} />
                                 <input
                                     type="text"
                                     value={formatCurrency(alimonyChildrenMonthly)}
                                     onChange={(e) => handleAmountChange(e, onChildrenMonthlyChange)}
                                     className={ecg.moneyInput}
-                                    placeholder="0"
+                                    aria-label="مقدار نفقة الأولاد الشهرية (دينار)"
                                 />
-                                <span className="text-slate-500 text-[10px] font-bold">IQD</span>
+                                <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
                             </div>
                         </div>
                         <div>

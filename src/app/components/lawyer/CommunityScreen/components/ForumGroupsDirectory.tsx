@@ -1,10 +1,11 @@
 import React, { memo, useState } from 'react';
-import { Search, Users, Plus, Check, Shield } from 'lucide-react';
+import { Plus, Check, Shield } from 'lucide-react';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
 import {
     FORUM_ACCENT_CHIP,
+    FORUM_FAB,
     FORUM_FEED_CARD,
-    FORUM_SURFACE_INPUT,
+    FORUM_PUBLISH_FAB_SLOT,
     FORUM_TEXT_MUTED,
     FORUM_TEXT_PRIMARY,
 } from '../forumPlumTheme';
@@ -23,37 +24,23 @@ interface ForumGroupsDirectoryProps {
 export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
     groups,
     loading,
-    searchQuery,
-    onSearchQueryChange,
     onJoin,
     onOpenGroup,
     onCreateClick,
     joiningGroupId,
 }: ForumGroupsDirectoryProps) {
     return (
-        <div className="px-4 pt-2 pb-28 space-y-4" data-testid="forum-groups-directory">
-            <div className="relative">
-                <Search
-                    size={16}
-                    className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-white/30"
-                />
-                <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => onSearchQueryChange(e.target.value)}
-                    placeholder="ابحث عن مجموعة: كركوك، أحوال شخصية..."
-                    className={`w-full h-11 ${FORUM_SURFACE_INPUT} rounded-xl pr-10 pl-3 text-sm`}
-                    aria-label="بحث في المجموعات"
-                />
-            </div>
-
+        <div className="px-4 pt-1 pb-28 space-y-4" data-testid="forum-groups-directory">
             {loading ? (
                 <p className={`text-center text-sm py-10 ${FORUM_TEXT_MUTED}`}>جاري تحميل المجموعات…</p>
             ) : groups.length === 0 ? (
-                <div className={`${FORUM_FEED_CARD} p-6 text-center`}>
-                    <Users size={28} className="mx-auto mb-3 text-[#F0B896]/60" />
-                    <p className={`${FORUM_TEXT_PRIMARY} font-bold mb-1`}>لا توجد مجموعات بعد</p>
-                    <p className={`text-sm ${FORUM_TEXT_MUTED}`}>أنشئ أول مجموعة تخصصية للنقاش بين الزملاء.</p>
+                <div
+                    className="min-h-[min(48vh,26rem)] flex flex-col items-center justify-end text-center px-3 pb-6"
+                    data-testid="forum-groups-empty"
+                >
+                    <p className={`text-sm ${FORUM_TEXT_MUTED} max-w-xs`}>
+                        لا مجموعات بعد — أنشئ واحدة من الزر أدناه.
+                    </p>
                 </div>
             ) : (
                 <div className="space-y-3">
@@ -69,14 +56,17 @@ export const ForumGroupsDirectory = memo(function ForumGroupsDirectory({
                 </div>
             )}
 
-            <button
-                type="button"
-                onClick={onCreateClick}
-                className="fixed bottom-24 left-6 z-20 flex items-center gap-2 rounded-2xl bg-[#F0B896] text-[#1A1218] font-bold py-3 px-5 shadow-lg shadow-black/25"
-            >
-                <Plus size={20} />
-                <span>إنشاء مجموعة</span>
-            </button>
+            <div className={FORUM_PUBLISH_FAB_SLOT}>
+                <button
+                    type="button"
+                    onClick={onCreateClick}
+                    className={`pointer-events-auto ${FORUM_FAB}`}
+                    data-testid="forum-create-group-fab"
+                >
+                    <Plus size={18} />
+                    <span>إنشاء مجموعة</span>
+                </button>
+            </div>
         </div>
     );
 });
@@ -127,15 +117,15 @@ function GroupCard({
                                 e.stopPropagation();
                                 setExpanded((v) => !v);
                             }}
-                            className="mt-1 text-[10px] text-[#F0B896]/80"
+                            className="mt-1 text-[10px] text-[#C9A86C]/80"
                         >
                             {expanded ? 'أقل' : 'المزيد'}
                         </button>
                     ) : null}
                 </div>
                 <div className={`shrink-0 rounded-xl px-2.5 py-1.5 text-center ${FORUM_ACCENT_CHIP}`}>
-                    <p className="text-sm font-black text-[#F0B896]">{group.memberCount}</p>
-                    <p className="text-[9px] text-white/45">عضو</p>
+                    <p className="text-sm font-black text-[#C9A86C]">{group.memberCount}</p>
+                    <p className="text-[9px] text-[#9AA3B2]">عضو</p>
                 </div>
             </div>
 

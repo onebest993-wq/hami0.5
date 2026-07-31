@@ -95,9 +95,6 @@ export const MaritalFurnitureSetupSection: React.FC<MaritalFurnitureSetupSection
                         </>
                     ) : null}
                 </p>
-                <p className="text-xs font-black text-[#E6C673] font-mono">
-                    {formatMaritalFurnitureIqd(total)} <span className="text-[10px] font-bold">د.ع</span>
-                </p>
             </div>
 
             {items.length >= SEARCH_MIN_ROWS ? (
@@ -216,6 +213,17 @@ export const MaritalFurnitureSetupSection: React.FC<MaritalFurnitureSetupSection
             {useScroll ? (
                 <p className="text-[9px] text-slate-600 text-right">مرّر داخل الجدول لعرض بقية القطع</p>
             ) : null}
+
+            <div
+                className="rounded-xl border border-[#E6C673]/35 bg-gradient-to-l from-[#E6C673]/12 to-[#0B1120]/60 px-3 py-2.5 flex flex-row-reverse items-center justify-between gap-3 text-right ring-1 ring-[#E6C673]/10"
+                aria-live="polite"
+            >
+                <span className="text-[11px] font-bold text-slate-300">مجموع المبالغ</span>
+                <span className="text-sm font-black text-[#E6C673] font-mono tabular-nums">
+                    {formatMaritalFurnitureIqd(total)}{' '}
+                    <span className="text-[10px] font-bold text-[#E6C673]/85">د.ع</span>
+                </span>
+            </div>
 
             {allowAddRows ? (
             <button type="button" onClick={addRow} className={`${ecg.addBtn} !mt-0 border-dashed`}>

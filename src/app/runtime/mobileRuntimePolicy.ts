@@ -7,9 +7,18 @@ export function getMobilePrefetchDelayMs(baseMs: number, liteMode?: LitePerforma
     return Math.round(baseMs * 2.75);
 }
 
-/** تأجيل خدمات الخلفية حتى يستقر التفاعل الأول */
+/** تأجيل خدمات الخلفية الثقيلة (مزامنة/Realtime) حتى يستقر التفاعل الأول */
 export function getBackgroundServicesDeferMs(liteMode?: LitePerformanceMode): number {
     const base = import.meta.env.DEV ? 4_000 : 18_000;
+    return getMobilePrefetchDelayMs(base, liteMode);
+}
+
+/**
+ * تأجيل خفيف لتركيب محرك التنبيهات فقط —
+ * لا يُربط بتأخير المزامنة الثقيلة (18s/Lite) وإلا يبقى قسم التنبيهات ميتاً على الموبايل.
+ */
+export function getAlertsBackgroundDeferMs(liteMode?: LitePerformanceMode): number {
+    const base = import.meta.env.DEV ? 200 : 600;
     return getMobilePrefetchDelayMs(base, liteMode);
 }
 
@@ -23,10 +32,11 @@ export function scheduleIdleWork(fn: () => void, options?: IdleWorkOptions): () 
     const lite = isLitePerformanceActive();
     const minDelayMs = options?.minDelayMs ?? (lite ? 2_500 : 0);
     const timeoutMs = options?.timeoutMs ?? (lite ? 12_000 : 4_000);
+    const timerApi = globalThis;
 
     let cancelled = false;
     let idleId: number | undefined;
-    let timerId: number | undefined;
+    let timerId: ReturnType<typeof setTimeout> | undefined;
 
     const run = () => {
         if (cancelled) return;
@@ -38,21 +48,21 @@ export function scheduleIdleWork(fn: () => void, options?: IdleWorkOptions): () 
                 { timeout: timeoutMs },
             );
         } else {
-            timerId = window.setTimeout(() => {
+            timerId = timerApi.setTimeout(() => {
                 if (!cancelled) fn();
             }, Math.min(timeoutMs, 1_200));
         }
     };
 
     if (minDelayMs > 0) {
-        timerId = window.setTimeout(run, minDelayMs);
+        timerId = timerApi.setTimeout(run, minDelayMs);
     } else {
         run();
     }
 
     return () => {
         cancelled = true;
-        if (timerId !== undefined) window.clearTimeout(timerId);
+        if (timerId !== undefined) timerApi.clearTimeout(timerId);
         if (idleId !== undefined && typeof cancelIdleCallback !== 'undefined') {
             cancelIdleCallback(idleId);
         }

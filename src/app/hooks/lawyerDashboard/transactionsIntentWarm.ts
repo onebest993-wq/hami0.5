@@ -1,6 +1,7 @@
-import { loadTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
+import { loadTransactionsHubModule, prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
 import { warmTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { prefetchTransactionsCloudModule } from '@/app/services/transactions/transactionsCloudLoader';
+import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
 let registeredWarmUserId: string | null | undefined;
 
@@ -12,17 +13,55 @@ export function registerTransactionsWarmUserId(userId: string | null | undefined
     };
 }
 
-/** عند hover/لمس بطاقة المعاملات: prefetch للـ chunk + بذرة البيانات المحلية */
-export function warmTransactionsOnHover(): void {
+function resolveWarmUserId(explicit?: string | null): string | undefined {
+    const uid = (explicit ?? registeredWarmUserId)?.trim();
+    return uid || undefined;
+}
+
+/** Entry + Host + System — يمنع waterfall ثلاثي على أول ضغط */
+function prefetchTransactionsOpenChain(): void {
+    prefetchTransactionsHubModule();
     void loadTransactionsHubModule().catch(() => undefined);
-    prefetchTransactionsCloudModule();
-    const uid = registeredWarmUserId?.trim();
+    void import(
+        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry'
+    ).catch(() => undefined);
+    void import('@/app/components/lawyer/TransactionsThreading/TransactionsThreadingHost').catch(
+        () => undefined,
+    );
+}
+
+/** مخزن البطاقات فوراً — لا idle (كان يؤخر ظهور البطاقات) */
+function warmTransactionsDataNow(userId?: string | null): void {
+    const uid = resolveWarmUserId(userId);
     if (uid) void warmTransactionsThreadingStore(uid).catch(() => undefined);
 }
 
-/** عند فتح مركز المعاملات — يُكمَّل بتهيئة مخزن البيانات */
+/** السحابة فقط على idle — لا تسرق إطار الفتح */
+function warmTransactionsCloudIdle(): void {
+    scheduleIdleWork(() => prefetchTransactionsCloudModule(), { minDelayMs: 0, timeoutMs: 5_000 });
+}
+
+/**
+ * pointerdown/hover — سلسلة chunks + بيانات البطاقات فوراً.
+ * لا dispatchPrime هنا (البلاطة تُطلقه) — تجنّب حلقة warm↔prime تؤخّر الفتح.
+ */
+export function warmTransactionsOnHover(userId?: string | null): void {
+    prefetchTransactionsOpenChain();
+    warmTransactionsDataNow(userId);
+    warmTransactionsCloudIdle();
+}
+
+/**
+ * عند فتح المركز — chunk + مخزن فوري حتى تظهر البطاقات مع الهيكل.
+ */
 export function warmTransactionsOnOpen(userId?: string | null): void {
-    warmTransactionsOnHover();
-    const uid = (userId ?? registeredWarmUserId)?.trim();
-    if (uid) void warmTransactionsThreadingStore(uid).catch(() => undefined);
+    prefetchTransactionsOpenChain();
+    warmTransactionsDataNow(userId);
+    warmTransactionsCloudIdle();
+}
+
+/** تسخين خفيف قبل الفتح — chunks + مخزن إن وُجد userId مسجّل */
+export function primeTransactionsShellForOpen(): void {
+    prefetchTransactionsOpenChain();
+    warmTransactionsDataNow();
 }

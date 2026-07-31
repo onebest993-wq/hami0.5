@@ -10,8 +10,11 @@ const retryLegacyPrefixCleanupIfPartial = vi.fn().mockResolvedValue(false);
 const emitForumUnreadCount = vi.fn();
 const syncForumNotificationsToAppStore = vi.fn().mockReturnValue(0);
 
-vi.mock('@/app/services/forum/forumNotificationBridge', () => ({
+vi.mock('@/app/services/forum/forumNotificationEvents', () => ({
     emitForumUnreadCount: (...args: unknown[]) => emitForumUnreadCount(...args),
+}));
+
+vi.mock('@/app/services/forum/forumNotificationBridge', () => ({
     syncForumNotificationsToAppStore: (...args: unknown[]) => syncForumNotificationsToAppStore(...args),
 }));
 

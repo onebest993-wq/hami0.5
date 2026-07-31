@@ -1,5 +1,5 @@
 import type { PendingSettlement, UnifiedLedgerStore } from './types';
-import { isSalarySeizureAsset } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureRegistryAssets';
+import { isSalarySeizureAsset } from '@/app/utils/execution/isSalarySeizureAsset';
 
 /** مدة التسوية الافتراضية — عداد السداد في الخلفية */
 export const SETTLEMENT_DEFAULT_DUE_DAYS = 30;

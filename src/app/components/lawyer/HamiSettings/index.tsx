@@ -11,6 +11,7 @@ import {
 } from './settingsSectionPersistence';
 import { loadSettingsSection, prefetchSettingsSection } from './settingsSectionLoader';
 import { resolveSettingsSectionComponent } from './settingsSectionRegistry';
+import { prefetchSettingsDialogs } from './settingsDialogPrefetch';
 
 export interface HamiSettingsProps {
     onClose: () => void;
@@ -41,6 +42,7 @@ export const HamiSettings = ({
 
     useLayoutEffect(() => {
         if (!open) return;
+        prefetchSettingsDialogs();
         void loadSettingsSection(activeSection).catch(() => undefined);
     }, [activeSection, open]);
 

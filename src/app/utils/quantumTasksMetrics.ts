@@ -1,5 +1,5 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
-import { countFieldDaySheetTasks } from '@/app/services/tasks/fieldCurtainTasks';
+import { countFieldDaySheetTasksLite } from '@/app/services/tasks/fieldCurtainDayCountLite';
 
 type Listener = () => void;
 
@@ -39,7 +39,7 @@ export function publishQuantumTasksMetrics(tasks: LegalTask[], pending: LegalTas
     pendingSnapshot = pending;
 
     const nextFingerprint = buildTasksFingerprint(pending);
-    const nextCount = countFieldDaySheetTasks(pending, new Date());
+    const nextCount = countFieldDaySheetTasksLite(pending, new Date());
 
     const fingerprintChanged = nextFingerprint !== tasksFingerprint;
     const countChanged = nextCount !== pendingFieldCount;

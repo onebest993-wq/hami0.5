@@ -1,34 +1,32 @@
 /**
- * مزامنة منهجية: أي موعد/تاريخ في إضبارة (دعوى، تنفيذ، مستعجل، معاملة، جزائي، Threading)
- * يُرفع إلى التقويم المركزي عبر معرّف ثابت — لا ربط عشوائي لكل زر على حدة.
+ * مزامنة التنفيذ → التقويم: مواعيد الخط الزمني + مهام الاستحقاق ذات التاريخ.
  */
-import { normalizeDateToYmd } from '@/app/services/calendarBridge';
+import { CalendarBridge, normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import type { DossierSyncStats, SyncScope } from './types';
 import { shouldExcludeExecutionFromCalendar } from './exclusions';
 import { isRecord, readEntityId, readStr } from './shared';
-import { syncExecutionTimelineAppointment } from './incrementalSync';
-
+import { syncExecutionTaskDue, syncExecutionTimelineAppointment } from './incrementalSync';
 
 export function syncOneExecutionFile(
     file: Record<string, unknown>,
     userId: string,
     stats: DossierSyncStats,
-    _scope: SyncScope = {},
+    scope: SyncScope = {},
 ): void {
-    // 🛡️ WHITELIST صارم: لقسم التنفيذ، نُسجّل فقط "إضافة موعد" (timeline.type === 'appointment')
-    // — لا نُسجّل tasks/deadlines/Sniffer.
-    void _scope;
+    const includeTasks = scope.includeTasks !== false;
     const executionId = readEntityId(file);
     if (executionId === null) return;
     if (shouldExcludeExecutionFromCalendar(file)) return;
     const caseNo =
-        readStr(file, 'fileNumber') || readStr(file, 'caseNo') || readStr(file as Record<string, unknown>, 'caseNumber');
+        readStr(file, 'fileNumber') ||
+        readStr(file, 'caseNo') ||
+        readStr(file as Record<string, unknown>, 'caseNumber');
     const clientName = readStr(file, 'creditor') || readStr(file, 'clientName');
+    const executionIdStr = String(executionId);
 
     const timeline = Array.isArray(file.timelineEvents) ? file.timelineEvents : [];
     for (const ev of timeline) {
         if (!isRecord(ev)) continue;
-        // syncExecutionTimelineAppointment يفلتر داخلياً بـ type === 'appointment'
         syncExecutionTimelineAppointment({
             userId,
             executionId,
@@ -47,5 +45,35 @@ export function syncOneExecutionFile(
             stats.executionAppointments++;
         }
     }
-}
 
+    if (!includeTasks) return;
+
+    const tasks = Array.isArray(file.caseTasksPending) ? file.caseTasksPending : [];
+    for (const t of tasks) {
+        if (!isRecord(t)) continue;
+        const tid = String(t.id ?? '').trim();
+        if (!tid) continue;
+        if (t.trashedAt) {
+            CalendarBridge.remove('execution', executionIdStr, `task_${tid}`, userId);
+            continue;
+        }
+        const due = normalizeDateToYmd(readStr(t, 'dueDate'));
+        if (!due) {
+            CalendarBridge.remove('execution', executionIdStr, `task_${tid}`, userId);
+            continue;
+        }
+        syncExecutionTaskDue({
+            userId,
+            executionId,
+            task: {
+                id: tid,
+                title: readStr(t, 'title') || 'مهمة تنفيذ',
+                dueDate: due,
+                trashedAt: null,
+            },
+            caseNo,
+            clientName,
+        });
+        stats.executionTasks++;
+    }
+}

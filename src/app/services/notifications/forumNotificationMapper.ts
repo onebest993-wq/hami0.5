@@ -3,7 +3,7 @@ import {
     deriveNotificationCategory,
     type NotificationModel,
     type NotificationType,
-} from '@/app/infrastructure/NotificationRepository';
+} from '@/app/infrastructure/notificationModel';
 
 function mapForumTypeToAppType(forumType: ForumNotificationType): NotificationType {
     switch (forumType) {
@@ -11,6 +11,14 @@ function mapForumTypeToAppType(forumType: ForumNotificationType): NotificationTy
             return 'forum_solved';
         case 'mention':
             return 'forum_mention';
+        case 'follow':
+        case 'upvote':
+        case 'new_post':
+        case 'comment':
+        case 'reply':
+        case 'report_update':
+        case 'system':
+        case 'new_document':
         default:
             return 'forum_reply';
     }
@@ -31,6 +39,29 @@ function mapAppTypeToForumType(
             return 'best_answer';
         default:
             return 'reply';
+    }
+}
+
+/** تسمية فرعية للواجهة حسب نوع حدث المنتدى الأصلي */
+export function forumEventLabel(forumType: unknown): string | null {
+    switch (forumType) {
+        case 'mention':
+            return 'إشارة';
+        case 'best_answer':
+            return 'إجابة مميزة';
+        case 'follow':
+            return 'متابع جديد';
+        case 'upvote':
+            return 'تفاعل';
+        case 'new_post':
+            return 'منشور جديد';
+        case 'comment':
+        case 'reply':
+            return 'رد';
+        case 'report_update':
+            return 'تحديث بلاغ';
+        default:
+            return null;
     }
 }
 

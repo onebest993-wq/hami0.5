@@ -1,4 +1,4 @@
-import type { LawyerProfileHeader, ProfileAction } from '@/app/services/lawyer-cloud';
+import type { LawyerProfileHeader, ProfileAction, ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 
 export type ForumProfileFollowState = {
     isFollowing: boolean;
@@ -24,5 +24,5 @@ export type RoyalLawyerProfileProps = {
 export type EditDraft = {
     header: LawyerProfileHeader;
     actions: ProfileAction[];
-    gallery: string[];
+    gallery: ProfileGalleryItem[];
 };

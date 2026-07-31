@@ -5,7 +5,6 @@ import { JUVENILE_INVESTIGATION_DETENTION_AUTHORITY } from '../juvenileInvestiga
 import type { GuarantorPerson } from '../criminalStore';
 import {
     emptyPartyBailDraft,
-    isPartyBailDraftValid,
     type PartyBailDraft,
     type PartyDetentionDraft,
 } from './concernedPartyDecisionPickerDraft';

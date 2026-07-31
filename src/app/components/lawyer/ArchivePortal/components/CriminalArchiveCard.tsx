@@ -1,6 +1,6 @@
 import React from 'react';
 import { Trash2 } from 'lucide-react';
-import { prefetchCriminalDashboard } from '@/app/utils/lazyComponents';
+import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildCriminalWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { criminalCaseReference,
@@ -9,6 +9,8 @@ import { criminalCaseReference,
 } from '../criminalArchiveUtils';
 import { CRIMINAL_DOSSIER_TEST_IDS } from '@/app/components/lawyer/criminal-system/criminalDossierTestIds';
 import { UnifiedDossierCard } from './UnifiedDossierCard';
+import { resolveCriminalArchiveHearingDisplay } from '../utils/criminalArchiveHearing';
+import { ArchiveDossierIdentityBlock } from './ArchiveDossierIdentityBlock';
 
 export type CriminalArchiveCardProps = {
     record: Record<string, unknown>;
@@ -38,9 +40,45 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
     const primaryDefendantName = String(
         (defendants[0] as { fullName?: string } | undefined)?.fullName ?? '',
     ).trim();
+    const complainantIsClient = Boolean(
+        (record.complainants as { isOfficeClient?: boolean }[] | undefined)?.[0]?.isOfficeClient,
+    );
+    const defendantIsClient = Boolean(
+        (defendants[0] as { isOfficeClient?: boolean } | undefined)?.isOfficeClient,
+    );
     const isUnknown = Boolean(record.unknownDefendant);
     const pinPayload = buildCriminalWorkspacePin(record);
     const stageText = criminalStageLabel(stage, record) || '—';
+    const hearingDisplay = resolveCriminalArchiveHearingDisplay(record);
+
+    const metaRows = [
+        ref.secondary &&
+        ref.secondary !== '—' &&
+        ref.secondary !== ref.primary
+            ? { label: 'رقم الإضبارة', value: ref.secondary }
+            : null,
+        legalArticle ? { label: 'المادة', value: legalArticle } : null,
+        crimeType ? { label: 'نوع الجريمة', value: crimeType } : null,
+    ].filter((row): row is { label: string; value: string } => row !== null);
+
+    const complainantParty =
+        complainantName
+            ? {
+                  name: complainantName,
+                  role: 'الشاكي',
+                  isClient: complainantIsClient,
+              }
+            : null;
+
+    const defendantParty = isUnknown
+        ? { name: 'مجهول', role: 'المتهم', isClient: false }
+        : primaryDefendantName
+          ? {
+                name: primaryDefendantName,
+                role: 'المتهم',
+                isClient: defendantIsClient,
+            }
+          : null;
 
     if (variant === 'compact') {
         return (
@@ -91,27 +129,21 @@ export const CriminalArchiveCard: React.FC<CriminalArchiveCardProps> = ({
                 ) : undefined
             }
             title={ref.primary}
-            subtitle={ref.secondary}
             bodyExtra={
-                <>
-                    {legalArticle || crimeType ? (
-                        <p className="text-gray-400 text-sm truncate">
-                            {legalArticle || '—'}
-                            {crimeType ? ` · ${crimeType}` : ''}
-                        </p>
-                    ) : null}
-                    <p className="text-gray-400 text-sm truncate">
-                        المشتكي: <span className="text-gray-200">{complainantName || '—'}</span>
-                        {isUnknown ? (
-                            <span className="text-rose-300 font-bold"> · ضد مجهول</span>
-                        ) : (
-                            <>
-                                {' · '}
-                                المتهم: <span className="text-gray-200">{primaryDefendantName || '—'}</span>
-                            </>
-                        )}
-                    </p>
-                </>
+                <ArchiveDossierIdentityBlock
+                    hearing={hearingDisplay}
+                    metaRows={metaRows}
+                    parties={
+                        complainantParty || defendantParty
+                            ? {
+                                  left: complainantParty,
+                                  right: defendantParty,
+                                  leftTone: 'plaintiff',
+                                  rightTone: 'defendant',
+                              }
+                            : null
+                    }
+                />
             }
             onOpen={onOpen}
             openLabel="فتح الإضبارة"

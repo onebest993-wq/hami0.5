@@ -1,12 +1,8 @@
 /**
- * E2E — الملف المهني: الخصوصية، الحفظ، وضع التعديل.
+ * E2E — الملف المهني: الحفظ ووضع التعديل.
  */
 import { test, expect } from '@playwright/test';
-import { prepareProfileStudioE2E, openLawyerProfile, openProfileStudio, reopenProfileStudio } from './helpers/profileFixtures';
-
-async function luxuryToggleOn(locator: import('@playwright/test').Locator) {
-    return locator.locator('.profile-settings-luxury-toggle');
-}
+import { prepareProfileStudioE2E, openLawyerProfile, openProfileStudio } from './helpers/profileFixtures';
 
 /** أصغر JPEG صالح لاختبار رفع الصورة */
 const TINY_JPEG = Buffer.from(
@@ -14,55 +10,11 @@ const TINY_JPEG = Buffer.from(
     'base64',
 );
 
-test.describe('الملف المهني — الخصوصية والتعديل', () => {
+test.describe('الملف المهني — التعديل والحفظ', () => {
     test.describe.configure({ timeout: 90_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareProfileStudioE2E(page);
-    });
-
-    test('تبويب الخصوصية: كل مفتاح قابل للتبديل', async ({ page }) => {
-        const sheet = await openProfileStudio(page);
-        await expect(sheet.getByTestId('profile-settings-privacy-tab')).toBeVisible({ timeout: 10_000 });
-
-        const toggles = [
-            'profile-privacy-toggle-contact-channels',
-            'profile-privacy-toggle-gallery',
-            'profile-privacy-toggle-custom-blocks',
-            'profile-privacy-toggle-phone-meta',
-            'profile-privacy-toggle-city-meta',
-            'profile-privacy-toggle-syndicate',
-        ] as const;
-
-        for (const id of toggles) {
-            const btn = sheet.getByTestId(id);
-            const toggle = await luxuryToggleOn(btn);
-            const before = await toggle.getAttribute('data-on');
-            await btn.scrollIntoViewIfNeeded();
-            await btn.click({ force: true });
-            await expect(toggle).toHaveAttribute('data-on', before === 'true' ? 'false' : 'true');
-        }
-    });
-
-    test('حفظ إعدادات الخصوصية يثبت التغيير بعد إعادة الفتح', async ({ page }) => {
-        const sheet = await openProfileStudio(page);
-        const galleryBtn = sheet.getByTestId('profile-privacy-toggle-gallery');
-        const galleryToggle = await luxuryToggleOn(galleryBtn);
-        const initialOn = await galleryToggle.getAttribute('data-on');
-
-        if (initialOn === 'true') {
-            await galleryBtn.click();
-            await expect(galleryToggle).toHaveAttribute('data-on', 'false');
-        }
-
-        await sheet.getByTestId('profile-settings-save').click();
-        await expect(sheet).toBeHidden({ timeout: 10_000 });
-
-        const reopened = await reopenProfileStudio(page);
-        await expect(await luxuryToggleOn(reopened.getByTestId('profile-privacy-toggle-gallery'))).toHaveAttribute(
-            'data-on',
-            'false',
-        );
     });
 
     test('وضع التعديل: تغيير الاسم والحفظ', async ({ page }) => {
@@ -71,6 +23,10 @@ test.describe('الملف المهني — الخصوصية والتعديل', (
 
         await profile.getByTestId('lawyer-profile-edit').click({ timeout: 8_000 });
         await expect(profile.getByTestId('lawyer-profile-name-input')).toBeVisible({ timeout: 8_000 });
+        await expect(profile.getByTestId('lawyer-profile-title-input')).toHaveCount(0);
+        await expect(profile.getByTestId('lawyer-profile-phone-input')).toHaveCount(0);
+        await expect(profile.getByTestId('lawyer-profile-city-input')).toHaveCount(0);
+        await expect(profile.getByTestId('lawyer-profile-syndicate-input')).toHaveCount(0);
 
         await profile.getByTestId('lawyer-profile-name-input').fill(uniqueName);
         await page.getByTestId('lawyer-profile-edit-save').click({ timeout: 8_000 });
@@ -104,21 +60,10 @@ test.describe('الملف المهني — الخصوصية والتعديل', (
         await expect(page.getByText(/تم رفع الصورة|تم حفظ الصورة محلياً/)).toBeVisible({ timeout: 12_000 });
     });
 
-    test('إخفاء قناة تواصل من تبويب الخصوصية', async ({ page }) => {
-        const profile = await openLawyerProfile(page);
-
-        await profile.getByTestId('lawyer-profile-edit').click({ timeout: 8_000 });
-        const addContact = profile.getByTestId('lawyer-profile-add-contact');
-        await addContact.scrollIntoViewIfNeeded();
-        await addContact.click({ timeout: 8_000 });
-        await page.getByTestId('lawyer-profile-edit-save').click({ timeout: 8_000 });
-        await expect(profile.getByTestId('lawyer-profile-name-input')).toHaveCount(0, { timeout: 12_000 });
-
-        const sheet = await reopenProfileStudio(page);
-        const visibilityBtn = sheet.locator('[data-testid^="profile-privacy-contact-visibility-"]').first();
-        await expect(visibilityBtn).toBeVisible({ timeout: 8_000 });
-        await visibilityBtn.click();
-        await sheet.getByTestId('profile-settings-save').click();
-        await expect(sheet).toBeHidden({ timeout: 10_000 });
+    test('الاستوديو لا يعرض قسم خصوصية الزوار', async ({ page }) => {
+        const sheet = await openProfileStudio(page);
+        await sheet.getByTestId('profile-settings-tab-appearance').click({ force: true });
+        await expect(sheet.getByTestId('profile-settings-appearance-tab')).toBeVisible({ timeout: 10_000 });
+        await expect(sheet.getByTestId('profile-settings-privacy-section')).toHaveCount(0);
     });
 });

@@ -3,12 +3,12 @@ import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hub
 /** غلاف النوافذ المتداخلة داخل إضبارة الدعوى */
 export const SMART_FILE_NESTED_MODAL_Z = HUB_DOSSIER_MODAL_Z_CLASS;
 
-export const SMART_FILE_NESTED_MODAL_OVERLAY_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-center justify-center bg-[#03050B]/90 backdrop-blur-[7px] p-4 font-['Tajawal'] pointer-events-auto`;
+export const SMART_FILE_NESTED_MODAL_OVERLAY_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-start justify-center overflow-y-auto overscroll-contain bg-[#03050B]/94 p-3 sm:items-center sm:p-4 font-['Tajawal'] pointer-events-auto`;
 
-export const SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-center justify-center bg-[#020309]/94 backdrop-blur-md p-4 font-['Tajawal'] pointer-events-auto`;
+export const SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} flex items-start justify-center overflow-y-auto overscroll-contain bg-[#020309]/96 p-3 sm:items-center sm:p-4 font-['Tajawal'] pointer-events-auto`;
 
 /** لوحات ملء الشاشة داخل الإضبارة (مرجع قانوني، سجل الجلسة، …) */
-export const SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} bg-[#020309]/94 backdrop-blur-lg font-['Tajawal'] pointer-events-auto`;
+export const SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS = `fixed inset-0 ${SMART_FILE_NESTED_MODAL_Z} bg-[#020309]/96 font-['Tajawal'] pointer-events-auto`;
 
 /** لوحة «سير الدعوى» في الشريط العلوي — ضمن مكدس الإضبارة (لا z-9998) */
 export const SMART_FILE_FLOW_PANEL_BACKDROP_CLASS = `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} bg-[#05060D]/50 backdrop-blur-[2px] animate-in fade-in duration-200 pointer-events-auto`;

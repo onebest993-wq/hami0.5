@@ -1,12 +1,6 @@
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 
 vi.mock(
-    '@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsPrivacyTab',
-    () => ({
-        ProfileSettingsPrivacyTab: () => null,
-    }),
-);
-vi.mock(
     '@/app/components/lawyer/RoyalLawyerProfile/components/settings/ProfileSettingsAppearanceTab',
     () => ({
         ProfileSettingsAppearanceTab: () => null,
@@ -26,7 +20,7 @@ vi.mock('@/app/components/lawyer/RoyalLawyerProfile/components/ImageBlockStudioE
 }));
 
 import {
-    getCachedProfileSettingsPrivacyTab,
+    getCachedProfileSettingsAppearanceTab,
     isProfileSettingsStudioTabsResolved,
     loadProfileSettingsStudioTabs,
     resetProfileSettingsStudioTabsLoaderForTests,
@@ -37,10 +31,10 @@ describe('profileSettingsStudioTabsLoader', () => {
         resetProfileSettingsStudioTabsLoaderForTests();
     });
 
-    it('يحمّل التبويبات الثلاثة والمحرّرين معاً', async () => {
+    it('يحمّل تبويبي المظهر والمحتويات والمحرّرين', async () => {
         expect(isProfileSettingsStudioTabsResolved()).toBe(false);
         await loadProfileSettingsStudioTabs();
         expect(isProfileSettingsStudioTabsResolved()).toBe(true);
-        expect(getCachedProfileSettingsPrivacyTab()).toBeTruthy();
+        expect(getCachedProfileSettingsAppearanceTab()).toBeTruthy();
     });
 });

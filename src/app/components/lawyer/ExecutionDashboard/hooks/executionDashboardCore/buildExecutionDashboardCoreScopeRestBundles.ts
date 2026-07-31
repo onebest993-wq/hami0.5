@@ -193,5 +193,11 @@ export function buildExecutionDashboardCoreScopeRestBundles(input: Record<string
             FollowupModalContext,
             resolveCalendarUserId: input.resolveCalendarUserId,
         },
+        followupScopeBag: input.followupScopeBag,
+        coerciveScopeBag: input.coerciveScopeBag,
+        decisionsSeizureEvictionScopeBag: input.decisionsSeizureEvictionScopeBag,
+        workspaceScopeBag: input.workspaceScopeBag,
+        timelineDossierScopeBag: input.timelineDossierScopeBag,
+        financialScopeBag: input.financialScopeBag,
     };
 }

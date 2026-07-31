@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
 import { repairAppealStagePartyRoles } from './appealPartyEngine';
 import { dedupeAppealThirdPartyShadows } from './partyRoleClassification';
@@ -7,18 +6,21 @@ function isRecord(v: unknown): v is Record<string, unknown> {
     return v !== null && typeof v === 'object';
 }
 
+function coercePartyId(idRaw: unknown, fallback: number): number {
+    if (typeof idRaw === 'number' && Number.isFinite(idRaw)) return idRaw;
+    if (typeof idRaw === 'string' && idRaw.trim()) {
+        const parsed = Number(idRaw);
+        if (Number.isFinite(parsed)) return parsed;
+    }
+    return fallback;
+}
+
 function coerceParty(raw: unknown, idx: number): Party | null {
     if (!isRecord(raw)) return null;
     const name = typeof raw.name === 'string' ? raw.name.trim() : '';
     if (!name) return null;
 
-    const idRaw = raw.id;
-    const id =
-        typeof idRaw === 'number'
-            ? idRaw
-            : typeof idRaw === 'string' && idRaw.trim()
-              ? idRaw
-              : Date.now() + idx;
+    const id = coercePartyId(raw.id, Date.now() + idx);
 
     const side =
         raw.side === 'right' || raw.side === 'left'
@@ -117,7 +119,7 @@ function partiesFromIncidentalCases(incidentalCases: IncidentalCase[] | undefine
                       : 'شخص ثالث (انضمامي — جانب المدعى عليه)'
                   : 'شخص ثالث';
         out.push({
-            id: c.id || `inc_${i}`,
+            id: coercePartyId(c.id, Date.now() + i + 500),
             name,
             role,
             isClient: false,

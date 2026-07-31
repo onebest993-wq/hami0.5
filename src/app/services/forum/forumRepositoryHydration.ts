@@ -7,7 +7,7 @@ import {
     type ForumCommentRow,
     type ForumPostRow,
 } from './forumMapper';
-import { getForumSupabaseAdmin } from './supabaseAdmin';
+import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 import { compareCommunityPostsForFeed } from './forumUrgentConsultation';
 
 export function createForumRepositoryId(): string {
@@ -34,7 +34,7 @@ export function matchesForumListScope(post: CommunityPost, options?: ForumListPo
 }
 
 export async function loadCommentsForPosts(postIds: string[]): Promise<Map<string, ForumCommentRow[]>> {
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     const map = new Map<string, ForumCommentRow[]>();
     if (!admin || postIds.length === 0) return map;
 
@@ -55,7 +55,7 @@ export async function loadCommentsForPosts(postIds: string[]): Promise<Map<strin
 
 export async function loadCommentUpvotes(commentIds: string[]): Promise<CommentUpvoteMap> {
     const map: CommentUpvoteMap = new Map();
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin || commentIds.length === 0) return map;
     const { data, error } = await admin
         .from('forum_comment_upvotes')
@@ -85,7 +85,7 @@ let migrationAttempted = false;
 export async function migrateForumFromLegacyKvIfEmpty(): Promise<void> {
     if (migrationAttempted) return;
     migrationAttempted = true;
-    const admin = getForumSupabaseAdmin();
+    const admin = await loadForumSupabaseAdmin();
     if (!admin) return;
 
     const { count, error } = await admin.from('forum_posts').select('*', { count: 'exact', head: true });

@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { CriminalComplainant, CriminalDefendant } from './criminalStore';
 import type { CriminalActionParty } from './criminalStageUtils';
 import { displayPartyNameForCase } from './criminalStageUtils';

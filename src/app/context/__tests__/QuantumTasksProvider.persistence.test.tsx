@@ -65,4 +65,22 @@ describe('QuantumTasksProvider persistence', () => {
             expect(raw).toContain('جلسة');
         });
     });
+
+    it('§29: لا يستدعي SecureStore sync عند أول mount قبل hydrate', async () => {
+        const SecureStoreService = (await import('@/app/services/SecureStoreService')).default;
+        const getItemSync = SecureStoreService.getItemSync as ReturnType<typeof vi.fn>;
+        const setItemSync = SecureStoreService.setItemSync as ReturnType<typeof vi.fn>;
+
+        const { result } = renderHook(() => useQuantumTasksData(), { wrapper });
+
+        expect(getItemSync).not.toHaveBeenCalled();
+        expect(setItemSync).not.toHaveBeenCalled();
+        expect(result.current.storageHydrated).toBe(false);
+
+        await waitFor(() => {
+            expect(result.current.storageHydrated).toBe(true);
+        });
+
+        expect(getItemSync).not.toHaveBeenCalled();
+    });
 });

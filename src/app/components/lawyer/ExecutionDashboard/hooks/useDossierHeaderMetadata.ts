@@ -64,7 +64,7 @@ export function useDossierHeaderMetadata(
     }, [judgmentDate]);
 
     const showJudgmentMeta =
-        headerFields.docType === 'قرارات وأحكام المحاكم' ||
+        Boolean(headerFields.docType) ||
         Boolean(headerFields.docNumber) ||
         Boolean(headerFields.judgmentDate);
 

@@ -113,15 +113,26 @@ export async function seedDivergedExecutionStorage(page: Page): Promise<void> {
     await page.evaluate(
         ({ filesKey, indexPayload, blobKey, blobPayload }) => {
             const indexRaw = JSON.stringify([indexPayload]);
-            for (const k of [
+            const keys = new Set<string>([
                 filesKey,
                 'hami-execution-files',
                 'execution_files',
                 'lawyer_execution_files',
-            ]) {
+            ]);
+            try {
+                for (let i = 0; i < localStorage.length; i += 1) {
+                    const k = localStorage.key(i);
+                    if (k && k.startsWith(`${filesKey}:`)) keys.add(k);
+                }
+            } catch {
+                /* ignore */
+            }
+            for (const k of keys) {
                 localStorage.setItem(k, indexRaw);
             }
             localStorage.setItem(blobKey, JSON.stringify(blobPayload));
+            // اسمح بإعادة ترحيل الفهرس العام → المالك بعد الزرع
+            localStorage.removeItem('hami:execution:files-owner-migrated:v1');
         },
         {
             filesKey: EXECUTION_FILES_KEY,
@@ -180,6 +191,27 @@ export async function readExecutionIndexRow(
     page: Page,
     dossierId: string = E2E_EXEC_PERSIST_ID,
 ): Promise<Record<string, unknown> | null> {
+    const fromApp = await page.evaluate(
+        ({ id }) => {
+            const load = (
+                window as unknown as { __hamiLoadExecutionFilesIndex?: () => unknown[] }
+            ).__hamiLoadExecutionFilesIndex;
+            if (typeof load !== 'function') return null;
+            try {
+                const rows = load();
+                if (!Array.isArray(rows)) return null;
+                const row = rows.find((r) => r && String((r as { id?: unknown }).id ?? '') === id);
+                return row && typeof row === 'object'
+                    ? ({ ...(row as Record<string, unknown>) } as Record<string, unknown>)
+                    : null;
+            } catch {
+                return null;
+            }
+        },
+        { id: dossierId },
+    );
+    if (fromApp) return fromApp;
+
     return page.evaluate(
         async ({ filesKey, id }) => {
             const legacyKey = 'execution_files';
@@ -204,7 +236,7 @@ export async function readExecutionIndexRow(
                 ...candidates: Array<Record<string, unknown> | null>
             ): Record<string, unknown> | null => {
                 let best: Record<string, unknown> | null = null;
-                let bestScore = 0;
+                let bestScore = -1;
                 for (const c of candidates) {
                     const s = score(c);
                     if (s > bestScore) {
@@ -215,61 +247,54 @@ export async function readExecutionIndexRow(
                 return best;
             };
 
-            const fromLs = pickBest(
+            const lsCandidates: Array<Record<string, unknown> | null> = [
                 parse(localStorage.getItem(filesKey)),
                 parse(localStorage.getItem(legacyKey)),
-            );
-
-            return await new Promise<Record<string, unknown> | null>((resolve) => {
-                try {
-                    const req = indexedDB.open('hami-secure-store', 2);
-                    req.onsuccess = () => {
-                        const db = req.result;
-                        if (!db.objectStoreNames.contains('secure_kv')) {
-                            db.close();
-                            resolve(fromLs);
-                            return;
-                        }
-                        const tx = db.transaction('secure_kv', 'readonly');
-                        const get = tx.objectStore('secure_kv').get(filesKey);
-                        const getLegacy = tx.objectStore('secure_kv').get(legacyKey);
-                        get.onsuccess = () => {
-                            const rawPrimary = typeof get.result === 'string' ? get.result : null;
-                            getLegacy.onsuccess = () => {
-                                db.close();
-                                const rawLegacy =
-                                    typeof getLegacy.result === 'string' ? getLegacy.result : null;
-                                resolve(
-                                    pickBest(fromLs, parse(rawPrimary), parse(rawLegacy)),
-                                );
-                            };
-                            getLegacy.onerror = () => {
-                                db.close();
-                                resolve(pickBest(fromLs, parse(rawPrimary)));
-                            };
-                        };
-                        get.onerror = () => {
-                            db.close();
-                            resolve(fromLs);
-                        };
-                    };
-                    req.onerror = () => resolve(fromLs);
-                } catch {
-                    resolve(fromLs);
+            ];
+            try {
+                for (let i = 0; i < localStorage.length; i += 1) {
+                    const k = localStorage.key(i);
+                    if (!k || k === filesKey || k === legacyKey) continue;
+                    if (k.startsWith(`${filesKey}:`)) {
+                        lsCandidates.push(parse(localStorage.getItem(k)));
+                    }
                 }
-            });
+            } catch {
+                /* ignore */
+            }
+
+            return pickBest(...lsCandidates);
         },
         { filesKey: EXECUTION_FILES_KEY, id: dossierId },
     );
 }
 
 export async function waitForExecutionIndexReconciled(page: Page): Promise<Record<string, unknown>> {
+    await page
+        .waitForFunction(
+            () =>
+                typeof (window as unknown as { __hamiLoadExecutionFilesIndex?: unknown })
+                    .__hamiLoadExecutionFilesIndex === 'function',
+            undefined,
+            { timeout: 30_000 },
+        )
+        .catch(() => undefined);
+
+    // دفع مصالحة صريحة ثم انتظار ظهور أحداث البلوب في فهرس التطبيق
+    await triggerExecutionStorageReconcile(page).catch(() => undefined);
+
     const deadline = Date.now() + 45_000;
+    let ticks = 0;
     while (Date.now() < deadline) {
         const row = await readExecutionIndexRow(page);
         const timeline = row?.timelineEvents;
         if (Array.isArray(timeline) && timeline.length > 0) {
-            return row;
+            return row as Record<string, unknown>;
+        }
+        ticks += 1;
+        // إعادة دفع المصالحة كل ~2.5s — يغطي سباق مرآة SecureStore بعد زرع LS
+        if (ticks % 5 === 0) {
+            await triggerExecutionStorageReconcile(page).catch(() => undefined);
         }
         await page.waitForTimeout(500);
     }

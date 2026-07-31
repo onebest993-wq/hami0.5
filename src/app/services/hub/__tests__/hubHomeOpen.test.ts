@@ -52,10 +52,11 @@ describe('hubHomeOpen', () => {
         expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('lawsuit', null);
     });
 
-    it('opens transaction for signed-in user', () => {
+    it('opens transaction for signed-in user', async () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('transaction', 'lawyer-1', onOpen)).toBe(true);
         expect(onOpen).toHaveBeenCalledWith('transaction');
+        await Promise.resolve();
         expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('transaction', 'lawyer-1');
     });
 
@@ -63,7 +64,7 @@ describe('hubHomeOpen', () => {
         const onOpen = vi.fn();
         expect(openHubArchiveFromHomeTile('transaction', null, onOpen)).toBe(false);
         expect(onOpen).not.toHaveBeenCalled();
-        expect(prefetchHubArchiveIntentImmediate).toHaveBeenCalledWith('transaction', null);
+        expect(prefetchHubArchiveIntentImmediate).not.toHaveBeenCalled();
         expect(toastError).toHaveBeenCalled();
     });
 });

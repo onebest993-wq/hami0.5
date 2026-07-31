@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React from 'react';
 import type { JudicialDecision } from '@/app/types/criminal';
 import {

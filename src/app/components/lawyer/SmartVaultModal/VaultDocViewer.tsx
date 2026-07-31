@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File } from 'lucide-react';
+import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File, Download, Loader2 } from 'lucide-react';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { formatDate, formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
-import type { VaultDocViewerKind } from '@/app/services/vaultUploadService';
+import { downloadVaultDocToDevice, type VaultDocViewerKind } from '@/app/services/vaultUploadService';
 import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
+import { ZoomableContainer } from '@/app/components/shared/ZoomableContainer';
 import {
-    prefetchVaultPdfJsViewer,
-    VaultPdfJsViewerLazy,
-} from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
+    prefetchVaultPdfViewerSurface,
+    VaultPdfViewerSurfaceLazy,
+} from '@/app/components/lawyer/SmartVaultModal/VaultPdfViewerSurfaceLazy';
 import { VAULT_SHEET_OVERLAY_VIEWPORT } from './vaultDustyRoseTheme';
+import { SmartToast } from '@/app/components/ui/SmartToast';
 
 interface VaultDocViewerProps {
     doc: SmartVaultDoc;
@@ -48,13 +50,14 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
     const isImage = kind === 'image';
     const isAudio = kind === 'audio';
     const [imageError, setImageError] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
 
     useEffect(() => {
         setImageError(false);
     }, [fileUrl, isImage]);
 
     useEffect(() => {
-        if (isPdf) prefetchVaultPdfJsViewer();
+        if (isPdf) prefetchVaultPdfViewerSurface();
     }, [isPdf]);
 
     useEffect(() => {
@@ -73,6 +76,18 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
 
     const KindIcon = kindIcon(kind);
     const kindLabel = vaultMediaKindLabel(kind);
+    const handleDownload = async () => {
+        if (isDownloading) return;
+        setIsDownloading(true);
+        try {
+            await downloadVaultDocToDevice(doc, { fileUrl, fileBlob });
+            SmartToast.success('تم تنزيل الملف بنجاح');
+        } catch {
+            SmartToast.error('تعذر تنزيل الملف');
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     const viewer = (
         <div
@@ -82,29 +97,46 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
             data-testid="vault-doc-viewer-overlay"
         >
             <div
-                className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-[#C9A9A6]/12 bg-[#2E2A27] gap-2"
+                className="shrink-0 flex items-center justify-between px-5 py-3 border-b border-white/[0.08] bg-[#0A0F1C]/96 gap-2"
                 onClick={(e) => e.stopPropagation()}
             >
-                <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-[#4A4440]/50 transition-colors shrink-0">
-                    <X size={20} className="text-[#F7F3EB]/70" />
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="إغلاق المعاينة"
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl border border-white/10 bg-white/[0.04] text-white/70 hover:text-[#E6C673] hover:border-[#E6C673]/28 transition-colors"
+                    >
+                        <X size={20} />
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => void handleDownload()}
+                        disabled={isDownloading}
+                        data-testid={`vault-doc-download-${doc.id}`}
+                        aria-label={`تنزيل ${doc.title}`}
+                        className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl border border-[#E6C673]/28 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/16 transition-colors disabled:opacity-50"
+                    >
+                        {isDownloading ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                    </button>
+                </div>
                 <div className="flex-1 min-w-0 text-center">
                     <div className="flex items-center justify-center gap-1.5 mb-0.5">
                         <span
                             className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
                                 isPdf
-                                    ? 'bg-[#B8A078]/15 text-[#B8A078] border-[#B8A078]/30'
+                                    ? 'bg-[#E6C673]/12 text-[#E6C673] border-[#E6C673]/28'
                                     : isAudio
-                                      ? 'bg-[#8B9DC3]/15 text-[#8B9DC3] border-[#8B9DC3]/30'
-                                      : 'bg-[#C9A9A6]/15 text-[#C9A9A6] border-[#C9A9A6]/30'
+                                      ? 'bg-violet-500/12 text-violet-300 border-violet-400/28'
+                                      : 'bg-sky-500/12 text-sky-300 border-sky-400/28'
                             }`}
                         >
                             <KindIcon size={10} />
                             {kindLabel}
                         </span>
                     </div>
-                    <h3 className="text-[#F7F3EB] font-bold text-sm truncate">{doc.title}</h3>
-                    <p className="text-[#C9A9A6]/50 text-[10px]">
+                    <h3 className="text-[#F4F0E8] font-bold text-sm truncate">{doc.title}</h3>
+                    <p className="text-white/45 text-[10px]">
                         {formatDate(doc.createdAt)} — {formatFileSize(doc.fileSize || 0)}
                     </p>
                 </div>
@@ -113,35 +145,39 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="p-2 rounded-lg hover:bg-[#4A4440]/50 transition-colors shrink-0"
+                    aria-label={`فتح ${doc.title} في نافذة جديدة`}
+                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl border border-white/10 bg-white/[0.04] text-white/65 hover:text-[#E6C673] hover:border-[#E6C673]/28 transition-colors shrink-0"
                     title="فتح في نافذة جديدة"
                 >
-                    <ExternalLink size={18} className="text-[#B8A078]/70" />
+                    <ExternalLink size={18} />
                 </a>
             </div>
 
             {doc.lawyerNote ? (
-                <div className="shrink-0 px-5 py-2 border-b border-[#C9A9A6]/10 bg-[#C9A9A6]/8" onClick={(e) => e.stopPropagation()}>
-                    <p className="text-[#B8A078]/80 text-[10px] font-bold mb-0.5">الوصف</p>
-                    <p className="text-[#F7F3EB]/75 text-xs leading-relaxed">{doc.lawyerNote}</p>
+                <div className="shrink-0 px-5 py-2 border-b border-white/[0.06] bg-[#E6C673]/[0.06]" onClick={(e) => e.stopPropagation()}>
+                    <p className="text-[#E6C673]/80 text-[10px] font-bold mb-0.5">الوصف</p>
+                    <p className="text-[#F4F0E8]/80 text-xs leading-relaxed">{doc.lawyerNote}</p>
                 </div>
             ) : null}
 
             <div
-                className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden bg-[#1a1614]"
+                className="flex-1 min-h-0 flex flex-col p-4 overflow-hidden bg-[#0A0F1C]"
                 onClick={(e) => e.stopPropagation()}
             >
                 {isPdf ? (
-                    <VaultPdfJsViewerLazy
-                        source={fileBlob ?? fileUrl}
-                        title={doc.title}
-                        openUrl={openUrl}
-                        fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
-                    />
+                    /* التقريب بقرصة اللمس أو Ctrl+عجلة — العجلة العادية تبقى لتمرير الصفحات */
+                    <ZoomableContainer className="flex-1 min-h-0" wheelZoom="modifier" nativeVerticalScroll showControls>
+                        <VaultPdfViewerSurfaceLazy
+                            source={fileBlob ?? fileUrl}
+                            title={doc.title}
+                            openUrl={openUrl}
+                            fallbackClassName="flex h-full items-center justify-center text-sm text-white/45"
+                        />
+                    </ZoomableContainer>
                 ) : isImage ? (
                     <div className="flex-1 flex items-center justify-center overflow-auto custom-scrollbar">
                         {imageError ? (
-                            <div className="text-center text-white/50 text-sm px-4">
+                            <div className="text-center text-white/55 text-sm px-4">
                                 <p className="mb-2">تعذر عرض الصورة</p>
                                 <a
                                     href={fileUrl}
@@ -161,7 +197,7 @@ export const VaultDocViewer: React.FC<VaultDocViewerProps> = ({
                                     draggable={false}
                                     onError={() => setImageError(true)}
                                 />
-                                <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white/50 text-[10px]">
+                                <div className="absolute bottom-3 left-3 flex items-center gap-1 px-2 py-1 rounded-lg bg-black/50 text-white/60 text-[10px]">
                                     <ZoomIn size={12} />
                                     معاينة داخل التطبيق
                                 </div>

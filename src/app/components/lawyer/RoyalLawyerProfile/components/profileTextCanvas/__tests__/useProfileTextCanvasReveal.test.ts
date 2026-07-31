@@ -56,7 +56,7 @@ describe('useProfileTextCanvasReveal', () => {
         expect(result.current.revealing).toBe(false);
     });
 
-    it('لا يكشف عند canInteract = false', () => {
+    it('لا يكشف عند canInteract = false ويُبقي النص مقروءاً بلا قناع', () => {
         const wrapRef = { current: document.createElement('div') };
         const leafRefs = { current: [] as (HTMLSpanElement | null)[] };
         const { result } = renderHook(() =>
@@ -71,6 +71,8 @@ describe('useProfileTextCanvasReveal', () => {
             result.current.onTapReveal();
         });
         expect(result.current.revealed).toBe(false);
+        expect(result.current.maskActive).toBe(false);
+        expect(result.current.showHint).toBe(false);
     });
 
     it('scatterPetals يكشف عند الوصول لعتبة التقدم', () => {

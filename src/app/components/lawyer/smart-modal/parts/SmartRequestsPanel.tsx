@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Shield, Sparkles, X, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Sparkles, X, Zap } from 'lucide-react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import {
@@ -350,7 +350,6 @@ export const SmartRequestsPanel = ({
                                 className="rounded-xl border border-dashed border-[#E6C673]/20 bg-[#E6C673]/[0.03] backdrop-blur-sm px-3 py-5 text-center"
                                 data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsEmpty}
                             >
-                                <Shield size={20} className="mx-auto text-[#E6C673]/40 mb-2" aria-hidden />
                                 <p className="text-[10px] font-bold text-[#E6C673]/70">
                                     لا توجد طلبات في هذه المرحلة
                                 </p>

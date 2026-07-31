@@ -6,6 +6,7 @@ import {
     parseUnifiedLedgerFromStorage,
     pickRicherLedgerStore,
     resolvePersistedLedgerStore,
+    resolvePrincipalBasisFromStore,
     resolveSettlementGuarantorGateFromLedger,
 } from '../utils';
 import { resolveAmountGuarantorRequestVisible } from '../settlementGuarantorGate';
@@ -20,6 +21,24 @@ const baseParams = {
     seedLawyerId: 'seed-lawyer-ex-1',
     seedExpenseId: 'seed-exp-ex-1',
 };
+
+describe('resolvePrincipalBasisFromStore', () => {
+    it('prefers live principal_amount over stale zero principalSnapshot', () => {
+        const store = { ...emptyStore(), principalSnapshot: 0, seeded: true };
+        expect(
+            resolvePrincipalBasisFromStore(store, {
+                ...baseParams,
+                principal_amount: 2_189_220,
+            }),
+        ).toBe(2_189_220);
+        expect(
+            computeTotalOwedUnifiedFromStore(store, {
+                ...baseParams,
+                principal_amount: 2_189_220,
+            }),
+        ).toBe(2_189_220);
+    });
+});
 
 describe('pickRicherLedgerStore', () => {
     it('preserves user-added fee rows when cached store is richer than stale react state', () => {

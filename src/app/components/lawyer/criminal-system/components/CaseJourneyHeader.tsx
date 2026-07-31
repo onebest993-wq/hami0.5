@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, { Fragment, useMemo } from 'react';
 import type { DefendantPersonalStage, JourneyNode, JourneyTransitionKind } from '@/app/types/criminal';
 import type { CriminalDefendant } from '../criminalStore';

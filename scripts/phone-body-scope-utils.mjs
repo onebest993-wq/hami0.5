@@ -471,20 +471,30 @@ export function buildPhoneBodyScopeKeys(body, viewText) {
 }
 
 export function extractPhoneBodyDestructuredKeys(body) {
-    const destructureMatch = body.match(/const \{([\s\S]*?)\} = props;/);
     const keys = new Set();
-    if (!destructureMatch) return keys;
-    const inner = stripComments(destructureMatch[1].trim());
-    for (const part of inner.split(',')) {
-        const token = part.trim();
-        if (!token || token.startsWith('...')) continue;
-        const rename = token.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
-        if (rename) {
-            keys.add(rename[1]);
-            continue;
+    const destructureMatch = body.match(/const \{([\s\S]*?)\} = props;/);
+    if (destructureMatch) {
+        const inner = stripComments(destructureMatch[1].trim());
+        for (const part of inner.split(',')) {
+            const token = part.trim();
+            if (!token || token.startsWith('...')) continue;
+            const rename = token.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (rename) {
+                keys.add(rename[1]);
+                continue;
+            }
+            const name = token.split(/\s|:|\{/)[0]?.trim();
+            if (name && /^[a-zA-Z_]/.test(name)) keys.add(name);
         }
-        const name = token.split(/\s|:|\{/)[0]?.trim();
-        if (name && /^[a-zA-Z_]/.test(name)) keys.add(name);
+    }
+    // Key-list form (post-cleanup): EXECUTION_PHONE_BODY_SCOPE_READ_KEYS = [ 'a', 'b', ... ]
+    const listMatch = body.match(
+        /EXECUTION_PHONE_BODY_SCOPE_READ_KEYS\s*=\s*\[([\s\S]*?)\]\s*as\s*const/,
+    );
+    if (listMatch) {
+        for (const m of listMatch[1].matchAll(/['"]([A-Za-z_][A-Za-z0-9_]*)['"]/g)) {
+            keys.add(m[1]);
+        }
     }
     return keys;
 }

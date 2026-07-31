@@ -1,7 +1,7 @@
 // @ts-nocheck
 /** حسابات المطالبة والذمة المالية — بلا outcome hooks (تبقى في useExecutionDashboardCore) */
 import { useEffect, useMemo, useState } from 'react';
-import type { UnifiedLedgerTotalParams } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 import { useExecutionFlags } from '../useExecutionFlags';
 import { useFinancialTotals } from '../useFinancialTotals';
 import {
@@ -16,6 +16,7 @@ import {
 import { resolvePrimaryExecutionClaimType } from '@/app/utils/executionClaimIsolation';
 import { getExecutionModuleStrategy } from '@/app/utils/executionModuleStrategies';
 import { readMaritalFurnitureItems } from '@/app/utils/maritalFurniture';
+import { resolveMaritalFurnitureClaimExecutionData } from '@/app/components/lawyer/ExecutionDashboard/utils/resolveExecutionFinancialHubPrincipal';
 import type { DebtorLiabilityGroup } from '@/app/utils/debtorLiabilityGroups';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 
@@ -69,20 +70,53 @@ export function useExecutionDashboardClaimFinancials(params: UseExecutionDashboa
         isAlimonyClaimType,
     } = resolveExecutionClaimTypeFlags(executionRecord, claimType);
 
-    const maritalFurnitureItemsForFollowup = useMemo(
-        () => readMaritalFurnitureItems(viewExecutionData),
-        [viewExecutionData],
+    const maritalFurnitureExecutionView = useMemo(
+        () =>
+            isMaritalFurnitureClaim
+                ? resolveMaritalFurnitureClaimExecutionData(
+                      viewExecutionData,
+                      executionId,
+                      decisionsStorageExecutionId,
+                  )
+                : viewExecutionData,
+        [isMaritalFurnitureClaim, viewExecutionData, executionId, decisionsStorageExecutionId],
     );
+
+    const maritalFurnitureItemsForFollowup = useMemo(
+        () => readMaritalFurnitureItems(maritalFurnitureExecutionView),
+        [maritalFurnitureExecutionView],
+    );
+
+    const maritalFurnitureFinancialSig = useMemo(() => {
+        if (!isMaritalFurnitureClaim) return '';
+        return maritalFurnitureItemsForFollowup
+            .map(
+                (row) =>
+                    `${row.id}:${row.deliveryOutcome ?? ''}:${row.delivered ?? ''}:${row.deliveryRecordedAt ?? ''}`,
+            )
+            .join('|');
+    }, [isMaritalFurnitureClaim, maritalFurnitureItemsForFollowup]);
 
     const principalDebtAmount = useMemo(
         () =>
             computePrincipalDebtAmount({
-                executionData: executionRecord,
+                executionData: isMaritalFurnitureClaim
+                    ? (maritalFurnitureExecutionView as Record<string, unknown> | null | undefined)
+                    : executionRecord,
                 parsedDebtAmount,
                 isNonFinancialClaim,
                 isMaritalFurnitureClaim,
             }),
-        [executionRecord, parsedDebtAmount, isNonFinancialClaim, isMaritalFurnitureClaim],
+        [
+            executionRecord,
+            viewExecutionData,
+            maritalFurnitureExecutionView,
+            executionId,
+            parsedDebtAmount,
+            isNonFinancialClaim,
+            isMaritalFurnitureClaim,
+            maritalFurnitureFinancialSig,
+        ],
     );
 
     const financialPrincipalAmount = useMemo(

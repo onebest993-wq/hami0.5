@@ -12,11 +12,8 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import {
     dispatchCalendarUpdatedEvent,
     normalizeDateToYmd,
-    partiesSummaryFromList,
 } from '@/app/services/calendarBridge';
 import { fieldTaskHasExplicitUserDate } from '@/app/services/calendarAuthenticity';
-import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
-import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import type { DossierSyncStats } from './types';
 
 

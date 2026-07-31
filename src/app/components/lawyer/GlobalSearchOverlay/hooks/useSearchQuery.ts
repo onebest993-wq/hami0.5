@@ -8,6 +8,16 @@ import {
     type GlobalSearchEntry,
     type GroupedSearchResults,
 } from '@/app/services/globalSearchIndex';
+import {
+    exactScanGlobalSearchHits,
+    getGlobalSearchFuseDocs,
+    mergeSearchHitLists,
+    rankGlobalSearchHits,
+} from '@/app/services/globalSearchFuse';
+import {
+    peekGlobalSearchDraftQuery,
+    takeGlobalSearchDraftQuery,
+} from '@/app/runtime/globalSearchDraftQuery';
 
 export interface UseSearchQueryReturn {
     query: string;
@@ -17,13 +27,26 @@ export interface UseSearchQueryReturn {
     results: GroupedSearchResults | null;
 }
 
+function isQuerySearchable(q: string): boolean {
+    const trimmed = q.trim();
+    if (!trimmed) return false;
+    if (/\d/u.test(trimmed)) return true;
+    return trimmed.replace(/\s+/gu, '').length >= PERFORMANCE.MIN_SEARCH_LENGTH;
+}
+
+function resolveSearchSeed(initialQuery: string): string {
+    const trimmed = initialQuery.trim();
+    if (trimmed) return clampGlobalSearchQuery(initialQuery);
+    return clampGlobalSearchQuery(peekGlobalSearchDraftQuery());
+}
+
 export function useSearchQuery(
     initialQuery: string,
     fuse: Fuse<GlobalSearchEntry> | null,
     isLoadingIndex: boolean,
     searchSessionKey: number,
 ): UseSearchQueryReturn {
-    const [query, setQueryState] = useState(() => clampGlobalSearchQuery(initialQuery));
+    const [query, setQueryState] = useState(() => resolveSearchSeed(initialQuery));
     const [debouncedQuery, setDebouncedQuery] = useState('');
 
     const setQuery = useCallback((value: React.SetStateAction<string>) => {
@@ -34,7 +57,11 @@ export function useSearchQuery(
     }, []);
 
     useEffect(() => {
-        setQueryState(clampGlobalSearchQuery(initialQuery));
+        const trimmed = initialQuery.trim();
+        const seed = trimmed
+            ? clampGlobalSearchQuery(initialQuery)
+            : clampGlobalSearchQuery(takeGlobalSearchDraftQuery());
+        setQueryState(seed);
         setDebouncedQuery('');
     }, [initialQuery, searchSessionKey]);
 
@@ -46,12 +73,18 @@ export function useSearchQuery(
     const results = useMemo<GroupedSearchResults | null>(() => {
         const q = debouncedQuery.trim();
         if (!q || isLoadingIndex || !fuse) return null;
-        const hits = fuse
-            .search(normalizeArabic(q))
-            .slice(0, PERFORMANCE.MAX_SEARCH_RESULTS)
-            .map((r) => r.item)
-            .filter((entry) => entry.lifecycle !== 'deleted');
-        return groupSearchResults(hits);
+        if (!isQuerySearchable(q)) return groupSearchResults([]);
+
+        const raw = fuse.search(normalizeArabic(q));
+        let ranked = rankGlobalSearchHits(q, raw, PERFORMANCE.MAX_SEARCH_RESULTS);
+
+        const docs = getGlobalSearchFuseDocs(fuse);
+        if (docs && ranked.length < Math.min(12, PERFORMANCE.MAX_SEARCH_RESULTS)) {
+            const exact = exactScanGlobalSearchHits(q, docs, PERFORMANCE.MAX_SEARCH_RESULTS);
+            ranked = mergeSearchHitLists(ranked, exact, PERFORMANCE.MAX_SEARCH_RESULTS);
+        }
+
+        return groupSearchResults(ranked);
     }, [debouncedQuery, fuse, isLoadingIndex]);
 
     const isSearching = Boolean(query.trim() && query.trim() !== debouncedQuery.trim());

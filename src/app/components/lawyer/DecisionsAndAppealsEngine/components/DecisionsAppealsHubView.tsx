@@ -7,6 +7,48 @@ import type { AppealsHubProponentFilter } from '../utils';
 import { appealsHubProponentFilterLabel } from '../utils';
 import type { DecisionCardProps } from './decisionCardTypes';
 
+type HubTabId = 'current' | 'previous' | 'appeals' | 'archive';
+
+function HubTabButton({
+    tabId,
+    label,
+    count,
+    active,
+    onSelect,
+    activeClassName,
+}: {
+    tabId: HubTabId;
+    label: string;
+    count: number;
+    active: boolean;
+    onSelect: (tab: HubTabId) => void;
+    activeClassName: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onSelect(tabId)}
+            className={`flex min-w-0 flex-1 items-center justify-center rounded-lg px-2 py-2 text-[9px] font-bold leading-snug transition-colors sm:px-2.5 sm:text-[10px] ${
+                active ? activeClassName : 'text-slate-400 hover:text-slate-200'
+            }`}
+        >
+            <span className="inline-flex max-w-full items-center justify-center gap-1.5">
+                <span className="truncate">{label}</span>
+                <span
+                    className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-extrabold tabular-nums sm:text-[9px] ${
+                        active ? 'bg-white/20 text-white' : 'bg-white/10 text-slate-400'
+                    }`}
+                    aria-label={`${count} بطاقة`}
+                >
+                    {count}
+                </span>
+            </span>
+        </button>
+    );
+}
+
 export type DecisionsAppealsHubViewProps = {
     isHistoricalMode: boolean;
     decisions: Decision[];
@@ -65,6 +107,13 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
 
     const visibleDecisions = hubVisibleDecisions;
 
+    const hubTabCounts: Record<HubTabId, number> = {
+        current: archivePendingDecisions.length,
+        previous: archiveSettledDecisions.length,
+        appeals: appealsHubDecisions.length,
+        archive: archivedDecisions.length,
+    };
+
     return (
         <>
             {!isHistoricalMode ? (
@@ -104,61 +153,41 @@ export function DecisionsAppealsHubView(props: DecisionsAppealsHubViewProps) {
                                     </div>
                                 ) : null}
                                 <div
-                                    className="flex flex-row-reverse gap-1 rounded-xl border border-white/10 bg-white/5 p-1 backdrop-blur-md"
+                                    className="flex flex-row-reverse gap-1.5 rounded-xl border border-white/10 bg-white/5 p-1.5 backdrop-blur-md"
                                     role="tablist"
                                 >
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={decisionsHubTab === 'archive'}
-                                        onClick={() => setDecisionsHubTab('archive')}
-                                        className={`flex-1 rounded-lg py-2 px-1.5 text-[9px] sm:text-[10px] font-bold transition-colors leading-snug ${
-                                            decisionsHubTab === 'archive'
-                                                ? 'bg-slate-600/90 text-white shadow-sm'
-                                                : 'text-slate-400 hover:text-slate-200'
-                                        }`}
-                                    >
-                                        سجل الأرشيف
-                                    </button>
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={decisionsHubTab === 'appeals'}
-                                        onClick={() => setDecisionsHubTab('appeals')}
-                                        className={`flex-1 rounded-lg py-2 px-1.5 text-[9px] sm:text-[10px] font-bold transition-colors leading-snug ${
-                                            decisionsHubTab === 'appeals'
-                                                ? 'bg-amber-600/90 text-white shadow-sm'
-                                                : 'text-slate-400 hover:text-slate-200'
-                                        }`}
-                                    >
-                                        سجل الطعون
-                                    </button>
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={decisionsHubTab === 'previous'}
-                                        onClick={() => setDecisionsHubTab('previous')}
-                                        className={`flex-1 rounded-lg py-2 px-1.5 text-[9px] sm:text-[10px] font-bold transition-colors leading-snug ${
-                                            decisionsHubTab === 'previous'
-                                                ? 'bg-slate-600/90 text-white shadow-sm'
-                                                : 'text-slate-400 hover:text-slate-200'
-                                        }`}
-                                    >
-                                        القرارات السابقة
-                                    </button>
-                                    <button
-                                        type="button"
-                                        role="tab"
-                                        aria-selected={decisionsHubTab === 'current'}
-                                        onClick={() => setDecisionsHubTab('current')}
-                                        className={`flex-1 rounded-lg py-2 px-1.5 text-[9px] sm:text-[10px] font-bold transition-colors leading-snug ${
-                                            decisionsHubTab === 'current'
-                                                ? 'bg-slate-600/90 text-white shadow-sm'
-                                                : 'text-slate-400 hover:text-slate-200'
-                                        }`}
-                                    >
-                                        الطلبات الحالية
-                                    </button>
+                                    <HubTabButton
+                                        tabId="archive"
+                                        label="سجل الأرشيف"
+                                        count={hubTabCounts.archive}
+                                        active={decisionsHubTab === 'archive'}
+                                        onSelect={setDecisionsHubTab}
+                                        activeClassName="bg-slate-600/90 text-white shadow-sm"
+                                    />
+                                    <HubTabButton
+                                        tabId="appeals"
+                                        label="سجل الطعون"
+                                        count={hubTabCounts.appeals}
+                                        active={decisionsHubTab === 'appeals'}
+                                        onSelect={setDecisionsHubTab}
+                                        activeClassName="bg-amber-600/90 text-white shadow-sm"
+                                    />
+                                    <HubTabButton
+                                        tabId="previous"
+                                        label="القرارات السابقة"
+                                        count={hubTabCounts.previous}
+                                        active={decisionsHubTab === 'previous'}
+                                        onSelect={setDecisionsHubTab}
+                                        activeClassName="bg-slate-600/90 text-white shadow-sm"
+                                    />
+                                    <HubTabButton
+                                        tabId="current"
+                                        label="الطلبات الحالية"
+                                        count={hubTabCounts.current}
+                                        active={decisionsHubTab === 'current'}
+                                        onSelect={setDecisionsHubTab}
+                                        activeClassName="bg-slate-600/90 text-white shadow-sm"
+                                    />
                                 </div>
 
                                 {decisionsHubTab === 'current' && (

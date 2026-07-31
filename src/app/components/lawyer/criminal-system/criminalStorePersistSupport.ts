@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** دوال مساعدة مشتركة بين criminalStore وترحيل persist */
 import type {
     CriminalCase,

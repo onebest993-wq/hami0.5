@@ -1,15 +1,23 @@
-import { prefetchSmartRepositoryModal } from '@/app/utils/lazyComponents';
-import { prefetchSmartVaultDocs } from '@/app/services/vault/vaultDocsWarmCache';
-import { prefetchRepositoryHubModule } from '@/app/runtime/repositoryHubLoader';
+function loadRepositoryHubLoader() {
+    return import('@/app/runtime/repositoryHubLoader');
+}
+
+function prefetchSmartRepositoryModalIntent(): void {
+    void import('@/app/utils/lazyComponentsIntent')
+        .then((m) => m.prefetchSmartRepositoryModal())
+        .catch(() => undefined);
+}
 
 /** prefetch فقط — بدون mount (hover/idle) */
 export function warmVaultOnHover(): void {
-    prefetchRepositoryHubModule();
-    prefetchSmartRepositoryModal();
+    void loadRepositoryHubLoader().then((m) => m.prefetchRepositoryHubModule());
+    prefetchSmartRepositoryModalIntent();
 }
 
 /** عند فتح المستودع — prefetch + تهيئة ذاكرة الوثائق */
 export function warmVaultOnOpen(userId: string | null | undefined): void {
     warmVaultOnHover();
-    prefetchSmartVaultDocs(userId);
+    void import('@/app/services/vault/vaultDocsWarmCache')
+        .then((m) => m.prefetchSmartVaultDocs(userId))
+        .catch(() => undefined);
 }

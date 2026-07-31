@@ -10,7 +10,7 @@ import { useAppAlerts } from '@/app/hooks/useAppAlerts';
 import { PushNotificationService } from '@/app/services/PushNotificationService';
 import { debug } from '@/app/utils/debug';
 import { STORAGE_KEYS } from '@/app/utils/constants';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
 import { useCloudSyncStatusStore } from '@/app/services/cloudSync/cloudSyncStatusStore';
 import {

@@ -35,6 +35,7 @@ export type UseExecutionDossierLifecycleActionsOrchestratorParams = ExecutionDos
         | 'setDossierDateDraft'
         | 'setDossierPendingStatus'
         | 'setDossierLifecyclePanelPhase'
+        | 'setDossierLifecyclePanelOpen'
         | 'closeDossierLifecyclePanel'
     >;
 
@@ -58,6 +59,7 @@ export function useExecutionDossierLifecycleActionsOrchestrator({
     setDossierDateDraft,
     setDossierPendingStatus,
     setDossierLifecyclePanelPhase,
+    setDossierLifecyclePanelOpen: _setDossierLifecyclePanelOpen,
     closeDossierLifecyclePanel,
 }: UseExecutionDossierLifecycleActionsOrchestratorParams): ExecutionDossierLifecycleActionsOrchestratorSlice {
     const applyDossierLifecycleToFileAndTimeline = useCallback(
@@ -184,21 +186,27 @@ export function useExecutionDossierLifecycleActionsOrchestrator({
         ],
     );
 
-    const handleDossierLifecycleConfirmDetails = useCallback(() => {
-        if (!dossierPendingStatus || dossierPendingStatus === 'active') return;
-        const ok = applyDossierLifecycleToFileAndTimeline(
+    const handleDossierLifecycleConfirmDetails = useCallback(
+        (reasonOverride?: string, dateOverride?: string) => {
+            if (!dossierPendingStatus || dossierPendingStatus === 'active') return;
+            const reason =
+                typeof reasonOverride === 'string' ? reasonOverride : dossierReasonDraft;
+            const date = typeof dateOverride === 'string' ? dateOverride : dossierDateDraft;
+            const ok = applyDossierLifecycleToFileAndTimeline(
+                dossierPendingStatus,
+                reason,
+                date,
+            );
+            if (ok) closeDossierLifecyclePanel();
+        },
+        [
+            applyDossierLifecycleToFileAndTimeline,
+            closeDossierLifecyclePanel,
+            dossierDateDraft,
             dossierPendingStatus,
             dossierReasonDraft,
-            dossierDateDraft,
-        );
-        if (ok) closeDossierLifecyclePanel();
-    }, [
-        applyDossierLifecycleToFileAndTimeline,
-        closeDossierLifecyclePanel,
-        dossierDateDraft,
-        dossierPendingStatus,
-        dossierReasonDraft,
-    ]);
+        ],
+    );
 
     return {
         applyDossierLifecycleToFileAndTimeline,

@@ -4,7 +4,6 @@ import {
     canAddUnknownDefendantToDraft,
     canAddUnknownDefendants,
     canMarkDraftDefendantAsUnknown,
-    draftHasNamedIdentifiedDefendant,
     draftIsAllUnknownDefendants,
     getIdentifiedDefendants,
     getUnknownIdentityDefendants,
