@@ -86,6 +86,22 @@ export function seedFreshExecutionDossierStorage(file: Record<string, unknown>):
     seedFreshDecisionsNamespace(id, clean);
 }
 
+/**
+ * حدّ ملكية المفتاح للإضبارة.
+ *
+ * كان المسح `k.startsWith(base)` بلا حدّ: حذف الإضبارة `1` يبتلع مفاتيح
+ * الإضبارة `12` لأن `execution_12_decisions` يبدأ فعلاً بـ`execution_1`
+ * — إبادة صامتة لبيانات إضبارة سليمة أثناء حذف أخرى.
+ *
+ * كل لاحقة مشروعة تبدأ بفاصل: `_decisions` و`_documents` … أو `:u:{uid}`
+ * للنطاق بالمالك. فالمطابقة تتوقف عند الفاصل.
+ */
+function isKeyOwnedByExecutionBase(key: string, base: string): boolean {
+    if (!base || !key.startsWith(base)) return false;
+    const rest = key.slice(base.length);
+    return rest === '' || rest.startsWith('_') || rest.startsWith(':');
+}
+
 export async function removeExecutionStorageBundleAsync(executionId: string | undefined): Promise<void> {
     const id = normalizeExecutionStorageId(executionId);
     const existing = bundleDeletionInFlight.get(id);
@@ -101,7 +117,7 @@ export async function removeExecutionStorageBundleAsync(executionId: string | un
         const allKeys = await SecureStoreService.listKeys();
         await Promise.all(
             allKeys
-                .filter((k) => k.startsWith(base) || k.startsWith(scopedBase))
+                .filter((k) => isKeyOwnedByExecutionBase(k, base) || isKeyOwnedByExecutionBase(k, scopedBase))
                 .map((k) => SecureStoreService.deleteItem(k)),
         );
         purgeExecutionStorageCache(id);

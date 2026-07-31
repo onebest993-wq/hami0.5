@@ -1,7 +1,11 @@
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { executionUnifiedFundsLedgerStorageKey } from '@/app/utils/executionStorageKeysLite';
 
 /**
  * تخزين الوعاء الموحّد (أتعاب + مصاريف) — نفس المفتاح المستخدم في FinancialOperationsCenter
+ *
+ * بانى المفتاح يعيش في `executionStorageKeysLite` حتى تراه حزمة حذف الإضبارة.
+ * كان معرّفاً هنا وحده، فلم يُدرج في الحزمة ونجا السجل المالي من «الحذف النهائي».
  */
 
 export type StoredLawyerFeeRow = { id: string; amount: number; label: string; at: string };
@@ -34,9 +38,7 @@ const empty = (): StoredUnifiedLedger => ({
     collectionRequestActive: false,
 });
 
-export function unifiedFundsLedgerStorageKey(executionId: string): string {
-    return `hami_unified_funds_ledger_${executionId}`;
-}
+export const unifiedFundsLedgerStorageKey = executionUnifiedFundsLedgerStorageKey;
 
 /** قراءة أرشيف الوعاء الموحّد من localStorage (للمودالات والتقارير) */
 export function readUnifiedFundsLedger(executionId: string | undefined): StoredUnifiedLedger | null {

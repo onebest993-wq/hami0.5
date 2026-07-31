@@ -66,6 +66,22 @@ export function executionBadgesHiddenStorageKey(executionId: string | undefined)
     return `hami_party_badges_hidden_${normalizeExecutionStorageId(executionId)}`;
 }
 
+export function executionUnifiedFundsLedgerStorageKey(executionId: string | undefined): string {
+    return `hami_unified_funds_ledger_${normalizeExecutionStorageId(executionId)}`;
+}
+
+export function executionEvictionGracePinnedStorageKey(executionId: string | undefined): string {
+    return `hami_eviction_grace_pinned_${normalizeExecutionStorageId(executionId)}`;
+}
+
+export function executionEvictionGraceHiddenStorageKey(executionId: string | undefined): string {
+    return `hami_eviction_grace_hidden_${normalizeExecutionStorageId(executionId)}`;
+}
+
+export function executionEmployeePersonalUnlockStorageKey(executionId: string | undefined): string {
+    return `hami:employee_personal_unlock:${normalizeExecutionStorageId(executionId)}`;
+}
+
 export function generateExecutionDossierId(): string {
     const cryptoApi = globalThis.crypto;
     if (cryptoApi?.randomUUID) return `exec_${cryptoApi.randomUUID()}`;
@@ -77,7 +93,15 @@ function expandScopedAndLegacyStorageKeys(unscopedKey: string): string[] {
     return scoped === unscopedKey ? [unscopedKey] : [scoped, unscopedKey];
 }
 
-/** للحذف/المسح: المفتاح المنطقي + المقيّد بالمالك إن وُجد */
+/**
+ * للحذف/المسح: المفتاح المنطقي + المقيّد بالمالك إن وُجد.
+ *
+ * تحذير لمن يُعدّل: المسح بالبادئة في `removeExecutionStorageBundleAsync` يطابق
+ * `execution_{id}` فقط، فأي مفتاح لا يبدأ بذلك **يجب** أن يُدرَج هنا صريحاً وإلا
+ * نجا من «الحذف النهائي». هكذا نجا السجل المالي وحالة مهلة التخلية سابقاً.
+ * الاختبار في `__tests__/executionStorageBundleCoverage.test.ts` يمنع الانحراف
+ * عن `EXECUTION_WIPE_KEY_PREFIXES`.
+ */
 export function getExecutionStorageBundleKeys(executionId: string | undefined): string[] {
     const base = unscopedExecutionStorageKey(executionId);
     const id = normalizeExecutionStorageId(executionId);
@@ -91,6 +115,10 @@ export function getExecutionStorageBundleKeys(executionId: string | undefined): 
         `garnishment_${id}`,
         `hami_garnishment_details_${id}`,
         `hami_party_badges_hidden_${id}`,
+        executionUnifiedFundsLedgerStorageKey(id),
+        executionEvictionGracePinnedStorageKey(id),
+        executionEvictionGraceHiddenStorageKey(id),
+        executionEmployeePersonalUnlockStorageKey(id),
     ];
     return unscopedKeys.flatMap(expandScopedAndLegacyStorageKeys);
 }

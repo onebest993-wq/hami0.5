@@ -9,6 +9,7 @@ import { isLocalOnlyModeEnabled } from '@/app/services/settings/localOnlyGuard';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/services/dossierPersistence/dossierStorageKeys';
 import { STORAGE_KEYS } from '@/app/utils/constants';
 import { isCloudPollingPausedByRealtime } from '@/app/services/realtimeSyncGate';
+import { filterTombstonedExecutionSyncRows } from '@/app/services/executionCloudSyncFilter';
 
 export type CloudSyncBucket = 'execution' | 'lawsuit' | 'notes' | 'unsupported';
 
@@ -154,8 +155,12 @@ async function performCloudSyncBucketInternal(localKey: string): Promise<Perform
         const bucket = resolveSyncBucket(localKey);
 
         if (bucket === 'execution') {
-            cloudDataRaw = await SupabaseService.getExecutionFiles();
-            localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];
+            // الدمج «الأحدث يفوز» لا يعرف الحذف: بلا هذا الترشيح تعود كل إضبارة
+            // حُذفت نهائياً عند أول مزامنة، لأن نسخة السحابة تبقى موجودة.
+            cloudDataRaw = filterTombstonedExecutionSyncRows(await SupabaseService.getExecutionFiles());
+            localDataRaw = filterTombstonedExecutionSyncRows(
+                (await persistenceRepository.loadAsync(localKey)) ?? [],
+            );
         } else if (bucket === 'lawsuit') {
             cloudDataRaw = await SupabaseService.getLawsuitFiles();
             localDataRaw = (await persistenceRepository.loadAsync(localKey)) ?? [];

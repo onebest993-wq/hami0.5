@@ -532,6 +532,7 @@ export function useLawyerExecutionFiles({
                 ]);
 
                 let expandedIds: string[] = [];
+                let tombstonesCommitted = false;
 
                 setExecutionFiles((prev) => {
                     const idSet = new Set<string>();
@@ -543,7 +544,7 @@ export function useLawyerExecutionFiles({
                     expandedIds = [...idSet];
                     if (expandedIds.length === 0) return prev;
 
-                    tombstones.markExecutionDossierTombstones(expandedIds);
+                    tombstonesCommitted = tombstones.markExecutionDossierTombstones(expandedIds);
 
                     const next = prev.filter((f) => !idSet.has(String(f.id)));
 
@@ -553,6 +554,12 @@ export function useLawyerExecutionFiles({
                 });
 
                 if (expandedIds.length === 0) return;
+
+                // بلا شاهد قبر مُثبَّت يعود الملف من السحابة عند أول مزامنة
+                if (!tombstonesCommitted) {
+                    debug.warn('[Execution] تعذّر تثبيت شاهد الحذف:', expandedIds);
+                    SmartToast.warning('حُذف محلياً — تعذّر تثبيت سجل الحذف، قد يعود عند المزامنة');
+                }
 
                 const idSet = new Set(expandedIds);
 
