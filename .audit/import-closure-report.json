@@ -1,12 +1,12 @@
 {
-  "generatedAt": "2026-07-31T21:17:23.763Z",
+  "generatedAt": "2026-07-31T21:44:25.090Z",
   "seeds": 31,
   "missingSeeds": [],
   "totals": {
-    "closureFiles": 2873,
+    "closureFiles": 2874,
     "inventoryFiles": 1764,
-    "gapsNotAudited": 1804,
-    "gapLines": 240748,
+    "gapsNotAudited": 1805,
+    "gapLines": 240843,
     "hotGaps": 489,
     "hotGapLines": 50478,
     "unreachableInInventory": 717,
@@ -2494,7 +2494,7 @@
     {
       "path": "e2e/helpers/civilLawsuitFixtures.ts",
       "depth": 1,
-      "lines": 1001
+      "lines": 1035
     },
     {
       "path": "e2e/helpers/bootFixtures.ts",
@@ -2510,6 +2510,11 @@
       "path": "e2e/helpers/notificationFixtures.ts",
       "depth": 2,
       "lines": 187
+    },
+    {
+      "path": "e2e/helpers/secureStoreE2EFixtures.ts",
+      "depth": 2,
+      "lines": 61
     },
     {
       "path": "src/app/components/lawyer/criminal-system/proceduralContainersEngine.ts",
