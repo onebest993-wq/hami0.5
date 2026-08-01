@@ -16,6 +16,7 @@ import {
     readScopedDeviceStorageItem,
     scopeExecutionDeviceStorageKey,
     stripExecutionDeviceStorageUserScope,
+    isStorageKeyVisibleToCurrentUser,
 } from '@/app/utils/executionDeviceStorageScope';
 
 export type ExecutionDossierReconcileResult = {
@@ -28,7 +29,7 @@ function listParentDossierIdsInStore(): string[] {
     const ids = new Set<string>();
     const considerKey = (rawKey: string) => {
         const k = String(rawKey || '').trim();
-        if (!k) return;
+        if (!k || !isStorageKeyVisibleToCurrentUser(k)) return;
         const logical = stripExecutionDeviceStorageUserScope(k);
         if (!isExecutionParentDossierBlobKey(logical)) return;
         const id = executionDossierIdFromStorageKey(k);

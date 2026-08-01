@@ -4,11 +4,13 @@ import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
 import { reconcileExecutionDossierStorage } from '@/app/utils/executionDossierStorageReconcile';
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { markExecutionDossierTombstone } from '@/app/utils/executionDossierTombstones';
+import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
 
 const EXEC_ID = 'exec_reconcile_test';
 
 describe('executionDossierStorageReconcile', () => {
     beforeEach(() => {
+        setLiveAuthUserId(null);
         for (const key of SecureStoreService.listKeysSync()) {
             SecureStoreService.deleteItemSync(key);
         }
@@ -114,6 +116,7 @@ describe('executionDossierStorageReconcile', () => {
     });
 
     it('heals index from owner-scoped blob key when legacy is empty', () => {
+        setLiveAuthUserId('e2e-owner-1');
         const scopedKey = `${executionStorageKey(EXEC_ID)}:u:e2e-owner-1`;
         SecureStoreService.setItemSync(
             EXECUTION_FILES_STORAGE_KEY,

@@ -5,7 +5,7 @@ import {
     saveExecutionFilesRaw,
 } from '@/app/utils/executionFilesStorage';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
-import { readScopedDeviceStorageItem, scopeExecutionDeviceStorageKey, stripExecutionDeviceStorageUserScope } from '@/app/utils/executionDeviceStorageScope';
+import { readScopedDeviceStorageItem, scopeExecutionDeviceStorageKey, stripExecutionDeviceStorageUserScope, isStorageKeyVisibleToCurrentUser } from '@/app/utils/executionDeviceStorageScope';
 import {
     executionDossierIdFromStorageKey,
     executionStorageKey,
@@ -341,6 +341,39 @@ export function readExecutionDossierBlob(
 }
 
 /**
+ * يُسخّن بلوب الإضبارة في ذاكرة فك التشفير قبل القراءة المتزامنة.
+ *
+ * بعد إضافة `execution_` لبوادئ التشفير، `getItemSync` يعيد `null` للقيم
+ * المشفّرة على القرص ما لم تُحمَّل أولاً عبر `getItem` غير المتزامن. بدون
+ * هذا التسخين تفتح الإضبارة فارغة بعد إعادة التحميل رغم وجود البيانات.
+ *
+ * يُعيد الكتابة أيضاً لترحيل النص الصريح القديم إلى تشفير عند الراحة.
+ */
+export async function ensureExecutionDossierBlobReady(dossierId: string | undefined): Promise<void> {
+    const id = normalizeExecutionStorageId(dossierId);
+    if (!id || id === 'default') return;
+
+    const candidates = [
+        scopeExecutionDeviceStorageKey(executionStorageKey(id)),
+        executionStorageKey(id),
+    ];
+    const seen = new Set<string>();
+
+    for (const key of candidates) {
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        try {
+            const value = await SecureStoreService.getItem(key);
+            if (value) {
+                await SecureStoreService.setItem(key, value);
+            }
+        } catch {
+            /* ignore per-key warm/migrate failures */
+        }
+    }
+}
+
+/**
  * قراءة إضبارة للمصالحة: جلسة الحالي أولاً ثم أي مفتاح :u: لنفس المعرّف
  * (يغطي زرع e2e / ترحيل / اختلاف نطاق المالك).
  */
@@ -362,6 +395,7 @@ export function readExecutionDossierBlobScanningScopes(
 
     try {
         for (const key of SecureStoreService.listKeysSync()) {
+            if (!isStorageKeyVisibleToCurrentUser(key)) continue;
             const hit = tryKey(key, (k) => SecureStoreService.getItemSync(k));
             if (hit) return hit;
         }
@@ -374,6 +408,7 @@ export function readExecutionDossierBlobScanningScopes(
             const ls = globalThis.localStorage;
             for (let i = 0; i < ls.length; i += 1) {
                 const key = String(ls.key(i) || '');
+                if (!isStorageKeyVisibleToCurrentUser(key)) continue;
                 const hit = tryKey(key, (k) => {
                     try {
                         return ls.getItem(k);

@@ -5,6 +5,7 @@ import {
     isExecutionDossierMainBlobKey,
     persistExecutionDossierBlob,
     readExecutionDossierBlob,
+    readExecutionDossierBlobScanningScopes,
     shouldRejectExecutionDossierBlobWipe,
     syncExecutionFileInIndex,
 } from '@/app/utils/executionDossierBlobPersistence';
@@ -170,5 +171,39 @@ describe('executionDossierBlobPersistence', () => {
         expect(SecureStoreService.getItemSync(scopedKey)).toContain('scoped-write');
         const blob = readExecutionDossierBlob(execId);
         expect(blob?.fileNumber).toBe('scoped-write');
+    });
+
+    it('does not read another user scoped blob via scope scan', () => {
+        const foreignId = 'exec_foreign_scope';
+        setLiveAuthUserId('user-b');
+        const foreignKey = scopeExecutionDeviceStorageKey(unscopedExecutionStorageKey(foreignId));
+        SecureStoreService.setItemSync(
+            foreignKey,
+            JSON.stringify({
+                id: foreignId,
+                fileNumber: 'SECRET-FROM-B',
+                debtors: [{ name: 'مدين حساب ب' }],
+            }),
+        );
+
+        setLiveAuthUserId('user-a');
+        const hit = readExecutionDossierBlobScanningScopes(foreignId);
+        expect(hit).toBeNull();
+    });
+
+    it('reads own scoped blob via scope scan when primary miss', () => {
+        const ownId = 'exec_own_scope';
+        setLiveAuthUserId('user-a');
+        const scopedKey = scopeExecutionDeviceStorageKey(unscopedExecutionStorageKey(ownId));
+        SecureStoreService.setItemSync(
+            scopedKey,
+            JSON.stringify({
+                id: ownId,
+                fileNumber: 'OWN-SCOPED',
+            }),
+        );
+
+        const hit = readExecutionDossierBlobScanningScopes(ownId);
+        expect(hit?.fileNumber).toBe('OWN-SCOPED');
     });
 });

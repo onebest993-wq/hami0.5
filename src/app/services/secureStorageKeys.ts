@@ -35,8 +35,16 @@ export const ENCRYPTED_KEY_PREFIXES = [
     'hami:csrf',
     'hami_notes_sync_map_',
     'garnishment_',
+    'hami_garnishment_',
     'client_',
     'lawsuit_',
+    /** بلوب الإضبارة + قراراتها + نماذجها — فيها أسماء ومعرّفات وطنية */
+    'execution_',
+    /** السجل المالي الموحّد لكل إضبارة */
+    'hami_unified_funds_ledger_',
+    'hami_party_badges_hidden_',
+    'hami_eviction_grace_',
+    'hami:employee_personal_unlock:',
 ] as const;
 
 /** تجاوز هذا الحجم → plaintext (يمنع تجمّد PBKDF2/AES على ملفات ضخمة) */

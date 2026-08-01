@@ -23,6 +23,25 @@ export function stripExecutionDeviceStorageUserScope(key: string): string {
     return m ? m[1]! : k;
 }
 
+/**
+ * هل يجوز لجلسة المستخدم الحالية قراءة هذا المفتاح؟
+ *
+ * المفاتيح المقيّدة بـ`:u:{uid}` تخص مالكها فقط. كان المسح يمرّ على
+ * `listKeysSync()` بلا فلتر فيُعيد بيانات حساب آخر على نفس الجهاز.
+ * المفاتيح غير المقيّدة (ترحيل قديم) تبقى مرئية — إزالتها تحتاج ترحيلاً منفصلاً.
+ */
+export function isStorageKeyVisibleToCurrentUser(key: string): boolean {
+    const k = String(key ?? '').trim();
+    if (!k) return false;
+    const m = k.match(/:u:([^:]+)$/);
+    if (!m) return true;
+    const owner = String(m[1] ?? '').trim();
+    if (!owner) return false;
+    const live = String(resolveLiveAuthUserIdForStorage() ?? '').trim();
+    if (!live) return false;
+    return owner === live;
+}
+
 /** قراءة مع ترحيل: المفتاح المقيّد أولاً ثم القديم */
 export function readScopedDeviceStorageItem(
     getItem: (key: string) => string | null,

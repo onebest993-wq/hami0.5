@@ -35,6 +35,7 @@ import {
 } from '@/app/utils/executionDecisionsNamespace';
 import { readExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import { isStorageKeyVisibleToCurrentUser } from '@/app/utils/executionDeviceStorageScope';
 import SecureStoreService from '@/app/services/SecureStoreService';
 
 export type ExecutorDecisionRowContext = {
@@ -82,6 +83,7 @@ export function resolveExecutorDecisionRowContext(
         const keys = SecureStoreService.listKeysSync();
         for (const rawKey of keys) {
             const key = String(rawKey || '').trim();
+            if (!isStorageKeyVisibleToCurrentUser(key)) continue;
             if (!isExecutorDecisionsStorageKey(key)) continue;
             let storageExecutionId = '';
             if (key.includes('_decisions_ns_')) {

@@ -16,6 +16,7 @@ import {
     useExecutionDashboardDecisionsNamespaceReconcile,
     useExecutionDashboardDecisionsStorageMigration,
     useExecutionDashboardDossierLifecycleReconcile,
+    useExecutionDashboardDossierBlobWarm,
     useExecutionDashboardShellPrefetch,
     useExecutionDashboardStoreFileSync,
     useExecutionDashboardUrlDelegationSync,
@@ -195,6 +196,8 @@ export function useExecutionDashboardCoreBootPipeline({
         executionData,
         reconcileDossierLifecycle,
     });
+
+    useExecutionDashboardDossierBlobWarm(parentDossierId || currentFileId);
 
     const [debtorSummonsMarkerLocal, setDebtorSummonsMarkerLocal] = useState<
         ExecutionFile['debtor_summons_marker'] | null

@@ -172,3 +172,14 @@ export function useExecutionDashboardShellPrefetch() {
         };
     }, []);
 }
+
+/** يُحمّل بلوب الإضبارة المشفّر إلى ذاكرة القراءة المتزامنة قبل أول merge */
+export function useExecutionDashboardDossierBlobWarm(executionId: string | undefined) {
+    useEffect(() => {
+        const id = String(executionId ?? '').trim();
+        if (!id || id === 'default' || id === 'undefined') return;
+        void import('@/app/utils/executionDossierBlobPersistence')
+            .then((m) => m.ensureExecutionDossierBlobReady(id))
+            .catch(() => undefined);
+    }, [executionId]);
+}
