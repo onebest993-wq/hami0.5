@@ -1,7 +1,9 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { REPOSITORY_PERF_BUDGET } from '@/app/services/repository/repositoryPerfBudget';
+import { applyE2eBootHomeLayoutAtRuntime, bootToLawyerHome } from './bootFixtures';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
+import { hydrateVaultDocsForE2E, seedVaultDocs } from './vaultFixtures';
 
 /** ms من open-request → interactive — للـ E2E (polling حتى تسجيل المرحلتين) */
 export async function readRepositoryOpenToInteractiveMs(
@@ -62,12 +64,42 @@ async function waitHomeDockReady(page: Page): Promise<void> {
     await page.getByTestId('home-dock-shell-dockRepository').waitFor({ state: 'visible', timeout: 15_000 });
 }
 
+/** يُرسل Escape — يركّز الـ feed ثم يضغط المفتاح (capture على window) */
+export async function pressRepositoryEscape(page: Page): Promise<void> {
+    const feed = page.getByTestId('repository-unified-feed');
+    if (await feed.isVisible().catch(() => false)) {
+        await feed.click({ position: { x: 12, y: 12 }, force: true });
+    }
+    await page.keyboard.press('Escape');
+}
+
+/** يتحقق أن المستودع مُغلق (keepAlive يبقي العقدة لكن aria-hidden=true) */
+export async function expectRepositoryClosed(page: Page): Promise<void> {
+    await expect(async () => {
+        await expect(page.locator('html')).not.toHaveAttribute('data-hami-repository-open', '1');
+        const modal = page.getByTestId('smart-repository-modal');
+        if ((await modal.count()) === 0) return;
+        await expect(modal).toHaveAttribute('aria-hidden', 'true');
+        await expect(modal).not.toHaveClass(/hami-repository-overlay-layer--visible/);
+    }).toPass({ timeout: 8_000 });
+}
+
 /** يغلق المستودع إن كان مفتوحاً — للاختبارات التي تحتاج فتحاً نظيفاً */
 export async function closeRepositoryIfOpen(page: Page): Promise<void> {
     const modal = page.getByTestId('smart-repository-modal');
-    if (!(await modal.isVisible().catch(() => false))) return;
-    await page.keyboard.press('Escape');
-    await expect(modal).toBeHidden({ timeout: 8_000 });
+    const open =
+        (await page.locator('html').getAttribute('data-hami-repository-open')) === '1' ||
+        ((await modal.isVisible().catch(() => false)) &&
+            (await modal.getAttribute('aria-hidden')) !== 'true');
+    if (!open) return;
+    await pressRepositoryEscape(page);
+    try {
+        await expectRepositoryClosed(page);
+        return;
+    } catch {
+        await page.getByTestId('smart-repository-close').click({ force: true });
+        await expectRepositoryClosed(page);
+    }
 }
 
 async function tapDockRepository(page: Page): Promise<void> {
@@ -119,39 +151,71 @@ export async function openRepositoryFromDock(page: Page) {
     return page.getByTestId('smart-repository-modal');
 }
 
-async function expectRepositoryMediaFilter(modal: Locator) {
-    await modal.getByTestId('repository-filter-media').waitFor({ state: 'visible', timeout: 8_000 });
+async function expectRepositoryMediaPanel(modal: Locator) {
+    const mediaSurface = modal
+        .getByTestId('repository-feed-empty-media')
+        .or(modal.getByTestId('repository-feed-panel-media'));
+    await mediaSurface.first().waitFor({ state: 'visible', timeout: 25_000 });
 }
 
-async function tapRepositoryMediaFilter(modal: Locator, page: Page): Promise<void> {
-    const mediaFilter = modal.getByTestId('repository-filter-media');
-    await mediaFilter.waitFor({ state: 'visible', timeout: 8_000 });
-    const pressed = await mediaFilter.getAttribute('aria-selected');
-    if (pressed === 'true') return;
-
-    await expect(async () => {
+/** يستعيد جلسة فتح المستودع على تبويب الوسائط — عبر init script قبل التنقل */
+export async function seedRepositoryVaultSessionRestore(page: Page): Promise<void> {
+    await page.addInitScript(() => {
         try {
-            await mediaFilter.tap({ timeout: 8_000 });
+            sessionStorage.setItem('hami:lawyer-repository-open', '1');
+            sessionStorage.setItem('hami:lawyer-repository-tab', 'vault');
         } catch {
-            await mediaFilter.click({ force: true, timeout: 8_000 });
+            /* denied على about:blank أو cross-origin */
         }
-
-        const selected = await mediaFilter.getAttribute('aria-selected');
-        if (selected !== 'true') {
-            await mediaFilter.evaluate((el) => {
-                (el as HTMLButtonElement).click();
-            });
-        }
-
-        await expect(mediaFilter).toHaveAttribute('aria-selected', 'true', { timeout: 8_000 });
-    }).toPass({ timeout: 20_000 });
+    });
 }
 
-/** فتح تبويب الوسائط — dockVault مخفية افتراضياً؛ نفتح المستودع ثم نُصفّي الوسائط */
-export async function openVaultMediaFromDock(page: Page) {
+/** يفتح مسجّل الصوت من قائمة «+ إضافة» */
+export async function openRepositoryVoiceRecorder(page: Page) {
     const modal = await openRepositoryFromDock(page);
-    await tapRepositoryMediaFilter(modal, page);
-    await expectRepositoryMediaFilter(modal);
+    await modal.getByTestId('repository-add-menu-trigger').click({ force: true });
+    await expect(modal.getByTestId('repository-add-menu-panel')).toBeVisible({ timeout: 5_000 });
+    await modal.getByTestId('repository-voice-record').click({ force: true });
+    const recorder = page.getByTestId('voice-recorder-modal');
+    await expect(recorder).toBeVisible({ timeout: 12_000 });
+    return { modal, recorder };
+}
+
+/** يفتح المستودع على تبويب الوسائط (initialFilter=media) */
+export async function openVaultMediaFromDock(
+    page: Page,
+    vaultDocs?: Parameters<typeof hydrateVaultDocsForE2E>[1],
+) {
+    await closeRepositoryIfOpen(page);
+    if (vaultDocs?.length) {
+        await seedVaultDocs(page, vaultDocs);
+    }
+    await seedRepositoryVaultSessionRestore(page);
+    await page.goto(`/?_hami_repo_vault=${Date.now()}`, { waitUntil: 'domcontentloaded' });
+    if (vaultDocs?.length) {
+        await hydrateVaultDocsForE2E(page, vaultDocs);
+    }
+    await applyE2eBootHomeLayoutAtRuntime(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
+
+    let modal = page.getByTestId('smart-repository-modal');
+    const visible = await modal.isVisible().catch(() => false);
+    if (!visible) {
+        modal = await openRepositoryFromDock(page);
+        const vaultDock = page
+            .getByTestId('home-dock-shell-dockVault')
+            .or(page.getByTestId('home-dock-dockVault'));
+        if (await vaultDock.first().isVisible().catch(() => false)) {
+            await vaultDock.first().click({ force: true });
+            await expect(modal).toBeVisible({ timeout: 15_000 });
+        }
+    } else {
+        await expect(modal).toBeVisible({ timeout: 30_000 });
+        await expect(modal.getByTestId('repository-unified-feed')).toBeVisible({ timeout: 25_000 });
+    }
+
+    await expectRepositoryMediaPanel(modal);
     await waitRepositoryFeedReady(page);
     return modal;
 }

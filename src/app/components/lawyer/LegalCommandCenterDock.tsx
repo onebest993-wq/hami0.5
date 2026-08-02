@@ -5,7 +5,6 @@ import {
     FileText,
     ArrowLeft,
     Bell,
-    MessageCircle,
     type LucideIcon,
 } from 'lucide-react';
 import {
@@ -37,7 +36,6 @@ import { resolveDockChromeStackGapPx } from '@/app/services/settings/homeDockChr
 import { resolveDockItemIconStyles } from '@/app/services/settings/resolveDockItemIconStyles';
 import { resolveBlockSizeScale } from '@/app/services/settings/homeBlockScale';
 import { useHomeLayoutEdit } from './dashboard/homeLayoutEdit/HomeLayoutEditContext';
-import { useHomePageScroll } from './dashboard/homeLayoutEdit/HomeLayoutScrollRoot';
 import type { CommandCenterDockActions } from './dashboard/useCommandCenterDockActions';
 import { useCommandCenterDockActions } from './dashboard/useCommandCenterDockActions';
 import { HAMI_SHELL_CONTAINER } from './dashboard/lawyerShellLayout';
@@ -48,7 +46,8 @@ import {
     prefetchDockWidgetIntentImmediate,
     scheduleVisibleDockWidgetsPrefetch,
 } from '@/app/hooks/lawyerDashboard/dockShellPrefetchGate';
-
+import { dispatchFieldTasksPrimeHost } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost';
+import { snapScheduleShellOpen } from '@/app/services/schedule/scheduleShellSnap';
 /** Matches scheduleBootHydrator.ts — local to avoid sync stem pull. */
 const SCHEDULE_PRIME_HOST_EVENT = 'hami:schedule-prime-host';
 
@@ -105,6 +104,8 @@ type DockItemProps = {
     icon: DockShellIcon;
     label: string;
     ariaLabel?: string;
+    /** نص فقط — بدون صندوق أيقونة (مثل المنتدى) */
+    hideIcon?: boolean;
     onClick: () => void;
     onPrefetch?: () => void;
     onPointerPrime?: () => void;
@@ -137,6 +138,7 @@ const DockItem = memo(function DockItem({
     homeContainerBorder,
     showLabels,
     visualStyles,
+    hideIcon = false,
 }: DockItemProps) {
     const armedRef = useRef(false);
     const armClearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -181,35 +183,49 @@ const DockItem = memo(function DockItem({
             }}
             className={`hami-dock-item relative flex flex-col items-center justify-end gap-0 min-w-0 w-full pt-0.5 pb-1${pressMotionClass} ${DOCK_SHELL_ITEM_A11Y}`}
         >
-            <div className="relative flex flex-col items-center w-full" aria-hidden>
+            {hideIcon ? (
                 <div
-                    className="relative flex items-center justify-center shrink-0"
-                    style={visualStyles.boxStyle}
+                    className="relative flex items-center justify-center w-full min-h-[48px] px-0.5 py-1"
+                    aria-hidden
                 >
-                    <Icon
-                        strokeWidth={active ? 2.1 : 1.75}
-                        className="relative z-[1]"
-                        style={visualStyles.iconStyle}
-                    />
-                    {badge ? (
+                    <span
+                        className="hami-dock-item-label font-semibold leading-tight tracking-wide text-center w-full"
+                        style={visualStyles.labelStyle}
+                    >
+                        {label}
+                    </span>
+                </div>
+            ) : (
+                <div className="relative flex flex-col items-center w-full" aria-hidden>
+                    <div
+                        className="relative flex items-center justify-center shrink-0"
+                        style={visualStyles.boxStyle}
+                    >
+                        <Icon
+                            strokeWidth={active ? 2.1 : 1.75}
+                            className="relative z-[1]"
+                            style={visualStyles.iconStyle}
+                        />
+                        {badge ? (
+                            <span
+                                className="absolute -top-0.5 -right-0.5 rounded-full bg-rose-500 ring-2 ring-[#060608]"
+                                style={{ width: 8, height: 8 }}
+                                aria-hidden
+                            />
+                        ) : null}
+                    </div>
+                    {active ? (
                         <span
-                            className="absolute -top-0.5 -right-0.5 rounded-full bg-rose-500 ring-2 ring-[#060608]"
-                            style={{ width: 8, height: 8 }}
+                            className="mt-1 rounded-full shrink-0"
+                            style={{ width: '1rem', height: 2, background: visualStyles.accent }}
                             aria-hidden
                         />
-                    ) : null}
+                    ) : (
+                        <span className="mt-1 shrink-0" style={{ height: 2 }} aria-hidden />
+                    )}
                 </div>
-                {active ? (
-                    <span
-                        className="mt-1 rounded-full shrink-0"
-                        style={{ width: '1rem', height: 2, background: visualStyles.accent }}
-                        aria-hidden
-                    />
-                ) : (
-                    <span className="mt-1 shrink-0" style={{ height: 2 }} aria-hidden />
-                )}
-            </div>
-            {showLabels ? (
+            )}
+            {showLabels && !hideIcon ? (
                 <span
                     className="hami-dock-item-label font-semibold leading-tight tracking-wide truncate w-full text-center px-0.5 mt-1 mb-0.5"
                     style={visualStyles.labelStyle}
@@ -241,7 +257,6 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
     const appearance = useLawyerSettingsAppearance();
     const { placements, overrides } = useLawyerSettingsHomeLayout();
     const { isEditing } = useHomeLayoutEdit();
-    const { dockSticky } = useHomePageScroll();
 
     const internalDockActions = useCommandCenterDockActions({
         userId,
@@ -278,19 +293,24 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
             prefetches[widgetId] = () => prefetchDockWidgetIntentDebounced(widgetId);
             if (widgetId === 'dockTasks') {
                 pointerPrimes[widgetId] = () => {
-                    /* hover فوري — Entry+ستارة فقط؛ warmFieldTasksOnOpen عند النقر الفعلي */
-                    prefetchDockWidgetIntentImmediate('dockTasks', 'hover');
+                    queueMicrotask(() => {
+                        dispatchFieldTasksPrimeHost();
+                        prefetchDockWidgetIntentImmediate('dockTasks', 'hover');
+                    });
                 };
             }
             if (widgetId === 'dockCalendar') {
                 pointerPrimes[widgetId] = () => {
-                    prefetchDockWidgetIntentImmediate('dockCalendar');
-                    dispatchSchedulePrimeHost();
+                    snapScheduleShellOpen();
+                    queueMicrotask(() => {
+                        dispatchSchedulePrimeHost();
+                        prefetchDockWidgetIntentImmediate('dockCalendar', 'hover');
+                    });
                 };
             }
             if (widgetId === 'dockRepository') {
                 pointerPrimes[widgetId] = () => {
-                    prefetchDockWidgetIntentImmediate('dockRepository');
+                    prefetchDockWidgetIntentImmediate('dockRepository', 'hover');
                     void import('@/app/runtime/repositoryBootHydrator')
                         .then((m) => m.dispatchRepositoryPrimeHost())
                         .catch(() => undefined);
@@ -346,6 +366,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                     label: string;
                     active?: boolean;
                     badge?: boolean;
+                    hideIcon?: boolean;
                 }
             >
         > => ({
@@ -355,8 +376,9 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                 badge: urgentAlertsCount > 0 || pinnedCount > 0,
             },
             forum: {
-                icon: MessageCircle,
+                icon: FileText,
                 label: dockShellLabel('forum'),
+                hideIcon: true,
             },
             dockRepository: {
                 icon: HomeWarehouseIcon,
@@ -473,6 +495,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
                                 labelPx: shellMetrics.labelPx,
                             })
                         }
+                        hideIcon={cfg.hideIcon}
                         onPrefetch={dockItemInteractions.prefetches[widgetId]}
                         onPointerPrime={dockItemInteractions.pointerPrimes[widgetId]}
                         activateOnPointerDown={
@@ -594,7 +617,7 @@ export const LegalCommandCenterDock = memo(function LegalCommandCenterDock({
         <>
             <div
                 data-testid="home-dock-chrome-sticky"
-                className={`hami-home-dock-chrome-sticky ${dockSticky ? 'sticky bottom-0' : 'relative'} z-[55] w-full hami-shell-gutter-x pointer-events-none pb-[max(0px,env(safe-area-inset-bottom))] ${isEditing ? 'z-[80]' : ''}`}
+                className={`hami-home-dock-chrome-sticky sticky bottom-0 z-[55] w-full hami-shell-gutter-x pointer-events-none pb-[max(0px,env(safe-area-inset-bottom))] ${isEditing ? 'z-[80]' : ''}`}
                 style={dockChromeStackStyle}
             >
                 {isEditing ? editingShell : normalShell}

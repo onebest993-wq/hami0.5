@@ -25,9 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # .nvmrc هو المصدر الوحيد للإصدار حتى لا ينحرف CI عن الإنتاج مرّة أخرى:
+      # كان يعمل على 20 بينما engines وVercel على 24، فاختلفت نتائج ترتيب
+      # النصوص العربية بين الجهازين، وكان 20 قد بلغ نهاية عمره.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version-file: '.nvmrc'
           cache: npm
 
       - name: Install
@@ -40,6 +43,43 @@ jobs:
       - name: No new broken imports, entry points intact
         run: npm run guard:import-closure
 
+      # الدائرة تجعل ترتيب تهيئة الوحدات رهن باب الدخول، فيصير الخطأ عرضياً
+      # يظهر في مسار ويختفي في آخر. الحارس يقيس الاستيراد الساكن وحده — أمّا
+      # import() فحدّ تقسيم كود مقصود لا عطل.
+      - name: No new import cycles
+        run: npm run guard:cycles
+
+      - name: No ambiguous .js/.ts module twins
+        run: npm run guard:module-twins
+
+      - name: Native mobile foundation contract
+        run: npm run guard:native-foundation
+
+      - name: Cold entry surface stays light
+        run: npm run guard:cold-entry
+
+      # مِسنَنتان تمنعان عودة ما نُظّف: وحدة لا يصلها أحد، ومنطق مكتوب مرّتين.
+      # التكرار هو ما جعل محرّك جدول المشاهدة نسختين متباعدتين، إحداهما تحمل
+      # إصلاحاً والأخرى تحمل العيب، وكلتاهما تدّعي الحقيقة نفسها.
+      - name: No new unreachable modules
+        run: npm run guard:dead-modules
+
+      - name: No newly duplicated logic
+        run: npm run guard:duplicate-logic
+
+      # كان المشروع يثبّت بـlegacy-peer-deps فيخفي التعارضات. أُزيل العلم بعد
+      # أن صار التثبيت الصارم نظيفاً؛ هذا الحارس يمنع عودته أو عودة تعارض جديد.
+      - name: No undeclared peer dependency conflicts
+        run: npm run guard:peer-conflicts
+
+      # هذان الحارسان كانا مكتوبَين ولا يعملان: لا CI يستدعيهما ولا أمر npm.
+      # وقد كشفا فور تشغيلهما أن مسار إنتاج Netlify يفتح الواجهة بلا تسجيل دخول.
+      - name: Production auth stays fail-closed
+        run: npm run guard:shell-auth-prod
+
+      - name: Production env contract holds
+        run: npm run guard:prod-env-contract
+
       - name: No new type errors
         run: npm run guard:tsc
 
@@ -48,6 +88,34 @@ jobs:
 
       - name: No newly failing tests
         run: npm run guard:tests
+
+      # المِسنَنات كلّها تفحص المصدر ولا تبني شيئاً، فكان بوسع تغيير يكسر بناء
+      # الإنتاج أن يعبر البوّابة كاملةً. هذه الخطوة تبني فعلاً كما تفعل Vercel.
+      #
+      # قيم VITE_SUPABASE_* هنا شكلها صحيح وليست أسراراً — الإنتاج الحقيقي يحقنها
+      # من أسرار الاستضافة. بدونها يتجمّد الإقلاع fail-closed (وهذا مقصود)، لكن
+      # بوابة CI يجب أن تبني حزمة قابلة للإقلاع هيكلياً لا حزمة ترفض نفسها فوراً.
+      - name: Production build succeeds
+        env:
+          VITE_SUPABASE_URL: https://ci-hami-gate.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJjaS1oYW1pLWdhdGUifQ.ci-hami-quality-gate-anon-key
+          VITE_SHELL_AUTH_OPEN: 'false'
+          VITE_BFF_AUTH: 'true'
+        run: npm run build:vercel
+
+      - name: Built output passes production checks
+        run: npm run verify:production-build
+
+      # فحص الحزمة المبنيّة نفسها: مفتاح service-role أو أي chunk إداري يتسرّب
+      # إلى العميل لا يظهر في فحص المصدر إطلاقاً — لا بدّ من قراءة dist.
+      - name: No server secrets or admin chunks in the client bundle
+        run: npm run guard:dist-secrets
+
+      - name: Cold entry dist preloads stay allowlisted
+        run: npm run guard:cold-entry:dist
+
+      - name: Bundle size budgets hold
+        run: npm run health:bundle
 
       - name: Upload baselines and reports on failure
         if: failure()
@@ -59,6 +127,7 @@ jobs:
             .audit/tsc-ratchet-baseline.json
             .audit/ts-nocheck-baseline.json
             .audit/import-closure-gate.json
+            .audit/import-cycles-baseline.json
             .audit/test-ratchet-baseline.json
             .audit/vitest-run.json
           if-no-files-found: ignore

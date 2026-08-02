@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Boot E2E — يستخدم preview بعد build:e2e افتراضياً (E2E_USE_PREVIEW=1).
- * للتطوير على dev: E2E_USE_PREVIEW=0 npm run test:e2e:boot
+ * E2E المستودع — preview بعد build:e2e (shell auth + Supabase من info.ts).
+ * Usage: npm run test:e2e:repository
  */
+import { spawnSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { distNeedsE2eBuild } from './e2e-dist-stamp.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -24,6 +24,15 @@ const env = {
 
 const extra = process.argv.slice(2);
 const projectFlag = extra.some((a) => a.startsWith('--project')) ? [] : ['--project=chromium'];
-const args = ['playwright', 'test', 'e2e/app-boot-smoke.spec.ts', '--workers=1', ...projectFlag, ...extra];
+const args = [
+    'playwright',
+    'test',
+    'e2e/smart-repository.spec.ts',
+    'e2e/smart-vault.spec.ts',
+    'e2e/voice-recorder.spec.ts',
+    '--workers=1',
+    ...projectFlag,
+    ...extra,
+];
 const result = spawnSync('npx', args, { stdio: 'inherit', shell: true, env, cwd: ROOT });
 process.exit(result.status ?? 1);

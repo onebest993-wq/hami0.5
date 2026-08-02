@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
-import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -25,7 +24,12 @@ import {
     REPOSITORY_PRIME_HOST_EVENT,
     REPOSITORY_SHELL_HYDRATED_EVENT,
 } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
-import { commitRepositoryOpen } from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
+import { commitRepositoryClose, commitRepositoryOpen } from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
+import {
+    persistRepositorySessionOpen,
+    readInitialRepositorySession,
+} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { paintRepositoryInstantChrome, markRepositoryShellOpenCommitted } from '@/app/runtime/repositoryInstantPaint';
 
 /** @deprecated use OpenRepositoryOptions — kept for navigation typings */
 export type OpenNotepadOptions = {
@@ -45,30 +49,32 @@ export type UseLawyerDashboardRepositoryParams = {
 };
 
 export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepositoryParams) {
-    const [isRepositoryOpen, setIsRepositoryOpen] = useState(false);
-    const [repositoryTab, setRepositoryTab] = useState<RepositoryTab>('notepad');
+    const [initialSession] = useState(() => readInitialRepositorySession());
+    const [isRepositoryOpen, setIsRepositoryOpen] = useState(() => initialSession.open);
+    const [repositoryTab, setRepositoryTab] = useState<RepositoryTab>(() => initialSession.tab);
     const [notepadMode, setNotepadMode] = useState<'list' | 'create'>('list');
     const [focusNoteId, setFocusNoteId] = useState<string | undefined>();
     const [vaultOpenScanner, setVaultOpenScanner] = useState(false);
     const [repositorySessionKey, setRepositorySessionKey] = useState(0);
-    const [repositoryOpenEpoch, setRepositoryOpenEpoch] = useState(0);
-    const [repositoryHostMounted, setRepositoryHostMounted] = useState(false);
+    const [repositoryOpenEpoch, setRepositoryOpenEpoch] = useState(() => (initialSession.open ? 1 : 0));
+    const [repositoryHostMounted, setRepositoryHostMounted] = useState(() => initialSession.open);
 
     const armRepositoryHost = useCallback(() => {
         setRepositoryHostMounted(true);
     }, []);
 
     const closeRepository = useCallback(() => {
-        flushSync(() => {
-            setIsRepositoryOpen(false);
-            setFocusNoteId(undefined);
-            setVaultOpenScanner(false);
+        commitRepositoryClose({
+            setIsRepositoryOpen,
+            setFocusNoteId,
+            setVaultOpenScanner,
         });
     }, []);
 
     /** جلسة مستودع مفتوحة بلا هوية — أغلق وامسح الـ host (R2) */
     useEffect(() => {
         if (isRealSignedIn(userId)) return;
+        persistRepositorySessionOpen(false);
         setIsRepositoryOpen(false);
         setFocusNoteId(undefined);
         setVaultOpenScanner(false);
@@ -81,6 +87,29 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
         void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId ?? undefined));
         armRepositoryHost();
     }, [armRepositoryHost, userId]);
+
+    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة مستودع */
+    useLayoutEffect(() => {
+        if (!isRealSignedIn(userId)) return;
+        armRepositoryHost();
+        prefetchRepositoryHubModule();
+        prefetchRepositoryOverlayChunks();
+        void loadRepositoryIntentWarm().then((m) => m.warmRepositoryHubOnHover(userId));
+    }, [armRepositoryHost, userId]);
+
+    useLayoutEffect(() => {
+        if (!initialSession.open || !isRealSignedIn(userId)) return;
+        markRepositoryShellOpenCommitted(true);
+        paintRepositoryInstantChrome();
+        if (typeof performance !== 'undefined') {
+            const openMark = performance.getEntriesByName('hami:repository:open-request', 'mark')[0];
+            if (!openMark) markRepositoryPerfPhase('open-request');
+        }
+    }, [initialSession.open, userId]);
+
+    useLayoutEffect(() => {
+        if (isRepositoryOpen) paintRepositoryInstantChrome();
+    }, [isRepositoryOpen]);
 
     useEffect(() => {
         let disposed = false;
@@ -97,17 +126,17 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
 
     useLayoutEffect(() => {
         if (!isRepositoryOpen || repositoryOpenEpoch <= 0) return;
+        if (typeof performance !== 'undefined') {
+            const openMark = performance.getEntriesByName('hami:repository:open-request', 'mark')[0];
+            if (!openMark) markRepositoryPerfPhase('open-request');
+        }
         markRepositoryPerfPhase('first-paint');
         markRepositoryPerfPhase('interactive');
     }, [isRepositoryOpen, repositoryOpenEpoch]);
 
     useEffect(() => {
-        return registerDashboardOverlayCloser('repository', () => {
-            setIsRepositoryOpen(false);
-            setFocusNoteId(undefined);
-            setVaultOpenScanner(false);
-        });
-    }, []);
+        return registerDashboardOverlayCloser('repository', closeRepository);
+    }, [closeRepository]);
 
     useEffect(() => {
         let disposed = false;
