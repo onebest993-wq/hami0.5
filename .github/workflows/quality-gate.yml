@@ -120,6 +120,11 @@ jobs:
       - name: Cold entry dist preloads stay allowlisted
         run: npm run guard:cold-entry:dist
 
+      # وزن ما يجب أن يصل قبل أول رسم. وحدة صغيرة تذوب في chunk ضخم تكفي لجرّ
+      # نصف التطبيق إلى المسار الحرج دون أن يظهر ذلك في أي فحص مصدر.
+      - name: Boot critical path stays light
+        run: npm run guard:boot-critical-weight
+
       - name: Bundle size budgets hold
         run: npm run health:bundle
 

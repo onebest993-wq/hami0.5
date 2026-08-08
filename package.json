@@ -23,6 +23,7 @@
     "guard:native-foundation": "node scripts/guard-native-foundation.mjs",
     "guard:cold-entry": "node scripts/guard-cold-entry-surface.mjs",
     "guard:cold-entry:dist": "node scripts/guard-cold-entry-surface.mjs --dist",
+    "guard:boot-critical-weight": "node scripts/guard-boot-critical-weight.mjs",
     "guard:tailwind-source": "node scripts/guard-tailwind-source-surface.mjs",
     "guard:tracked-secrets": "node scripts/guard-tracked-secrets.mjs",
     "guard:shell-auth-prod": "node scripts/guard-shell-auth-prod.mjs",

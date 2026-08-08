@@ -12,7 +12,15 @@ describe('warm TTFI LD preload scheduling honesty', () => {
             mountFn.match(/const \[appMod, ReactMod, ReactDOMMod\] = await[\s\S]*?Promise\.all\(\[([\s\S]*?)\]\)/)?.[1] ??
             '';
         expect(promiseAll).not.toContain('LawyerDashboardInnerRuntime');
-        expect(mountFn).toMatch(/coldBoot[\s\S]*LawyerDashboardInnerRuntime/);
+        /**
+         * اللوحة لم تعد تُحمَّل مسبقاً داخل mountApplication إطلاقاً: كل طلب يسبق
+         * await النواة يزاحم React وجذر التطبيق على نطاق الهاتف. القياس على Slow 4G
+         * أعطى بدء إقلاع 3935 مللي بالمزاحمة و880 بدونها. المرحلة الثقيلة صارت
+         * ملكاً لـ kickoffBootHeavyPreload بعد وصول المسار الحرج.
+         */
+        const beforeCoreAwait = mountFn.slice(0, mountFn.indexOf('const [appMod'));
+        expect(beforeCoreAwait).not.toContain('LawyerDashboardInnerRuntime');
+        expect(beforeCoreAwait).not.toContain('LawyerDashboardHomeTab');
         const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
         expect(preload).toContain("import('@/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime')");
     });

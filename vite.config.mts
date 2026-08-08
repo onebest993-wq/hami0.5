@@ -557,13 +557,21 @@ export default defineConfig(({ command, mode }) => {
     assetsInlineLimit: 4096,
     modulePreload: {
       /**
-       * allowlist ضيّق: React + boot-runtime فقط على المسار الحرج.
-       * vendor-misc (zustand وغيره) و vendor-ui يُجلبان عند أول استيراد فعلي.
+       * السياق يحدّد السياسة:
+       *
+       * - `html`: روابط modulepreload في index.html تُجلب قبل أي شيء وتزاحم React
+       *   على النطاق. allowlist ضيّق — React وboot-runtime فقط.
+       *
+       * - `js`: قائمة الاعتماديات التي يمرّرها Vite لـ`__vitePreload` عند استيراد
+       *   ديناميكي. قصّها يعني أن المتصفح لا يكتشف اعتماديات الـchunk إلا بعد
+       *   تنزيله وتحليله — رحلة ذهاب وإياب لكل مستوى في الشجرة. على شبكة بزمن
+       *   تأخير 150 مللي كلّف ذلك لوحة المحامي ثوانيَ من العمق الصرف. تُمرَّر
+       *   كاملة ليتوازى الجلب.
        */
-      resolveDependencies: (_filename, deps) =>
-        deps.filter((dep) =>
-          /(^|\/)(vendor-react|boot-runtime)-[^/]+\.js(\?|$)/i.test(dep),
-        ),
+      resolveDependencies: (_filename, deps, { hostType }) =>
+        hostType === 'html'
+          ? deps.filter((dep) => /(^|\/)(vendor-react|boot-runtime)-[^/]+\.js(\?|$)/i.test(dep))
+          : deps,
     },
     rollupOptions: {
       external: command === 'build' ? ['html2canvas'] : [],
@@ -573,8 +581,21 @@ export default defineConfig(({ command, mode }) => {
         if (typeof handler === 'function') handler(level, log);
       },
       output: {
-        /** دمج micro-chunks — يقلّل عدد الملفات دون تضخيم entry (كان 0 → 249 chunk <5KB) */
-        experimentalMinChunkSize: 12_288,
+        /**
+         * بلا دمج micro-chunks.
+         *
+         * الدمج يقلّل عدد الملفات، لكنه يلحم وحدات feature صغيرة داخل chunk نقطة
+         * الدخول لأن المدخل «متوافق» مع كل شيء — فتصير استيراداتها اعتمادية ثابتة
+         * لأول رسم. بالقياس: 606 كيلوبايت مضغوطة قبل أن يرى المستخدم شيئاً، منها
+         * محرّك القضايا الجزائية وSupabase وعناقيد التنفيذ.
+         *
+         * والسلوك غير رتيب: 2048 و3072 أبقيا المدخل نظيفاً بينما 2560 و4096 لوّثاه.
+         * أي عتبة موجبة حظّ لا هندسة. الصفر وحده يضمن مدخلاً بـ54 كيلوبايت.
+         * التكلفة: عدد chunks أكبر — يُعوَّض بالتحميل المسبق المرحلي لا بالدمج الأعمى.
+         *
+         * HAMI_MIN_CHUNK_SIZE للقياس المقارن؛ guard:boot-critical-weight يحرس النتيجة.
+         */
+        experimentalMinChunkSize: Number(process.env.HAMI_MIN_CHUNK_SIZE ?? 0),
         manualChunks(id) {
           const bootChunk = resolveBootRuntimeChunk(id)
           if (bootChunk) return bootChunk

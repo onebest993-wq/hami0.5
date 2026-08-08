@@ -1,8 +1,6 @@
 import { markBootPhase } from '@/app/bootstrap/bootMetrics';
 import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
 import {
-    isBootRevealDone,
-    markBootRevealDone,
     getBootRevealMaxMs,
     isDemoShellAuthBuild,
     applyInstantDemoBootFoundation,
@@ -189,9 +187,6 @@ async function mountApplication(): Promise<void> {
     markBootPhase('start');
     document.documentElement.dataset.hamiInitialBoot = '1';
 
-    void import('@/app/bootstrap/homeDockBootGate').then((m) => m.preloadHomeDockBootChunk());
-    void import('@/app/components/lawyer/dashboard/LawyerDashboardHomeTab');
-
     try {
         if (isDemoShellAuthBuild()) {
             void import('@/app/bootstrap/lawyerDashboardChunk').then((m) => {
@@ -203,14 +198,11 @@ async function mountApplication(): Promise<void> {
             m.assertClientEnvOrThrow();
         });
 
-        const coldBoot = !isBootRevealDone();
-        if (coldBoot) {
-            void import('@/app/bootstrap/lawyerDashboardChunk').then((m) =>
-                m.preloadLawyerDashboardChunk(),
-            );
-            void import('@/app/components/lawyer/dashboard/LawyerDashboardInnerRuntime');
-        }
-
+        /**
+         * لا تحميل مسبق للوحة هنا: كل ما يسبق هذا الـawait يزاحم React وجذر
+         * التطبيق على نطاق الهاتف. المرحلة الثقيلة يملكها kickoffBootHeavyPreload
+         * وتنطلق بعد وصول المسار الحرج.
+         */
         const [appMod, ReactMod, ReactDOMMod] = await withBootTimeout(
             Promise.all([
                 loadAppModule(),
