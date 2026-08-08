@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
+import type { VercelRequest, VercelResponse } from './_vercelRuntimeTypes';
 import { routeLoaders, type RouteModule } from './_routeManifest';
 
 export const config = {
