@@ -4,7 +4,6 @@
 import { debug } from '@/app/utils/debug';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { whenNativeCapacitorBootComplete } from '@/app/runtime/nativeCapacitorBoot';
-import type { NotificationChannelKey } from '@/app/services/settings/notificationSettings';
 import {
     cacheNotificationPrefsForBackground,
     pushOptionsForChannel,

@@ -3,7 +3,7 @@ import {
     DECISIONS_RELOAD_EVENT,
     dispatchDecisionsReload,
 } from '@/app/utils/executorSeizureDecisionQueue';
-import { readSeizureWorkflowLiveDecisions } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureWorkflowDossierUtils';
+import { readSeizureWorkflowLiveDecisions } from './seizureWorkflowLiveDecisions';
 import { createSeizureWorkflowEngine } from './seizureWorkflowEngine';
 import {
     executorSubtypesForWorkflowStatus,

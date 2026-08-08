@@ -8,7 +8,6 @@
 
 /* Tailwind v4 — مسح ضيق: shell + لوحة المحامي؛ الأقسام الثقيلة في tailwind-features.css */
 @source '../index.tsx';
-@source '../app/App.tsx';
 @source '../app/bootstrap/**';
 @source '../app/context/**';
 @source '../app/hooks/**';

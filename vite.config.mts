@@ -206,6 +206,10 @@ function resolveCapacitorWebAliases(command: string, env: Record<string, string>
     { find: '@capacitor/filesystem', replacement: path.join(shimDir, 'pluginStub.ts') },
     { find: '@capacitor/share', replacement: path.join(shimDir, 'pluginStub.ts') },
     {
+      find: '@capacitor/local-notifications',
+      replacement: path.join(shimDir, 'localNotificationsStub.ts'),
+    },
+    {
       find: '@capacitor-community/privacy-screen',
       replacement: path.join(shimDir, 'communityPluginStub.ts'),
     },

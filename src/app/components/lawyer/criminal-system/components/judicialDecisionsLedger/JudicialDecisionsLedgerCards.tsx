@@ -13,7 +13,7 @@ import type { CriminalCase, LawyerRequest } from '../../criminalStore'
 import { formatInvestigationDecisionDefendantNames, formatInvestigationPurgeDecisionDisplayTitle, isInvestigationPurgeDecisionTemplate } from '../../investigationDefendantPurge'
 import { normalizeProceduralRequestTemplate } from '../../judicialDecisionTemplateLiteCore'
 
-import { LawyerRequestUxBlock } from '../../criminalDashboardLazyRequestUi'
+import { LawyerRequestUxBlock } from '../LawyerRequestUxAddons'
 import { RequestProceduralLinkStrip } from '../RequestProceduralLinkStrip'
 import type { ProceduralLinkReference, ProceduralNavTarget } from '../../proceduralContainersEngine'
 import { classifyDecisionLedgerKind, formatDecisionLedgerKindLabel, formatJudicialDecisionDetentionMetaRows, resolveConcernedPartyText, resolveDecisionLedgerKindTheme, resolveJudicialDecisionBailSummary, resolveLedgerDisplayArticle, resolveLedgerPartyRowLabel, shouldShowLedgerPartyMetaRow } from '../../decisionsLedgerVisuals'
