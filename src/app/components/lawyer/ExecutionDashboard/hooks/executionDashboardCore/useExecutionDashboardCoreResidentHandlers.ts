@@ -9,6 +9,7 @@ import { useExecutionDashboardMovableInlineSaveContext } from './useExecutionDas
 import { useExecutionDashboardPropertyInlineSaveContext } from './useExecutionDashboardPropertyInlineSaveContext';
 import { useExecutionDashboardCoreLightHandlers } from './useExecutionDashboardCoreLightHandlers';
 import type { ExecutionDashboardCoreLightHandlersParams } from './buildExecutionDashboardCoreLightHandlerClusterInput';
+import type { PushSeizureAuctionCalendarAppointmentInput } from './useExecutionDashboardPushSeizureAuctionCalendarAppointment';
 import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 
 export type ExecutionDashboardCoreResidentHandlersParams = ExecutionDashboardCoreLightHandlersParams & {

@@ -134,11 +134,24 @@ const isTest = (f) =>
 /** نقاط الدخول الحقيقية: المتصفّح، الأدوات، الخادم، والـe2e */
 const ENTRY = [/^src\/index\.tsx$/, /^src\/vite-plugins\//, /^src\/test\/setup\.ts$/, /\.d\.ts$/, /^api\//, /^e2e\//];
 const readIfExists = (p) => (fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : '');
+const viteConfigText = readIfExists(path.join(ROOT, 'vite.config.mts'));
 const external = new Set();
-for (const m of `${readIfExists(path.join(ROOT, 'index.html'))}\n${readIfExists(path.join(ROOT, 'vite.config.mts'))}`.matchAll(
+for (const m of `${readIfExists(path.join(ROOT, 'index.html'))}\n${viteConfigText}`.matchAll(
     /['"](?:\.\/)?(src\/[^'"]+?)['"]/g,
 )) {
     external.add(m[1]);
+}
+
+// بدائل alias المركّبة: `const shimDir = path.resolve(…, 'src/…')` ثم
+// `path.join(shimDir, 'core.ts')`. لا يظهر منها مسار كامل كسلسلة واحدة، فكانت
+// طبقة shims الكاباستور كلّها تُحسب ميتة — وهي ما يبني عليه الويب فعلاً.
+const aliasDirs = new Map();
+for (const m of viteConfigText.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*path\.resolve\([^)]*?['"](src\/[^'"]+?)['"]\s*\)/g)) {
+    aliasDirs.set(m[1], m[2].replace(/\/+$/, ''));
+}
+for (const m of viteConfigText.matchAll(/path\.join\(\s*(\w+)\s*,\s*['"]([^'"]+?)['"]\s*\)/g)) {
+    const dir = aliasDirs.get(m[1]);
+    if (dir) external.add(`${dir}/${m[2]}`);
 }
 // بوّابات dev/prod تُحسم عبر alias في vite.config — كلا الطرفين حيّ
 for (const f of graph.keys()) {

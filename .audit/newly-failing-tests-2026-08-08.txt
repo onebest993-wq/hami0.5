@@ -1,0 +1,44 @@
+اختبارات فاشلة جديدة مقابل خط أساس 2026-07-31 — تراكمت خلال ٨ أيام عمل لم تُودَع
+ولم تمرّ على CI قط. لا علاقة لأيٍّ منها بتغييرات موجة TS2304.
+الإجمالي الفاشل نزل 216 -> 203، لكن هذه أسماء جديدة تستحق فحصاً فردياً.
+
+  1. src/app/api/auth/login/route.test.ts :: login route rate limiting degrades to counting in memory instead of locking everyone out when Redis is down
+  2. src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts :: followupScenarioHiddenBaseline baseline covers every catalog scenario
+  3. src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts :: followupScenarioHiddenBaseline eviction_earner matches committed hidden baseline
+  4. src/app/application/execution/followup/__tests__/followupScenarioHiddenBaseline.test.ts :: followupScenarioHiddenBaseline specific_delivery_movable_pre_legal_entity matches committed hidden baseline
+  5. src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts :: followupScenarioMatrix eviction_earner effective tabs match catalog expectation
+  6. src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts :: followupScenarioMatrix eviction_earner flags match expectation (earner-gated)
+  7. src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts :: followupScenarioMatrix eviction_employee effective tabs match catalog expectation
+  8. src/app/application/execution/followup/__tests__/followupScenarioMatrix.test.ts :: followupScenarioMatrix eviction_employee flags match expectation (earner-gated)
+  9. src/app/components/lawyer/CommunityScreen/__tests__/forumRateLimit.test.ts :: checkForumRateLimit (client) post action ظ¤ء┬ظـز╪» ظ¤ء├ذظ¤ء┬ظـزظûْظـزظـت ظـز╪»ظ¤ء┬ظـز╪▓ظـزظــظـز╪»ظـزظûْظـز╪»ظ¤ء├» ظـز╪░ظ¤ء├ذظ¤ء┬ ظـز╪»ظ¤ء┬ظ¤ء├بظ¤ء┬ظـزظ¤جظ¤ء├زظـزظûْظـز╪»ظـز╪▓
+ 10. src/app/components/lawyer/CommunityScreen/hooks/__tests__/useCommunityAddQuestion.test.ts :: useCommunityAddQuestion ┘è╪ز╪ش╪د┘ç┘ ╪د┘┘┘é╪▒ ╪د┘┘à╪▓╪»┘ê╪ش ╪ث╪س┘╪د╪ة ╪د┘┘╪┤╪▒
+ 11. src/app/components/lawyer/CommunityScreen/hooks/__tests__/useCommunityAddQuestion.test.ts :: useCommunityAddQuestion ┘è╪▒┘┘é ╪د┘┘à┘┘ ┘┘ê╪▒╪د┘ï ╪»┘ê┘ ╪د┘╪ز╪╕╪د╪▒ ╪د┘╪ز╪«╪▓┘è┘
+ 12. src/app/components/lawyer/CommunityScreen/hooks/__tests__/useForumLifecycle.hiddenHost.test.ts :: useForumLifecycle hidden keepAlive ┘╪د ┘è┘é╪▒╪ث CommunityDB ╪╣┘╪» isOpen=false
+ 13. src/app/components/lawyer/ExecutionCreationView/__tests__/executionCreationViewStructure.test.ts :: ExecutionCreationView Phase-1 split ظ¤ component extraction 'LawyerFeesToggleCard.tsx' exists and owns its distinctive marker
+ 14. src/app/components/lawyer/ExecutionCreationView/__tests__/executionCreationViewStructure.test.ts :: ExecutionCreationView Phase-1 split ظ¤ component extraction PartiesSection and other pre-existing extractions remain untouched
+ 15. src/app/components/lawyer/ExecutionDashboard/components/__tests__/seizedMovableWorkflowLane.integration.test.tsx :: SeizedMovableWorkflowPanel lane selection (real accordion) ┘è╪╣╪▒╪╢ ┘é┘è╪» ╪د┘╪ذ╪ز ╪ذ╪╣╪» ╪╖┘╪ذ ┘à┘ê╪╣╪» ┘à╪▓╪د┘è╪»╪ر ┘ê┘è╪ص╪ز┘╪╕ ╪ذ┘ç ╪ذ╪╣╪» remount
+ 16. src/app/components/lawyer/HamiSettings/__tests__/DataSyncCard.test.tsx :: DataSyncCard ┘è╪╣╪╖┘ّ┘ ╪▓╪▒ ╪د┘┘à╪▓╪د┘à┘╪ر ╪د┘╪│╪ص╪د╪ذ┘è╪ر ╪ث╪س┘╪د╪ة localOnlyMode
+ 17. src/app/components/lawyer/LawyerNewCase/__tests__/civilSectionStructure.test.ts :: civil lawsuit section structural closure SmartFileMainPanel wires civil law reference with readOnly on archived stage
+ 18. src/app/components/lawyer/NeuralAlertsCard/__tests__/useNeuralAlertsFromSecretary.test.ts :: useNeuralAlertsFromSecretary 1) ┘è┘é╪│┘ّ┘à ╪د┘╪ز┘╪ذ┘è┘ç╪د╪ز ╪╣┘┘ë ╪د┘╪ث┘┘é┘è╪د╪ز ╪د┘╪س┘╪د╪س╪ر ╪ذ╪»┘é┘ّ╪ر
+ 19. src/app/components/lawyer/NeuralAlertsCard/__tests__/useNeuralAlertsFromSecretary.test.ts :: useNeuralAlertsFromSecretary 3) Lazy mapping: ╪د╪│╪ز╪»╪╣╪د╪ة ╪ث┘┘é┘ ┘ê╪د╪ص╪» ┘╪د ┘è╪ذ┘┘è ╪د┘╪ذ┘é┘è╪ر ╪╢┘à┘┘è╪د┘ï
+ 20. src/app/components/lawyer/NotificationPanel/__tests__/notificationPanelSecurity.test.ts :: notificationHeaderBusy ┘è┘╪╕┘ç╪▒ ╪ز╪ص┘à┘è┘ ╪د┘┘é╪د╪خ┘à╪ر ┘┘é╪╖ ╪╣┘╪» ╪د┘╪ذ╪▒╪» ╪د┘┘╪╣┘┘è
+ 21. src/app/components/lawyer/SmartLegalRadar/__tests__/RadarSelectedDaySection.test.tsx :: RadarSelectedDaySection ┘è╪╣╪▒╪╢ ┘à┘╪«╪╡ ╪د┘┘è┘ê┘à ╪╣┘╪» ┘ê╪ش┘ê╪» ┘à┘ê╪د╪╣┘è╪»
+ 22. src/app/components/lawyer/SmartRepository/__tests__/SmartRepositoryMobile.test.tsx :: SmartRepository mobile readiness ┘┘╪د╪ز╪▒ ┘ê╪ث╪▓╪▒╪د╪▒ ╪د┘╪ح╪ش╪▒╪د╪ة╪د╪ز ╪ز╪»╪╣┘à scroll/l touch ╪ث┘┘é┘è/╪╣┘à┘ê╪»┘è
+ 23. src/app/components/lawyer/SmartRepository/__tests__/SmartRepositoryModal.test.tsx :: SmartRepositoryModal shell ╪▓╪▒ ╪د┘╪ح╪║┘╪د┘é native ┘è╪│╪ز╪»╪╣┘è onClose
+ 24. src/app/components/lawyer/TransactionsThreading/__tests__/TaskNodeCard.test.tsx :: TaskNodeCard ╪╕┬┬ج ظـز╪صظ¤ء├تظ¤ء├بظـز╪»ظ¤ء┬ ظـزظـثظ¤ء┬ظ¤ء├س ظـز╪»ظ¤ء┬ظـز╪░ظـزظـûظـز╪»ظ¤ء├رظـز╪▒ ظ¤ء├ذظـزظ¤éظـز╪▓ظـز╪░ظـز┬╗ظ¤ء┬ ظـزظûôظـزظûْ ظـز╪»ظ¤ء┬ظـز╪صظ¤ء├تظ¤ء├بظـز╪»ظ¤ء┬ ظـز╪░ظـزظ¤جظـز╪»ظـزظûْظـز╪▒ ظ¤ء├بظ¤ء┬ظـز╪┤ظـزظûôظـز╪▒ ظـزظـثظ¤ء┬ظـز┬╗ ظـز╪»ظ¤ء├تظـز╪▓ظ¤ء├بظـز╪»ظ¤ء┬ ظـز╪»ظ¤ء┬ظ¤ء├بظ¤ء├دظ¤ء├بظـز╪▒
+ 25. src/app/components/lawyer/TransactionsThreading/__tests__/TaskNodeCard.test.tsx :: TaskNodeCard ╪╕┬┬ج ظـز╪صظ¤ء├تظ¤ء├بظـز╪»ظ¤ء┬ ظـزظـثظ¤ء┬ظ¤ء├س ظـز╪»ظ¤ء┬ظـز╪░ظـزظـûظـز╪»ظ¤ء├رظـز╪▒ ظ¤ء├ذظـزظـثظـزظûْظـزظـت ظـزظûôظـزظûْ ظـز╪صظ¤ء├تظ¤ء├بظـز╪»ظ¤ء┬ ظ¤ء├زظ¤ء├ذظـزظ¤éظـز╪▓ظـز┬╗ظـزظـثظ¤ء├ذ onComplete ظـز┬╗ظ¤ء├زظ¤ء┬ ظ¤ء┬ظـز╪▓ظـز╪╡ ظـز╪╡ظ¤ء├زظـز╪»ظـزظûْ
+ 26. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è╪│╪ز╪»╪╣┘è onOpenDetails ╪╣┘╪» ╪د╪«╪ز┘è╪د╪▒ ┘à╪╣╪د┘à┘╪ر
+ 27. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è╪╣╪▒╪╢ ╪د┘┘é╪د╪خ┘à╪ر ┘ê╪د┘╪ذ╪ص╪س ┘ê╪د┘┘┘╪د╪ز╪▒
+ 28. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è┘╪ز╪ص ┘ê╪▒┘é╪ر ╪د┘╪ح╪╢╪د┘╪ر ┘à┘ FAB
+ 29. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è┘┘╪ز╪▒ ╪ذ╪د┘╪ذ╪ص╪س
+ 30. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è┘┘╪ز╪▒ ╪ذ╪د┘╪ذ╪ص╪س ┘ê╪د┘╪ص╪د┘╪ر ┘à╪╣╪د┘ï
+ 31. src/app/components/lawyer/TransactionsThreading/__tests__/TransactionsListScreen.test.tsx :: TransactionsListScreen ┘è┘┘╪ز╪▒ ╪ذ╪د┘╪ص╪د┘╪ر
+ 32. src/app/components/lawyer/dashboard/__tests__/lawyerHomeFx-android.test.ts :: lawyerHomeFx-android.css uses solid teal chrome for Tasks Agenda on Android
+ 33. src/app/components/lawyer/personal-status/personalStatusOverlayZ.test.ts :: personal status overlay z-layers keeps pearl overlays above the dossier root
+ 34. src/app/hooks/__tests__/useAutoSync.test.ts :: useAutoSync Hook Basic Functionality should initialize with correct default values
+ 35. src/app/hooks/__tests__/useLawsuitFileMutations.persist.test.ts :: useLawsuitFileMutations persist integrity ┘è╪ص┘╪╕ ╪د┘╪د╪│╪ز╪╣╪د╪»╪ر ╪╣╪ذ╪▒ persistLawsuitFiles
+ 36. src/app/hooks/__tests__/useLawsuitFileMutations.persist.test.ts :: useLawsuitFileMutations persist integrity ┘è╪ص┘╪╕ ╪د┘╪ص╪░┘ ╪د┘┘╪د╪╣┘à ╪╣╪ذ╪▒ persistLawsuitFiles
+ 37. src/app/runtime/__tests__/bootClosureHonesty.test.ts :: boot closure honesty bootCriticalPreload ┘è┘ê╪د╪▓┘è React ┘ê AppRuntimeShell ┘ê dashboard chunk
+ 38. src/app/runtime/__tests__/executionArchiveSurfaceBeforeAdopt.test.ts :: execution archive surface prefetch (non-blocking) ArchivePortal ┘è╪▒┘â┘ّ╪ذ ExecutionSurface sync ╪ذ┘╪د Suspense
+ 39. src/app/runtime/__tests__/executionArchiveSurfaceBeforeAdopt.test.ts :: execution archive surface prefetch (non-blocking) ArchivePortalHost ┘è╪╣╪ز┘à╪» Component ┘┘ê╪▒ ╪د┘┘â╪د╪┤
+ 40. src/app/runtime/__tests__/executionDossierRadicalInstant.test.ts :: execution dossier radical instant ظ¤ kill staged skeleton Portal ┘è╪ص╪ز┘╪╕ ╪ذ┘à┘╪ز╪د╪ص ╪د┘┘à┘┘ ┘╪ز╪ذ╪»┘è┘ ╪د┘╪ح╪╢╪ذ╪د╪▒╪ر╪ؤ keep-alive ┘è┘à┘╪╣ ╪ح╪╣╪د╪»╪ر ╪د┘╪ز╪▒┘â┘è╪ذ ╪╣┘╪» ┘┘╪│ ╪د┘┘à┘┘

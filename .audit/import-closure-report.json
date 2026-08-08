@@ -1,16 +1,16 @@
 {
-  "generatedAt": "2026-08-08T18:39:31.104Z",
+  "generatedAt": "2026-08-08T20:23:28.231Z",
   "seeds": 36,
   "missingSeeds": [],
   "totals": {
-    "closureFiles": 3344,
+    "closureFiles": 3346,
     "inventoryFiles": 1764,
-    "gapsNotAudited": 2252,
-    "gapLines": 293680,
-    "hotGaps": 577,
-    "hotGapLines": 59824,
+    "gapsNotAudited": 2254,
+    "gapLines": 293755,
+    "hotGaps": 579,
+    "hotGapLines": 59903,
     "unreachableInInventory": 695,
-    "unreachableLines": 84527,
+    "unreachableLines": 84528,
     "unresolvedSpecifiers": 0
   },
   "hotGaps": [
@@ -27,7 +27,7 @@
     {
       "path": "src/app/hooks/useLawsuitNewCaseFlow.ts",
       "depth": 3,
-      "lines": 501
+      "lines": 504
     },
     {
       "path": "src/app/types/criminal.ts",
@@ -423,6 +423,11 @@
       "path": "src/app/hooks/lawyerDashboard/hubArchivePrefetchGate.ts",
       "depth": 3,
       "lines": 55
+    },
+    {
+      "path": "src/app/utils/purgeDeletedExecutionDossiers.ts",
+      "depth": 3,
+      "lines": 51
     },
     {
       "path": "src/app/hooks/useOpaqueFeatureSurface.ts",
@@ -1707,7 +1712,7 @@
     {
       "path": "src/app/services/notifications/HamiNotificationBridge.ts",
       "depth": 5,
-      "lines": 225
+      "lines": 224
     },
     {
       "path": "src/app/services/calendar/dossierSync/lawsuitSync.ts",
@@ -2723,6 +2728,11 @@
       "path": "src/app/hooks/lawyerDashboard/useLawyerDashboardAuth.tsx",
       "depth": 9,
       "lines": 29
+    },
+    {
+      "path": "src/app/domain/seizure/seizureWorkflowLiveDecisions.ts",
+      "depth": 9,
+      "lines": 26
     },
     {
       "path": "src/app/hooks/lawyerDashboard/profile/profileLazyImports.ts",
@@ -3934,7 +3944,7 @@
     {
       "path": "src/app/components/lawyer/dashboard/tasksManager/TaskVoicePlayback.tsx",
       "depth": 3,
-      "lines": 38
+      "lines": 39
     },
     {
       "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/hooks/useDecisionsAppealsAppealRenderers.tsx",
@@ -4937,11 +4947,6 @@
       "lines": 112
     },
     {
-      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistMerge.ts",
-      "depth": 4,
-      "lines": 111
-    },
-    {
       "path": "src/app/components/lawyer/SmartLegalRadar/EventCardsList.tsx",
       "depth": 4,
       "lines": 111
@@ -4953,6 +4958,11 @@
     },
     {
       "path": "src/app/components/lawyer/smart-modal/parts/CaseLinkUnlinkButton.tsx",
+      "depth": 4,
+      "lines": 110
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistMerge.ts",
       "depth": 4,
       "lines": 110
     },
@@ -4987,14 +4997,14 @@
       "lines": 101
     },
     {
-      "path": "src/app/bootstrap/bootStaticShell.ts",
+      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreResidentHandlers.ts",
       "depth": 4,
       "lines": 99
     },
     {
-      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreResidentHandlers.ts",
+      "path": "src/app/bootstrap/bootStaticShell.ts",
       "depth": 4,
-      "lines": 98
+      "lines": 99
     },
     {
       "path": "src/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileAppealDeadlineBanner.tsx",
@@ -5313,6 +5323,11 @@
     },
     {
       "path": "src/app/components/lawyer/criminal-system/components/DecisionsScopeFilterBar.tsx",
+      "depth": 4,
+      "lines": 65
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/VoiceNoteAudio.tsx",
       "depth": 4,
       "lines": 65
     },
@@ -6507,11 +6522,6 @@
       "lines": 174
     },
     {
-      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistSupport.ts",
-      "depth": 5,
-      "lines": 173
-    },
-    {
       "path": "src/app/components/lawyer/smart-modal/smart-header/PartyItem.tsx",
       "depth": 5,
       "lines": 172
@@ -6525,6 +6535,11 @@
       "path": "src/app/components/lawyer/DecisionsAndAppealsEngine/utils/appeal-engine/creditorAppealGate.ts",
       "depth": 5,
       "lines": 170
+    },
+    {
+      "path": "src/app/components/lawyer/criminal-system/criminalStorePersistSupport.ts",
+      "depth": 5,
+      "lines": 168
     },
     {
       "path": "src/app/components/lawyer/criminal-system/caseSeveranceView.ts",
@@ -7848,6 +7863,11 @@
     },
     {
       "path": "src/app/components/lawyer/smart-modal/hooks/useSmartFileJudgmentActions.ts",
+      "depth": 5,
+      "lines": 17
+    },
+    {
+      "path": "src/app/components/lawyer/dashboard/notepadNoteUtils.ts",
       "depth": 5,
       "lines": 17
     },
@@ -9182,11 +9202,6 @@
       "lines": 19
     },
     {
-      "path": "src/app/components/lawyer/dashboard/notepadNoteUtils.ts",
-      "depth": 6,
-      "lines": 17
-    },
-    {
       "path": "src/app/components/lawyer/LawyerHomeHubCard/homeHub/homeHubPinsOverflow.ts",
       "depth": 6,
       "lines": 17
@@ -9895,11 +9910,6 @@
       "path": "src/app/components/lawyer/Dashboard_Active_Order_File/components/ConfirmDialogPortal.tsx",
       "depth": 7,
       "lines": 66
-    },
-    {
-      "path": "src/app/components/lawyer/dashboard/VoiceNoteAudio.tsx",
-      "depth": 7,
-      "lines": 65
     },
     {
       "path": "src/app/components/lawyer/criminal-system/criminalDashboardStageAccess.ts",
@@ -12375,12 +12385,12 @@
       "lines": 105
     },
     {
-      "path": "src/app/runtime/__tests__/phase3Progress.test.ts",
+      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveFinalizeSalary.ts",
       "lines": 104
     },
     {
-      "path": "src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoerciveFinalizeSalary.ts",
-      "lines": 103
+      "path": "src/app/runtime/__tests__/phase3Progress.test.ts",
+      "lines": 104
     },
     {
       "path": "src/app/components/lawyer/ExecutionCreationView/types.ts",

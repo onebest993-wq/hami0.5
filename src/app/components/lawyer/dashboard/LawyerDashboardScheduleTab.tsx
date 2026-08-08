@@ -4,6 +4,7 @@ import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
+import { isFileData } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import type { ExecutionFile } from '@/app/types/execution';
 import { RADAR_BG_MAIN } from '@/app/components/lawyer/SmartLegalRadar/radarTheme';
 import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';

@@ -1,6 +1,7 @@
 import type React from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { OpenFollowupModalPersistedFn } from '@/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen';
+import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
 
 export type SeizureDecisionOutcomeDetail = {
     executionId?: string;

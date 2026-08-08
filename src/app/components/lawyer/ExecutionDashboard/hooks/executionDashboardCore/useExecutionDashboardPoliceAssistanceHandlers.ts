@@ -1,4 +1,6 @@
 import { useCallback } from 'react';
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import { resolveExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 import { EVICTION_TIMELINE_ACTION_IDS } from '@/app/utils/executionModuleStrategies';

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Mic } from '@/app/components/ui/lucideIcons';
+import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
 import { TASKS_INNER_GLASS } from './tasksBoucleTheme';
 
 export type TaskVoicePlaybackProps = {

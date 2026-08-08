@@ -8,6 +8,7 @@ import {
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationVisibility';
 import { requireDecisionsStorageExecutionId } from '../../utils/requireDecisionsStorageExecutionId';
+import type { FollowupUnifiedModalTab } from '../../followupModalTabTypes';
 import { useFollowupModalPersistNavigation } from '../useFollowupModalPersistNavigation';
 import type { EmployeeAssignmentCoercivePhase } from './executionDashboardEmployeeAssignmentSync';
 import {

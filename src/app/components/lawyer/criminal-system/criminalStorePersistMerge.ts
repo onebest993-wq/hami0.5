@@ -1,8 +1,7 @@
-import type { CriminalCase } from '@/app/types/criminal';
+import type { CriminalCase, TimelineEvent } from './criminalCaseModel';
 import { CRIMINAL_STORAGE_PATCHED_EVENT, loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import { normalizeCriminalCaseLocation } from './criminalCaseDraftFactory';
 import { normalizeTrialSessions, type TrialSession } from './trialSessionsEngine';
-import type { TimelineEvent } from '@/app/types/criminal';
 
 export function mergeTimelineEventsFromPersisted(
     live: TimelineEvent[] | undefined,

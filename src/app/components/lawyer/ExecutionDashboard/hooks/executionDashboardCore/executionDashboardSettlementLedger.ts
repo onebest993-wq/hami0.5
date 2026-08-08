@@ -2,6 +2,10 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { SeizedAsset } from '@/app/types/execution';
 import { storageCache } from '@/app/utils/storageCache';
 import {
+    executionGarnishmentDetailsStorageKey,
+    executionGarnishmentFlagStorageKey,
+} from '@/app/utils/executionStorageKeysLite';
+import {
     emptyStore,
     parseUnifiedLedgerFromStorage,
     storageKey,

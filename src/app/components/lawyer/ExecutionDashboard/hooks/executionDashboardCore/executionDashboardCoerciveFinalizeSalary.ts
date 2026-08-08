@@ -8,6 +8,7 @@ import {
     buildSalarySeizureDescriptionTextLite,
     resolveSalarySeizureSubjectLite,
 } from './executionDashboardSalarySubjectLite';
+import type { FinalizeCoerciveSeizureInput } from './executionDashboardCoerciveFinalizeTypes';
 
 export function finalizeCoerciveSalarySeizure(input: FinalizeCoerciveSeizureInput): void {
     const { decisionRowId, assetId } = resolveFinalizeIdentity(input);

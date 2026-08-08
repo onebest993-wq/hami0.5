@@ -37,6 +37,7 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
 import { readExecutionFilesBootstrap } from '@/app/utils/executionFilesBootstrap';
+import { purgeDeletedExecutionDossiers } from '@/app/utils/purgeDeletedExecutionDossiers';
 
 const EXECUTION_MUTATION_FEATURE = 'تنفيذ';
 

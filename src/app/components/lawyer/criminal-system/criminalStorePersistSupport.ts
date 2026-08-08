@@ -1,11 +1,7 @@
 /** دوال مساعدة مشتركة بين criminalStore وترحيل persist */
-import type {
-    CriminalCase,
-    CriminalDefendant,
-    JourneyNode,
-    TimelineEvent,
-    TrialChargeModification,
-} from '@/app/types/criminal';
+import type { JourneyNode, ProceduralNode } from '@/app/types/criminal';
+import type { CriminalCase, CriminalDefendant, TimelineEvent } from './criminalCaseModel';
+import type { TrialChargeModification } from './trialChargeEngine';
 import { normalizeInvestigationDefendantStatus } from './investigationDefendantPurge';
 import { coerceDefendantFullName, resolveDefendantFullName } from './criminalUnknownDefendant';
 import {
@@ -30,7 +26,6 @@ import {
     shouldUseJuvenileTrialJourneyLabels,
     syncStoredStageFromJourneyCaseStage,
 } from './criminalStageUtils';
-import type { ProceduralNode } from './proceduralContainersEngine';
 
 export function normalizeDefendantPersonalFields(d: CriminalDefendant): CriminalDefendant {
     const withName = coerceDefendantFullName(d);

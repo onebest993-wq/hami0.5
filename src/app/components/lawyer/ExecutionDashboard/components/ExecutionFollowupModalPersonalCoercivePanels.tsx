@@ -12,6 +12,7 @@ import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
 import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
+import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
 
 
 export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: ExecutionFollowupModalPortalController }) {

@@ -11,6 +11,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
 import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
+import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
 
 
 export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupModalPortalController }) {

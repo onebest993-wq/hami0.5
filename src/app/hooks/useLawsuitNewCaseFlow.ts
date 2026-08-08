@@ -311,23 +311,26 @@ export function useLawsuitNewCaseFlow({
 
                 let created: FileData = subFileBase ? { ...newFile, parentId: subFileBase.id } : newFile;
 
+                // يُقرآن في كتلتَي incidentalSpawnContext المنفصلتين أدناه — إعادتهما
+                // إلى داخل إحداهما تُخرجهما عن نطاق الأخرى بلا خطأ ترجمة ظاهر.
+                const spawnMeta =
+                    data &&
+                    typeof data === 'object' &&
+                    'incidentalSpawnMeta' in data &&
+                    data.incidentalSpawnMeta &&
+                    typeof data.incidentalSpawnMeta === 'object'
+                        ? (data.incidentalSpawnMeta as {
+                              filingPartyId?: string;
+                              filingPartyName?: string;
+                              opposingPartyId?: string;
+                              opposingPartyName?: string;
+                          })
+                        : undefined;
+                const incidentalPartyLabel = [spawnMeta?.filingPartyName, spawnMeta?.opposingPartyName]
+                    .filter((name) => Boolean(String(name ?? '').trim()))
+                    .join(' ضد ');
+
                 if (incidentalSpawnContext) {
-                    const spawnMeta =
-                        data &&
-                        typeof data === 'object' &&
-                        'incidentalSpawnMeta' in data &&
-                        data.incidentalSpawnMeta &&
-                        typeof data.incidentalSpawnMeta === 'object'
-                            ? (data.incidentalSpawnMeta as {
-                                  filingPartyId?: string;
-                                  filingPartyName?: string;
-                                  opposingPartyId?: string;
-                                  opposingPartyName?: string;
-                              })
-                            : undefined;
-                    const incidentalPartyLabel = [spawnMeta?.filingPartyName, spawnMeta?.opposingPartyName]
-                        .filter((name) => Boolean(String(name ?? '').trim()))
-                        .join(' ضد ');
                     created = {
                         ...created,
                         parentId: incidentalSpawnContext.parentFileId,
