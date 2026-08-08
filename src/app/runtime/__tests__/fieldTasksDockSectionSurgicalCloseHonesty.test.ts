@@ -18,34 +18,34 @@ describe('field-tasks dock section surgical close honesty', () => {
         expect(hook).not.toContain('isRealSignedIn(null)');
     });
 
-    it('MainView يعرض FieldTasksSheetFallback أثناء تحميل chunk المهام', () => {
+    it('MainView يركّب FieldTasksOverlayEntry sync مثل المعاملات (بلا Suspense skeleton)', () => {
         const main = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
             'utf8',
         );
-        expect(main).toContain('FieldTasksSheetFallback');
+        expect(main).toContain('LawyerDashboardFieldTasksOverlayEntry');
+        expect(main).not.toContain('LazyFieldTasksOverlayEntry');
+        expect(main).not.toContain('FieldTasksSheetFallback');
         expect(main).toMatch(
-            /fieldTasksLive[\s\S]*?FieldTasksSheetFallback[\s\S]*?LazyFieldTasksOverlayEntry/,
+            /fieldTasksLive[\s\S]*?LawyerDashboardFieldTasksOverlayEntry/,
         );
-        const fieldBlock = main.match(
-            /\{fieldTasksLive \? \([\s\S]*?\) : null\}/,
-        )?.[0];
-        expect(fieldBlock).toBeTruthy();
-        expect(fieldBlock).not.toMatch(/fallback=\{null\}/);
     });
 
-    it('pointerPrime للمهام لا يكرر hydrate بعد prefetch', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+    it('pointerPrime للمهام يُسخّن عند الضغط بلا فتح مبكر أو microtask', () => {
+        const gate = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/dockShellPrefetchGate.ts'),
             'utf8',
         );
-        const tasksPrime = dock.match(
-            /if \(widgetId === 'dockTasks'\) \{[\s\S]*?\n            \}/,
+        const tasksPrime = gate.match(
+            /if \(widgetId === 'dockTasks'\) \{[\s\S]*?return;\s*\}/,
         )?.[0];
         expect(tasksPrime).toBeTruthy();
+        expect(tasksPrime).toContain('dispatchFieldTasksPrimeHost');
         expect(tasksPrime).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'hover')");
+        expect(tasksPrime).not.toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'open')");
+        expect(tasksPrime).not.toContain('queueMicrotask');
         expect(tasksPrime).not.toContain('hydrateFieldTasksShellForInstantOpen');
-        expect(dock).not.toContain("from '@/app/runtime/fieldTasksBootHydrator'");
+        expect(gate).not.toContain("from '@/app/runtime/fieldTasksBootHydrator'");
     });
 
     it('prefetch open للمهام يستدعي warmFieldTasksOnOpen', () => {
@@ -62,45 +62,67 @@ describe('field-tasks dock section surgical close honesty', () => {
         expect(tasksCase).toContain('warmFieldTasksOnHover');
     });
 
-    it('أيقونة dockTasks في الشريط تستخدم HomeListChecksIcon', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+    it('بلاطة dockTasks في الشبكة الرئيسية بلا أيقونة lucide', () => {
+        const tiles = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/commandHub/CommandHubTiles.tsx'),
             'utf8',
         );
-        expect(dock).toContain('HomeListChecksIcon');
-        expect(dock).toMatch(/dockTasks:[\s\S]*?icon:\s*HomeListChecksIcon/);
-        expect(dock).not.toMatch(/\bListChecks\b/);
+        expect(tiles).toContain('DockHalfTile');
+        expect(tiles).not.toContain('HomeListChecksIcon');
+        expect(tiles).not.toMatch(/\bListChecks\b/);
     });
 
-    it('dockTasks يفتح على pointerdown مثل التقويم + warm يحمّل OverlayEntry', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+    it('FieldTasksSheetHost يركّب الستارة مخفية عند keepAlive لـ revealFieldTasksWarmSheet', () => {
+        const host = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost.tsx'),
             'utf8',
         );
-        expect(dock).toContain("widgetId === 'dockTasks'");
-        expect(dock).toContain('activateOnPointerDown');
-        expect(dock).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'hover')");
+        expect(host).toContain('keepAlive');
+        expect(host).toMatch(/shouldMount = open \|\| keepAlive/);
+        expect(host).toMatch(/if \(ResolvedComponent\) \{[\s\S]*?return <ResolvedComponent/);
+        expect(host).toMatch(/if \(open\) \{[\s\S]*?return <FieldTasksWarmSheetBridge/);
+    });
+
+    it('FieldTasksManagerHost لا يركّب الأجندة في DOM قبل open=true', () => {
+        const host = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksManagerHost.tsx'),
+            'utf8',
+        );
+        expect(host).toMatch(/ResolvedComponent[\s\S]*?if \(!open\) \{[\s\S]*?return null;/);
+        expect(host).not.toContain('TasksManagerFallback');
+    });
+
+    it('dockTasks يفتح على النقر الطبيعي مع warm موحّد', () => {
+        const homeTab = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
+            'utf8',
+        );
+        expect(homeTab).toContain("id === 'dockTasks'");
+        expect(homeTab).not.toContain('activateOnPointerDown');
+        const gate = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/dockShellPrefetchGate.ts'),
+            'utf8',
+        );
+        expect(gate).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'hover')");
         const warm = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/fieldTasksIntentWarm.ts'),
             'utf8',
         );
         expect(warm).toContain('LawyerDashboardFieldTasksOverlayEntry');
-        expect(warm).toContain('scheduleIdleWork');
-        expect(warm).toContain('warmTasksManagerIdle');
-        expect(warm).not.toMatch(
-            /export function warmFieldTasksOnOpen\(\)[\s\S]{0,200}?prefetchTasksManagerModule\(\);/,
-        );
+        expect(warm).toContain('warmFieldTasksSheetPipeline');
+        expect(warm).toContain('prefetchTasksManagerModule');
         const hydrate = fs.readFileSync(
             path.join(root, 'src/app/runtime/fieldTasksBootHydrator.ts'),
             'utf8',
         );
-        expect(hydrate).not.toContain('prefetchTasksManagerModule');
+        expect(hydrate).toContain('prefetchFieldTasksAfterBootReveal');
+        expect(hydrate).toMatch(/hydrateDelayMs[\s\S]*?return 0;/);
     });
 
     it('مسار المهام بلا debug 127.0.0.1:7777', () => {
         const files = [
             'src/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks.ts',
-            'src/app/components/lawyer/LegalCommandCenterDock.tsx',
+            'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx',
             'src/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry.tsx',
             'src/app/hooks/lawyerDashboard/fieldTasksIntentWarm.ts',
         ];

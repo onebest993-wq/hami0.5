@@ -2,7 +2,6 @@ import React, { Suspense, useCallback, useLayoutEffect, useRef, useState } from 
 
 import { HamiBootOverlay } from '@/app/bootstrap/HamiBootOverlay';
 import {
-    removeStaticBootShell,
     shouldMountReactBootOverlay,
 } from '@/app/bootstrap/bootStaticShell';
 import { useBootReveal } from '@/app/bootstrap/useBootReveal';
@@ -12,6 +11,7 @@ import {
     LawyerDashboardLazy,
     preloadLawyerDashboardChunk,
 } from '@/app/bootstrap/lawyerDashboardChunk';
+import { getLawyerDashboardModuleSync } from '@/app/runtime/lawyerDashboardLoader';
 import type { LawyerDashboardShellProps } from '@/app/components/lawyer/dashboard/LawyerDashboardQuantumShell';
 
 /** مع تقييم Gate — ابدأ LD فوراً بلا انتظار commit لـ Suspense */
@@ -21,17 +21,33 @@ if (typeof window !== 'undefined') {
 
 /**
  * أثناء تحميل chunk اللوحة:
- * - الشعار من #hami-static-boot فقط
- * - هنا خلفية صامتة — بلا إعادة «حامي»
+ * - خلفية صامتة فقط — بلا شعار مكرر
  */
 function GateContentFallback(): React.ReactElement {
     return (
         <div
-            className="relative min-h-screen w-full bg-[#0a0f1c]"
+            className="relative min-h-screen w-full hami-board-canvas-bg"
             data-testid="lawyer-gate-content-fallback"
             aria-busy="true"
             aria-label={isSplashGuardFrozen() ? 'تهيئة حامي' : 'حامي'}
         />
+    );
+}
+
+/** مسار متزامن عند اكتمال preload قبل أول render — يتجاوز Suspense */
+function LawyerDashboardBody({
+    bootKey,
+    ...props
+}: LawyerDashboardShellProps & { bootKey: number }): React.ReactElement {
+    const syncMod = getLawyerDashboardModuleSync();
+    if (syncMod) {
+        const Dashboard = syncMod.LawyerDashboard;
+        return <Dashboard key={bootKey} {...props} />;
+    }
+    return (
+        <Suspense fallback={<GateContentFallback />}>
+            <LawyerDashboardLazy key={bootKey} {...props} />
+        </Suspense>
     );
 }
 
@@ -43,7 +59,8 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
     const splashFrozen = isSplashGuardFrozen();
     const mountReactOverlay = shouldMountReactBootOverlay();
     const showBootOverlay = overlayCovering && !splashFrozen && mountReactOverlay;
-    const blockPointer = overlayCovering && !splashFrozen;
+    /** لا تحجب اللمس إلا عند overlay React — #hami-static-boot يغطي بz-index خاص */
+    const blockPointer = !splashFrozen && showBootOverlay;
 
     useLayoutEffect(() => {
         if (!isBootRevealDone()) return;
@@ -52,7 +69,6 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
         document
             .querySelectorAll<HTMLElement>('[data-testid="lawyer-boot-shell"]')
             .forEach((el) => el.setAttribute('hidden', ''));
-        removeStaticBootShell();
     }, [overlayCovering]);
 
     const handleBootReset = useCallback(() => {
@@ -68,7 +84,7 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
         <LawyerDashboardBootErrorBoundary bootKey={bootKey} onReset={handleBootReset}>
             <div
                 ref={dashboardRootRef}
-                className="relative min-h-screen bg-[#0a0f1c]"
+                className="relative min-h-screen hami-board-canvas-bg"
                 style={{
                     opacity: 1,
                     visibility: 'visible',
@@ -76,9 +92,7 @@ export function LawyerDashboardGate(props: LawyerDashboardShellProps) {
                 }}
                 aria-hidden={blockPointer}
             >
-                <Suspense fallback={<GateContentFallback />}>
-                    <LawyerDashboardLazy key={bootKey} {...props} />
-                </Suspense>
+                <LawyerDashboardBody bootKey={bootKey} {...props} />
             </div>
             {/* فقط إن غاب الشعار الثابت — مسار نادر */}
             {showBootOverlay ? <HamiBootOverlay phase="visible" /> : null}

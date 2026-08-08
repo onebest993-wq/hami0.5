@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquare } from 'lucide-react';
+import { CheckSquare } from '@/app/components/ui/lucideIcons';
 import type { AddTaskModalProps } from '../../smartFile/modalFormTypes';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../../smartFile/civilLawsuitTestIds';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';

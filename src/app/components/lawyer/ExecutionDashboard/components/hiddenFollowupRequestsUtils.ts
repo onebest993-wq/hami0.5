@@ -37,6 +37,8 @@ export interface HiddenFollowupVisibilityInput extends FollowupSpecializationVis
     showHiddenExecutiveDossierPresentation?: boolean;
     /** المدين الموظف — لا مفاتحة تحقيق ولا عرض إضبارة ولا حبس */
     activeDebtorIsEmployee?: boolean;
+    /** تبويب التنفيذ الجبري الشخصي ظاهر لكن مقفول للموظف — الإجراءات تبقى في الطلبات المخفية */
+    personalTabLockedForEmployee?: boolean;
     /** نزع حضانة — تُفعَّل الإجراءات الجبرية للموظف والكاسب */
     isCustodyRemovalClaim?: boolean;
 }
@@ -101,16 +103,23 @@ export function isEmployeeCoerciveDetentionRestricted(
     return Boolean(flags.activeDebtorIsEmployee) && !flags.isCustodyRemovalClaim;
 }
 
-/** يظهر في «الطلبات المخفية» فقط عندما التبويب الرئيسي مخفي */
-function buriedPersonalCoerciveEligible(f: HiddenFollowupVisibilityInput): boolean {
-    if (f.suppressHiddenPersonalCoerciveRequests) return false;
-    if (f.showPersonalCoerciveFollowupTab) return false;
+/** التبويب الرئيسي يغطي الطلبات — إلا إذا ظاهر ومقفول (موظف) */
+function personalTabSuppressesBuriedHidden(f: HiddenFollowupVisibilityInput): boolean {
+    if (!f.showPersonalCoerciveFollowupTab) return false;
+    if (f.personalTabLockedForEmployee) return false;
     return true;
 }
 
-/** إحضار جبري — يبقى في الطلبات المخفية حتى للموظف عند إخفاء التبويب الرئيسي */
+/** يظهر في «الطلبات المخفية» فقط عندما التبويب الرئيسي مخفي أو مقفول */
+function buriedPersonalCoerciveEligible(f: HiddenFollowupVisibilityInput): boolean {
+    if (f.suppressHiddenPersonalCoerciveRequests) return false;
+    if (personalTabSuppressesBuriedHidden(f)) return false;
+    return true;
+}
+
+/** إحضار جبري — يبقى في الطلبات المخفية حتى للموظف عند إخفاء/قفل التبويب الرئيسي */
 function buriedForcedBringInEligible(f: HiddenFollowupVisibilityInput): boolean {
-    if (f.showPersonalCoerciveFollowupTab) return false;
+    if (personalTabSuppressesBuriedHidden(f)) return false;
     return true;
 }
 
@@ -212,7 +221,7 @@ export function shouldShowGuarantorRequestInSeizureTab(
     if (ctx.activeDebtorIsDeceased) return false;
     if (flags.hideAllGuarantorPresence) return false;
     if (ctx.activeDebtorIsEmployee) return false;
-    if (hasActiveFinancialGuarantorFollowup(ctx.executionData)) return false;
+    if (hasActiveFinancialGuarantorFollowup(ctx.executionData)) return true;
 
     const amountGuarantorVisible = resolveAmountGuarantorRequestVisible({
         isFinancialDebtCollectionClaim: flags.isFinancialDebtCollection,

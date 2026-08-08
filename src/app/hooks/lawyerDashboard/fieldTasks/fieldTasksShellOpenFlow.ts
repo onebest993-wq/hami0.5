@@ -3,15 +3,15 @@ import type { MutableRefObject } from 'react';
 
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { persistFieldTasksSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
-import { warmFieldTasksOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
+import { warmFieldTasksOnOpen, warmFieldTasksManagerOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
 import {
     clearFieldTasksPerfMarks,
     markFieldTasksPerfPhase,
 } from '@/app/services/fieldTasks/fieldTasksPerfMetrics';
-import {
-    warmQuantumTasksDiskRead,
-    type FieldTasksInstantPaintModule,
-} from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
+import { warmQuantumTasksDiskRead } from '@/app/utils/quantumTasksStorage';
+import { prefetchFieldTasksSheetModule } from '@/app/runtime/fieldTasksHubLoader';
+import type { FieldTasksInstantPaintModule } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
+import { suppressFieldTasksClose } from '@/app/runtime/fieldTasksInstantPaint';
 
 export type CommitFieldTasksSheetOpenParams = {
     sheetOpenRef: MutableRefObject<boolean>;
@@ -24,7 +24,7 @@ export type CommitFieldTasksSheetOpenParams = {
     setActiveTab: (tab: 'home') => void;
 };
 
-/** فتح ستارة الميدان: reveal فوري ثم commit + warm في microtask. */
+/** فتح ستارة الميدان: commit فوري على اللمس؛ التسخين بعد paint */
 export function commitFieldTasksSheetOpen({
     sheetOpenRef,
     instantPaint,
@@ -37,26 +37,28 @@ export function commitFieldTasksSheetOpen({
 }: CommitFieldTasksSheetOpenParams): void {
     clearFieldTasksPerfMarks();
     markFieldTasksPerfPhase('open-request');
+
     warmQuantumTasksDiskRead();
+    prefetchFieldTasksSheetModule();
+    warmFieldTasksOnOpen();
 
     const revealed = instantPaint?.revealFieldTasksWarmSheet() ?? false;
 
-    const commitOpen = () => {
+    suppressFieldTasksClose();
+
+    flushSync(() => {
         setFieldTasksHostMounted(true);
         setTasksManagerFocusTaskId(undefined);
         setShowTasksManager(false);
         setFieldTasksSheetOpen(true);
         persistFieldTasksSessionOpen(true, 'sheet');
-    };
+    });
 
-    if (revealed) {
-        requestAnimationFrame(commitOpen);
-    } else {
-        flushSync(commitOpen);
+    if (!revealed) {
+        instantPaint?.revealFieldTasksWarmSheet();
     }
 
     queueMicrotask(() => {
-        warmFieldTasksOnOpen();
         dismissTransientOverlays('field-tasks');
         closeCommunity?.();
         setActiveTab('home');
@@ -78,6 +80,7 @@ export function commitTasksManagerOpen({
 }: CommitTasksManagerOpenParams): void {
     clearFieldTasksPerfMarks();
     markFieldTasksPerfPhase('open-request');
+    warmFieldTasksManagerOnOpen();
     flushSync(() => {
         armFieldTasksManagerHost();
         revealTasksManager(focusTaskId);

@@ -21,6 +21,7 @@ export type SmartFileModalProceduralLinkingBundleParams = {
     activeStageIndex: number;
     viewingStageIndex: number;
     currentStage: CaseStage | undefined;
+    displayStage?: CaseStage | undefined;
     parentData: Record<string, unknown>;
     setParentData: Dispatch<SetStateAction<Record<string, unknown>>>;
     saveToCloud: () => void;
@@ -67,6 +68,7 @@ export function useSmartFileModalProceduralLinkingBundle({
     activeStageIndex,
     viewingStageIndex,
     currentStage,
+    displayStage,
     parentData,
     setParentData,
     saveToCloud,
@@ -116,6 +118,8 @@ export function useSmartFileModalProceduralLinkingBundle({
         setShowPauseModal,
         setShowInterruptionModal,
         setShowResumeInterruptionModal,
+        setShowAbandonmentRenewalModal,
+        setShowPauseResumeModal,
         setShowExtraordinaryAppealModal,
         setShowProvisionalOrderModal,
         setShowInterlocutoryModal,
@@ -152,6 +156,8 @@ export function useSmartFileModalProceduralLinkingBundle({
         setShowPauseModal,
         setShowInterruptionModal,
         setShowResumeInterruptionModal,
+        setShowAbandonmentRenewalModal,
+        setShowPauseResumeModal,
         setShowExtraordinaryAppealModal,
         setShowProvisionalOrderModal,
         setShowInterlocutoryModal,
@@ -167,7 +173,14 @@ export function useSmartFileModalProceduralLinkingBundle({
     const handleSpawnLinkedIncidentalCase = useSmartFileIncidentalSpawn({
         fileId: file.id,
         fileCaseNo: file.caseNo,
-        currentStageCaseNo: currentStage?.caseNo,
+        currentStageCaseNo: (displayStage ?? currentStage)?.caseNo,
+        spawnStage: displayStage ?? currentStage,
+        viewingStageIndex,
+        fileFallback: {
+            court: String(file.court ?? parentData.court ?? '').trim() || undefined,
+            judge: String(file.judge ?? parentData.judge ?? '').trim() || undefined,
+            docType: String(file.docType ?? parentData.docType ?? '').trim() || undefined,
+        },
         handleAddIncidentalCase: proceduralActions.handleAddIncidentalCase,
         onSpawnLinkedIncidentalCase,
         setShowIncidentalModal,
@@ -219,17 +232,20 @@ export function useSmartFileModalProceduralLinkingBundle({
         handleMaterialErrorCorrection: proceduralActions.handleMaterialErrorCorrection,
         handleJudgeRecusal: proceduralActions.handleJudgeRecusal,
         handleTransferJurisdiction: proceduralActions.handleTransferJurisdiction,
+        handleCourtReferralAcceptance: proceduralActions.handleCourtReferralAcceptance,
         handleCaseConsolidation: proceduralActions.handleCaseConsolidation,
         handleCaseLinkExternal: proceduralActions.handleCaseLinkExternal,
         handleCorrespondence: proceduralActions.handleCorrespondence,
         handleQuickAction,
         handleAbandonment: proceduralActions.handleAbandonment,
         handleInterruptionToggle: proceduralActions.handleInterruptionToggle,
+        handleResumeAbandonment: proceduralActions.handleResumeAbandonment,
         handleResume: proceduralActions.handleResume,
         handleAppealBriefOutcome: proceduralActions.handleAppealBriefOutcome,
     });
 
     const handleOpenPauseModal = useCallback(() => setShowPauseModal(true), [setShowPauseModal]);
+    const handleOpenPauseResume = useCallback(() => setShowPauseResumeModal(true), [setShowPauseResumeModal]);
 
     return {
         ...proceduralActions,
@@ -237,5 +253,6 @@ export function useSmartFileModalProceduralLinkingBundle({
         ...linkingActions,
         modalHandlers,
         handleOpenPauseModal,
+        handleOpenPauseResume,
     };
 }

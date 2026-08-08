@@ -52,6 +52,7 @@ import { useCommunityAddQuestion } from '../useCommunityAddQuestion';
 
 describe('useCommunityAddQuestion', () => {
     beforeEach(() => {
+        window.localStorage.clear();
         createPost.mockReset();
         createPost.mockResolvedValue({
             id: 'post-1',

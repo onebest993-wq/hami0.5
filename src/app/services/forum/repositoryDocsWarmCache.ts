@@ -4,6 +4,7 @@ import {
 } from '@/app/services/lawyer-cloud';
 import type { RepositoryDocument } from '@/app/services/vault/vaultTypes';
 import { withForumAsyncTimeout } from '@/app/components/lawyer/CommunityScreen/forumAsync';
+import { warmRepositoryThumbnailUrls } from '@/app/services/forum/repositoryThumbUrlCache';
 
 let warmedDocs: RepositoryDocument[] | null = null;
 let warmPromise: Promise<RepositoryDocument[]> | null = null;
@@ -46,3 +47,5 @@ export function resetRepositoryDocsCacheForTests(): void {
     warmedDocs = null;
     warmPromise = null;
 }
+
+export { warmRepositoryThumbnailUrls };

@@ -23,9 +23,7 @@ const CACHEABLE_PATHS = new Set([
   '/favicon.svg',
   '/hami-boot-shell.css',
   '/hami-boot.js',
-  '/hami-logo.png',
-  '/hami-logo-transparent.png',
-  '/hami-splash-bg.png',
+  '/hami-home-static-shell.css',
 ]);
 
 function shouldCacheRequest(request) {
@@ -213,6 +211,23 @@ self.addEventListener('fetch', (event) => {
 // Push Notification Event
 // =====================================================
 
+function isSwSessionMuted(prefs) {
+  if (!prefs || typeof prefs.sessionMutedUntil !== 'number') return false;
+  return Date.now() < prefs.sessionMutedUntil;
+}
+
+async function readSwNotificationPrefs() {
+  try {
+    const cache = await caches.open('hami-notification-prefs-v1');
+    const res = await cache.match('https://hami.local/notification-prefs');
+    if (!res) return null;
+    const parsed = await res.json();
+    return parsed && parsed.notifications ? parsed.notifications : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 self.addEventListener('push', (event) => {
   swLog('[Service Worker] Push notification received');
   
@@ -235,28 +250,36 @@ self.addEventListener('push', (event) => {
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon,
-    badge: data.badge,
-    tag: data.tag,
-    data: data.data,
-    vibrate: [200, 100, 200],
-    requireInteraction: false,
-    actions: [
-      {
-        action: 'open',
-        title: 'فتح'
-      },
-      {
-        action: 'close',
-        title: 'إغلاق'
-      }
-    ]
-  };
+  const prefsPromise = readSwNotificationPrefs();
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    prefsPromise.then((prefs) => {
+      const muted = isSwSessionMuted(prefs) || prefs?.masterEnabled === false;
+      const soundOn = !muted && prefs?.soundMaster !== false;
+
+      const options = {
+        body: data.body,
+        icon: data.icon,
+        badge: data.badge,
+        tag: data.tag,
+        data: data.data,
+        silent: !soundOn,
+        vibrate: soundOn && prefs?.vibrateMaster !== false ? [200, 100, 200] : undefined,
+        requireInteraction: false,
+        actions: [
+          {
+            action: 'open',
+            title: 'فتح'
+          },
+          {
+            action: 'close',
+            title: 'إغلاق'
+          }
+        ]
+      };
+
+      return self.registration.showNotification(data.title, options);
+    }),
   );
 });
 

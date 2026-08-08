@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { EmptyState } from './RadarEmptyState';
 import { EventCardsList } from './EventCardsList';

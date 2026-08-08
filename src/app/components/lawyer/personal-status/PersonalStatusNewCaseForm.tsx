@@ -24,7 +24,6 @@ import { personalFieldClass, PERSONAL_STATUS_FIELD } from './personalStatusVisua
 const LAW_CARD_OPTIONS = PERSONAL_APPLICABLE_LAW_OPTIONS.map(({ id, label }) => ({
     id,
     label,
-    subtitle: id === 'law_188_1959' ? 'المسلمون — قانون مدني أحوال' : 'تطبيق المدونة الجعفرية',
 }));
 
 export interface PersonalStatusNewCaseFormProps {
@@ -119,7 +118,7 @@ export function PersonalStatusNewCaseForm(props: PersonalStatusNewCaseFormProps)
 
             {step === 'identity' ? (
                 <div>
-                    <PersonalSectionShell title="هوية الدعوى">
+                    <PersonalSectionShell>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <PersonalFloatingField
                                 label="رقم الدعوى"

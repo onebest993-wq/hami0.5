@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, ChevronUp, type LucideIcon } from 'lucide-react';
+import { ChevronDown, ChevronUp, type LucideIcon } from '@/app/components/ui/lucideIcons';
 import { Component_Urgent_Card, type UrgentCase } from '../Component_Urgent_Card';
 import type { ViewMode } from './types';
 import {

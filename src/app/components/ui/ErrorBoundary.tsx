@@ -11,7 +11,8 @@
  */
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, FileText } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Home, FileText } from '@/app/components/ui/lucideIcons';
+import { sentryCaptureException } from '@/app/observability/sentryClient';
 
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 // TYPES
@@ -64,8 +65,10 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             this.props.onError(error, errorInfo);
         }
 
-        // Log to external service (e.g., Sentry)
-        // TODO: Add Sentry or other error tracking service
+        void sentryCaptureException(error, {
+            area: 'ui-error-boundary',
+            componentStack: errorInfo.componentStack,
+        });
     }
 
     handleReset = (): void => {
@@ -77,7 +80,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     };
 
     handleReload = (): void => {
-        this.handleReset();
+        window.location.reload();
     };
 
     handleGoHome = (): void => {
@@ -202,7 +205,7 @@ export default ErrorBoundary;
  * ÙÙŠ App.tsx:
  * 
  * ```tsx
- * import { ErrorBoundary } from './components/ui/ErrorBoundary';
+ * import { ErrorBoundary } from '@/app/components/ui/ErrorBoundary';
  * 
  * function App() {
  *   return (

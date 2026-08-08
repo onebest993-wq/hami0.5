@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     resolveForumEscapeAction,
     type ForumEscapeAction,
     type ForumEscapeSnapshot,
 } from '@/app/components/lawyer/CommunityScreen/forumEscapeStack';
+import {
+    getForumRepositoryEscapeHandlers,
+    getForumRepositoryEscapeSnapshot,
+    subscribeForumRepositoryEscape,
+} from '@/app/components/lawyer/CommunityScreen/forumRepositoryEscapeBridge';
 import { isForumAddQuestionFilePickerGraceActive } from '@/app/components/lawyer/CommunityScreen/forumAddQuestionFilePickerGrace';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 
@@ -66,6 +71,21 @@ function applyForumEscapeAction(action: ForumEscapeAction, params: ForumEscapeHa
         case 'cancel-edit':
             params.onCancelEdit();
             break;
+        case 'close-repository-delete': {
+            const repo = getForumRepositoryEscapeHandlers();
+            repo.cancelDelete();
+            break;
+        }
+        case 'close-repository-preview': {
+            const repo = getForumRepositoryEscapeHandlers();
+            repo.closePreview();
+            break;
+        }
+        case 'close-repository-upload': {
+            const repo = getForumRepositoryEscapeHandlers();
+            repo.closeUpload();
+            break;
+        }
         case 'close-create-group':
             params.onCloseCreateGroup();
             break;
@@ -98,12 +118,18 @@ function applyForumEscapeAction(action: ForumEscapeAction, params: ForumEscapeHa
     }
 }
 
-function buildSnapshot(p: UseForumEscapeStackParams): ForumEscapeSnapshot {
+function buildSnapshot(
+    p: UseForumEscapeStackParams,
+    repository: ReturnType<typeof getForumRepositoryEscapeSnapshot>,
+): ForumEscapeSnapshot {
     return {
         fullscreenImage: p.fullscreenImage,
         profileView: p.profileView,
         pendingDeletePostId: p.pendingDeletePostId,
         editingPostId: p.editingPostId,
+        repositoryDeleteOpen: repository.deleteOpen,
+        repositoryPreviewOpen: repository.previewOpen,
+        repositoryUploadOpen: repository.isUploadModalOpen,
         isCreateGroupOpen: p.isCreateGroupOpen,
         commentingPostId: p.commentingPostId,
         isAddQuestionOpen: p.isAddQuestionOpen,
@@ -140,10 +166,18 @@ export function useForumEscapeStack(params: UseForumEscapeStackParams): {
     const paramsRef = useRef(params);
     paramsRef.current = params;
 
+    const repositoryEscape = useSyncExternalStore(
+        subscribeForumRepositoryEscape,
+        getForumRepositoryEscapeSnapshot,
+        getForumRepositoryEscapeSnapshot,
+    );
+    const repositoryEscapeRef = useRef(repositoryEscape);
+    repositoryEscapeRef.current = repositoryEscape;
+
     const popForumLayer = useCallback((): boolean => {
         const p = paramsRef.current;
         if (p.enabled === false) return false;
-        const action = resolveForumEscapeAction(buildSnapshot(p));
+        const action = resolveForumEscapeAction(buildSnapshot(p, repositoryEscapeRef.current));
         if (action === 'close-add-question' && isForumAddQuestionFilePickerGraceActive()) {
             return true;
         }

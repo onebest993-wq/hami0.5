@@ -65,16 +65,15 @@ function buildPresetSvg(presetId: BackgroundPresetId, accent: string): string | 
 }
 
 /**
- * شفافية طبقة الزخرفة — لا تُضاعف مع شفافية مسارات SVG الداخلية بقوة مفرطة.
- * الحد الأدنى يمنع «خلفية بلا أثر» عند قيم منخفضة محفوظة.
+ * شفافية طبقة الزخرفة على البطاقة — تتبع المنزلق/المستوى بلا أرضية تلغي «خفيف».
  */
 export function resolvePatternLayerOpacity(rawOpacity: unknown, themeMode: ThemeMode): number {
     let opacity = normalizeBackgroundPatternOpacity(rawOpacity);
     if (resolveThemeMode(themeMode) === 'light') {
         opacity = opacity * 0.88;
     }
-    // SVGs already carry ~0.2–0.4 stroke opacity — lift the layer so the preset is perceptible
-    return Math.min(1, Math.max(0.42, opacity * 1.35));
+    const scaled = opacity * 0.95;
+    return Math.min(0.92, Math.max(0.05, scaled));
 }
 
 export function resolveLawyerSurfaceBaseColor(
@@ -137,22 +136,17 @@ export function resolveHomeBlockPatternStyle(
     const preset = BACKGROUND_PRESET_MAP[presetId];
     if (!preset?.svg) return null;
     const svg = preset.svg.replace(/\{\{ACCENT\}\}/g, accent);
-    const isLight = resolveThemeMode(themeMode) === 'light';
-    const normalized = normalizeBackgroundPatternOpacity(patternOpacity);
-    /* خطي واضح: 0→弱 / 1→مرئي — كان *0.45+clamp(0.18) يخفي حركة الشريط */
-    const floor = isLight ? 0.06 : 0.05;
-    const span = isLight ? 0.34 : 0.4;
-    const opacity = floor + normalized * span;
+    const layerOpacity = resolvePatternLayerOpacity(patternOpacity, themeMode);
     return {
         backgroundImage: svgDataUrl(svg),
         backgroundSize: preset.backgroundSize,
         backgroundRepeat: preset.backgroundSize.includes('100%') ? 'no-repeat' : 'repeat',
         backgroundPosition: 'center',
-        opacity,
+        opacity: layerOpacity,
     };
 }
 
-/** معاينة مصغّرة في الإعدادات */
+/** معاينة مصغّرة في الإعدادات — فروق خفيف/متوسط/واضح واضحة */
 export function resolvePatternPreviewStyle(
     presetId: BackgroundPresetId,
     accent: string,
@@ -166,8 +160,8 @@ export function resolvePatternPreviewStyle(
     const preset = BACKGROUND_PRESET_MAP[presetId];
     if (!preset) return { backgroundColor: baseColor };
     const svg = preset.svg?.replace(/\{\{ACCENT\}\}/g, accent);
-    const isLight = resolveThemeMode(themeMode) === 'light';
-    const opacity = isLight ? patternOpacity * 0.88 : patternOpacity;
+    const normalized = normalizeBackgroundPatternOpacity(patternOpacity);
+    const previewOpacity = 0.22 + normalized * 0.78;
     return {
         backgroundColor: baseColor,
         ...(svg
@@ -178,6 +172,6 @@ export function resolvePatternPreviewStyle(
                   backgroundPosition: 'center',
               }
             : {}),
-        opacity: Math.min(1, Math.max(0.55, opacity * 1.2)),
+        opacity: Math.min(1, previewOpacity),
     };
 }

@@ -39,7 +39,7 @@ describe('phase-18 lawsuit ArchivePortal cold CPU cuts', () => {
 
     it('hubArchiveLoader يسخّن FileGrid عبر prefetchLawsuit فقط (بلا سحب من Portal notify)', () => {
         const src = readFileSync(join(root, 'src/app/runtime/hubArchiveLoader.ts'), 'utf8');
-        expect(src).toContain('ArchivePortalFileGrid');
+        expect(src).toContain('LawsuitArchiveFileGrid');
         expect(src).toContain('cachedArchivePortal = mod.ArchivePortal');
         expect(src).toContain('notifyArchivePortalListeners');
         expect(src).toContain('ensureLawsuitFileGridPromise');
@@ -47,8 +47,8 @@ describe('phase-18 lawsuit ArchivePortal cold CPU cuts', () => {
         expect(src).not.toMatch(
             /notifyArchivePortalListeners\(\);\s*[\s\S]{0,120}ensureLawsuitFileGridPromise/,
         );
-        expect(src).not.toMatch(
-            /await import\(\s*['\"]@\/app\/components\/lawyer\/ArchivePortal\/components\/ArchivePortalFileGrid['\"]/,
+        expect(src).toMatch(
+            /import\(\s*['\"]@\/app\/components\/lawyer\/ArchivePortal\/components\/LawsuitArchiveFileGrid['\"]/,
         );
     });
 

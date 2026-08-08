@@ -9,7 +9,6 @@ import {
 } from '@/app/services/forum/forumShellNavigation';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
-import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { prefetchCommunityOverlayEntry } from '@/app/runtime/communityOverlayEntryLoader';
@@ -28,7 +27,6 @@ import {
     loadCommunityBootHydrator,
     loadCommunityScreenModule,
     loadForumIntentWarm,
-    loadForumPostsWarmCache,
     prefetchCommunityHostChunks,
 } from '@/app/hooks/lawyerDashboard/community/communityLazyImports';
 import { commitCommunityOpen } from '@/app/hooks/lawyerDashboard/community/communityShellOpenFlow';
@@ -93,44 +91,11 @@ export function useLawyerDashboardCommunity({ userId, activeTab }: UseLawyerDash
     }, [closeCommunity]);
 
     /**
-     * بعد boot-reveal: تسخين chunks + OverlayEntry
-     * (تركيب Host يتم عند interactive أدناه مثل الإعدادات).
-     */
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        if (isLitePerformanceActive()) return;
-
-        const scheduleWarm = () => {
-            prefetchCommunityOverlayEntry();
-            void loadForumIntentWarm().then((m) => m.warmForumOnHover(userId));
-            void loadCommunityBootHydrator()
-                .then((m) => m.prefetchForumAfterBootReveal())
-                .catch(() => undefined);
-            void loadForumPostsWarmCache()
-                .then((m) => m.readForumPostsCache())
-                .catch(() => undefined);
-        };
-
-        if (isBootRevealDone()) {
-            scheduleWarm();
-            return;
-        }
-
-        window.addEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
-        return () => {
-            window.removeEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
-        };
-    }, [userId]);
-
-    /**
-     * بعد interactive: prefetch OverlayEntry + تركيب Host مخفي فوراً
-     * (مثل useLawyerDashboardSettings) — أول نقرة تفتح شجرة جاهزة.
+     * بعد interactive: تركيب Host مخفي فقط — التسخين عبر bindCommunityBootHydrator.
      */
     useLayoutEffect(() => {
         if (isLitePerformanceActive()) return;
         return onDashboardInteractive(() => {
-            prefetchCommunityOverlayEntry();
-            void loadForumIntentWarm().then((m) => m.warmForumOnHover(userId));
             setCommunityHostMounted(true);
             prefetchCommunityHostChunks();
             void loadCommunityBootHydrator()

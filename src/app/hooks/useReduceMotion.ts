@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 function readDomReduceMotion(): boolean {
     if (typeof document === 'undefined') return false;
     const root = document.documentElement;
-    return root.dataset.hamiReduceMotion === '1' || root.dataset.hamiLite === '1';
+    return (
+        root.dataset.hamiReduceMotion === '1' ||
+        root.dataset.hamiAnimations === '0' ||
+        root.dataset.hamiLite === '1'
+    );
 }
 
 function readPrefersReducedMotion(): boolean {
@@ -34,7 +38,16 @@ export function useReduceMotion(): boolean {
     useEffect(() => {
         const syncFromDom = () => setFromDom(readDomReduceMotion());
         window.addEventListener('hami:settings-updated', syncFromDom);
-        return () => window.removeEventListener('hami:settings-updated', syncFromDom);
+        const root = document.documentElement;
+        const obs = new MutationObserver(syncFromDom);
+        obs.observe(root, {
+            attributes: true,
+            attributeFilter: ['data-hami-reduce-motion', 'data-hami-animations', 'data-hami-lite'],
+        });
+        return () => {
+            window.removeEventListener('hami:settings-updated', syncFromDom);
+            obs.disconnect();
+        };
     }, []);
 
     return fromDom || prefersReduced;

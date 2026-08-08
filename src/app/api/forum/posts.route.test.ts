@@ -206,10 +206,11 @@ describe('forum pin route POST', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         togglePinMock.mockResolvedValue(buildPost({ isPinned: true }));
+        getPostByIdMock.mockResolvedValue(buildPost());
     });
 
     it('يرفض التثبيت لغير المشرف', async () => {
-        requireForumAuthMock.mockResolvedValue({
+        requireForumAuthAndUnbannedMock.mockResolvedValue({
             ok: true,
             userId: 'user-1',
             token: 'tok',
@@ -227,7 +228,7 @@ describe('forum pin route POST', () => {
     });
 
     it('يسمح للمشرف بالتثبيت', async () => {
-        requireForumAuthMock.mockResolvedValue({
+        requireForumAuthAndUnbannedMock.mockResolvedValue({
             ok: true,
             userId: 'admin-1',
             token: 'tok',

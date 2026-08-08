@@ -27,7 +27,8 @@ vi.mock('@/app/infrastructure/notificationPeekLite', () => ({
 
 vi.mock('@/app/stores/notificationStore', () => {
     const fetchNotifications = vi.fn();
-    const state = { notifications: [] as [], unreadCount: 2, fetchNotifications };
+    const hydrateFromLocalPeek = vi.fn();
+    const state = { notifications: [] as [], unreadCount: 2, fetchNotifications, hydrateFromLocalPeek };
     const useNotificationStore = (selector: (s: typeof state) => unknown) => selector(state);
     useNotificationStore.getState = () => state;
     useNotificationStore.subscribe = (fn: () => void) => {

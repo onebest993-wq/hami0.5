@@ -18,6 +18,12 @@ import { join } from 'node:path';
 const ROOT = process.cwd();
 const BASELINE = '.audit/tsc-ratchet-baseline.json';
 
+/**
+ * معرّف غير معرَّف = استدعاء دالة غير موجودة وقت التشغيل. هذا الصنف لا مِسنَنة له:
+ * صفر دائماً. خمس دوال مفقودة الاستيراد أسقطت ترحيل الأضابير الجزائية صامتةً.
+ */
+const FORBIDDEN_CODES = ['TS2304', 'TS2552'];
+
 function runTsc() {
     const cli = join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
     if (!existsSync(cli)) {
@@ -32,23 +38,43 @@ function runTsc() {
         });
         return '';
     } catch (err) {
-        return err.stdout || '';
+        const output = err.stdout || '';
+        // خرج tsc بفشل دون أن يطبع تشخيصاً: انهيار، لا "صفر أخطاء".
+        if (!output.trim()) {
+            console.error('[tsc ratchet] tsc failed without producing diagnostics — treating as crash, not as zero errors');
+            console.error(err.stderr || err.message || '(no stderr)');
+            process.exit(2);
+        }
+        return output;
     }
 }
 
 const perFile = {};
+const perCode = {};
+const forbiddenHits = [];
 for (const line of runTsc().split(/\r?\n/)) {
-    const m = /^(.+?)\(\d+,\d+\): error TS\d+/.exec(line);
+    const m = /^(.+?)\(\d+,\d+\): error (TS\d+)/.exec(line);
     if (!m) continue;
     const file = m[1].replace(/\\/g, '/');
+    const code = m[2];
     perFile[file] = (perFile[file] ?? 0) + 1;
+    perCode[code] = (perCode[code] ?? 0) + 1;
+    if (FORBIDDEN_CODES.includes(code)) forbiddenHits.push(line.trim());
 }
 const total = Object.values(perFile).reduce((s, n) => s + n, 0);
+
+if (forbiddenHits.length) {
+    console.log(`FAIL: ${forbiddenHits.length} undefined identifier(s) — these throw ReferenceError at runtime:`);
+    for (const hit of forbiddenHits) console.log(`  + ${hit}`);
+    console.log('');
+    console.log(`codes ${FORBIDDEN_CODES.join('/')} have no baseline allowance; add the missing import.`);
+    process.exit(1);
+}
 
 if (process.argv.includes('--save') || !existsSync(join(ROOT, BASELINE))) {
     writeFileSync(
         join(ROOT, BASELINE),
-        JSON.stringify({ savedAt: new Date().toISOString(), total, perFile }, null, 2),
+        JSON.stringify({ savedAt: new Date().toISOString(), total, perCode, perFile }, null, 2),
         'utf8',
     );
     console.log(`[tsc ratchet] baseline saved: ${total} errors across ${Object.keys(perFile).length} files`);

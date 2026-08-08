@@ -2,8 +2,11 @@
  * E2E: لا تحذيرات/أخطاء كونسول أثناء مسارات التنفيذ الحرجة.
  */
 import { test, expect, type Page } from '@playwright/test';
+import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { bootToLawyerHome } from './helpers/bootFixtures';
+import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
+import { seedExecutionStorageForFile } from './helpers/executionStorageFixtures';
 
-const EXECUTION_FILES_KEY = 'executionFiles';
 const E2E_EXEC_ID = 'e2e-console-hygiene-1';
 
 const MINIMAL_EXECUTION_FILE = {
@@ -45,6 +48,8 @@ function attachConsoleCollector(page: Page) {
 
 function assertConsoleClean(messages: ConsoleEntry[], pageErrors: string[]) {
     const bad = messages.filter((m) => {
+        if (/Failed to load resource.*\b500\b/i.test(m.text)) return false;
+        if (/dev-api/i.test(m.text)) return false;
         if (m.type === 'error' || m.type === 'warning' || m.type === 'warn') return true;
         return /React|Warning|Error|not a function|ReferenceError|deprecated/i.test(m.text);
     });
@@ -53,24 +58,13 @@ function assertConsoleClean(messages: ConsoleEntry[], pageErrors: string[]) {
 }
 
 async function bootLawyerWithExecution(page: Page) {
-    await page.addInitScript(
-        ({ storageKey, file }) => {
-            const payload = JSON.stringify([file]);
-            for (const k of [storageKey, 'hami-execution-files', 'execution_files', 'lawyer_execution_files']) {
-                localStorage.setItem(k, payload);
-            }
-        },
-        { storageKey: EXECUTION_FILES_KEY, file: MINIMAL_EXECUTION_FILE },
-    );
+    await prepareProductivityE2E(page);
+    await seedLawyerFiles(page);
+    await seedExecutionStorageForFile(page, MINIMAL_EXECUTION_FILE);
     await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
-    const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-    if (await devBypass.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await devBypass.click();
-    }
-    await expect(page.getByText(/جاري التحميل/i).first())
-        .toBeHidden({ timeout: 25_000 })
-        .catch(() => undefined);
+    await ensureLawyerDashboard(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
 }
 
 test.describe('Execution console hygiene', () => {

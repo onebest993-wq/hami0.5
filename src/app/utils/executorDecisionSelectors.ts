@@ -7,6 +7,7 @@ import {
     type CreditorPartyDeathStoredAction,
 } from '@/app/utils/creditorPartyDeathPersistence';
 import { parseDebtorPartyDeathPayload } from '@/app/utils/executorPartyDeathDecisionBuilders';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 export type ExecutorDispatcherRoute = 'Notification' | 'BreakLocks' | 'SalaryGarnishment';
 export type HeirSubstitutionRequestStatus =
@@ -276,8 +277,9 @@ export function mergeExecutorDecisionRows(
 export function findApprovedFieldVisitNeedingScheduleFromRows(
     rows: ExecutorDecisionRowLite[],
 ): PendingExecutorDecisionHit | null {
+    const all = rows as Record<string, unknown>[];
     for (const row of rows) {
-        if (!isExecutorRowEffectivelyApproved(row)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(row as Record<string, unknown>, all)) continue;
         if (asText(row.executorScheduleLabel) !== '') continue;
         if (!matchesExecutorApprovalBranch(row, 'Field Visit Date')) continue;
         return buildPendingExecutorDecisionHit(row);
@@ -288,8 +290,9 @@ export function findApprovedFieldVisitNeedingScheduleFromRows(
 export function findApprovedBreakInventoryNeedingLedgerFromRows(
     rows: ExecutorDecisionRowLite[],
 ): PendingExecutorDecisionHit | null {
+    const all = rows as Record<string, unknown>[];
     for (const row of rows) {
-        if (!isExecutorRowEffectivelyApproved(row)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(row as Record<string, unknown>, all)) continue;
         if (asText(row.breakInventoryFurnitureFinalizedAt) !== '') continue;
         if (!matchesExecutorApprovalBranch(row, 'Lock Breaking & Inventory')) continue;
         return buildPendingExecutorDecisionHit(row);
@@ -300,8 +303,9 @@ export function findApprovedBreakInventoryNeedingLedgerFromRows(
 export function findApprovedCustodianNeedingDetailsFromRows(
     rows: ExecutorDecisionRowLite[],
 ): PendingExecutorDecisionHit | null {
+    const all = rows as Record<string, unknown>[];
     for (const row of rows) {
-        if (!isExecutorRowEffectivelyApproved(row)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(row as Record<string, unknown>, all)) continue;
         if (asText(row.judicialCustodianDetailsSavedAt) !== '') continue;
         if (!matchesExecutorApprovalBranch(row, 'Judicial Custodian')) continue;
         return buildPendingExecutorDecisionHit(row);

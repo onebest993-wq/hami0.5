@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
 import { fetchLawyerProfile } from '@/app/services/profile/profileCloudLoader';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
@@ -8,7 +8,11 @@ import {
     type ProfilePageCustomization,
 } from '@/app/services/profile/profilePageCustomization';
 import { redactProfileForVisitorView } from '@/app/services/profile/profileVisitorView';
-import { peekProfileWarmCache, setProfileWarmCache } from '@/app/services/profile/profileWarmCache';
+import {
+    peekProfileWarmCache,
+    setProfileWarmCache,
+    hydrateProfileWarmCachePeekSync,
+} from '@/app/services/profile/profileWarmCache';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
 export function useProfileLoader(
@@ -24,9 +28,17 @@ export function useProfileLoader(
     );
 
     const warmCachedProfile = profileUserId
-        ? peekProfileWarmCache(profileUserId, cachePeekOptions)
+        ? (() => {
+              hydrateProfileWarmCachePeekSync(
+                  profileUserId,
+                  userMeta,
+                  isOwnProfile ? profileUserId : viewerId,
+              );
+              return peekProfileWarmCache(profileUserId, cachePeekOptions);
+          })()
         : undefined;
     const [profile, setProfile] = useState<LawyerProfileData | null>(() => warmCachedProfile ?? null);
+    /** جاهزية الشل: وجود كاش/ملف — لا نربط loading باسم الهيدر (يُحلّ عبر resolveLawyerDisplayName) */
     const [loading, setLoading] = useState(() => !warmCachedProfile);
     const [loadError, setLoadError] = useState(false);
     const profileRef = useRef<LawyerProfileData | null>(null);
@@ -97,6 +109,21 @@ export function useProfileLoader(
             if (generation === loadGenerationRef.current) setLoading(false);
         }
     }, [profileUserId, normalizeLoadedProfile, cachePeekOptions, isOwnProfile, viewerId]);
+
+    useLayoutEffect(() => {
+        if (!profileUserId) return;
+        hydrateProfileWarmCachePeekSync(
+            profileUserId,
+            userMeta,
+            isOwnProfile ? profileUserId : viewerId,
+        );
+        const cached = peekProfileWarmCache(profileUserId, cachePeekOptions);
+        if (cached) {
+            setProfile(normalizeLoadedProfile(cached));
+            setLoading(false);
+            setLoadError(false);
+        }
+    }, [profileUserId, userMeta, isOwnProfile, viewerId, cachePeekOptions, normalizeLoadedProfile]);
 
     useEffect(() => {
         const userChanged = profileUserIdRef.current !== profileUserId;

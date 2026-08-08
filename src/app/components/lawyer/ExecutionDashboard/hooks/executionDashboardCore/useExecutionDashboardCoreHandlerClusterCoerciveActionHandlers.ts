@@ -18,6 +18,7 @@ export function useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers(
         effectiveDebtors,
         coerciveSubjectRef,
         openSeizureRequestsTabRef,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         showToast,
     } = resolved;
@@ -34,6 +35,7 @@ export function useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers(
         effectiveDebtors,
         coerciveSubjectRef,
         openSeizureRequestsTabRef,
+        openFollowupModalPersisted: resolved.openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         showToast,
         saveCoerciveAction,

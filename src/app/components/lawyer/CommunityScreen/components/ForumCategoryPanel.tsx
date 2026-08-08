@@ -17,7 +17,7 @@ import {
     ScrollText,
     X,
     type LucideIcon,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { FORUM_FILTER_LABELS, FORUM_SORT_FILTER_COUNT } from '../forumFilters';
 import {
     FORUM_DROPDOWN_PANEL,

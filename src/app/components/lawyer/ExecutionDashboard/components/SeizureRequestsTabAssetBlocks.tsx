@@ -1,5 +1,5 @@
 import React from 'react';
-import { Building2, Package, Users } from 'lucide-react';
+import { Building2, Package, Users } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
@@ -26,6 +26,20 @@ import {
     type UnifiedSeizureLogTab,
 } from './seizureRequestsTabHelpers';
 import { buildSeizureRequestSteps } from './seizureRequestsTabDecisionSteps';
+import {
+    dispatchMovableSeizureInlineFocus,
+    dispatchPropertySeizureInlineFocus,
+    dispatchThirdPartySeizureInlineFocus,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
+
+function seizureRowNeedsInlineCompletion(
+    row: { id?: string; seizureRequestSavedAt?: string } | null | undefined,
+    decisions: Record<string, unknown>[],
+): boolean {
+    if (!row?.id) return false;
+    if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return false;
+    return !String(row.seizureRequestSavedAt || '').trim();
+}
 
 type SubmitBasicSeizureRequest = (args: {
     actionType: 'salary' | 'property' | 'vehicle' | 'third_party';
@@ -296,6 +310,17 @@ export function SeizureMovableRequestBlock(
                     acknowledgeSeizureRequestFromLog('movable');
                     return;
                 }
+                if (
+                    movableDecision &&
+                    seizureRowNeedsInlineCompletion(movableDecision, decisions)
+                ) {
+                    dispatchMovableSeizureInlineFocus(
+                        resolvedExecutionId,
+                        String(movableDecision.id || '').trim(),
+                        String(movableDecision.title || '').trim(),
+                    );
+                    return;
+                }
                 setInlineActionGateKey('seizure_vehicle');
             }}
             icon={
@@ -417,6 +442,17 @@ export function SeizureThirdPartyRequestBlock(
                 if (seizureActionsDisabled) return;
                 if (thirdPartySettled) {
                     acknowledgeSeizureRequestFromLog('third_party');
+                    return;
+                }
+                if (
+                    thirdPartyDecision &&
+                    seizureRowNeedsInlineCompletion(thirdPartyDecision, decisions)
+                ) {
+                    dispatchThirdPartySeizureInlineFocus(
+                        resolvedExecutionId,
+                        String(thirdPartyDecision.id || '').trim(),
+                        String(thirdPartyDecision.title || '').trim(),
+                    );
                     return;
                 }
                 setInlineActionGateKey('seizure_third_party');
@@ -543,6 +579,17 @@ export function SeizurePropertyRequestBlock(
                 if (seizureActionsDisabled) return;
                 if (propertySettled) {
                     acknowledgeSeizureRequestFromLog('property');
+                    return;
+                }
+                if (
+                    propertyDecision &&
+                    seizureRowNeedsInlineCompletion(propertyDecision, decisions)
+                ) {
+                    dispatchPropertySeizureInlineFocus(
+                        resolvedExecutionId,
+                        String(propertyDecision.id || '').trim(),
+                        String(propertyDecision.title || '').trim(),
+                    );
                     return;
                 }
                 setInlineActionGateKey('seizure_property');

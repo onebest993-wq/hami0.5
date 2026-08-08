@@ -23,7 +23,8 @@ export function dispatchJudgmentScenarios(scope: JudgmentConfirmScope, rt: Judgm
         action === 'final_ratification' ||
         action === 'remand_to_lower' ||
         action === 'correction_request' ||
-        action === 'correction_complete'
+        action === 'correction_complete' ||
+        action === 'correction_rejected'
     ) {
         applyCassationScenarios(scope, rt);
     }

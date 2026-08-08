@@ -1,4 +1,4 @@
-import type { FinalizeCoerciveSeizureInput } from './executionDashboardCoerciveFinalizeTypes';
+import { coalesceDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 import {
     buildNextSeizedAssets,
     commitCoerciveFinalize,
@@ -21,7 +21,11 @@ export function finalizeCoerciveSalarySeizure(input: FinalizeCoerciveSeizureInpu
             },
         },
         input.executionData ?? null,
-        String(input.decisionsStorageExecutionId ?? input.executionId ?? '').trim() || undefined,
+        coalesceDecisionsStorageExecutionId({
+            decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+            executionId: input.executionId,
+            executionData: input.executionData as Record<string, unknown> | null,
+        }),
     );
     const mergedDesc =
         String(input.details.description || '').trim() ||

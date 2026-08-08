@@ -53,6 +53,7 @@ export type UnifiedDossierFooterIcon = {
 export type UnifiedDossierStatusBadge = {
     label: ReactNode;
     className?: string;
+    title?: string;
 };
 
 export type UnifiedDossierCardProps = {
@@ -184,7 +185,10 @@ export const UnifiedDossierCard = ({
                             {statusLabel ? (
                                 <span
                                     className={`text-[11px] font-bold ${statusTextClass(statusBadge?.className)}`}
-                                    title={typeof statusLabel === 'string' ? statusLabel : undefined}
+                                    title={
+                                        statusBadge?.title
+                                        ?? (typeof statusLabel === 'string' ? statusLabel : undefined)
+                                    }
                                 >
                                     {statusLabel}
                                 </span>

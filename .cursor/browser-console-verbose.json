@@ -1,9 +1,64 @@
 {
-  "at": "2026-07-30T21:07:27.159Z",
+  "at": "2026-08-05T22:47:31.239Z",
   "url": "http://localhost:8080/",
   "title": "Hami - Lawyer Dashboard",
-  "messageCount": 0,
-  "messages": [],
+  "messageCount": 6,
+  "messages": [
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "[Spark dev] للاختبار: __hamiResetSpark() ثم تحديث الصفحة",
+      "loc": {
+        "url": "http://localhost:8080/src/app/utils/consoleHygiene.ts",
+        "lineNumber": 90,
+        "columnNumber": 6
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connecting...",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 732,
+        "columnNumber": 8
+      }
+    },
+    {
+      "type": "debug",
+      "text": "[vite] connected.",
+      "loc": {
+        "url": "http://localhost:8080/@vite/client",
+        "lineNumber": 826,
+        "columnNumber": 11
+      }
+    },
+    {
+      "type": "info",
+      "text": "[Spark dev] للاختبار: __hamiResetSpark() ثم تحديث الصفحة",
+      "loc": {
+        "url": "http://localhost:8080/src/app/utils/consoleHygiene.ts",
+        "lineNumber": 90,
+        "columnNumber": 6
+      }
+    }
+  ],
   "pageErrors": [],
   "failedRequests": []
 }

@@ -1,6 +1,5 @@
 import React, { useCallback, useLayoutEffect, useState } from 'react';
 import type { TasksManagerOverlay } from '@/app/components/lawyer/dashboard/TasksManagerOverlay';
-import { TasksManagerFallback } from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import {
     getCachedTasksManagerOverlay,
     loadTasksManagerModule,
@@ -19,12 +18,12 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
             className="fixed inset-0 z-[130] flex flex-col items-center justify-center gap-3 px-6 text-center"
             role="alert"
         >
-            <p className="text-sm font-semibold text-[#E8F5F0]/85">تعذّر تحميل أجندة المهام</p>
+            <p className="text-sm font-semibold text-[#F4F4F5]/85">تعذّر تحميل أجندة المهام</p>
             <button
                 type="button"
                 data-testid="tasks-manager-retry"
                 onClick={onRetry}
-                className="rounded-lg border border-[#A67C52]/35 bg-[#0c0c0e]/80 px-4 py-2 text-sm font-bold text-[#E6C673]"
+                className="rounded-lg border border-[#E6C673]/35 bg-[#12182B]/80 px-4 py-2 text-sm font-bold text-[#E6C673]"
             >
                 إعادة المحاولة
             </button>
@@ -32,7 +31,7 @@ function TasksManagerLoadError({ onRetry }: { onRetry: () => void }) {
     );
 }
 
-/** يحمّل أجندة المهام مرة واحدة — keep-alive عبر open prop */
+/** يحمّل أجندة المهام — chunk دافئ مخفياً؛ الفتح = إظار فوري من الكاش */
 export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.ReactElement | null {
     const { open, onClose } = props;
     const [Component, setComponent] = useState<OverlayComponent | null>(() => getCachedTasksManagerOverlay());
@@ -43,6 +42,10 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         setLoadFailed(false);
         setLoadGeneration((g) => g + 1);
     }, []);
+
+    if (!open && !Component && typeof window !== 'undefined') {
+        void loadTasksManagerModule().catch(() => undefined);
+    }
 
     useLayoutEffect(() => {
         const cached = getCachedTasksManagerOverlay();
@@ -56,6 +59,13 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         let attempts = 0;
 
         const tryLoad = () => {
+            const hit = getCachedTasksManagerOverlay();
+            if (hit) {
+                setComponent(() => hit);
+                setLoadFailed(false);
+                return;
+            }
+
             void loadTasksManagerModule()
                 .then((mod) => {
                     if (cancelled) return;
@@ -83,14 +93,19 @@ export function FieldTasksManagerHost(props: TasksManagerOverlayProps): React.Re
         };
     }, [loadGeneration]);
 
+    const ResolvedComponent = Component ?? getCachedTasksManagerOverlay();
+
     if (!open) {
         return null;
     }
 
-    if (!Component) {
-        if (loadFailed) return <TasksManagerLoadError onRetry={retryLoad} />;
-        return <>{TasksManagerFallback}</>;
+    if (ResolvedComponent) {
+        return <ResolvedComponent {...props} onClose={onClose} />;
     }
 
-    return <Component {...props} onClose={onClose} />;
+    if (loadFailed) {
+        return <TasksManagerLoadError onRetry={retryLoad} />;
+    }
+
+    return null;
 }

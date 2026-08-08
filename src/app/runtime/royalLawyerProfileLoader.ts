@@ -1,4 +1,4 @@
-type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawyerProfile');
+type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawyerProfile/index');
 
 import {
     markRoyalLawyerProfileModuleResolved,
@@ -14,7 +14,7 @@ let profileModulePromise: Promise<RoyalLawyerProfileModule> | null = null;
 
 function ensureProfileModulePromise(): Promise<RoyalLawyerProfileModule> {
     if (!profileModulePromise) {
-        profileModulePromise = import('@/app/components/lawyer/RoyalLawyerProfile').then((mod) => {
+        profileModulePromise = import('@/app/components/lawyer/RoyalLawyerProfile/index').then((mod) => {
             markRoyalLawyerProfileModuleResolved();
             return mod;
         });

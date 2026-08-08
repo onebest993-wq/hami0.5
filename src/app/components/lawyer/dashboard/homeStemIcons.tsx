@@ -73,6 +73,20 @@ export function HomeWarehouseIcon(props: HomeStemIconProps) {
     );
 }
 
+/** مستودع ذكي — أرشيف طبقات + وميض ذكاء (بديل المستودع التقليدي في الدوك) */
+export function HomeSmartRepositoryIcon(props: HomeStemIconProps) {
+    return (
+        <HomeStemSvgIcon {...props}>
+            <path d="M4.5 9.5 12 5l7.5 4.5V19a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2V9.5Z" />
+            <path d="M4.5 9.5 12 14l7.5-4.5" />
+            <path d="M12 5v9" />
+            <path d="M8 16.5h8" />
+            <path d="M8.5 13.5h7" />
+            <path d="M17.2 4.2l.55 1.1 1.1.55-1.1.55-.55 1.1-.55-1.1-1.1-.55 1.1-.55Z" />
+        </HomeStemSvgIcon>
+    );
+}
+
 export function HomeCalendarIcon(props: HomeStemIconProps) {
     return (
         <HomeStemSvgIcon {...props}>
@@ -102,6 +116,35 @@ export function HomeMessageCircleIcon(props: HomeStemIconProps) {
             <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
         </HomeStemSvgIcon>
     );
+}
+
+/** أيقونة المنتدى — فقاعة نقاش (بدون حلقات تشبه مؤشر التحميل) */
+export function HomeForumRippleIcon(props: HomeStemIconProps) {
+    return (
+        <HomeStemSvgIcon {...props}>
+            <path
+                d="M21 15a2 2 0 0 1-2 2H8l-5 3V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
+                strokeWidth={1.85}
+            />
+            <path d="M8 10h8" strokeWidth={1.5} opacity={0.7} />
+            <path d="M8 13.5h5" strokeWidth={1.5} opacity={0.5} />
+        </HomeStemSvgIcon>
+    );
+}
+
+/** @deprecated استخدم HomeForumRippleIcon */
+export function HomeForumMarkIcon(props: HomeStemIconProps) {
+    return <HomeForumRippleIcon {...props} />;
+}
+
+/** @deprecated استخدم HomeForumMarkIcon */
+export function HomeForumNexusIcon(props: HomeStemIconProps) {
+    return <HomeForumMarkIcon {...props} />;
+}
+
+/** @deprecated استخدم HomeForumMarkIcon */
+export function HomeForumConstellationIcon(props: HomeStemIconProps) {
+    return <HomeForumMarkIcon {...props} />;
 }
 
 export function HomeArrowLeftIcon(props: HomeStemIconProps) {

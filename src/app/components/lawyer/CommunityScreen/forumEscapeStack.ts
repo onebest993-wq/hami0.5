@@ -4,6 +4,9 @@ export type ForumEscapeSnapshot = {
     profileView: boolean;
     pendingDeletePostId: string | null;
     editingPostId: string | null;
+    repositoryDeleteOpen: boolean;
+    repositoryPreviewOpen: boolean;
+    repositoryUploadOpen: boolean;
     isCreateGroupOpen: boolean;
     commentingPostId: string | null;
     isAddQuestionOpen: boolean;
@@ -18,6 +21,9 @@ export type ForumEscapeAction =
     | 'close-profile'
     | 'cancel-delete'
     | 'cancel-edit'
+    | 'close-repository-delete'
+    | 'close-repository-preview'
+    | 'close-repository-upload'
     | 'close-create-group'
     | 'close-comments'
     | 'close-add-question'
@@ -33,6 +39,9 @@ export function resolveForumEscapeAction(snapshot: ForumEscapeSnapshot): ForumEs
     if (snapshot.profileView) return 'close-profile';
     if (snapshot.pendingDeletePostId) return 'cancel-delete';
     if (snapshot.editingPostId) return 'cancel-edit';
+    if (snapshot.repositoryDeleteOpen) return 'close-repository-delete';
+    if (snapshot.repositoryPreviewOpen) return 'close-repository-preview';
+    if (snapshot.repositoryUploadOpen) return 'close-repository-upload';
     if (snapshot.isCreateGroupOpen) return 'close-create-group';
     if (snapshot.commentingPostId) return 'close-comments';
     if (snapshot.isAddQuestionOpen) return 'close-add-question';

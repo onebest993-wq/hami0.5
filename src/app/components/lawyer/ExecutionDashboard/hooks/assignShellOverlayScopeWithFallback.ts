@@ -1,5 +1,5 @@
 /** Mutating shell-overlay scope fallback — same OR/setter/static logic as ShellOverlays. */
-import { AlertCircle, CheckCircle, History, Pause, Play } from 'lucide-react';
+import { AlertCircle, CheckCircle, History, Pause, Play } from '@/app/components/ui/lucideIcons';
 import { EXEC_MODAL_Z, EXEC_MODAL_BACKDROP_STRONG } from '@/app/components/lawyer/execution/executionModalStack';
 import {
     LazyExecutorApprovedDateTimeModal,

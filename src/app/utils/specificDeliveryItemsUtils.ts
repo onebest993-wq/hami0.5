@@ -292,7 +292,8 @@ export function syncSpecificDeliveryLegacyFields(items: SpecificDeliveryItem[]):
     return {
         specificDeliveryItemName: names,
         specificDeliveryItemNature:
-            items.length === 1 ? items[0].nature : resolvePrimarySpecificDeliveryNature(items),
+            (items.length === 1 ? items[0].nature : resolvePrimarySpecificDeliveryNature(items)) ??
+            undefined,
         specificDeliveryFinancialized: allDone && items.length > 0,
         specificDeliveryConvertedAmount: total,
         ...(allDone && lastAt ? { specificDeliveryFinancializedAt: lastAt } : {}),

@@ -32,7 +32,7 @@ export function DashboardPatternOverlay({ appearance, enabled }: DashboardPatter
 
     return (
         <div
-            className="fixed inset-0 pointer-events-none z-0 overflow-hidden transition-opacity duration-300"
+            className="absolute inset-0 pointer-events-none z-0 overflow-hidden transition-opacity duration-300"
             aria-hidden
             style={style}
         />

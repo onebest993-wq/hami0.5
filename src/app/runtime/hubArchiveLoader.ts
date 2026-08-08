@@ -1,15 +1,12 @@
 type ArchivePortalModule = typeof import('@/app/components/lawyer/ArchivePortal.tsx');
-type LawsuitsWorkspaceModule = typeof import('@/app/components/lawyer/LawsuitsWorkspace');
 
 export type ArchivePortalComponent = ArchivePortalModule['ArchivePortal'];
-export type LawsuitsWorkspaceComponent = LawsuitsWorkspaceModule['LawsuitsWorkspace'];
 
 const LOAD_TIMEOUT_MS = 18_000;
 
 let archivePortalPromise: Promise<ArchivePortalModule> | null = null;
-let lawsuitsWorkspacePromise: Promise<LawsuitsWorkspaceModule> | null = null;
+let lawsuitArchivePortalPromise: Promise<ArchivePortalModule> | null = null;
 let cachedArchivePortal: ArchivePortalComponent | null = null;
-let cachedLawsuitsWorkspace: LawsuitsWorkspaceComponent | null = null;
 let lawsuitFileGridPromise: Promise<void> | null = null;
 let lawsuitFileGridReady = false;
 let executionSurfacePromise: Promise<void> | null = null;
@@ -100,13 +97,13 @@ export function getCachedExecutionFileGrid(): NonNullable<typeof cachedExecution
 }
 
 /**
- * تقييم ArchivePortalFileGrid أثناء InstantShell — لا يُؤجّل notify للـ Portal.
+ * تقييم LawsuitArchiveFileGrid أثناء InstantShell — لا يُؤجّل notify للـ Portal.
  * Host الدعاوى ينتظر هذه الجاهزية قبل تركيب children.
  */
 function ensureLawsuitFileGridPromise(): Promise<void> {
     if (!lawsuitFileGridPromise) {
         lawsuitFileGridPromise = import(
-            '@/app/components/lawyer/ArchivePortal/components/ArchivePortalFileGrid'
+            '@/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid'
         )
             .then(() => undefined)
             .catch(() => undefined)
@@ -116,16 +113,6 @@ function ensureLawsuitFileGridPromise(): Promise<void> {
             });
     }
     return lawsuitFileGridPromise;
-}
-
-export function adoptCachedArchivePortal(component: ArchivePortalComponent): void {
-    if (cachedArchivePortal === component) return;
-    cachedArchivePortal = component;
-    notifyArchivePortalListeners();
-}
-
-export function getCachedLawsuitsWorkspace(): LawsuitsWorkspaceComponent | null {
-    return cachedLawsuitsWorkspace;
 }
 
 function resetLawsuitFileGridCache(): void {
@@ -150,6 +137,7 @@ function resetExecutionFileGridCache(): void {
 
 export function resetArchivePortalModuleCacheForTests(): void {
     archivePortalPromise = null;
+    lawsuitArchivePortalPromise = null;
     cachedArchivePortal = null;
     resetLawsuitFileGridCache();
     resetExecutionSurfaceCache();
@@ -159,9 +147,8 @@ export function resetArchivePortalModuleCacheForTests(): void {
 
 export function resetHubArchiveModuleCacheForTests(): void {
     archivePortalPromise = null;
-    lawsuitsWorkspacePromise = null;
+    lawsuitArchivePortalPromise = null;
     cachedArchivePortal = null;
-    cachedLawsuitsWorkspace = null;
     resetLawsuitFileGridCache();
     resetExecutionSurfaceCache();
     resetExecutionFileGridCache();
@@ -170,6 +157,7 @@ export function resetHubArchiveModuleCacheForTests(): void {
 
 export function invalidateArchivePortalModuleCache(): void {
     archivePortalPromise = null;
+    lawsuitArchivePortalPromise = null;
     cachedArchivePortal = null;
     resetLawsuitFileGridCache();
     resetExecutionSurfaceCache();
@@ -198,6 +186,25 @@ function withLoadTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
     });
 }
 
+function ensureLawsuitArchivePortalPromise(): Promise<ArchivePortalModule> {
+    if (!lawsuitArchivePortalPromise) {
+        lawsuitArchivePortalPromise = withLoadTimeout(
+            import('@/app/components/lawyer/ArchivePortal/ArchivePortalLawsuitEntry.tsx'),
+            'أرشيف الدعاوى',
+        )
+            .then((mod) => {
+                cachedArchivePortal = mod.ArchivePortal;
+                notifyArchivePortalListeners();
+                return mod;
+            })
+            .catch((error) => {
+                lawsuitArchivePortalPromise = null;
+                throw error;
+            });
+    }
+    return lawsuitArchivePortalPromise;
+}
+
 function ensureArchivePortalPromise(): Promise<ArchivePortalModule> {
     if (!archivePortalPromise) {
         archivePortalPromise = withLoadTimeout(
@@ -207,7 +214,6 @@ function ensureArchivePortalPromise(): Promise<ArchivePortalModule> {
             .then((mod) => {
                 cachedArchivePortal = mod.ArchivePortal;
                 notifyArchivePortalListeners();
-                // FileGrid يُقيَّم فقط عبر prefetchLawsuitArchiveContent (فتح/hover دعاوى)
                 return mod;
             })
             .catch((error) => {
@@ -218,30 +224,8 @@ function ensureArchivePortalPromise(): Promise<ArchivePortalModule> {
     return archivePortalPromise;
 }
 
-function ensureLawsuitsWorkspacePromise(): Promise<LawsuitsWorkspaceModule> {
-    if (!lawsuitsWorkspacePromise) {
-        lawsuitsWorkspacePromise = withLoadTimeout(
-            import('@/app/components/lawyer/LawsuitsWorkspace'),
-            'مساحة الدعاوى',
-        )
-            .then((mod) => {
-                cachedLawsuitsWorkspace = mod.LawsuitsWorkspace;
-                return mod;
-            })
-            .catch((error) => {
-                lawsuitsWorkspacePromise = null;
-                throw error;
-            });
-    }
-    return lawsuitsWorkspacePromise;
-}
-
 export function loadArchivePortalModule(): Promise<ArchivePortalModule> {
     return ensureArchivePortalPromise();
-}
-
-export function loadLawsuitsWorkspaceModule(): Promise<LawsuitsWorkspaceModule> {
-    return ensureLawsuitsWorkspacePromise();
 }
 
 const EXECUTION_CHUNK_SOFT_TIMEOUT_MS = 6_000;
@@ -295,10 +279,10 @@ function ensureExecutionFileGridPromise(): Promise<void> {
     return executionFileGridPromise;
 }
 
-/** دعاوى — أرشيف + مستعجل (يُحمَّل عند التبويب) */
+/** دعاوى — أرشيف + شبكة دعاوى فقط (بلا chunk التنفيذ) */
 export function loadLawsuitArchiveHubModule(): Promise<ArchivePortalModule> {
     prefetchLawsuitArchiveContent();
-    return loadArchivePortalModule();
+    return ensureLawsuitArchivePortalPromise();
 }
 
 /** تنفيذ — Portal فوراً؛ Surface/FileGrid تُسخَّن بالخلفية بلا حجب أول paint */

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 
 type TxSvgIconProps = {
     className?: string;
@@ -100,7 +100,7 @@ function TxPetrolDivider() {
 
 export const TX_OVERLAY =
     'fixed inset-0 z-[200] bg-[#061014]/98 overflow-y-auto overscroll-y-contain touch-pan-y pointer-events-auto ' +
-    'pt-[env(safe-area-inset-top,0px)] pb-[env(safe-area-inset-bottom,0px)] ' +
+    'pt-[max(0.75rem,env(safe-area-inset-top,0px))] pb-[env(safe-area-inset-bottom,0px)] ' +
     'pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]';
 
 export const TX_PAGE_SHELL =
@@ -252,7 +252,11 @@ export function TxGlassEmpty({ message, testId }: { message: string; testId?: st
 }
 
 export const TX_DRAWER_SHELL =
-    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-4 pb-[max(2rem,env(safe-area-inset-bottom))] pt-1 overflow-y-auto overflow-x-hidden max-h-[92vh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)]';
+    'bg-[#0E1F26] border-t border-[#2A4550] rounded-t-sm px-4 pt-1 overflow-hidden max-h-[92dvh] shadow-[0_-8px_32px_rgba(6,16,20,0.55)] flex flex-col min-h-0';
+
+/** تذييل ثابت فوق الكيبورد — safe-area سفلي */
+export const TX_DRAWER_FOOTER =
+    'shrink-0 pt-3 pb-[max(1rem,env(safe-area-inset-bottom,0px))] border-t border-[#2A4550]/60 bg-[#0E1F26]';
 
 export function TxGlassDrawerFrame({
     title,
@@ -265,20 +269,36 @@ export function TxGlassDrawerFrame({
     children: React.ReactNode;
     footer?: React.ReactNode;
 }) {
+    const onBodyFocusCapture = useCallback((event: React.FocusEvent<HTMLDivElement>) => {
+        const target = event.target;
+        if (!(target instanceof HTMLElement)) return;
+        if (!target.matches('input,textarea,select,[contenteditable="true"]')) return;
+        window.requestAnimationFrame(() => {
+            target.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        });
+    }, []);
+
     return (
-        <div dir="rtl" className="relative text-right pt-1 pb-2 max-w-[520px] mx-auto w-full">
+        <div dir="rtl" className="relative text-right pt-1 pb-0 max-w-[520px] mx-auto w-full flex flex-col min-h-0 flex-1">
             <div
                 className="absolute top-0 inset-x-8 h-[2px] bg-gradient-to-r from-transparent via-[#D4A56A]/50 to-transparent pointer-events-none"
                 aria-hidden
             />
-            <div className="py-3">
+            <div className="shrink-0 py-3">
                 <div className="w-9 h-[3px] bg-[#2A4550] mx-auto mb-4" aria-hidden />
                 <h2 className="text-[#D8D4CE] font-extrabold text-[15px]">{title}</h2>
                 {subtitle ? <p className="text-[#8A8680] text-[12px] mt-1 font-medium">{subtitle}</p> : null}
                 <TxPetrolDivider />
             </div>
-            <div className="space-y-3">{children}</div>
-            {footer ? <div className="mt-5">{footer}</div> : null}
+            <div
+                className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain space-y-3 ${
+                    footer ? 'pb-2' : 'pb-[max(1rem,env(safe-area-inset-bottom,0px))]'
+                }`}
+                onFocusCapture={onBodyFocusCapture}
+            >
+                {children}
+            </div>
+            {footer ? <div className={TX_DRAWER_FOOTER}>{footer}</div> : null}
         </div>
     );
 }

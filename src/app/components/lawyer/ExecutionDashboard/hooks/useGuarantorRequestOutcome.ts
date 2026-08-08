@@ -3,6 +3,7 @@ import {
     matchesExecutionOutcomeEvent,
     type ExecutionDecisionOutcomeDetail,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDecisionOutcomeHelpers';
+import { dispatchOpenGuarantorRequestCompletion } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 
 export function useGuarantorRequestOutcome(input: {
     executionDataId?: string;
@@ -23,16 +24,15 @@ export function useGuarantorRequestOutcome(input: {
             if (detail?.requestKind !== 'guarantor_request') return;
             const decisionId = String(detail?.decisionId || '').trim();
             const outcome = String(detail?.outcome ?? '');
-            if (outcome === 'approved') {
-                showToast('وافق المنفذ على طلب إدخال الكفيل الضامن.', 'success');
-            } else if (outcome === 'rejected') {
-                showToast('رُفض طلب إدخال الكفيل الضامن.', 'info', {
+            if (outcome === 'approved' || outcome === 'alternative') {
+                showToast('وافق المنفذ على طلب إدخال الكفيل الضامن — أكمل البيانات.', 'success', {
                     decisionsLink: true,
                     decisionId,
-                    decisionsTab: 'previous',
+                    decisionsTab: 'current',
                 });
-            } else if (outcome === 'alternative') {
-                showToast('سُجِّل قرار بديل بشأن طلب الكفيل الضامن.', 'info', {
+                dispatchOpenGuarantorRequestCompletion(myId, decisionId);
+            } else if (outcome === 'rejected') {
+                showToast('رُفض طلب إدخال الكفيل الضامن.', 'info', {
                     decisionsLink: true,
                     decisionId,
                     decisionsTab: 'previous',

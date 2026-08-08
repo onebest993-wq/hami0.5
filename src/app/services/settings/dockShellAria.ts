@@ -10,6 +10,8 @@ export type DockShellBadgeContext = {
     pinnedCount?: number;
     urgentAlertsCount?: number;
     forumUnreadCount?: number;
+    repositorySparkAttentionCount?: number;
+    calendarSparkAttentionCount?: number;
 };
 
 /** تسمية قارئ الشاشة لأيقونة الشريط السفلي — تتضمن الشارات عند وجودها */
@@ -41,8 +43,20 @@ export function resolveDockShellItemAriaLabel(
         return `${label}، ${urgent} تنبيه عاجل`;
     }
 
+    const calendarSpark = ctx.calendarSparkAttentionCount ?? 0;
+    if (widgetId === 'dockCalendar' && calendarSpark > 0) {
+        const countLabel =
+            calendarSpark === 1 ? 'متابعة إجرائية واحدة' : `${calendarSpark} متابعات إجرائية`;
+        return `${label} — ${countLabel}`;
+    }
+
     if (widgetId === 'forum' && shouldShowForumUnreadBadge(forumUnread)) {
         return resolveForumShellAriaLabel(forumUnread);
+    }
+
+    const repositorySpark = ctx.repositorySparkAttentionCount ?? 0;
+    if (widgetId === 'dockRepository' && repositorySpark > 0) {
+        return `${label}، متابعة إجرائية في المستودع`;
     }
 
     return label;

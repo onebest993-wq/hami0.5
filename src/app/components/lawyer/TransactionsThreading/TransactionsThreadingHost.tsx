@@ -7,6 +7,10 @@ import {
     type TransactionsThreadingSystemComponent,
     type TransactionsThreadingSystemProps,
 } from '@/app/runtime/transactionsHubLoader';
+import {
+    TRANSACTIONS_SHELL_HYDRATED_EVENT,
+} from '@/app/runtime/transactionsBootHydrator';
+import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
 
 const LOAD_RETRY_MS = 700;
 const MAX_LOAD_ATTEMPTS = 3;
@@ -49,19 +53,19 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
     const [loadFailed, setLoadFailed] = useState(false);
     const [loadGeneration, setLoadGeneration] = useState(0);
 
+    const shouldMount = open || keepAlive;
+
     const retryLoad = useCallback(() => {
         setLoadFailed(false);
         setLoadGeneration((g) => g + 1);
     }, []);
 
     /* kick أثناء الرسم إن فُتح/دُفئ بلا كاش */
-    if ((open || keepAlive) && !Component && typeof window !== 'undefined') {
+    if (shouldMount && !Component && typeof window !== 'undefined') {
         void loadTransactionsHubModule().catch(() => undefined);
     }
 
     useLayoutEffect(() => {
-        if (!open && !keepAlive) return;
-
         const cached = getCachedTransactionsThreadingSystem();
         if (cached) {
             setComponent(() => cached);
@@ -72,6 +76,13 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
         let attempts = 0;
 
         const adoptModule = () => {
+            const hit = getCachedTransactionsThreadingSystem();
+            if (hit) {
+                setComponent(() => hit);
+                setLoadFailed(false);
+                return;
+            }
+
             void loadTransactionsHubModule()
                 .then((mod) => {
                     if (cancelled) return;
@@ -95,13 +106,24 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
 
         adoptModule();
 
+        const onHydrated = () => {
+            const resolved = getCachedTransactionsThreadingSystem();
+            if (resolved) {
+                setComponent(() => resolved);
+                setLoadFailed(false);
+            }
+        };
+        window.addEventListener(TRANSACTIONS_SHELL_HYDRATED_EVENT, onHydrated);
+
         return () => {
             cancelled = true;
+            window.removeEventListener(TRANSACTIONS_SHELL_HYDRATED_EVENT, onHydrated);
         };
-    }, [open, keepAlive, loadGeneration]);
+    }, [loadGeneration]);
 
     useLayoutEffect(() => {
-        if (!open && !keepAlive) return;
+        if (!shouldMount) return;
+        warmTransactionsDiskRead(props.userId);
         void hydrateTransactionsShellForInstantOpen();
         void import('@/app/modules/transactionsThreading/store')
             .then((m) => {
@@ -110,25 +132,26 @@ export function TransactionsThreadingHost(props: TransactionsThreadingSystemProp
                 return undefined;
             })
             .catch(() => undefined);
-    }, [open, keepAlive, props.userId]);
+    }, [shouldMount, props.userId]);
 
-    if (!open && !keepAlive) {
+    const ResolvedComponent = Component ?? getCachedTransactionsThreadingSystem();
+
+    if (!shouldMount) {
         return null;
     }
 
-    if (Component) {
+    if (ResolvedComponent) {
         /* keepAlive: أبقِ System في DOM مخفياً — الفتح = إظهار بلا InstantShell/remount */
-        return <Component {...props} />;
-    }
-
-    /* تسخين صامت — بلا InstantShell فوق اللوحة */
-    if (!open) {
-        return null;
+        return <ResolvedComponent {...props} />;
     }
 
     if (loadFailed) {
         return <TransactionsLoadError onRetry={retryLoad} onBack={onBack} />;
     }
 
-    return <TransactionsHubInstantShell onBack={onBack} />;
+    if (open) {
+        return <TransactionsHubInstantShell onBack={onBack} />;
+    }
+
+    return null;
 }

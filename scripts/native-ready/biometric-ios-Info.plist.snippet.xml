@@ -4,3 +4,5 @@
 -->
 <key>NSFaceIDUsageDescription</key>
 <string>حامي يستخدم Face ID لحماية بيانات الموكلين وقفل الجلسة.</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>حامي يحتاج موقعك لإظهار عنوان المكتب على ملفك المهني.</string>

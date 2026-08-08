@@ -1,4 +1,4 @@
-import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import { useExecutionDashboardSaveExecutionData } from './useExecutionDashboardSaveExecutionData';
 import {
@@ -7,6 +7,7 @@ import {
 } from './useExecutionDashboardExecutorApprovalActions';
 import { useExecutionDashboardPushSeizureAuctionCalendarAppointment } from './useExecutionDashboardPushSeizureAuctionCalendarAppointment';
 import { useExecutionDashboardPendingExecutorDecisionOpeners } from './useExecutionDashboardPendingExecutorDecisionOpeners';
+import { dispatchDecisionsReload, patchExecutorDecisionRowReliable } from '@/app/utils/executorSeizureDecisionQueue';
 import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChunkScope';
 import type { EvictionEarnerFeeCollectionSM } from '@/app/utils/evictionEarnerFeeCollectionMachine';
 
@@ -78,6 +79,7 @@ export type ExecutionDashboardSaveApprovalClusterInput = {
         setUnifiedModalTab: Dispatch<SetStateAction<string>>;
         setFollowupExpandProcedureKey: Dispatch<SetStateAction<string | null>>;
     };
+    openFollowupModalPersisted?: import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn;
     earnerFeeCollectionSm: EvictionEarnerFeeCollectionSM;
     file: ExecutionFile | null | undefined;
     currentFileId: string;
@@ -164,6 +166,7 @@ export function useExecutionDashboardSaveApprovalCluster(
     const executorApprovalActions = useExecutionDashboardExecutorApprovalActions({
         executionData: input.executionData,
         executionId: input.executionId,
+        decisionsStorageExecutionId: input.decisionsStorageExecutionId,
         file: input.file,
         currentFileId: input.currentFileId,
         isMaritalFurnitureClaim: input.isMaritalFurnitureClaim,
@@ -173,6 +176,7 @@ export function useExecutionDashboardSaveApprovalCluster(
         executionFileSnapshotRef: input.executionFileSnapshotRef,
         showToast: input.showToast,
         setShowDecisionsModal: input.setShowDecisionsModal,
+        openFollowupModalPersisted: input.openFollowupModalPersisted,
         setShowUnifiedExecutionModal: input.followupOrchestrator.setShowUnifiedExecutionModal,
         setUnifiedModalTab: input.followupOrchestrator.setUnifiedModalTab,
         setFollowupExpandProcedureKey: input.followupOrchestrator.setFollowupExpandProcedureKey,
@@ -190,6 +194,7 @@ export function useExecutionDashboardSaveApprovalCluster(
     const pendingExecutorOpeners = useExecutionDashboardPendingExecutorDecisionOpeners({
         executionId: input.executionId,
         decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+        executionData: input.executionData,
         executorApprovalActions,
         setShowDecisionsModal: input.setShowDecisionsModal,
         openBreakInventoryCompletion: input.openBreakInventoryCompletion,
@@ -199,6 +204,36 @@ export function useExecutionDashboardSaveApprovalCluster(
     const { tryOpenPendingBreakInventoryLedger, tryOpenPendingCustodianDetails } =
         pendingExecutorOpeners;
 
+    const saveJudicialCustodianEntry = useCallback(
+        (payload: { decisionId: string; name: string; salary: string }) => {
+            const did = String(payload.decisionId || '').trim();
+            const fullName = String(payload.name || '').trim();
+            const salary = String(payload.salary || '').trim();
+            if (!did || !fullName || !salary) return;
+            const storageId = String(
+                input.decisionsStorageExecutionId || input.executionData?.id || input.executionId || '',
+            ).trim();
+            const ts = new Date().toISOString();
+            const { ok } = patchExecutorDecisionRowReliable(storageId, did, {
+                judicialCustodianDetailsSavedAt: ts,
+                judicialCustodianName: fullName,
+                judicialCustodianSalary: salary,
+            });
+            if (!ok) {
+                input.showToast('تعذر حفظ بيانات الحارس على القرار', 'error');
+                return;
+            }
+            executorApprovalActions.persistJudicialCustodianDetails({
+                decisionId: did,
+                fullName,
+                salary,
+            });
+            dispatchDecisionsReload();
+            input.showToast('تم حفظ بيانات الحارس القاضي', 'success');
+        },
+        [executorApprovalActions, input.decisionsStorageExecutionId, input.executionData?.id, input.executionId, input.showToast]
+    );
+
     return {
         saveExecutionData,
         executorApprovalActions,
@@ -206,5 +241,6 @@ export function useExecutionDashboardSaveApprovalCluster(
         pendingExecutorOpeners,
         tryOpenPendingBreakInventoryLedger,
         tryOpenPendingCustodianDetails,
+        saveJudicialCustodianEntry,
     };
 }

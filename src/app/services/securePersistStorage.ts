@@ -17,6 +17,8 @@ function parsePersistRoot(raw: string | null | undefined): Record<string, unknow
 function countCasesInPersistPayload(raw: string | null | undefined): number {
     const root = parsePersistRoot(raw);
     if (!root) return 0;
+    // الصيغة المجزّأة (criminalShardedPersistStorage) تحذف casesById وتضع caseIds في الجذر.
+    if (Array.isArray(root.caseIds)) return root.caseIds.length;
     const cases = (root.state as { casesById?: unknown } | undefined)?.casesById ?? root.casesById;
     return cases && typeof cases === 'object' ? Object.keys(cases as object).length : 0;
 }
@@ -37,9 +39,40 @@ export const defaultPersistWipeGuard: PersistWipeGuard = (incomingRaw, existingR
         return countCasesInPersistPayload(incomingRaw) === 0 && countCasesInPersistPayload(existingRaw) > 0;
     }
 
-    if (storageKey === 'lawyer-execution-files' || storageKey === 'hami:execution-dashboard') {
+    if (storageKey === 'legal-cases-storage') {
+        const incomingCount = countArrayItemsInPersistPayload(incomingRaw, 'cases');
+        const existingCount = countArrayItemsInPersistPayload(existingRaw, 'cases');
+        if (incomingCount === 0 && existingCount > 0) return true;
+    }
+
+    if (
+        storageKey === 'execution-dashboard-storage' ||
+        storageKey === 'hami:execution-dashboard'
+    ) {
+        const incomingCount =
+            countArrayItemsInPersistPayload(incomingRaw, 'subFiles') +
+            countArrayItemsInPersistPayload(incomingRaw, 'linkedDossiers');
+        const existingCount =
+            countArrayItemsInPersistPayload(existingRaw, 'subFiles') +
+            countArrayItemsInPersistPayload(existingRaw, 'linkedDossiers');
+        if (incomingCount === 0 && existingCount > 0) return true;
+    }
+
+    if (storageKey === 'lawyer-execution-files') {
         const incomingCount = countArrayItemsInPersistPayload(incomingRaw, 'files');
         const existingCount = countArrayItemsInPersistPayload(existingRaw, 'files');
+        if (incomingCount === 0 && existingCount > 0) return true;
+    }
+
+    if (storageKey === 'hami:workspace:pins:v1') {
+        const incomingCount = countArrayItemsInPersistPayload(incomingRaw, 'pinnedItems');
+        const existingCount = countArrayItemsInPersistPayload(existingRaw, 'pinnedItems');
+        if (incomingCount === 0 && existingCount > 0) return true;
+    }
+
+    if (storageKey === 'hami-legal-marketplace') {
+        const incomingCount = countArrayItemsInPersistPayload(incomingRaw, 'requests');
+        const existingCount = countArrayItemsInPersistPayload(existingRaw, 'requests');
         if (incomingCount === 0 && existingCount > 0) return true;
     }
 

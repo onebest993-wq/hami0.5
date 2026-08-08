@@ -1,21 +1,19 @@
 import React, { memo, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from '@/app/components/ui/lucideIcons';
 
 export type ProfileEditBarProps = {
     isEditing: boolean;
     saving: boolean;
-    /** رفع صورة قيد التنفيذ — لا حفظ حتى ينتهي أو يُلغى */
     uploading?: boolean;
     savingSettings: boolean;
     onCancel: () => void;
     onSave: () => void;
-    /** false عند تبويب مخفي — لا تبقَ الشريط فوق الرئيسية */
     screenActive?: boolean;
 };
 
 /**
- * شريط حفظ/إلغاء — portal على body + تفعيل pointerdown
- * (داخل overflow/motion كان يُفقد اللمس على Android WebView).
+ * شريط تحرير علوي — يتموضع مقابل زر الرجوع (لا يغطي المعرض/الصور في الأسفل).
  */
 export const ProfileEditBar = memo(function ProfileEditBar({
     isEditing,
@@ -56,21 +54,16 @@ export const ProfileEditBar = memo(function ProfileEditBar({
         <div
             data-testid="lawyer-profile-edit-bar"
             data-profile-edit-bar=""
-            className="fixed inset-x-0 z-[220] flex justify-center pointer-events-none px-3"
-            style={{
-                bottom: 'max(0.75rem, calc(env(safe-area-inset-bottom) + 0.5rem))',
-            }}
+            className="hami-profile-edit-chrome-host"
+            dir="rtl"
         >
-            <div
-                data-profile-edit-bar-shell
-                className="pointer-events-auto w-full max-w-md flex items-center gap-2 p-1.5 rounded-full border border-white/12 bg-[#0A0F1C]/92 shadow-[0_10px_36px_rgba(0,0,0,0.55)]"
-            >
+            <div data-profile-edit-bar-shell className="hami-profile-edit-chrome" role="toolbar" aria-label="إجراءات التحرير">
                 <button
                     type="button"
                     data-testid="lawyer-profile-edit-cancel"
                     disabled={saving}
-                    className="flex-1 py-3 rounded-full text-[13px] font-bold text-white/70 hover:text-white hover:bg-white/[0.05] min-h-[44px] touch-manipulation active:scale-[0.98]"
-                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                    className="hami-profile-edit-chrome__btn hami-profile-edit-chrome__btn--cancel"
+                    aria-label="إلغاء التعديل"
                     onPointerDown={(event) => {
                         if (event.button !== 0 || saving) return;
                         cancelArmedRef.current = true;
@@ -88,15 +81,16 @@ export const ProfileEditBar = memo(function ProfileEditBar({
                         runCancel();
                     }}
                 >
-                    إلغاء
+                    <X size={16} strokeWidth={2.25} aria-hidden />
+                    <span>إلغاء</span>
                 </button>
                 <button
                     type="button"
                     data-testid="lawyer-profile-edit-save"
                     disabled={saveBlocked}
                     aria-busy={saveBlocked || undefined}
-                    className="flex-[1.35] py-3 rounded-full hami-profile-accent-btn-solid text-[13px] font-bold flex items-center justify-center gap-2 min-h-[44px] touch-manipulation active:scale-[0.98] shadow-none"
-                    style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+                    aria-label="حفظ التعديلات"
+                    className="hami-profile-edit-chrome__btn hami-profile-edit-chrome__btn--save"
                     onPointerDown={(event) => {
                         if (event.button !== 0 || saveBlocked) return;
                         saveArmedRef.current = true;
@@ -115,9 +109,9 @@ export const ProfileEditBar = memo(function ProfileEditBar({
                     }}
                 >
                     {saving || uploading ? (
-                        <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                        <span className="hami-profile-edit-chrome__spinner" aria-hidden />
                     ) : null}
-                    حفظ
+                    <span>حفظ</span>
                 </button>
             </div>
         </div>,

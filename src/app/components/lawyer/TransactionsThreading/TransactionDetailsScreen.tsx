@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BookOpen, CheckCircle2, MoreVertical, Share2 } from 'lucide-react';
+import { BookOpen, CheckCircle2, MoreVertical, Share2 } from '@/app/components/ui/lucideIcons';
 import {
   TransactionsDropdownMenu,
   TransactionsDropdownMenuContent,
@@ -391,8 +391,8 @@ export function TransactionDetailsScreen({
                     <CheckCircle2 className="w-4 h-4" />
                   </div>
                   <div className="min-w-0">
-                    <div className={`${TX_TEXT_OCHRE} font-bold text-xs`}>تمت أرشفة المعاملة</div>
-                    <div className={`${TX_TEXT_MUTED} text-[10px] mt-0.5 font-medium`}>وضع للقراءة فقط</div>
+                    <div className={`${TX_TEXT_OCHRE} font-bold text-xs`}>معاملة مكتملة</div>
+                    <div className={`${TX_TEXT_MUTED} text-[10px] mt-0.5 font-medium`}>وضع للقراءة فقط — لا يمكن تعديل المسار أو المستندات</div>
                   </div>
                 </div>
               </TxGlassPanel>

@@ -106,7 +106,9 @@ export async function revokeWifeClientSession(): Promise<void> {
         deviceId: getOrCreateDeviceId(),
       });
       Object.entries(signedHeaders).forEach(([key, value]) => headers.set(key, value));
-    } else {
+    } else if (current) {
+      // الخروج المبكر أعلاه يضمن وجود الجلسة كلّما كان bffMode مطفأً، لكن الشرط
+      // هنا صريح: إعادة ترتيب ذلك الحارس لاحقاً كانت ستُسقط التوقيع على null.
       const timestamp = String(Date.now());
       const nonce = randomWifeNonce();
       const payload = buildWifeCanonicalPayload(

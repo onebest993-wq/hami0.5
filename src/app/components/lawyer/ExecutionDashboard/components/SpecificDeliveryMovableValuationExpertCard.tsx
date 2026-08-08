@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale } from 'lucide-react';
+import { Scale } from '@/app/components/ui/lucideIcons';
 import type { InlineActionGateKey } from '../types';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
 import {

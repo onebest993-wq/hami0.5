@@ -1,21 +1,33 @@
 import {
     filterPersonalStatusAppealMethods,
-    isPersonalStatusStageName,
+    isPersonalStatusAppealContext,
+    isPersonalStatusCoreStage,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import { canOfferAbsentObjectionToDefendant } from './absentJudgmentFlow';
+import { isPlaintiffRepresentedParty } from './representedPartySide';
+import { addDaysYmd as addDaysYmdFromUtils } from './judgmentDateUtils';
 import {
     filterMethodsForAppealRoute,
     isAppellateAppealAllowed,
     type AppealRouteContext,
 } from './appealRouteEligibility';
+import { isAbsentObjectionStageName } from './absentJudgmentStageNames';
+import { isBeginningPleadingStageName, isPleadingStageName, isRetrialPleadingStageName, isThirdPartyObjectionStageName } from './pleadingStageClassification';
 import type { CaseStage, TimelineEvent, Party } from '../../LawyerShared';
 import { formatDateToLocalYmd, parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
 import {
     hasInterpleaderParties,
     isInterpleaderJudgmentType,
+    resolveClientMarkedParty,
     resolveClientPartyBucket,
     resolveInterpleaderHadoriAppealRights,
     resolveLawyerJudgmentBucket,
 } from './interpleaderJudgmentEngine';
+import {
+    extractParentheticalUnderlyingSide,
+    isAbsentObjectedRole,
+    isAbsentObjectorRole,
+} from './partyRoleClassification';
 
 /** Payload from SmartJudgmentModal / validation pipeline. */
 export type JudgmentPayload = {
@@ -94,10 +106,7 @@ export function parseJudgmentDateInput(judgmentDate: unknown): Date {
 }
 
 export function addDaysYmd(base: Date | string, days: number): string {
-    const parsed = typeof base === 'string' ? parseJudgmentDateInput(base) : base;
-    const result = new Date(parsed);
-    result.setDate(result.getDate() + days);
-    return formatDateToLocalYmd(result);
+    return addDaysYmdFromUtils(base, days);
 }
 
 export function prependTimeline(
@@ -132,6 +141,17 @@ export function isNonMeritTerminationType(type: string): boolean {
 
 export const JUDGMENT_TYPE_FULL_WIN = 'إجابة الدعوى بالكامل';
 export const JUDGMENT_TYPE_VOID = 'إبطال';
+
+/** منطوق موضوع الدعوى في البداءة / أحوال شخصية (ليس استئنافاً ولا تمييزاً). */
+export function isSubjectMatterJudgmentType(type: string): boolean {
+    const t = String(type ?? '').trim();
+    return (
+        t === JUDGMENT_TYPE_FULL_WIN
+        || t === 'إجابة الدعوى'
+        || t === 'رد الدعوى كلياً'
+        || t === 'رد الدعوى جزئياً'
+    );
+}
 
 /** أحكام لصالح المدعي/إنهاء رضائي — الطعن التمييزي للمدعى عليه فقط (ما عدا الإبطال). */
 export function isDefendantOnlyCassationJudgmentType(type: string): boolean {
@@ -235,7 +255,8 @@ export function resolveFirstInstanceHadoriAppealRights(
         };
     }
 
-    const isFullWin = judgmentType === JUDGMENT_TYPE_FULL_WIN;
+    const isFullWin =
+        judgmentType === JUDGMENT_TYPE_FULL_WIN || judgmentType === 'إجابة الدعوى';
     const isFullLoss = judgmentType === 'رد الدعوى كلياً';
     const isPartial = judgmentType === 'رد الدعوى جزئياً';
 
@@ -243,12 +264,12 @@ export function resolveFirstInstanceHadoriAppealRights(
         if (effectiveSide === 'المدعي') {
             return {
                 action: 'wait_opponent',
-                hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم (المدعى عليه).',
+                hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.',
             };
         }
         return {
             action: 'self_appeal',
-            hint: 'صدر حكم بإجابة الدعوى — يحق لموكلك (المدعى عليه) الطعن بالاستئناف أو التمييز.',
+            hint: 'صدر حكم بإجابة الدعوى — يحق لموكلك الطعن بالاستئناف أو التمييز.',
         };
     }
 
@@ -256,19 +277,19 @@ export function resolveFirstInstanceHadoriAppealRights(
         if (effectiveSide === 'المدعي') {
             return {
                 action: 'self_appeal',
-                hint: 'صدر حكم برفض الدعوى — يحق لموكلك (المدعي) الطعن.',
+                hint: 'صدر حكم برفض الدعوى — يحق لموكلك الطعن.',
             };
         }
         return {
             action: 'wait_opponent',
-            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. بانتظار طعن المدعي إن رغب.',
+            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. بانتظار طعن الخصم إن رغب.',
         };
     }
 
     if (isPartial) {
         return {
             action: 'self_appeal',
-            hint: 'حكم جزئي — يحق لموكلك وللخصم الطعن فيما حُسم عليه.',
+            hint: 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.',
         };
     }
 
@@ -303,6 +324,12 @@ export function resolveJudgmentAppealHintForLawyer(
 
 export function isFirstInstanceStageName(stageName?: string): boolean {
     const s = String(stageName ?? '');
+    if (!s) return false;
+    if (isAppealStageName(s) || isCassationStageName(s)) return false;
+    if (isAbsentObjectionStageName(s)) return false;
+    if (isThirdPartyObjectionStageName(s)) return false;
+    if (isRetrialPleadingStageName(s)) return false;
+    if (s.includes('أحوال شخصية') || s === 'الأحوال الشخصية') return false;
     return !s.includes('استئناف') && !s.includes('التمييز') && s !== 'التمييز';
 }
 
@@ -333,7 +360,10 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
     judgmentForm?: string | null;
     lastJudgmentType?: string | null;
     stageName?: string | null;
+    finalDecision?: string | null;
     appealRoute?: AppealRouteContext | null;
+    stages?: Array<Pick<CaseStage, 'stageName'> | { stageName?: string | null }> | null;
+    file?: { lawsuitJurisdiction?: string; selectedType?: string } | null;
 }): string[] {
     const stage = String(ctx.stageName ?? '');
     const form = resolveJudgmentFormLabel(ctx.judgmentForm, ctx.lastJudgmentType);
@@ -344,7 +374,7 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
 
     let methods: string[];
 
-    if (isPersonalStatusStageName(stage)) {
+    if (isPersonalStatusAppealContext(stage, ctx.stages, ctx.file)) {
         methods = form === 'غيابي'
             ? ['اعتراض غيابي', 'تمييز']
             : ['تمييز'];
@@ -359,16 +389,41 @@ export function resolveAllowedOpponentAppealMethods(ctx: {
         if (form === 'غيابي') methods.unshift('اعتراض غيابي');
     }
 
-    if (isPersonalStatusStageName(stage)) {
+    if (isPersonalStatusAppealContext(stage, ctx.stages)) {
         methods = filterPersonalStatusAppealMethods(methods);
         if (ctx.appealRoute) {
             methods = filterMethodsForAppealRoute(methods, ctx.appealRoute);
+        }
+        if (
+            !canOfferAbsentObjectionToDefendant({
+                currentStage: ctx.stageName,
+                stages: ctx.stages,
+                judgmentForm: ctx.judgmentForm,
+                lastJudgmentType: ctx.lastJudgmentType,
+                finalDecision: ctx.finalDecision,
+                opponentRegistration: true,
+            })
+        ) {
+            methods = methods.filter((method) => method !== 'اعتراض غيابي');
         }
         return methods;
     }
 
     if (ctx.appealRoute) {
         methods = filterMethodsForAppealRoute(methods, ctx.appealRoute);
+    }
+
+    if (
+        !canOfferAbsentObjectionToDefendant({
+            currentStage: ctx.stageName,
+            stages: ctx.stages,
+            judgmentForm: ctx.judgmentForm,
+            lastJudgmentType: ctx.lastJudgmentType,
+            finalDecision: ctx.finalDecision,
+            opponentRegistration: true,
+        })
+    ) {
+        methods = methods.filter((method) => method !== 'اعتراض غيابي');
     }
 
     if (ctx.appealRoute && !isAppellateAppealAllowed(ctx.appealRoute)) {
@@ -404,11 +459,27 @@ export function shouldShowOpponentAppealRegisterButton(
         status?: string | null;
     } | null,
     fileStatus?: string | null,
+    representedParty?: string | null,
 ): boolean {
     if (!stage?.isPleadingsClosed) return false;
     if (stage.wasReopened) return false;
     if (stage.status === 'locked' || stage.status === 'completed') return false;
-    if (stage.stageName && !isFirstInstanceStageName(stage.stageName)) return false;
+    if (stage.stageName && isAbsentObjectionStageName(stage.stageName)) {
+        return stage.awaitingOpponentAppeal === true;
+    }
+    const stageName = String(stage.stageName ?? '').trim();
+    const isPersonalCoreStage =
+        isPersonalStatusCoreStage(stageName) && !isAbsentObjectionStageName(stageName);
+
+    if (stageName && !isPleadingStageName(stageName) && !isPersonalCoreStage) return false;
+    if (
+        stageName
+        && !isAppealStageName(stageName)
+        && !isBeginningPleadingStageName(stageName)
+        && !isPersonalCoreStage
+    ) {
+        return false;
+    }
 
     if (stage.awaitingOpponentAppeal === true) return true;
 
@@ -420,6 +491,14 @@ export function shouldShowOpponentAppealRegisterButton(
     }
 
     if (fd.includes('محسومة ضد الموكل') || fd.includes('ضد الموكل') || fd.includes('رد الدعوى كلياً')) {
+        return false;
+    }
+
+    if (
+        fd.includes('إجابة الدعوى')
+        && representedParty
+        && !isPlaintiffRepresentedParty(representedParty)
+    ) {
         return false;
     }
 
@@ -455,6 +534,15 @@ export function resolveLawyerSide(
         lawyer?: { isMyOffice?: boolean };
     }>,
 ): 'المدعي' | 'المدعى عليه' | null {
+    const client = resolveClientMarkedParty(parties);
+    if (client) {
+        const role = String(client.role ?? '');
+        if (isAbsentObjectedRole(role) || isAbsentObjectorRole(role)) {
+            const underlying = extractParentheticalUnderlyingSide(role);
+            if (underlying) return underlying;
+        }
+    }
+
     const fromMarker = resolveClientPartyBucket(parties);
     if (fromMarker === 'plaintiff') return 'المدعي';
     if (fromMarker === 'defendant') return 'المدعى عليه';

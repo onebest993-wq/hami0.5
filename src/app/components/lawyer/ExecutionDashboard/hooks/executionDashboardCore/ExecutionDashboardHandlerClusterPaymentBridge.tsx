@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -6,6 +5,10 @@ import {
 import { useExecutionDashboardCoreHandlerClusterCoerciveFoundation } from './useExecutionDashboardCoreHandlerClusterCoerciveFoundation';
 import { useExecutionDashboardPaymentHandlers } from './useExecutionDashboardPaymentHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 type PaymentHandlersInput = Parameters<typeof useExecutionDashboardPaymentHandlers>[0];
 
@@ -53,9 +56,13 @@ export function ExecutionDashboardHandlerClusterPaymentBridge({
         ),
     });
 
-    useEffect(() => {
-        onCluster({ paymentHandlers });
-    }, [onCluster, paymentHandlers]);
+    const cluster: Record<string, unknown> = { paymentHandlers };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        handlerBagKeyFingerprint(paymentHandlers as Record<string, unknown>),
+        onCluster,
+    );
 
     return null;
 }

@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 31 — boot/props/static/computed tail for buildExecutionDashboardCoreRuntimeVars */
 import { debug } from '@/app/utils/debug';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
@@ -26,18 +25,21 @@ import { timelineDebtorMetadata } from '@/app/utils/timelineDebtorScope';
 import { useExecutionDashboardStore, isDebtorRowEmployee, debtorEmploymentToggleMenuLabel } from '@/app/stores';
 import { bindHorizontalWheelToScroll } from '../../helpers';
 import type { ExecutionDashboardProps } from '../../types';
+import type { ExecutionDashboardCoreBootPipelineValue } from './executionDashboardCoreBootPipelineTypes';
+import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
 
 export function buildExecutionDashboardCoreRuntimeTailInput(p: {
-    boot: Record<string, unknown>;
+    boot: ExecutionDashboardCoreBootPipelineValue;
     props: Pick<ExecutionDashboardProps, 'file' | 'executionId' | 'onClose' | 'onUpdate'>;
     specificDeliveryConvertedAmount: number | null;
     specificDeliveryFinancialized: boolean;
     financialStatus: unknown;
     daysRemainingInGracePeriod: number;
     statuteStatus: { daysRemaining?: number } | null | undefined;
-    followupOrchestrator: Record<string, unknown>;
+    followupOrchestrator: ExecutionFollowupOrchestratorSlice;
+    evictionPremisesUseResolved?: string;
 }) {
-    const { boot, props, followupOrchestrator } = p;
+    const { boot, props, followupOrchestrator, evictionPremisesUseResolved = '' } = p;
     const { file, executionId, onClose, onUpdate } = props;
     const executionData = boot.executionData as ExecutionFile | null | undefined;
     const modals = boot.modals as { showCoerciveModal?: boolean } | undefined;
@@ -109,10 +111,12 @@ export function buildExecutionDashboardCoreRuntimeTailInput(p: {
         guarantorFollowupAwaitingDetailsSave,
         executionAppealBanner: boot.executionAppealBanner,
         vacateDeadline: followupOrchestrator.evictionVacateDeadlineLocal,
-        residentialGracePeriodSaved: Boolean(
-            followupOrchestrator.evictionResidentialGracePeriodStart &&
-                followupOrchestrator.evictionVacateDeadlineLocal,
-        ),
+        residentialGracePeriodSaved: hasActiveResidentialEvictionGrace({
+            premisesUse: evictionPremisesUseResolved,
+            gracePeriodStart: followupOrchestrator.evictionResidentialGracePeriodStart,
+            vacateDeadline: followupOrchestrator.evictionVacateDeadlineLocal,
+            manuallyEndedAt: followupOrchestrator.evictionResidentialGraceManuallyEndedAt,
+        }),
         isAssignmentDeadlinePassed,
         debtorSummonsMarkerLocal: boot.debtorSummonsMarkerLocal,
         setDebtorSummonsMarkerLocal: boot.setDebtorSummonsMarkerLocal,

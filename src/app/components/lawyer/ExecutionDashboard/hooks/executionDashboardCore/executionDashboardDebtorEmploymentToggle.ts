@@ -1,34 +1,32 @@
-/** تبديل صفة المدين — منطق خالص قابل للـ dynamic import */
+import type { Dispatch, SetStateAction } from 'react';
 import type { Debtor, ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
     buildDebtorEmploymentTogglePatch,
     isDebtorRowEmployee,
     useExecutionDashboardStore,
-} from '@/app/stores/executionDashboardStore';
-import { getLocalTodayYmd } from './executionDashboardCoreDate';
+} from '@/app/stores';
+import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { DebtorWorkspaceEntry } from '../useDebtorWorkspaceEntries';
 
-export type RunDebtorEmploymentToggleInput = {
-    executionDataRef: { current: ExecutionFile | null | undefined };
+export type RunDebtorEmploymentToggleParams = {
+    base: ExecutionFile | null | undefined;
     debtorWorkspaceEntries: DebtorWorkspaceEntry[];
-    nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    showToast: (message: string, type?: string) => void;
-    setTimelineEvents: (updater: (prev: TimelineEvent[]) => TimelineEvent[]) => void;
     ctx?: { debtorKey: string; isPrimary: boolean };
+    nextTimelineId: () => string;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean | void;
+    showToast: (message: string, type?: string) => void;
+    setTimelineEvents?: Dispatch<SetStateAction<TimelineEvent[]>>;
 };
 
-export function runDebtorEmploymentToggle(input: RunDebtorEmploymentToggleInput): void {
-    const {
-        executionDataRef,
-        debtorWorkspaceEntries,
-        nextTimelineId,
-        persistExecutionMerge,
-        showToast,
-        setTimelineEvents,
-        ctx,
-    } = input;
-    const base = executionDataRef.current;
+export function runDebtorEmploymentToggle({
+    base,
+    debtorWorkspaceEntries,
+    ctx,
+    nextTimelineId,
+    persistExecutionMerge,
+    showToast,
+    setTimelineEvents,
+}: RunDebtorEmploymentToggleParams): void {
     if (!base?.id) return;
     const primaryK = debtorWorkspaceEntries[0]?.key;
     const debtorKeyRaw = String(ctx?.debtorKey ?? primaryK ?? '').trim();
@@ -77,12 +75,23 @@ export function runDebtorEmploymentToggle(input: RunDebtorEmploymentToggleInput)
         source: 'إدارة التنفيذ',
         metadata: { timelineDebtorKey: debtorKey },
     };
-    setTimelineEvents((prev) => {
-        const next = [event, ...(Array.isArray(prev) ? prev : [])];
-        const merged = { ...base, ...patch, timelineEvents: next } as ExecutionFile;
-        persistExecutionMerge({ ...patch, timelineEvents: next });
+
+    const commit = (nextTimeline: TimelineEvent[]) => {
+        const merged = { ...base, ...patch, timelineEvents: nextTimeline } as ExecutionFile;
+        persistExecutionMerge({ ...patch, timelineEvents: nextTimeline });
         useExecutionDashboardStore.getState().setCurrentFile(merged);
-        return next;
-    });
-    showToast(nextEmp ? 'تمت إعادة صفة الموظف.' : 'تم التحويل إلى كاسب.', 'success');
+        showToast(nextEmp ? 'تمت إعادة صفة الموظف.' : 'تم التحويل إلى كاسب.', 'success');
+    };
+
+    if (typeof setTimelineEvents === 'function') {
+        setTimelineEvents((prev) => {
+            const next = [event, ...prev];
+            commit(next);
+            return next;
+        });
+        return;
+    }
+
+    const prevTimeline = Array.isArray(base.timelineEvents) ? base.timelineEvents : [];
+    commit([event, ...prevTimeline]);
 }

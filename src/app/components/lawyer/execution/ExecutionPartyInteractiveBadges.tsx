@@ -39,8 +39,8 @@ import {
     Wallet,
     UserRoundX,
     Pin,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import { buildSeizedAssetDetailLines } from '@/app/utils/seizedAssetDisplay';
 import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -51,6 +51,7 @@ import {
     isTravelBanEnforceable,
     resolveExecutiveDetentionEffectiveJudgeOutcome,
     resolvePrimaryDebtorCoerciveStack,
+    PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS,
 } from './coerciveStackUtils';
 import { isSeizureAssetEnforceableForBadge } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureUtils';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
@@ -212,6 +213,98 @@ function saveHidden(executionId: string, ids: string[]) {
     } catch {
         /* ignore */
     }
+}
+
+function hiddenBadgeIdsEqual(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+        if (a[i] !== b[i]) return false;
+    }
+    return true;
+}
+
+function popoverLayoutsEqual(a: FixedPopoverLayout | null, b: FixedPopoverLayout | null): boolean {
+    if (a === b) return true;
+    if (!a || !b) return false;
+    return (
+        a.top === b.top &&
+        a.left === b.left &&
+        a.width === b.width &&
+        a.maxHeight === b.maxHeight
+    );
+}
+
+function buildExecutionBadgeContextKey(
+    ed: ExecutionFile | null | undefined,
+    reloadEpoch?: number,
+): string {
+    const parts: string[] = [String(reloadEpoch ?? 0)];
+    if (!ed) return parts.join('|');
+    parts.push(String(ed.updatedAt ?? ''));
+    parts.push(String(ed.debtorAttendedVoluntarily ?? ''));
+    parts.push(String(ed.voluntaryAttendanceCount ?? ''));
+    for (const key of PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS) {
+        parts.push(String((ed as Record<string, unknown>)[key] ?? ''));
+    }
+    return parts.join('|');
+}
+
+function memoBadgeSignalKey(b: MemoBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.anchor}|${b.graceExpired}|${b.remaining}`;
+}
+
+function publicationNoticeBadgeKey(b: PublicationNoticeBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return [
+        b.publicationDateYmd,
+        b.deadlineYmd,
+        b.periodEndedAt,
+        b.badgeHiddenAt,
+        b.recordedAt,
+        b.graceExpired,
+        b.newspaper1,
+        b.newspaper2,
+    ]
+        .map((x) => String(x ?? ''))
+        .join('|');
+}
+
+function regularTablighBadgeKey(b: RegularTablighBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.noticeDateYmd}|${b.purpose}`;
+}
+
+function taklifAssignmentBadgeKey(b: TaklifAssignmentBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.notifyDateYmd}|${b.deadlineYmd}|${b.phase}|${b.cycleGeneration ?? 0}`;
+}
+
+function absenceBadgeKey(b: AbsenceBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.label}|${b.className}`;
+}
+
+function evictionGraceBadgeKey(b: EvictionGraceBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.startYmd}|${b.endYmd}|${b.daysTotal}|${b.remainingDays}`;
+}
+
+function policeAssistanceBadgeKey(b: PoliceAssistanceBadgeInfo | null | undefined): string {
+    if (!b) return '';
+    return `${b.agencyName}|${b.dueYmd ?? ''}|${b.remainingDays ?? ''}`;
+}
+
+function guarantorFollowupKey(g: ExecutionFile['guarantor_followup'] | null | undefined): string {
+    if (!g) return '';
+    return [
+        g.guarantor_name,
+        g.guarantor_workplace,
+        g.guarantor_salary_iqd,
+        g.guarantor_deduction_iqd,
+    ]
+        .map((x) => String(x ?? ''))
+        .join('|');
 }
 
 function formatDateAr(isoOrYmd: string | undefined | null): string {
@@ -659,9 +752,19 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     const guarantorDeductionInputRef = useRef<HTMLInputElement>(null);
     const btnRefs = useRef<Record<string, HTMLButtonElement | null>>({});
     const [popoverPos, setPopoverPos] = useState<FixedPopoverLayout | null>(null);
+    const executionDataRef = useRef(executionData);
+    executionDataRef.current = executionData;
+    const visibleRef = useRef<PartyInteractiveBadge[]>([]);
+
+    const executionBadgeKey = buildExecutionBadgeContextKey(executionData, decisionsReloadEpoch);
+    const regularTablighSignalKey = regularTablighBadgeKey(regularTablighBadge);
+    const publicationNoticeSignalKey = publicationNoticeBadgeKey(publicationNoticeBadge);
+    const taklifAssignmentSignalKey = taklifAssignmentBadgeKey(taklifAssignmentBadge);
+    const guarantorFollowupSignalKey = guarantorFollowupKey(executionData?.guarantor_followup);
 
     useEffect(() => {
-        setHiddenLocal(loadHidden(executionId));
+        const loaded = loadHidden(executionId);
+        setHiddenLocal((prev) => (hiddenBadgeIdsEqual(prev, loaded) ? prev : loaded));
     }, [executionId]);
 
     const lastRegularTablighKeyRef = useRef<string>('');
@@ -669,9 +772,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     const lastTaklifKeyRef = useRef<string>('');
 
     useEffect(() => {
-        const k = regularTablighBadge
-            ? `${regularTablighBadge.noticeDateYmd}|${regularTablighBadge.purpose}`
-            : '';
+        const k = regularTablighSignalKey;
         if (!k) {
             lastRegularTablighKeyRef.current = '';
             return;
@@ -684,12 +785,10 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             });
         }
         lastRegularTablighKeyRef.current = k;
-    }, [executionId, regularTablighBadge]);
+    }, [executionId, regularTablighSignalKey]);
 
     useEffect(() => {
-        const k = publicationNoticeBadge
-            ? `${publicationNoticeBadge.publicationDateYmd}|${publicationNoticeBadge.deadlineYmd}`
-            : '';
+        const k = publicationNoticeSignalKey;
         if (!k) {
             lastPublicationKeyRef.current = '';
             return;
@@ -702,14 +801,10 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             });
         }
         lastPublicationKeyRef.current = k;
-    }, [executionId, publicationNoticeBadge]);
+    }, [executionId, publicationNoticeSignalKey]);
 
     useEffect(() => {
-        const k = taklifAssignmentBadge
-            ? `${taklifAssignmentBadge.notifyDateYmd}|${taklifAssignmentBadge.deadlineYmd}|${taklifAssignmentBadge.phase}|${
-                  taklifAssignmentBadge.cycleGeneration ?? 0
-              }`
-            : '';
+        const k = taklifAssignmentSignalKey;
         if (!k) {
             lastTaklifKeyRef.current = '';
             return;
@@ -722,24 +817,26 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             });
         }
         lastTaklifKeyRef.current = k;
-    }, [executionId, taklifAssignmentBadge]);
+    }, [executionId, taklifAssignmentSignalKey]);
 
     useEffect(() => {
         if (openId !== 'guarantor_followup') return;
-        const g = executionData?.guarantor_followup;
-        setGuarantorNameDraft(g?.guarantor_name?.trim() ?? '');
-        setGuarantorWorkplaceDraft(g?.guarantor_workplace?.trim() ?? '');
-        setGuarantorSalaryDraft(
+        const g = executionDataRef.current?.guarantor_followup;
+        const name = g?.guarantor_name?.trim() ?? '';
+        const workplace = g?.guarantor_workplace?.trim() ?? '';
+        const salary =
             g?.guarantor_salary_iqd != null && !Number.isNaN(Number(g.guarantor_salary_iqd))
                 ? String(g.guarantor_salary_iqd)
-                : ''
-        );
-        setGuarantorDeductionDraft(
+                : '';
+        const deduction =
             g?.guarantor_deduction_iqd != null && !Number.isNaN(Number(g.guarantor_deduction_iqd))
                 ? String(g.guarantor_deduction_iqd)
-                : ''
-        );
-    }, [openId, executionData?.guarantor_followup]);
+                : '';
+        setGuarantorNameDraft((prev) => (prev === name ? prev : name));
+        setGuarantorWorkplaceDraft((prev) => (prev === workplace ? prev : workplace));
+        setGuarantorSalaryDraft((prev) => (prev === salary ? prev : salary));
+        setGuarantorDeductionDraft((prev) => (prev === deduction ? prev : deduction));
+    }, [openId, guarantorFollowupSignalKey]);
 
     useEffect(() => {
         if (openId !== 'guarantor_followup') return;
@@ -774,7 +871,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             buildPartyBadgeDefinitions({
                 party,
                 isPrimaryDebtor,
-                executionData,
+                executionData: executionDataRef.current,
                 activeCoerciveActions,
                 seizedAssets,
                 realEstateSeizureAssets,
@@ -798,7 +895,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         [
             party,
             isPrimaryDebtor,
-            executionData,
+            executionBadgeKey,
             debtorIsEmployee,
             activeCoerciveActions,
             seizedAssets,
@@ -821,11 +918,12 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
 
     const extraDefs = useMemo(() => {
         const extra: PartyInteractiveBadge[] = [];
+        const ed = executionDataRef.current;
         const nowMs = Date.now();
         const isAttendedGlobal =
-            Boolean(debtorAttendedVoluntarilyProp ?? executionData?.debtorAttendedVoluntarily) ||
-            (voluntaryAttendanceCountProp ?? executionData?.voluntaryAttendanceCount ?? 0) > 0;
-        const dossierUpdatedAt = String(executionData?.updatedAt ?? '').trim();
+            Boolean(debtorAttendedVoluntarilyProp ?? ed?.debtorAttendedVoluntarily) ||
+            (voluntaryAttendanceCountProp ?? ed?.voluntaryAttendanceCount ?? 0) > 0;
+        const dossierUpdatedAt = String(ed?.updatedAt ?? '').trim();
         const isOneDayPassedFrom = (isoOrYmd: string): boolean => {
             const s = String(isoOrYmd || '').trim();
             if (!s) return false;
@@ -857,7 +955,7 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         const suppressAbsenceCoercive =
             party === 'debtor' && isPrimaryDebtor
                 ? resolvePrimaryDebtorCoerciveStack({
-                      executionData,
+                      executionData: ed,
                       decisionsExecutionId: executionId,
                       personalCoerciveDecisionBadges,
                       debtorArrested,
@@ -1078,9 +1176,9 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
     }, [
         party,
         isPrimaryDebtor,
-        memoBadge,
-        publicationNoticeBadge,
-        absenceBadge,
+        memoBadgeSignalKey(memoBadge),
+        publicationNoticeSignalKey,
+        absenceBadgeKey(absenceBadge),
         showSummonsBadge,
         onMemoActivate,
         onPublicationNoticeActivate,
@@ -1089,20 +1187,20 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
         onDismissRegularTablighBadge,
         onDismissTaklifAssignmentBadge,
         onDismissAbsence,
-        evictionGraceBadge,
+        evictionGraceBadgeKey(evictionGraceBadge),
         onEvictionGraceActivate,
         onCompleteEvictionGrace,
-        policeAssistanceBadge,
+        policeAssistanceBadgeKey(policeAssistanceBadge),
         onPoliceAssistanceActivate,
         onCompletePoliceAssistance,
-        executionData,
+        executionBadgeKey,
         executionId,
         debtorAttendedVoluntarilyProp,
         voluntaryAttendanceCountProp,
         personalCoerciveDecisionBadges,
         debtorArrested,
         forcedAttendancePending,
-        taklifAssignmentBadge,
+        taklifAssignmentSignalKey,
         onTaklifAssignmentActivate,
         activeDebtorKey,
         primaryDebtorKey,
@@ -1120,6 +1218,8 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             return a.shortLabel.localeCompare(b.shortLabel, 'ar');
         });
     }, [allDefs, hiddenLocal]);
+
+    visibleRef.current = visible;
 
     const hideBadge = useCallback(
         (b: PartyInteractiveBadge) => {
@@ -1140,13 +1240,13 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
 
     const updatePopoverPosition = useCallback(() => {
         if (!openId) {
-            setPopoverPos(null);
+            setPopoverPos((prev) => (prev === null ? prev : null));
             return;
         }
         const btn = btnRefs.current[openId];
         if (!btn) return;
         const r = btn.getBoundingClientRect();
-        const openBadgeHit = visible.find((x) => x.id === openId);
+        const openBadgeHit = visibleRef.current.find((x) => x.id === openId);
         const lineCount = openBadgeHit?.detailLines?.length ?? 0;
         const isGuarantorForm = openId === 'guarantor_followup';
         const estimatedHeight = isGuarantorForm ? 320 : Math.min(280, 88 + lineCount * 22);
@@ -1156,19 +1256,18 @@ export const ExecutionPartyInteractiveBadges: React.FC<ExecutionPartyInteractive
             gap: 4,
         });
         const el = popoverRef.current;
-        if (el) {
-            setPopoverPos(refinePopoverLayoutWithMeasuredHeight(base, r, el.offsetHeight, 4));
-        } else {
-            setPopoverPos(base);
-        }
-    }, [openId, visible]);
+        const nextLayout = el
+            ? refinePopoverLayoutWithMeasuredHeight(base, r, el.offsetHeight, 4)
+            : base;
+        setPopoverPos((prev) => (popoverLayoutsEqual(prev, nextLayout) ? prev : nextLayout));
+    }, [openId]);
 
     useLayoutEffect(() => {
         if (!openId) return;
         updatePopoverPosition();
         const id = requestAnimationFrame(() => updatePopoverPosition());
         return () => cancelAnimationFrame(id);
-    }, [openId, updatePopoverPosition, visible]);
+    }, [openId, updatePopoverPosition]);
 
     useEffect(() => {
         if (!openId) return;

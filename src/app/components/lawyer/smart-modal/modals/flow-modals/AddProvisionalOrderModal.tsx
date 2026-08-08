@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Lock,
     X,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 
 
 

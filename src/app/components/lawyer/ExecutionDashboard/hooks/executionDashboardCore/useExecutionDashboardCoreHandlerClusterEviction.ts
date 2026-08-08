@@ -13,12 +13,16 @@ import { useEvictionLawyerFeeOutcome } from '../useEvictionLawyerFeeOutcome';
 import { useEvictionProcedures } from '../useEvictionProcedures';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import type { HandlerClusterPushTimelineDeps } from './executionDashboardCoreHandlerClusterTypes';
+import type { OpenFollowupModalPersistedFn } from '../../utils/followupModalOpen';
 
 export function useExecutionDashboardCoreHandlerClusterEviction(
     c: ExecutionDashboardCoreHandlerClusterInput,
     deps: HandlerClusterPushTimelineDeps,
 ) {
     const { pushTimelineEvent } = deps;
+
+    const openFollowupModalPersisted = (c as { openFollowupModalPersisted?: OpenFollowupModalPersistedFn })
+        .openFollowupModalPersisted;
 
     const {
         EVICTION_WORKFLOW_BY_ACTION_ID,
@@ -280,6 +284,7 @@ export function useExecutionDashboardCoreHandlerClusterEviction(
         setPoliceAssistanceRequestTitle,
         setPoliceAssistanceAgencyDraft,
         setPoliceAssistanceModalOpen,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         setUnifiedModalTab,
     });
@@ -316,6 +321,7 @@ const {
         setPoliceAssistanceModalOpen,
         executionDataRef,
         setShowDecisionsModal,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         setUnifiedModalTab,
         setFollowupExpandProcedureKey,
@@ -364,6 +370,7 @@ const {
         setTimelineEvents,
         setShowCoerciveActionForm,
         setSeizureDetailCompletion,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         setUnifiedModalTab,
         executionDataRef,
@@ -459,6 +466,7 @@ const {
         evictionProceduresHandlers,
         evictionHeirsMemoHandlers,
         showResidentialEvictionGraceControl,
+        residentialGracePeriodSaved,
         showResidentialGraceEarlyEndRequest,
         residentialGraceAllowsFieldwork,
         showBreakInventoryRequest,

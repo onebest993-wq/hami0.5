@@ -12,6 +12,10 @@ vi.mock('@/app/services/storage/lawyerStorageRuntime', () => ({
     },
 }));
 
+vi.mock('@/lib/forumService.js', () => ({
+    resolveEncryptedForumImageUrl: vi.fn(async () => 'blob:forum-decrypted'),
+}));
+
 vi.mock('@/app/services/forumBlobStore', () => ({
     FORUM_IDB_PREFIX: 'idb:forum:',
     buildForumIdbPath: (key: string) => `idb:forum:${key}`,
@@ -53,6 +57,19 @@ describe('forumAttachmentService', () => {
             mimeType: 'image/jpeg',
         });
         expect(url).toBe('https://cdn.example/users/u1/drafts/photo.jpg');
+    });
+
+    it('resolveCommunityAttachmentUrl يستخدم forumService للمرفقات المشفرة', async () => {
+        const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
+        const url = await resolveCommunityAttachmentUrl({
+            type: 'image',
+            name: 'secret.jpg',
+            storagePath: 'user-1/images/x.enc',
+            bucket: 'forum-media',
+            encrypted: true,
+        });
+        expect(resolveEncryptedForumImageUrl).toHaveBeenCalled();
+        expect(url).toBe('blob:forum-decrypted');
     });
 
     it('prepareForumAttachmentForPublish يعود إلى IDB المحلي إذا فشل الرفع السحابي', async () => {

@@ -1,5 +1,5 @@
 import type { MutableRefObject } from 'react';
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
@@ -23,8 +23,8 @@ import {
     FORUM_PUBLISH_FAB_SLOT,
 } from '@/app/components/lawyer/CommunityScreen/forumPlumTheme';
 import { prefetchCommunityAddQuestionOverlay } from '@/app/components/lawyer/CommunityScreen/communityOverlayPrefetch';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HomePlusIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
+import { useForumSectionSwipe } from '@/app/components/lawyer/CommunityScreen/hooks/useForumSectionSwipe';
 
 export type CommunityScreenBodyProps = {
     onBack?: () => void;
@@ -195,13 +195,26 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
         canPublishPost,
     } = props;
 
-    const [repositoryMounted, setRepositoryMounted] = useState(activeSection === 'repository');
+    const [repositoryMounted, setRepositoryMounted] = useState(
+        () => activeSection === 'repository',
+    );
     useEffect(() => {
-        if (activeSection === 'repository') {
-            prefetchCommunityRepositorySection();
-            setRepositoryMounted(true);
-        }
-    }, [activeSection]);
+        if (!forumSurfaceOpen) return;
+        prefetchCommunityRepositorySection();
+        setRepositoryMounted(true);
+    }, [forumSurfaceOpen]);
+
+    const sectionSwipeContainerRef = useRef<HTMLDivElement | null>(null);
+    const sectionSwipeEnabled =
+        forumSurfaceOpen && !showFollowingPanel && !(activeSection === 'groups' && activeGroupId);
+    const { swipeHandlers } = useForumSectionSwipe(sectionSwipeContainerRef, {
+        activeSection,
+        onSectionChange: (section) => {
+            if (section === 'repository') prefetchCommunityRepositorySection();
+            onSectionChange(section);
+        },
+        enabled: sectionSwipeEnabled,
+    });
 
     const postListShared = {
         currentUserId,
@@ -275,7 +288,12 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                 />
             ) : null}
 
-            <div className="flex-1 overflow-y-auto scrollbar-hide pb-36">
+            <div
+                ref={sectionSwipeContainerRef}
+                data-testid="forum-section-swipe-surface"
+                className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide pb-36 touch-pan-y"
+                {...swipeHandlers}
+            >
                 <div
                     data-testid="forum-section-forum"
                     className={activeSection === 'forum' ? 'block' : 'hidden'}
@@ -322,6 +340,7 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
                                 sortBy={repositorySortBy}
                                 selectedTag={repositorySelectedTag}
                                 surfaceOpen={forumSurfaceOpen}
+                                repositoryActive={activeSection === 'repository'}
                             />
                         </Suspense>
                     ) : null}
@@ -382,20 +401,4 @@ export function CommunityScreenBody(props: CommunityScreenBodyProps) {
             ) : null}
         </>
     );
-}
-
-export function openForumAddQuestionGuard(
-    currentUserId: string | null,
-    onOpen: () => void,
-    options?: { isBanned?: boolean },
-): void {
-    if (!currentUserId) {
-        SmartToast.warning('سجّل الدخول أولاً');
-        return;
-    }
-    if (options?.isBanned) {
-        SmartToast.warning('حسابك محظور من النشر في المنتدى');
-        return;
-    }
-    onOpen();
 }

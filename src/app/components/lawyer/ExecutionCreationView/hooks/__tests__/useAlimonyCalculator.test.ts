@@ -4,6 +4,7 @@ import {
     computePastAlimonyDurationMonths,
     computePastAlimonyAmount,
     diffDaysBetween,
+    resolveAlimonyCalculatorInsights,
     roundAlimonyAmount,
     type AlimonyPastLawSystem,
 } from '../useAlimonyCalculator';
@@ -57,6 +58,35 @@ describe('computePastAlimonyDurationMonths (compat)', () => {
         const r = computePastAlimonyDurationMonths('2020-01-01', '2026-06-01', LAW_1959);
         expect(r.billableMonths).toBe(12);
         expect(r.pastYearCapApplied).toBe(true);
+    });
+});
+
+describe('resolveAlimonyCalculatorInsights', () => {
+    it('detects execution date before lawsuit date', () => {
+        const insights = resolveAlimonyCalculatorInsights({
+            alimonyBeneficiary: 'زوجة فقط',
+            alimonyLawsuitDate: '2026-08-05',
+            alimonyExecutionDate: '2026-02-05',
+            alimonyWifeMonthly: '250000',
+            alimonyChildrenMonthly: '',
+            alimonyChildrenCount: '1',
+        });
+        expect(insights.status).toBe('execution_before_lawsuit');
+        expect(insights.isExecutionAfterLawsuit).toBe(false);
+        expect(insights.hints.some((h) => h.includes('يسبق'))).toBe(true);
+    });
+
+    it('reports ready state with day count', () => {
+        const insights = resolveAlimonyCalculatorInsights({
+            alimonyBeneficiary: 'زوجة فقط',
+            alimonyLawsuitDate: '2026-02-05',
+            alimonyExecutionDate: '2026-08-05',
+            alimonyWifeMonthly: '250000',
+            alimonyChildrenMonthly: '',
+            alimonyChildrenCount: '1',
+        });
+        expect(insights.status).toBe('ready');
+        expect(insights.daysBetween).toBeGreaterThan(0);
     });
 });
 

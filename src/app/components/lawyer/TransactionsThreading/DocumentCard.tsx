@@ -1,4 +1,4 @@
-import { FileText, MoreVertical, Trash2 } from 'lucide-react';
+import { FileText, MoreVertical, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { TransactionDocument } from '@/app/modules/transactionsThreading/types';
 import {
     TransactionsDropdownMenu,

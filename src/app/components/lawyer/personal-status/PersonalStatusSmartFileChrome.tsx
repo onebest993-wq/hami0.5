@@ -1,8 +1,9 @@
-import { Edit2, Lock, Trash2 } from 'lucide-react';
+import { Edit2, Lock, Trash2 } from '@/app/components/ui/lucideIcons';
 import { buildPersonalStatusChromeStageStripItems } from './personalStatusStageDisplay';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smart-modal/smartFile/civilLawsuitTestIds';
 import type { SmartFileChromeProps } from '../smart-modal/layout/SmartFileChrome';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 import {
     PS_CHROME_BAR,
     PS_CHROME_BTN,
@@ -38,6 +39,7 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
     const stageStripItems = buildPersonalStatusChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
     const dossierBack = onDossierBack ?? onClose;
     const dossierExit = onDossierExit ?? onClose;
+    const navVisibility = resolveDossierHeaderNavVisibility(isTrashOpen);
 
     return (
         <>
@@ -46,6 +48,8 @@ export function PersonalStatusSmartFileChrome(props: SmartFileChromeProps) {
                     <DossierHeaderNavButtons
                         onBack={dossierBack}
                         onExit={dossierExit}
+                        showBack={navVisibility.showBack}
+                        showExit={navVisibility.showExit}
                         backTestId={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
                         exitTestId={CIVIL_LAWSUIT_TEST_IDS.dossierExit}
                     />

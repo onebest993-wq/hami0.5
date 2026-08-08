@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "description": "Baseline أداء boot مسار الدعاوى — الدفعة 2",
+  "bootLoadsActiveOnly": true,
+  "lazySegments": ["archived", "trash"],
+  "indexCountsO1": true,
+  "deltaPersist": true,
+  "targets": {
+    "bootActiveParseMaxItems": 500,
+    "indexEntryMaxBytes": 256
+  },
+  "verifiedAt": "2026-08-04"
+}

@@ -30,6 +30,48 @@ export function fingerprintExecutionOverlayData(value: unknown): string {
             evictionVolEnd: data.eviction_voluntary_period_end_declared ?? null,
             noticeVolEnd: data.notice_voluntary_period_end_declared ?? null,
             maritalFurnitureFin: maritalFurnitureFinancialContentSignature(data),
+            partySig: (() => {
+                const creditors = Array.isArray(data.creditors) ? data.creditors : [];
+                const debtors = Array.isArray(data.debtors) ? data.debtors : [];
+                const slice = (rows: unknown[]) =>
+                    rows
+                        .map((p) => {
+                            const row = p as { id?: string; name?: string; phone?: string };
+                            return `${String(row.id || '')}:${String(row.name || '')}:${String(row.phone || '')}`;
+                        })
+                        .join('|');
+                return `${slice(creditors)};;${slice(debtors)}`;
+            })(),
+            otherPartyLogSig: (() => {
+                const log = data.other_party_actions_log;
+                if (!Array.isArray(log) || log.length === 0) return null;
+                return log
+                    .map(
+                        (row) =>
+                            `${String((row as { id?: string }).id || '')}:${String((row as { savedAt?: string }).savedAt || '')}:${String((row as { outcome?: string }).outcome || '')}`,
+                    )
+                    .join('|');
+            })(),
+            seizedMovablesSig: (() => {
+                const rows = data.seizedMovables;
+                if (!Array.isArray(rows) || rows.length === 0) return null;
+                return rows
+                    .map(
+                        (row) =>
+                            `${String((row as { id?: string }).id || '')}:${String((row as { decisionRowId?: string }).decisionRowId || '')}:${String((row as { status?: string }).status || '')}`,
+                    )
+                    .join('|');
+            })(),
+            seizedPropertiesSig: (() => {
+                const rows = data.seizedProperties;
+                if (!Array.isArray(rows) || rows.length === 0) return null;
+                return rows
+                    .map(
+                        (row) =>
+                            `${String((row as { id?: string }).id || '')}:${String((row as { decisionRowId?: string }).decisionRowId || '')}:${String((row as { status?: string }).status || '')}`,
+                    )
+                    .join('|');
+            })(),
         });
     } catch {
         result = String(data.id ?? '');

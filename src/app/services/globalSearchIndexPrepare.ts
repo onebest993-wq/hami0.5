@@ -5,6 +5,7 @@ import { STORAGE_KEYS } from '@/app/utils/constants';
 import type { BuildGlobalSearchIndexInput, PreparedDocsVaultDoc, PreparedVaultNote } from '@/app/services/globalSearchIndex';
 import { buildExecutionDeepSearchEntries } from '@/app/services/executionSearchIndex';
 import { fileSearchIndexSignature } from '@/app/services/search/globalSearchFileSliceCache';
+import { lawsuitLifecycleIndexSignature } from '@/app/services/search/globalSearchIndexLawsuitLifecycleEntries';
 import { djb2Hash } from '@/app/utils/djb2';
 
 type GlobalNoteRow = { id: number | string; title?: string; body?: string; type?: string };
@@ -80,11 +81,14 @@ export function computeGlobalSearchIndexKey(input: BuildGlobalSearchIndexInput):
             .join('~'),
     );
 
+    const lawsuitIndexSig = djb2Hash(lawsuitLifecycleIndexSignature(input.lawsuitLifecycleIndex));
+
     return [
         input.userId ?? '',
         input.cacheGeneration ?? 0,
         input.files.length,
         filesSig,
+        lawsuitIndexSig,
         input.executionFiles?.length ?? 0,
         executionFilesSig,
         input.globalNotes.length,

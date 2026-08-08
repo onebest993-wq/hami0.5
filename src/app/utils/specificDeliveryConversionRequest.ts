@@ -7,7 +7,7 @@ import {
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     isEvictionProcedureRowPending,
-    patchExecutorDecisionRow,
+    patchExecutorDecisionRowReliable,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
 
@@ -58,10 +58,15 @@ export function sendInitialSpecificDeliveryConversionRequest(input: {
 }): { ok: boolean; decisionId?: string } {
     try {
         let arr = readExecutorDecisionsArray(input.executionId);
-        const existing = arr.find(
-            (row) =>
-                isSpecificDeliveryConversionDecisionRow(row) && !isExecutorHubRowSuperseded(row)
-        );
+        const itemId = String(input.itemId || '').trim();
+        const existing = arr.find((row) => {
+            if (!isSpecificDeliveryConversionDecisionRow(row) || isExecutorHubRowSuperseded(row)) {
+                return false;
+            }
+            if (!itemId) return true;
+            const payload = parseSpecificDeliveryConversionPayload(row as Record<string, unknown>);
+            return String(payload.itemId || '').trim() === itemId;
+        });
         if (existing) {
             if (isEvictionProcedureRowPending(existing)) return { ok: false };
             const saved = Boolean(
@@ -87,7 +92,6 @@ export function sendInitialSpecificDeliveryConversionRequest(input: {
         }
         const decisionId = newConversionDecisionId();
         const itemName = String(input.itemName || '').trim();
-        const itemId = String(input.itemId || '').trim();
         const bodyExtra = itemName ? `\nالشيء: ${itemName}` : '';
         const row = {
             id: decisionId,
@@ -136,12 +140,12 @@ export function completeSpecificDeliveryConversionApproval(input: {
         (item ? `الشيء المُعلَن هلاكه: ${item}\n` : '') +
         `تم تسجيل الهلاك — يُستكمل تقدير القيمة السوقية عبر انتداب الخبير.`;
 
-    const patched = patchExecutorDecisionRow(input.executionId, decisionId, {
+    const patched = patchExecutorDecisionRowReliable(input.executionId, decisionId, {
         body,
         specificDeliveryConversionSavedAt: new Date().toISOString(),
         specificDeliveryConversionAmount: null,
     });
-    return patched ? { ok: true } : { ok: false };
+    return patched.ok ? { ok: true } : { ok: false };
 }
 
 export function finalizeSpecificDeliveryConversionRequest(input: {
@@ -160,12 +164,12 @@ export function finalizeSpecificDeliveryConversionRequest(input: {
         (item ? `الشيء: ${item}\n` : '') +
         `القيمة النقدية للشيء: ${amount.toLocaleString('ar-IQ')} د.ع.`;
 
-    const patched = patchExecutorDecisionRow(input.executionId, decisionId, {
+    const patched = patchExecutorDecisionRowReliable(input.executionId, decisionId, {
         body,
         specificDeliveryConversionSavedAt: new Date().toISOString(),
         specificDeliveryConversionAmount: amount,
     });
-    return patched ? { ok: true, amount } : { ok: false };
+    return patched.ok ? { ok: true, amount } : { ok: false };
 }
 
 export function parseSpecificDeliveryConversionPayload(

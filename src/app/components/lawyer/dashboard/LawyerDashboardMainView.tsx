@@ -10,42 +10,40 @@ import React, {
 import { LawyerDashboardShell } from '@/app/components/lawyer/dashboard/LawyerDashboardShell';
 import { Header } from '@/app/components/lawyer/LawyerDashboardParts/components/Header';
 import type { LawyerDashboardCoreViewModel } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
-import { markDashboardInteractiveOnce } from '@/app/bootstrap/bootMetrics';
-import { onBootContentReady, scheduleBootContentReadyAfterStyles } from '@/app/bootstrap/bootReveal';
+import { markDashboardInteractiveOnce, markBootPhase } from '@/app/bootstrap/bootMetrics';
+import { onBootContentReady, scheduleBootContentReadyAfterStyles, isDemoShellAuthBuild, isBootRevealDone, DASHBOARD_SHELL_PAINTED_EVENT } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredAppStylesLoaded } from '@/app/runtime/deferredAppStyles';
 import { bindFramePacingGuard } from '@/app/runtime/framePacingGuard';
 import { bindBodyScrollLockReconcile, useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { blurFocusWithin } from '@/app/utils/inertProps';
 import { DashboardTabSurface } from '@/app/components/lawyer/dashboard/schedule/DashboardTabSurface';
 import {
     ExecutionArchiveInstantChrome,
 } from '@/app/components/lawyer/dashboard/ExecutionArchiveInstantChrome';
 import { LawyerDashboardExecutionOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionOverlayEntry';
 import { LawyerDashboardExecutionDossierOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardExecutionDossierOverlayEntry';
-import { ProfileInstantShell } from '@/app/components/lawyer/RoyalLawyerProfile/ProfileInstantShell';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
+import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import {
     EXECUTION_DOSSIER_PRIME_HOST_EVENT,
     type ExecutionDossierPrimeHostDetail,
 } from '@/app/runtime/executionDossierPrimeHost';
 import { useLawyerExecutionOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerExecutionOverlayEscape';
 import { useLawyerNonExecArchiveEscape } from '@/app/hooks/lawyerDashboard/useLawyerNonExecArchiveEscape';
-import {
-    FieldTasksSheetFallback,
-    GlobalSearchOverlayLoadingFallback,
-} from '@/app/components/lawyer/LawyerDashboardParts/LazyFallback';
 import { LawyerDashboardSettingsOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSettingsOverlayEntry';
 import { LawyerDashboardCommunityOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCommunityOverlayEntry';
 import { LawyerDashboardTransactionsOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardTransactionsOverlayEntry';
+import { LawyerDashboardFieldTasksOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry';
 import { LawyerDashboardRepositoryOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardRepositoryOverlayEntry';
 import { LawyerDashboardLawsuitsOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardLawsuitsOverlayEntry';
+import { LawyerDashboardSmartFileOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSmartFileOverlayEntry';
+import { LawyerDashboardGlobalSearchOverlayEntry } from '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry';
+import { NotificationShell } from '@/app/components/lawyer/NotificationPanel/NotificationShell';
+import { ProfileTabHost } from '@/app/components/lawyer/dashboard/profile/ProfileTabHost';
 import { ScheduleTabHost } from '@/app/components/lawyer/dashboard/schedule/ScheduleTabHost';
-
-const LazyLawyerDashboardHomeTab = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/LawyerDashboardHomeTab').then((m) => ({
-        default: m.LawyerDashboardHomeTab as unknown as LazyComponent,
-    })),
-);
+import { LawyerDashboardHomeTab } from '@/app/components/lawyer/dashboard/LawyerDashboardHomeTab';
+import { isProfileShellSnappedOpen } from '@/app/services/profile/profileShellSnap';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 
 const LazyLawyerDashboardPostInteractiveRuntime = lazyWithRetry(() =>
     import('@/app/components/lawyer/dashboard/LawyerDashboardPostInteractiveRuntime').then((m) => ({
@@ -62,26 +60,6 @@ const LazyLawyerDashboardDeferredFeatureSurfaces = lazyWithRetry(() =>
 type LawyerDashboardMainViewProps = {
     model: Extract<LawyerDashboardCoreViewModel, { status: 'ready' }>;
 };
-
-const LazyNotificationShell = lazyWithRetry(() =>
-    import('@/app/components/lawyer/NotificationPanel/NotificationShell').then((m) => ({
-        default: m.NotificationShell as unknown as LazyComponent,
-    })),
-);
-
-const LazyLawyerDashboardProfileTab = lazyWithRetry(() =>
-    import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab').then((m) => ({
-        default: m.LawyerDashboardProfileTab as unknown as LazyComponent,
-    })),
-);
-
-const LazyFieldTasksOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardFieldTasksOverlayEntry as unknown as LazyComponent,
-    })),
-);
 
 /** نادر — لا يسحب motion/ConsolidationNavBar إلى stem البارد */
 const LazyConsolidationNavOverlayEntry = lazyWithRetry(() =>
@@ -108,14 +86,6 @@ const LazyExecutionCreateOverlayEntry = lazyWithRetry(() =>
     })),
 );
 
-const LazySmartFileOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardSmartFileOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardSmartFileOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
 const LazyNewCaseOverlayEntry = lazyWithRetry(() =>
     import(
         '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardNewCaseOverlayEntry'
@@ -124,19 +94,17 @@ const LazyNewCaseOverlayEntry = lazyWithRetry(() =>
     })),
 );
 
+const LazySparkShell = lazyWithRetry(() =>
+    import('@/app/spark/ui/SparkShell').then((m) => ({
+        default: m.SparkShell as unknown as LazyComponent,
+    })),
+);
+
 const LazyCriminalOverlayEntry = lazyWithRetry(() =>
     import(
         '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardCriminalOverlayEntry'
     ).then((m) => ({
         default: m.LawyerDashboardCriminalOverlayEntry as unknown as LazyComponent,
-    })),
-);
-
-const LazyGlobalSearchOverlayEntry = lazyWithRetry(() =>
-    import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardGlobalSearchOverlayEntry'
-    ).then((m) => ({
-        default: m.LawyerDashboardGlobalSearchOverlayEntry as unknown as LazyComponent,
     })),
 );
 
@@ -163,7 +131,11 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     const homeActive = homeTabProps.visible;
     /** لا تحميل chunk الأسطر المؤجلة/post-interactive قبل content-ready — إلا جلسة مستعادة/فتح فوري */
     const [postCriticalSurfacesMount, setPostCriticalSurfacesMount] = useState(
-        () => deferredFeatureSurfacesProps.earlyArm || deferredFeatureSurfacesProps.forceArm,
+        () =>
+            deferredFeatureSurfacesProps.earlyArm ||
+            deferredFeatureSurfacesProps.forceArm ||
+            isDemoShellAuthBuild() ||
+            isBootRevealDone(),
     );
     useEffect(() => {
         if (deferredFeatureSurfacesProps.forceArm) setPostCriticalSurfacesMount(true);
@@ -186,10 +158,12 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     const transactionsLive =
         overlaysBundle.overlays.showTransactions ||
         overlaysBundle.overlays.transactionsHostMounted;
-    const fieldTasksLive =
+    const fieldTasksSurfaceOpen =
         overlaysBundle.overlays.fieldTasksSheetOpen ||
+        overlaysBundle.overlays.showTasksManager;
+    const fieldTasksLive =
+        fieldTasksSurfaceOpen ||
         overlaysBundle.overlays.fieldTasksHostMounted ||
-        overlaysBundle.overlays.showTasksManager ||
         overlaysBundle.overlays.fieldTasksManagerHostMounted;
     const settingsLive =
         overlaysBundle.overlays.showSettings || overlaysBundle.overlays.settingsHostMounted;
@@ -201,10 +175,15 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         overlaysBundle.overlays.showGlobalSearch ||
         overlaysBundle.overlays.searchHostMounted;
 
+    const smartFileLive =
+        Boolean(overlaysBundle.dossier.activeFile) &&
+        overlaysBundle.dossier.activeFile?.type !== 'execution';
+
     /** مخزن التنفيذ — keep-alive مثل الدعاوى/المعاملات: مركّب مخفي بعد التسليح؛ الفتح = إظهار */
     const executionArchiveOpen = overlaysBundle.archive.archiveType === 'execution';
     const executionLive =
-        executionArchiveOpen || Boolean(overlaysBundle.overlays.executionArchiveHostMounted);
+        (executionArchiveOpen || Boolean(overlaysBundle.overlays.executionArchiveHostMounted)) &&
+        !smartFileLive;
     const nonExecArchiveLive = Boolean(
         overlaysBundle.archive.archiveType &&
             overlaysBundle.archive.archiveType !== 'execution',
@@ -214,22 +193,13 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
             ? overlaysBundle.dossier.activeFile
             : null;
 
-    /** keep-alive: ملف مركّب مسبقاً (hover/فتح سابق) — الفتح = إظهار بلا إعادة mount */
-    const [executionDossierHostFile, setExecutionDossierHostFile] = useState<FileData | null>(null);
-
-    useEffect(() => {
-        if (executionDossierLive) {
-            setExecutionDossierHostFile(executionDossierLive as FileData);
-        }
-    }, [executionDossierLive]);
-
+    /** تسليح hover فقط — تسخين chunks بلا تركيب بوابة مخفية (كانت تومض عند فتح الدعوى) */
     useEffect(() => {
         const onPrime = (event: Event) => {
             const detail = (event as CustomEvent<ExecutionDossierPrimeHostDetail>).detail;
             const raw = detail?.file;
             if (!raw || typeof raw !== 'object') return;
             if ((raw as { type?: unknown }).type !== 'execution') return;
-            setExecutionDossierHostFile(raw as FileData);
             void import('@/app/runtime/executionWorkspaceWarm')
                 .then((m) => m.warmExecutionDossier('intent'))
                 .catch(() => undefined);
@@ -238,18 +208,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         return () => window.removeEventListener(EXECUTION_DOSSIER_PRIME_HOST_EVENT, onPrime);
     }, []);
 
-    useEffect(() => {
-        if (executionLive || executionDossierLive) return;
-        const timer = window.setTimeout(() => setExecutionDossierHostFile(null), 45_000);
-        return () => window.clearTimeout(timer);
-    }, [executionLive, executionDossierLive]);
-
-    const executionDossierHostLive = Boolean(executionDossierLive || executionDossierHostFile);
-    const executionDossierHostFileResolved = (executionDossierLive ||
-        executionDossierHostFile) as FileData | null;
-    const smartFileLive =
-        Boolean(overlaysBundle.dossier.activeFile) &&
-        overlaysBundle.dossier.activeFile?.type !== 'execution';
+    const executionDossierOverlayLive = Boolean(executionDossierLive) && !smartFileLive;
     const executionCreateLive = overlaysBundle.executionCreate.isExecutionModalOpen;
     const newCaseLive = overlaysBundle.newCase.isNewCaseModalOpen;
     const consolidationNavLive =
@@ -261,16 +220,26 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     const criminalLive = Boolean(overlaysBundle.overlays.criminalDashboardCaseId);
 
     const closeExecutionArchive = useCallback(
-        () => overlaysBundle.archive.setArchiveType(null),
+        () =>
+            executeOverlaySnapClose({
+                commit: () => overlaysBundle.archive.setArchiveType(null),
+            }),
         [overlaysBundle.archive],
     );
     const closeExecutionDossier = useCallback(
-        () => overlaysBundle.dossier.setActiveFile(null),
+        () =>
+            executeOverlaySnapClose({
+                commit: () => overlaysBundle.dossier.setActiveFile(null),
+            }),
         [overlaysBundle.dossier],
     );
     const closeExecutionCreate = useCallback(() => {
-        overlaysBundle.executionCreate.setIsExecutionModalOpen(false);
-        overlaysBundle.archive.setArchiveType('execution');
+        executeOverlaySnapClose({
+            commit: () => {
+                overlaysBundle.executionCreate.setIsExecutionModalOpen(false);
+                overlaysBundle.archive.setArchiveType('execution');
+            },
+        });
     }, [overlaysBundle.archive, overlaysBundle.executionCreate]);
 
     useLawyerExecutionOverlayEscape({
@@ -283,7 +252,10 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     });
 
     const closeNonExecArchive = useCallback(
-        () => overlaysBundle.archive.setArchiveType(null),
+        () =>
+            executeOverlaySnapClose({
+                commit: () => overlaysBundle.archive.setArchiveType(null),
+            }),
         [overlaysBundle.archive],
     );
     useLawyerNonExecArchiveEscape({
@@ -293,8 +265,14 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
 
     useBodyScrollLock(true);
 
-    /* بعد أول paint للهيكل — لا نؤخّر طلاء الهيدر/المنزل بعمل layout ثقيل */
-    useEffect(() => {
+    useLayoutEffect(() => {
+        markBootPhase('dashboard-main-view');
+        try {
+            window.dispatchEvent(new Event(DASHBOARD_SHELL_PAINTED_EVENT));
+        } catch {
+            /* ignore */
+        }
+
         markDashboardInteractiveOnce();
         window.scrollTo(0, 0);
         document.documentElement.scrollTop = 0;
@@ -304,7 +282,8 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
 
         /* كشف الإقلاع حتى لو التبويب المستعاد ليس الرئيسية (ملف/تقويم) */
         const cancelReady = scheduleBootContentReadyAfterStyles(ensureDeferredAppStylesLoaded, {
-            maxWaitMs: 8_000,
+            maxWaitMs: isDemoShellAuthBuild() ? 800 : 8_000,
+            stylesDeferMs: 0,
         });
 
         return () => {
@@ -316,6 +295,10 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
     }, []);
 
     const settingsOpen = Boolean(overlaysBundle.overlays.showSettings);
+    const notificationsOpen = Boolean(notificationPanel.isOpen);
+    const profileSurfaceActive =
+        profileActive || (typeof document !== 'undefined' && isProfileShellSnappedOpen());
+    const underlayInert = (settingsOpen || notificationsOpen) && !profileSurfaceActive;
     const underlayRef = useRef<HTMLDivElement | null>(null);
 
     /* لا تسخين ArchivePortal/FileGrid على interactive — فقط hover/open بعد الكشف */
@@ -324,29 +307,26 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
         const el = underlayRef.current;
         if (!el) return;
         // inert عبر DOM — بلا تمرير props يعيد توافق شجرة المنزل داخل flushSync
-        if (settingsOpen) {
+        if (underlayInert) {
+            blurFocusWithin(el);
             el.setAttribute('inert', '');
-            el.setAttribute('aria-hidden', 'true');
         } else {
             el.removeAttribute('inert');
-            el.removeAttribute('aria-hidden');
         }
-    }, [settingsOpen]);
+    }, [underlayInert]);
 
     return (
         <LawyerDashboardShell {...shellProps}>
             {notificationsLive ? (
-                <Suspense fallback={null}>
-                    <LazyNotificationShell
-                        isOpen={notificationPanel.isOpen}
-                        hostMounted={notificationPanel.hostMounted ?? true}
-                        panelSessionKey={notificationPanel.panelSessionKey}
-                        userId={notificationPanel.userId}
-                        onClose={notificationPanel.onClose}
-                        onNavigate={notificationPanel.onNavigate}
-                        onOpenPanel={notificationPanel.onOpenPanel}
-                    />
-                </Suspense>
+                <NotificationShell
+                    isOpen={notificationPanel.isOpen}
+                    hostMounted={notificationPanel.hostMounted ?? true}
+                    panelSessionKey={notificationPanel.panelSessionKey}
+                    userId={notificationPanel.userId}
+                    onClose={notificationPanel.onClose}
+                    onNavigate={notificationPanel.onNavigate}
+                    onOpenPanel={notificationPanel.onOpenPanel}
+                />
             ) : null}
 
             <div ref={underlayRef} data-hami-dashboard-underlay="">
@@ -358,9 +338,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                         homeStackCover
                         testId="lawyer-dashboard-home-surface"
                     >
-                        <Suspense fallback={null}>
-                            <LazyLawyerDashboardHomeTab {...homeTabProps} />
-                        </Suspense>
+                        <LawyerDashboardHomeTab {...homeTabProps} />
                     </DashboardTabSurface>
 
                     {scheduleShouldMount ? (
@@ -368,7 +346,7 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                             active={scheduleActive}
                             preserveLayout
                             testId="lawyer-dashboard-schedule-surface"
-                            className="block !bg-[#1f1712]"
+                            className="block !bg-[#121212]"
                         >
                             <ScheduleTabHost
                                 key={`schedule-tab-${scheduleTabProps.scheduleTabSessionKey ?? 0}`}
@@ -385,23 +363,10 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                             testId="lawyer-dashboard-profile-surface"
                             className="block"
                         >
-                            <Suspense
-                                fallback={
-                                    <div
-                                        className="absolute inset-0 bg-[#020408]"
-                                        data-testid="profile-suspense-fallback"
-                                        aria-busy
-                                        aria-label="جاري فتح الملف المهني"
-                                    >
-                                        <ProfileInstantShell embedded />
-                                    </div>
-                                }
-                            >
-                                <LazyLawyerDashboardProfileTab
-                                    {...profileTab}
-                                    keepAlive={profileHostMounted}
-                                />
-                            </Suspense>
+                            <ProfileTabHost
+                                {...profileTab}
+                                keepAlive={profileHostMounted}
+                            />
                         </DashboardTabSurface>
                     ) : null}
                 </div>
@@ -442,13 +407,13 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                 </Suspense>
             ) : null}
 
-            {/* إضبارة التنفيذ — keep-alive: مركّبة مخفية بعد التسليح؛ الفتح = إظهار فوري */}
-            {executionDossierHostLive && executionDossierHostFileResolved ? (
+            {/* إضبارة التنفيذ — تُركَّب فقط عند الفتح الفعلي (لا keep-alive DOM) */}
+            {executionDossierOverlayLive && executionDossierLive ? (
                 <LawyerDashboardExecutionDossierOverlayEntry
                     dossier={overlaysBundle.dossier}
                     archive={overlaysBundle.archive}
-                    file={executionDossierHostFileResolved}
-                    open={Boolean(executionDossierLive)}
+                    file={executionDossierLive as FileData}
+                    open
                 />
             ) : null}
 
@@ -462,18 +427,17 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                 </Suspense>
             ) : null}
 
-            {/* إضبارة الدعوى SmartFile */}
+            {/* إضبارة الدعوى SmartFile — Entry متزامن (بلا Suspense مزدوج يومض إطار التنفيذ) */}
             {smartFileLive ? (
-                <Suspense fallback={null}>
-                    <LazySmartFileOverlayEntry
-                        shell={overlaysBundle.shell}
-                        data={overlaysBundle.data}
-                        dossier={overlaysBundle.dossier}
-                        overlays={overlaysBundle.overlays}
-                        newCase={overlaysBundle.newCase}
-                        nav={overlaysBundle.nav}
-                    />
-                </Suspense>
+                <LawyerDashboardSmartFileOverlayEntry
+                    shell={overlaysBundle.shell}
+                    data={overlaysBundle.data}
+                    dossier={overlaysBundle.dossier}
+                    overlays={overlaysBundle.overlays}
+                    newCase={overlaysBundle.newCase}
+                    nav={overlaysBundle.nav}
+                    archive={overlaysBundle.archive}
+                />
             ) : null}
 
             {/* دعوى جديدة */}
@@ -535,14 +499,12 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
                 />
             ) : null}
 
-            {/* مهام الميدان + الأجندة — lazy؛ قشرة فورية أثناء تحميل الـ chunk */}
+            {/* مهام الميدان + الأجندة — Entry sync مثل المعاملات؛ Host دافئ؛ chunk الستارة يُسخَّن مسبقاً */}
             {fieldTasksLive ? (
-                <Suspense fallback={FieldTasksSheetFallback}>
-                    <LazyFieldTasksOverlayEntry
-                        data={overlaysBundle.data}
-                        overlays={overlaysBundle.overlays}
-                    />
-                </Suspense>
+                <LawyerDashboardFieldTasksOverlayEntry
+                    data={overlaysBundle.data}
+                    overlays={overlaysBundle.overlays}
+                />
             ) : null}
 
             {/* الإعدادات — Entry sync في stem؛ Host دافئ من orchestration؛ الفتح = CSS بلا Suspense */}
@@ -555,28 +517,24 @@ export const LawyerDashboardMainView = memo(function LawyerDashboardMainView({
 
             {/* البحث الشامل — قشرة فورية فقط عند الفتح؛ التسخين الصامت بلا InstantShell مفتوح */}
             {globalSearchLive ? (
-                <Suspense
-                    fallback={
-                        overlaysBundle.overlays.showGlobalSearch ? (
-                            <GlobalSearchOverlayLoadingFallback
-                                open
-                                onClose={overlaysBundle.nav.closeGlobalSearch}
-                                userId={overlaysBundle.shell.userId}
-                            />
-                        ) : null
-                    }
-                >
-                    <LazyGlobalSearchOverlayEntry
-                        shell={overlaysBundle.shell}
-                        data={overlaysBundle.data}
-                        overlays={overlaysBundle.overlays}
-                        nav={overlaysBundle.nav}
-                    />
-                </Suspense>
+                <LawyerDashboardGlobalSearchOverlayEntry
+                    shell={overlaysBundle.shell}
+                    data={overlaysBundle.data}
+                    overlays={overlaysBundle.overlays}
+                    nav={overlaysBundle.nav}
+                />
             ) : null}
 
             {postCriticalSurfacesMount ? (
                 <>
+                    <Suspense fallback={null}>
+                        <LazySparkShell
+                            clusterScanSources={homeTabProps.clusterScanSources}
+                            onNavigateRoute={homeTabProps.onNavigateRoute}
+                            hidden={tabStackHidden}
+                        />
+                    </Suspense>
+
                     <Suspense fallback={null}>
                         <LazyLawyerDashboardDeferredFeatureSurfaces
                             {...deferredFeatureSurfacesProps}

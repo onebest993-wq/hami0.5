@@ -5,7 +5,7 @@ import { prepareBootE2E, stripBootFailureLayer, suppressWeeklyBackupReminder } f
 import { seedLawyerFiles } from './civilLawsuitFixtures';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
 
-/** يضمن dockVisible وأيقونات الدوك — حتى بدون lawyer_settings محفوظ */
+/** يضمن أيقونات الدوك في الشبكة الرئيسية — حتى بدون lawyer_settings محفوظ */
 export async function seedHomeDockLayout(page: Page): Promise<void> {
     await page.addInitScript(() => {
         try {
@@ -20,7 +20,7 @@ export async function seedHomeDockLayout(page: Page): Promise<void> {
                 }
             }
             const homeLayout = (settings.homeLayout as Record<string, unknown> | undefined) ?? {};
-            homeLayout.dockVisible = true;
+            homeLayout.dockVisible = false;
             homeLayout.quickNoteVisible = false;
             const overrides =
                 (homeLayout.overrides as Record<string, { visible?: boolean }> | undefined) ?? {};
@@ -46,8 +46,7 @@ export async function prepareHomeDockE2E(page: Page): Promise<void> {
 }
 
 /**
- * إقلاع سريع للدوك — ينتظر home-dock-chrome مباشرة دون حجب على data-hami-drop-zone.
- * (bootToLawyerHome يصل إلى ~95s تسلسلياً ويفشل ضمن timeout 90s)
+ * إقلاع سريع — ينتظر بلاطات الدوك في الشبكة الرئيسية.
  */
 export async function bootToHomeDock(page: Page): Promise<void> {
     await expect(page.getByTestId('lawyer-dashboard-ready')).toBeVisible({ timeout: 60_000 });
@@ -56,22 +55,20 @@ export async function bootToHomeDock(page: Page): Promise<void> {
     await expect(async () => {
         await stripBootFailureLayer(page);
         await dismissProductivityBlockers(page);
-        await expect(page.getByTestId('home-bottom-chrome')).toBeVisible({ timeout: 4_000 });
-        await expect(page.getByTestId('home-dock-shell-zone')).toBeVisible({ timeout: 4_000 });
+        await expect(page.getByTestId('home-main-grid')).toBeVisible({ timeout: 4_000 });
         await expect(dockTasksTrigger(page).first()).toBeVisible({ timeout: 4_000 });
     }).toPass({ timeout: 45_000 });
 
-    await expect(page.getByTestId('home-dock-shell')).toBeVisible({ timeout: 15_000 }).catch(() => undefined);
     await expect(page.getByTestId('hami-static-boot')).toHaveCount(0, { timeout: 4_000 }).catch(() => undefined);
     await expect(page.getByTestId('lawyer-boot-shell')).toBeHidden({ timeout: 4_000 }).catch(() => undefined);
 }
 
-/** إقلاع مباشر للرئيسية مع انتظار الدوك */
+/** إقلاع مباشر للرئيسية مع انتظار بلاطات الدوك */
 export async function bootHomeDockChrome(page: Page): Promise<Locator> {
     await page.goto('/', { waitUntil: 'domcontentloaded' });
     await bootToHomeDock(page);
     await dismissProductivityBlockers(page);
-    return page.getByTestId('home-bottom-chrome');
+    return page.getByTestId('home-main-grid');
 }
 
 export function dockRepositoryTrigger(page: Page): Locator {
@@ -111,9 +108,8 @@ export async function clickDockCalendar(page: Page): Promise<void> {
     await tapDockTrigger(dockCalendarTrigger(page).first());
 }
 
-export async function expectDockWidgetsVisible(chrome: Locator): Promise<void> {
-    const page = chrome.page();
-    await expect(chrome.getByTestId('home-dock-shell-zone')).toBeVisible({ timeout: 12_000 });
+export async function expectDockWidgetsVisible(grid: Locator): Promise<void> {
+    const page = grid.page();
     for (const id of ['dockRepository', 'dockTasks'] as const) {
         await expect(async () => {
             const trigger =

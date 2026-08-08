@@ -80,7 +80,7 @@ describe('useExecutionDashboardDossierAdminFollowupHandlers', () => {
             }),
         );
         expect(showToast).toHaveBeenCalledWith(
-            expect.stringContaining('تم حفظ الطلب'),
+            expect.stringContaining('تم إرسال الطلب إلى مركز القرارات'),
             'success',
             expect.objectContaining({ decisionsLink: true }),
         );

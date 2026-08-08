@@ -1,5 +1,5 @@
 import React from 'react';
-import { ClipboardList } from 'lucide-react';
+import { ClipboardList } from '@/app/components/ui/lucideIcons';
 import {
     openUnifiedSeizureLogTab,
     type UnifiedSeizureLogTab,

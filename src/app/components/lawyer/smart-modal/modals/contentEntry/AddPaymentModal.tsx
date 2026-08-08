@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DollarSign, X } from 'lucide-react';
+import { DollarSign, X } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS } from '../../smartFile/smartFileOverlayZ';
 import type { AddPaymentModalProps } from '../../smartFile/modalFormTypes';

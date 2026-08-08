@@ -2,7 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import {
     FORUM_FIELD_LABEL,
     FORUM_ICON_BTN,

@@ -1,13 +1,16 @@
 /**
- * CSRF session token — random double-submit (header + cookie).
- * لا يُشتق من JWT؛ SameSite cookie + header matching يمنع CSRF cross-origin.
+ * CSRF session token — random double-submit (header + HttpOnly cookie).
+ * Client holds token in sessionStorage + meta only; cookie is server HttpOnly.
  */
 
-export const CSRF_COOKIE_NAME = 'hami_csrf_token';
-export const CSRF_META_NAME = 'x-csrf-token';
-export const CSRF_STORAGE_KEY = 'hami_csrf_session_v2';
+import {
+  CSRF_COOKIE_NAME,
+  CSRF_META_NAME,
+  CSRF_STORAGE_KEY,
+  CSRF_TOKEN_RE,
+} from '@/app/security/csrfConstants';
 
-const CSRF_TOKEN_RE = /^[A-Za-z0-9\-_]{16,128}$/;
+export { CSRF_COOKIE_NAME, CSRF_META_NAME, CSRF_STORAGE_KEY };
 
 function generateCsrfToken(): string {
   const bytes = new Uint8Array(24);
@@ -55,6 +58,7 @@ export function clearCsrfSessionToken(): void {
   }
 }
 
+/** Expose token for fetch headers only — never write a readable document.cookie. */
 export function applyCsrfTokenToDocument(token: string): void {
   if (typeof document === 'undefined' || !token) return;
 
@@ -65,9 +69,6 @@ export function applyCsrfTokenToDocument(token: string): void {
     document.head.appendChild(meta);
   }
   meta.setAttribute('content', token);
-
-  const secure = window.location.protocol === 'https:' ? '; secure' : '';
-  document.cookie = `${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}; path=/; samesite=strict${secure}; max-age=${60 * 60 * 24}`;
 }
 
 export function readCsrfTokenFromDocument(): string | null {

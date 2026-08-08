@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search } from '@/app/components/ui/lucideIcons';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 import {
     ALL_EXECUTION_ARTICLES_SCOPE,

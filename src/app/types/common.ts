@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 
 export type { LucideIcon };
 
@@ -528,6 +528,13 @@ export interface ArchivePortalProps {
     onRestoreArchivedLawsuit?: (fileId: string | number) => void;
     /** حذف نهائي لدعاوى من السلة */
     onPermanentlyDeleteLawsuits?: (fileIds: Array<string | number>) => void;
+    /** عدّادات O(1) من فهرس الدعاوى — بلا مسح المصفوفة الكاملة */
+    lawsuitLifecycleCounts?: { active: number; archived: number; trash: number };
+    /** مقاطع مخزن/مهملات — تُحمَّل عند الطلب */
+    lawsuitArchivedFiles?: CaseFile[] | null;
+    lawsuitTrashFiles?: CaseFile[] | null;
+    onEnsureLawsuitArchivedLoaded?: () => void | Promise<void>;
+    onEnsureLawsuitTrashLoaded?: () => void | Promise<void>;
     /** دعاوى مضمّنة: شبكة فقط داخل InstantShell — بلا غلاف/رأس مكرر */
     gridOnly?: boolean;
     /** عنصر التمرير الأب (InstantShell / Chrome) لـ virtualizer */

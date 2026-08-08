@@ -2,19 +2,19 @@ import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import { flushSync } from 'react-dom';
 
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
-import {
-    scheduleProfileShellReactSync,
-    snapProfileShellOpen,
-    isProfileShellSnappedOpen,
-} from '@/app/services/profile/profileShellSnap';
+import { concealSettingsWarmShell } from '@/app/runtime/settingsInstantPaint';
+import { revealProfileWarmShell } from '@/app/runtime/profileInstantPaint';
+import { primeProfileForOpen } from '@/app/runtime/profileShellPrime';
+import { loadProfileHubModule, prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { loadProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
 import {
     clearProfilePerfMarks,
     markProfilePerfPhase,
 } from '@/app/services/profile/profilePerfMetrics';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
+    loadProfileWarmCache,
     prefetchProfileShellChunks,
-    warmProfileOpenSideEffects,
 } from '@/app/hooks/lawyerDashboard/profile/profileLazyImports';
 
 export type CommitProfileOpenParams = {
@@ -26,30 +26,42 @@ export type CommitProfileOpenParams = {
     setProfileOpenEpoch: Dispatch<SetStateAction<number>>;
 };
 
-function syncProfileOpenReactState({
-    userId,
+function applyProfileOpenReactState({
+    userId: _userId,
     setProfileHostMounted,
     setShowCommunity,
     setActiveTab,
     setProfileOpenEpoch,
-    ensureSnapped,
-}: CommitProfileOpenParams & { ensureSnapped?: boolean }): void {
+}: CommitProfileOpenParams): void {
     setProfileHostMounted(true);
     setShowCommunity(false);
     setActiveTab('profile');
     setProfileOpenEpoch((epoch) => epoch + 1);
-    if (ensureSnapped) snapProfileShellOpen();
-    markProfilePerfPhase('chunk-ready');
-    prefetchProfileShellChunks();
-    dismissTransientOverlays('profile');
-    warmProfileOpenSideEffects(userId);
 }
 
-/** فتح الملف المهني: snap DOM أولاً ثم مزامنة React. */
+function runProfileOpenSideEffects(userId: string | null): void {
+    markProfilePerfPhase('chunk-ready');
+    prefetchProfileShellChunks();
+    primeProfileForOpen(userId);
+    void loadProfileWarmCache()
+        .then((m) => m.ensureProfilePaintReady(userId))
+        .catch(() => undefined);
+}
+
+function deferProfileOpenWarmWork(userId: string | null): void {
+    queueMicrotask(() => {
+        prefetchProfileHubModule();
+        void loadProfileHubModule().catch(() => undefined);
+        void loadProfileTabModule().catch(() => undefined);
+        runProfileOpenSideEffects(userId);
+    });
+}
+
+/** فتح الملف: تبديل التبويب فوراً — التسخين بعد الإطار التالي */
 export function commitProfileOpen(params: CommitProfileOpenParams): void {
     const { openInFlightRef } = params;
 
-    if (isProfileShellSnappedOpen() || openInFlightRef.current) return;
+    if (openInFlightRef.current) return;
     openInFlightRef.current = true;
     try {
         try {
@@ -61,28 +73,15 @@ export function commitProfileOpen(params: CommitProfileOpenParams): void {
             /* ignore */
         }
 
-        const snapped = snapProfileShellOpen();
+        concealSettingsWarmShell();
+        dismissTransientOverlays('profile');
 
-        if (!snapped) {
-            flushSync(() => {
-                params.setProfileHostMounted(true);
-            });
-            const afterMount = snapProfileShellOpen();
-            scheduleProfileShellReactSync(() => {
-                syncProfileOpenReactState({
-                    ...params,
-                    ensureSnapped: !afterMount,
-                });
-            });
-            return;
-        }
-
-        scheduleProfileShellReactSync(() => {
-            syncProfileOpenReactState({
-                ...params,
-                ensureSnapped: true,
-            });
+        flushSync(() => {
+            applyProfileOpenReactState(params);
         });
+
+        revealProfileWarmShell();
+        deferProfileOpenWarmWork(params.userId);
     } finally {
         openInFlightRef.current = false;
     }

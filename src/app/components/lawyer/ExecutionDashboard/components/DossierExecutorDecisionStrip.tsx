@@ -61,6 +61,7 @@ export const DossierExecutorDecisionStrip: React.FC<DossierExecutorDecisionStrip
                 requestKind="special_followup"
                 className="border-0 bg-transparent p-0"
                 appealPerspective={appealPerspective}
+                onOutcomeApplied={onOutcomeApplied}
             />
         </div>
     );

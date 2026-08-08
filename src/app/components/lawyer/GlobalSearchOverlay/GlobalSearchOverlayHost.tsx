@@ -1,6 +1,10 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import type { GlobalSearchOverlayProps } from '@/app/components/lawyer/GlobalSearchOverlay/types';
-import { GlobalSearchInstantShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantShell';
+import { GlobalSearchOverlayStaticShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayStaticShell';
+import { useGlobalSearchBridgeShellContent } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchBridgeShellContent';
+import { useGlobalSearchFocusArm } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchFocusArm';
+import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     getCachedGlobalSearchOverlay,
     loadGlobalSearchOverlayModule,
@@ -17,19 +21,34 @@ export type GlobalSearchOverlayHostProps = GlobalSearchOverlayProps & {
     keepAlive?: boolean;
 };
 
-/** يحمّل واجهة البحث مرة واحدة — قشرة حقيقية أثناء التحميل + keepAlive */
+/**
+ * Host يملك StaticShell بمرجع ثابت — لا swap LoadingBridge→Overlay (يمنع وميض الموبايل).
+ */
 export function GlobalSearchOverlayHost({
     keepAlive = false,
     ...props
 }: GlobalSearchOverlayHostProps): React.ReactElement | null {
-    const { open = true, onClose } = props;
+    const { open = true, onClose, userId } = props;
+    useBodyScrollLock(open);
+
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const focusArmed = useGlobalSearchFocusArm(open);
+    const bridgeContent = useGlobalSearchBridgeShellContent(userId, open);
+    const [logicContent, setLogicContent] = useState<GlobalSearchOverlayShellContentProps | null>(null);
+
+    useLayoutEffect(() => {
+        if (!open) {
+            setLogicContent(null);
+        }
+    }, [open]);
+
     const [Component, setComponent] = useState<GlobalSearchOverlayComponent | null>(
         () => getCachedGlobalSearchOverlay(),
     );
     const [loadError, setLoadError] = useState(false);
     const [retryToken, setRetryToken] = useState(0);
 
-    /* kick أثناء الرسم إن فُتح/دُفئ بلا كاش — قبل paint التالي */
     if ((open || keepAlive) && !Component && typeof window !== 'undefined') {
         void loadGlobalSearchOverlayModule().catch(() => undefined);
     }
@@ -117,11 +136,30 @@ export function GlobalSearchOverlayHost({
         );
     }
 
-    if (!Component) {
-        /* keepAlive مغلق: لا قشرة ظاهرة أثناء تسخين صامت — InstantShell فقط عند الفتح */
-        if (!open) return null;
-        return <GlobalSearchInstantShell onClose={onClose} open userId={props.userId} />;
-    }
+    const shellContent = logicContent ?? bridgeContent;
 
-    return <Component {...props} keepWarm={keepAlive} />;
+    return (
+        <>
+            {Component ? (
+                <Component
+                    {...props}
+                    keepWarm={keepAlive}
+                    headless
+                    focusArmed={focusArmed}
+                    shellOverlayRef={overlayRef}
+                    shellInputRef={inputRef}
+                    onShellContent={setLogicContent}
+                />
+            ) : null}
+            <GlobalSearchOverlayStaticShell
+                open={open}
+                keepWarm={keepAlive}
+                onClose={onClose}
+                overlayRef={overlayRef}
+                inputRef={inputRef}
+                focusArmed={focusArmed}
+                {...shellContent}
+            />
+        </>
+    );
 }

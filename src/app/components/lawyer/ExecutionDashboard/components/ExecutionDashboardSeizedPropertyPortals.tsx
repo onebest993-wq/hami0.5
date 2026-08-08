@@ -2,7 +2,7 @@
 /** Seized property inline portals — مستخرج من ExecutionDashboard */
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { FollowupSectionLinkCheckbox } from '@/app/components/lawyer/execution/FollowupSectionLinkCheckbox';
 import {
     EXEC_MODAL_BACKDROP_STRONG,

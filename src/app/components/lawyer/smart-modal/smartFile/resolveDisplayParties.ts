@@ -1,5 +1,6 @@
 import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
 import { repairAppealStagePartyRoles } from './appealPartyEngine';
+import { repairAbsentObjectionAppealStages } from './absentObjectionAppealRepair';
 import { dedupeAppealThirdPartyShadows } from './partyRoleClassification';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -156,10 +157,21 @@ export type ResolveDisplayPartiesInput = {
 };
 
 export function resolveDisplayParties(input: ResolveDisplayPartiesInput): Party[] {
+    const allStages = Array.isArray(input.allStages) ? input.allStages : [];
+    const displayStage = input.displayStage;
+    const repairedStages =
+        allStages.length > 0 && displayStage
+            ? repairAbsentObjectionAppealStages(allStages)
+            : allStages;
+    const repairedDisplayStage =
+        displayStage && repairedStages.length > 0
+            ? repairedStages.find((s) => s.id === displayStage.id) ?? displayStage
+            : displayStage;
+
     const stageParties = dedupeAppealThirdPartyShadows(
         repairAppealStagePartyRoles(
-            coercePartyList(input.displayStage?.parties),
-            input.displayStage,
+            coercePartyList(repairedDisplayStage?.parties),
+            repairedDisplayStage,
         ),
     );
     if (stageParties.length > 0) return stageParties;
@@ -176,13 +188,13 @@ export function resolveDisplayParties(input: ResolveDisplayPartiesInput): Party[
     const thirdPartyPayload = partiesFromThirdPartyPayload(input.file?.thirdParties);
     if (thirdPartyPayload.length > 0) return thirdPartyPayload;
 
-    const stages = Array.isArray(input.allStages) ? input.allStages : [];
+    const stages = repairedStages.length > 0 ? repairedStages : allStages;
     for (let i = stages.length - 1; i >= 0; i--) {
         const recovered = coercePartyList(stages[i]?.parties);
         if (recovered.length > 0) return recovered;
     }
 
-    const incidentalParties = partiesFromIncidentalCases(input.displayStage?.incidentalCases);
+    const incidentalParties = partiesFromIncidentalCases(repairedDisplayStage?.incidentalCases);
     if (incidentalParties.length > 0) return incidentalParties;
 
     return [];

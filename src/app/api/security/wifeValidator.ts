@@ -1,4 +1,4 @@
-/**
+﻿/**
  * WIFE signature validator (server-side utility).
  *
  * IMPORTANT:
@@ -32,7 +32,7 @@ const BASE64URL_SIGNATURE_RE = /^[A-Za-z0-9\-_]+$/;
 const SHA256_HEX_RE = /^[a-f0-9]{64}$/;
 const NONCE_RE = /^[A-Za-z0-9\-_]{8,128}$/;
 
-// CSRF Protection — random double-submit (header + cookie must match)
+// CSRF Protection ظ¤ random double-submit (header + cookie must match)
 const CSRF_HEADER = 'x-csrf-token';
 const CSRF_COOKIE_NAME = 'hami_csrf_token';
 
@@ -56,7 +56,7 @@ export async function verifyCsrfToken(req: Request, userToken: string): Promise<
   if (jwtFields?.sub) {
     const serverValid = await validateCsrfForSubject(jwtFields.sub, csrfToken);
     if (serverValid) return true;
-    // Subject authenticated but registry miss — no cookie fallback in production
+    // Subject authenticated but registry miss ظ¤ no cookie fallback in production
     if (isProductionNodeEnv()) return false;
   }
 
@@ -328,7 +328,7 @@ export function wifeUnauthorizedResponse(meta?: WifeRejectMeta): Response {
   );
 }
 
-/** 429 — too many WIFE-verified requests (distinct from signature failure). */
+/** 429 ظ¤ too many WIFE-verified requests (distinct from signature failure). */
 export function wifeRateLimitedResponse(meta?: WifeRejectMeta): Response {
   if (meta) recordWifeRejection(meta);
   return applyWifeSecurityHeaders(
@@ -337,7 +337,7 @@ export function wifeRateLimitedResponse(meta?: WifeRejectMeta): Response {
         ok: false,
         error: 'Too many requests',
         code: 'WIFE_RATE_LIMITED',
-        message: 'تم تجاوز حد الطلبات. انتظر قليلاً ثم أعد المحاولة.',
+        message: '╪ز┘à ╪ز╪ش╪د┘ê╪▓ ╪ص╪» ╪د┘╪╖┘╪ذ╪د╪ز. ╪د┘╪ز╪╕╪▒ ┘é┘┘è┘╪د┘ï ╪س┘à ╪ث╪╣╪» ╪د┘┘à╪ص╪د┘ê┘╪ر.',
       }),
       {
         status: 429,
@@ -350,7 +350,7 @@ export function wifeRateLimitedResponse(meta?: WifeRejectMeta): Response {
   );
 }
 
-/** After verifyWifeSignature returns false — records signature_failed telemetry. */
+/** After verifyWifeSignature returns false ظ¤ records signature_failed telemetry. */
 export function wifeSignatureFailedResponse(request: Request): Response {
   return wifeForbiddenResponse({ request, reason: 'signature_failed' });
 }
@@ -404,7 +404,7 @@ function getSupabaseAuthConfig(): { url: string; key: string } | null {
 
 /**
  * Creates a Supabase admin client for internal DB queries.
- * لا يُستخدم fetch مباشر—بل مكتبة @supabase/supabase-js الآمنة
+ * ┘╪د ┘è┘╪│╪ز╪«╪»┘à fetch ┘à╪ذ╪د╪┤╪▒ظ¤╪ذ┘ ┘à┘â╪ز╪ذ╪ر @supabase/supabase-js ╪د┘╪ت┘à┘╪ر
  */
 let _adminClient: ReturnType<typeof createClient> | null = null;
 function getSupabaseAdminClient(): ReturnType<typeof createClient> | null {
@@ -469,7 +469,7 @@ async function isUserActiveLive(userId: string): Promise<boolean> {
   const cached = readCachedUserStatus(userId);
   if (cached !== null) return cached;
 
-  // استعلام واحد — profiles OR lawyers (id = userId OR user_id = userId)
+  // ╪د╪│╪ز╪╣┘╪د┘à ┘ê╪د╪ص╪» ظ¤ profiles OR lawyers (id = userId OR user_id = userId)
   const profileRow = await fetchSingleUserRow('profiles', 'id,user_id', userId);
   if (profileRow) {
     const active = isUserActiveFromRow(profileRow);
@@ -484,12 +484,12 @@ async function isUserActiveLive(userId: string): Promise<boolean> {
     return active;
   }
 
-  // JWT صالح لكن لا صف profile/lawyer بعد — لا نحجب (تسجيل جديد / ملف قيد الإنشاء)
+  // JWT ╪╡╪د┘╪ص ┘┘â┘ ┘╪د ╪╡┘ profile/lawyer ╪ذ╪╣╪» ظ¤ ┘╪د ┘╪ص╪ش╪ذ (╪ز╪│╪ش┘è┘ ╪ش╪»┘è╪» / ┘à┘┘ ┘é┘è╪» ╪د┘╪ح┘╪┤╪د╪ة)
   writeCachedUserStatus(userId, true);
   return true;
 }
 
-// Cache للتوكنات الموثقة
+// Cache ┘┘╪ز┘ê┘â┘╪د╪ز ╪د┘┘à┘ê╪س┘é╪ر
 const verifiedTokenCache = new Map<string, { subject: string; expiresAt: number }>();
 
 /** Test-only: clears token/user status caches between isolated scenarios. */
@@ -497,7 +497,7 @@ export function resetWifeValidatorCachesForTests(): void {
   verifiedTokenCache.clear();
   userStatusCache.clear();
 }
-const VERIFIED_TOKEN_CACHE_TTL = 60_000; // 60 ثانية
+const VERIFIED_TOKEN_CACHE_TTL = 60_000; // 60 ╪س╪د┘┘è╪ر
 const VERIFIED_TOKEN_CACHE_MAX = 5_000;
 
 function base64UrlDecode(str: string): string {
@@ -544,7 +544,7 @@ function decodeJwtPayload(token: string): DecodedJwtPayload | null {
  * Fails closed if verification backend is unavailable.
  */
 const DEV_ACCESS_TOKEN_PREFIX = 'dev-access-token-';
-/** محامٍ ضيف للنشر التجريبي — subject واحد فقط، لا يُستخدم لصلاحيات admin. */
+/** ┘à╪ص╪د┘à┘ ╪╢┘è┘ ┘┘┘╪┤╪▒ ╪د┘╪ز╪ش╪▒┘è╪ذ┘è ظ¤ subject ┘ê╪د╪ص╪» ┘┘é╪╖╪î ┘╪د ┘è┘╪│╪ز╪«╪»┘à ┘╪╡┘╪د╪ص┘è╪د╪ز admin. */
 const DEMO_GUEST_SUBJECT = 'guest-lawyer-1';
 
 function parseDevAccessTokenSubject(userToken: string): string | null {
@@ -578,26 +578,26 @@ export async function getVerifiedTokenSubject(userToken: string): Promise<string
 
   pruneVerifiedTokenCache(Date.now());
 
-  // 1) فك التوكن محلياً واستخراج sub للمعرف
+  // 1) ┘┘â ╪د┘╪ز┘ê┘â┘ ┘à╪ص┘┘è╪د┘ï ┘ê╪د╪│╪ز╪«╪▒╪د╪ش sub ┘┘┘à╪╣╪▒┘
   const payload = decodeJwtPayload(userToken);
   const cacheKey = payload?.sub ?? userToken.slice(-16);
 
-  // 2) التحقق من الـ cache أولاً
+  // 2) ╪د┘╪ز╪ص┘é┘é ┘à┘ ╪د┘┘ cache ╪ث┘ê┘╪د┘ï
   const cached = verifiedTokenCache.get(cacheKey);
   if (cached) {
     if (Date.now() >= cached.expiresAt) {
       verifiedTokenCache.delete(cacheKey);
     } else {
       if (cached.subject === 'INVALID') return null;
-      // تحقق من انتهاء صلاحية JWT حتى مع الـ cache
+      // ╪ز╪ص┘é┘é ┘à┘ ╪د┘╪ز┘ç╪د╪ة ╪╡┘╪د╪ص┘è╪ر JWT ╪ص╪ز┘ë ┘à╪╣ ╪د┘┘ cache
       if (payload?.exp && Date.now() < payload.exp * 1000) {
         return cached.subject;
       }
-      // JWT منتهي — نحتاج إلى التحقق من Supabase للتأكد من أن الـ refresh token لا يزال صالحاً
+      // JWT ┘à┘╪ز┘ç┘è ظ¤ ┘╪ص╪ز╪د╪ش ╪ح┘┘ë ╪د┘╪ز╪ص┘é┘é ┘à┘ Supabase ┘┘╪ز╪ث┘â╪» ┘à┘ ╪ث┘ ╪د┘┘ refresh token ┘╪د ┘è╪▓╪د┘ ╪╡╪د┘╪ص╪د┘ï
     }
   }
 
-  // 3) التحقق من Supabase API
+  // 3) ╪د┘╪ز╪ص┘é┘é ┘à┘ Supabase API
   const cfg = getSupabaseAuthConfig();
   if (!cfg) return null;
 
@@ -609,7 +609,7 @@ export async function getVerifiedTokenSubject(userToken: string): Promise<string
     },
   });
   if (!response.ok) {
-    // cache الفشل لمنع الطلبات المتكررة
+    // cache ╪د┘┘╪┤┘ ┘┘à┘╪╣ ╪د┘╪╖┘╪ذ╪د╪ز ╪د┘┘à╪ز┘â╪▒╪▒╪ر
     verifiedTokenCache.set(cacheKey, {
       subject: 'INVALID',
       expiresAt: Date.now() + Math.min(VERIFIED_TOKEN_CACHE_TTL, 10_000),
@@ -625,7 +625,7 @@ export async function getVerifiedTokenSubject(userToken: string): Promise<string
   const isActive = await isUserActiveLive(userId);
   if (!isActive) return null;
 
-  // cache النتيجة
+  // cache ╪د┘┘╪ز┘è╪ش╪ر
   verifiedTokenCache.set(cacheKey, {
     subject: userId,
     expiresAt: Date.now() + VERIFIED_TOKEN_CACHE_TTL,
@@ -657,7 +657,7 @@ export async function enforceTokenActorBinding(userToken: string, payload: unkno
 }
 
 // Server-side Rate Limiting (distributed when Redis configured)
-/** GET/HEAD/OPTIONS: قراءة متكررة — حد أعلى. POST/PUT/DELETE: 250/min */
+/** GET/HEAD/OPTIONS: ┘é╪▒╪د╪ة╪ر ┘à╪ز┘â╪▒╪▒╪ر ظ¤ ╪ص╪» ╪ث╪╣┘┘ë. POST/PUT/DELETE: 250/min */
 export const WIFE_RATE_READ_MAX = 400;
 export const WIFE_RATE_WRITE_MAX = 250;
 
@@ -672,7 +672,7 @@ async function checkRateLimit(req: Request, userToken: string): Promise<boolean>
 }
 
 /**
- * Server-side WIFE verification (boolean — rate limit returns false).
+ * Server-side WIFE verification (boolean ظ¤ rate limit returns false).
  */
 export async function verifyWifeSignature(req: Request, userToken: string): Promise<boolean> {
   const result = await verifyWifeSignatureInternal(req, userToken);
@@ -778,7 +778,7 @@ function randomWifeNonce(): string {
   return toBase64Url(bytes);
 }
 
-/** Server-side WIFE header builder — used by /api/security/wife-sign (HttpOnly BFF). */
+/** Server-side WIFE header builder ظ¤ used by /api/security/wife-sign (HttpOnly BFF). */
 export async function createWifeSignedHeaders(
   method: string,
   url: string,

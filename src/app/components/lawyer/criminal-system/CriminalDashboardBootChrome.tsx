@@ -1,5 +1,6 @@
 import React from 'react';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 
 /**
@@ -18,6 +19,7 @@ export function CriminalDashboardBootChrome({
 }) {
     const title = (headline ?? '').trim() || 'إضبارة جزائية';
     const handleExit = onExitToHome ?? onClose;
+    const nav = resolveDossierHeaderNavVisibility(false);
 
     return (
         <div
@@ -32,6 +34,8 @@ export function CriminalDashboardBootChrome({
                         <DossierHeaderNavButtons
                             onBack={onClose}
                             onExit={handleExit}
+                            showBack={nav.showBack}
+                            showExit={nav.showExit}
                             backTestId={CRIMINAL_DOSSIER_TEST_IDS.back}
                             exitTestId={CRIMINAL_DOSSIER_TEST_IDS.exit}
                         />

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, FileText, Image, File, Calendar, Trash2 } from 'lucide-react';
+import { X, FileText, Image, File, Calendar, Trash2 } from '@/app/components/ui/lucideIcons';
 import { executionDocumentFoldersStorageKey, executionDocumentsStorageKey } from '@/app/utils/executionStorageKeys';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SmartToast } from '@/app/components/ui/SmartToast';

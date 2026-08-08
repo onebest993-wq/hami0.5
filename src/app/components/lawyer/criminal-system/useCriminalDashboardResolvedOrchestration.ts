@@ -638,7 +638,7 @@ export function useCriminalDashboardResolvedOrchestration({
     });
 
     /** رجوع تدريجي (Escape/زر الرجوع) — orchestrator منفصل يغلق أعلى طبقة مفتوحة تدريجياً. */
-    const { handleDashboardBack } = useCriminalDashboardNavigationGuard({
+    const { handleDashboardBack, dossierNestedNav } = useCriminalDashboardNavigationGuard({
         activeTab,
         switchDashboardTab,
         onClose,
@@ -849,7 +849,7 @@ export function useCriminalDashboardResolvedOrchestration({
     });
 
     const dossierBodyProps = useCriminalDashboardDossierBodyProps({
-        id, onClose, onExitToHome, onOpenCase, handleDashboardBack, criminalCase,
+        id, onClose, onExitToHome, onOpenCase, handleDashboardBack, dossierNestedNav, criminalCase,
         caseStage, shouldShowMandatoryCassationBanner, shouldShowArticle3DeadlineBanner, article3ElapsedDays,
         isOwnerAccessDenied: isAccessDenied,
         isOrphanLegacyCase,
@@ -876,7 +876,7 @@ export function useCriminalDashboardResolvedOrchestration({
         hasUnrevealedUnknown, isPrivateRightWaived, waiverDate, ourRepresentation,
         isStageCloserOpen: stageCloserOrchestrator.isStageCloserOpen, isStatementModalOpen, isTrialDepositionModalOpen, isRequestsModalOpen,
         confirmAction, openForfeitureUpdate, switchDashboardTab, activeTab,
-        handleDashboardBack, setIsOtherEvidenceFormOpen, isOtherEvidenceReadOnly, isEffectiveTrialCourtStage,
+        setIsOtherEvidenceFormOpen, isOtherEvidenceReadOnly, isEffectiveTrialCourtStage,
         setEditingTrialDeposition, setIsTrialDepositionModalOpen, setEditingStatement, setIsStatementModalOpen,
         isStatementsTabReadOnly, isOtherEvidenceFormOpen, addOtherEvidenceItem, statementsTabActive,
         statements, otherEvidenceItems, trialDepositions, trialSessions,

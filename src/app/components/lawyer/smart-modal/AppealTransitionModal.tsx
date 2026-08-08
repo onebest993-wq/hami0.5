@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { X, Scale, Check, CalendarDays, Hash, Gavel } from 'lucide-react';
+import { X, Scale, Check, CalendarDays, Hash, Gavel } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { IncidentalCase, Party } from '../LawyerShared';
 import { resolveOpponentAsAppellant } from './smartFile/appealStageTransition';
@@ -20,12 +20,25 @@ import {
     resolveCassationOnlyHint,
     type AppealRouteContext,
 } from './smartFile/appealRouteEligibility';
-import { resolveAllowedOpponentAppealMethods, resolveFirstInstanceHadoriAppealRights } from './smartFile/judgmentTypes';
-import { isAbsentJudgmentForm } from './smartFile/absentJudgmentFlow';
+import { resolveAllowedOpponentAppealMethods } from './smartFile/judgmentTypes';
+import { isAbsentJudgmentForm, canOfferAbsentObjectionToDefendant } from './smartFile/absentJudgmentFlow';
+import type { CaseStage } from '../LawyerShared';
 import {
-    isPersonalStatusStageName,
+    filterPersonalStatusAppealMethods,
+    isPersonalStatusAppealContext,
+    normalizePersonalStatusAppealMethod,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 import { useJudgmentModalStyles } from './smartFile/smartModalChrome';
+
+function resolveAppealOutcomeHint(
+    judgmentType?: string | null,
+    finalDecision?: string | null,
+): string | null {
+    const fromJudgment = String(judgmentType ?? '').trim();
+    if (fromJudgment) return fromJudgment;
+    const fromStage = String(finalDecision ?? '').trim();
+    return fromStage || null;
+}
 
 export type AppealTransitionMode = 'postJudgment' | 'opponentRegistration';
 
@@ -48,9 +61,12 @@ interface AppealTransitionModalProps {
     judgmentForm?: string;
     lastJudgmentType?: string | null;
     stageName?: string | null;
+    finalDecision?: string | null;
     incidentalCases?: IncidentalCase[];
     appealRoute?: AppealRouteContext;
     mode?: AppealTransitionMode;
+    stages?: CaseStage[];
+    lawsuitFile?: { lawsuitJurisdiction?: string; selectedType?: string };
 }
 
 const GLASS_CARD =
@@ -71,17 +87,19 @@ function defaultAppealType(
     appealRoute?: AppealRouteContext,
     allowedMethods?: string[],
     stageName?: string | null,
+    canOfferAbsentObjection = true,
+    stages?: CaseStage[],
 ): string {
     if (allowedMethods && allowedMethods.length > 0) {
         return normalizeAppealMethodValue(allowedMethods[0]);
     }
-    if (String(judgmentForm ?? '').includes('غيابي')) {
+    if (canOfferAbsentObjection && String(judgmentForm ?? '').includes('غيابي')) {
         return 'اعتراض على الحكم الغيابي';
     }
     if (appealRoute && !isAppellateAppealAllowed(appealRoute)) {
         return 'تمييز';
     }
-    if (stageName && isPersonalStatusStageName(stageName)) {
+    if (stageName && isPersonalStatusAppealContext(stageName, stages)) {
         return 'تمييز';
     }
     return 'استئناف';
@@ -97,13 +115,41 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     judgmentForm,
     lastJudgmentType,
     stageName,
+    finalDecision,
     incidentalCases,
     appealRoute,
     mode = 'postJudgment',
+    stages = [],
+    lawsuitFile,
 }) => {
     const s = useJudgmentModalStyles();
     const isOpponentRegistration = mode === 'opponentRegistration';
     const isGhayabi = isAbsentJudgmentForm(judgmentForm, lastJudgmentType);
+    const effectiveFinalDecision = useMemo(
+        () => resolveAppealOutcomeHint(judgmentType, finalDecision),
+        [judgmentType, finalDecision],
+    );
+    const canOfferAbsentObjection = useMemo(
+        () =>
+            canOfferAbsentObjectionToDefendant({
+                currentStage: stageName,
+                stages,
+                judgmentForm,
+                lastJudgmentType,
+                finalDecision: effectiveFinalDecision,
+                representedParty,
+                opponentRegistration: isOpponentRegistration,
+            }),
+        [
+            stageName,
+            stages,
+            judgmentForm,
+            lastJudgmentType,
+            effectiveFinalDecision,
+            representedParty,
+            isOpponentRegistration,
+        ],
+    );
     const showJudgmentFormMeta =
         Boolean(judgmentForm) &&
         !String(stageName ?? '').includes('استئناف') &&
@@ -115,10 +161,22 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                       judgmentForm,
                       lastJudgmentType,
                       stageName,
+                      finalDecision: effectiveFinalDecision,
                       appealRoute,
+                      stages,
+                      file: lawsuitFile,
                   })
                 : [],
-        [isOpponentRegistration, judgmentForm, lastJudgmentType, stageName, appealRoute],
+        [
+            isOpponentRegistration,
+            judgmentForm,
+            lastJudgmentType,
+            stageName,
+            effectiveFinalDecision,
+            appealRoute,
+            stages,
+            lawsuitFile,
+        ],
     );
 
     const standardAppellantSide = useMemo(() => {
@@ -185,22 +243,11 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
     );
 
     const [appealType, setAppealType] = useState<string>(() =>
-        defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName),
+        defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName, canOfferAbsentObjection, stages),
     );
     const [filingDate, setFilingDate] = useState<string>(getLocalTodayYmd());
     const [newCaseNumber, setNewCaseNumber] = useState<string>('');
     const wasOpenRef = useRef(false);
-
-    const appealRights = useMemo(
-        () =>
-            judgmentType
-                ? resolveFirstInstanceHadoriAppealRights(judgmentType, null, {
-                      parties: currentParties as Party[],
-                      representedParty,
-                  })
-                : null,
-        [judgmentType, currentParties, representedParty],
-    );
 
     useEffect(() => {
         if (!isOpen) {
@@ -209,16 +256,16 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
         }
 
         if (!wasOpenRef.current) {
-            setAppealType(defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName));
+            setAppealType(defaultAppealType(judgmentForm, appealRoute, allowedOpponentMethods, stageName, canOfferAbsentObjection, stages));
             setFilingDate(getLocalTodayYmd());
             setNewCaseNumber('');
             setSelectedAppellantIds(dossierLayout.defaultAppellantIds);
             setSelectedOpponentIds(dossierLayout.defaultOpponentIds);
             wasOpenRef.current = true;
         }
-    }, [isOpen, judgmentForm, appealRoute, allowedOpponentMethods, dossierLayout, stageName]);
+    }, [isOpen, judgmentForm, appealRoute, allowedOpponentMethods, dossierLayout, stageName, canOfferAbsentObjection, stages]);
 
-    const isPersonalAppeal = isPersonalStatusStageName(stageName);
+    const isPersonalAppeal = isPersonalStatusAppealContext(stageName, stages, lawsuitFile);
     const isFromAppealStage = !isPersonalAppeal && String(stageName ?? '').includes('استئناف');
 
     const appealTypeOptions = useMemo(() => {
@@ -231,7 +278,7 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                 label: appealMethodLabel(method),
             }));
         }
-        const base = isGhayabi
+        const base = isGhayabi && canOfferAbsentObjection
             ? [
                   { value: 'اعتراض على الحكم الغيابي', label: 'اعتراض غيابي' },
                   ...(isPersonalAppeal ? [] : [{ value: 'استئناف', label: 'استئناف' }]),
@@ -241,13 +288,22 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                   ...(isPersonalAppeal ? [] : [{ value: 'استئناف', label: 'استئناف' }]),
                   { value: 'تمييز', label: 'تمييز' },
               ];
-        if (!appealRoute) return base;
+        if (!appealRoute) {
+            return isPersonalAppeal
+                ? filterPersonalStatusAppealMethods(base.map((o) => o.value)).map(
+                      (value) => base.find((o) => o.value === value) ?? { value, label: value },
+                  )
+                : base;
+        }
         const allowedValues = filterMethodsForAppealRoute(
             base.map((o) => o.value),
             appealRoute,
         );
-        return base.filter((o) => allowedValues.includes(o.value));
-    }, [isFromAppealStage, isOpponentRegistration, allowedOpponentMethods, isGhayabi, appealRoute, isPersonalAppeal]);
+        const filtered = base.filter((o) => allowedValues.includes(o.value));
+        return isPersonalAppeal ? filterPersonalStatusAppealMethods(filtered.map((o) => o.value)).map(
+            (value) => filtered.find((o) => o.value === value) ?? { value, label: value },
+        ) : filtered;
+    }, [isFromAppealStage, isOpponentRegistration, allowedOpponentMethods, isGhayabi, appealRoute, isPersonalAppeal, canOfferAbsentObjection]);
 
     const cassationOnlyHint =
         appealRoute && !isAppellateAppealAllowed(appealRoute)
@@ -353,8 +409,13 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
             dossierLayout.appellantLegalSide,
         );
 
+        const normalizedAppealType = normalizePersonalStatusAppealMethod(appealType, {
+            stageName,
+            stages,
+            file: lawsuitFile,
+        });
         onConfirm({
-            appealType,
+            appealType: normalizedAppealType,
             appellant: appellantLegalSide,
             filingDate,
             newCaseNumber: newCaseNumber.trim(),
@@ -395,7 +456,7 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                         </div>
 
                         <div className={s.body}>
-                            {(judgmentType || cassationOnlyHint || appealRights?.hint) && (
+                            {(judgmentType || cassationOnlyHint) && (
                                 <div className={hintShell}>
                                     {judgmentType ? (
                                         <p className={`text-xs leading-relaxed ${s.isPearl ? 'text-[#ECE8E2]/85' : 'text-white/75'}`}>
@@ -406,9 +467,6 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                                 <span className={s.isPearl ? 'text-[#9894A0]/80' : 'text-white/35'}> · {judgmentForm}</span>
                                             ) : null}
                                         </p>
-                                    ) : null}
-                                    {appealRights?.hint ? (
-                                        <p className={`text-[11px] leading-relaxed ${s.isPearl ? 'text-[#9894A0]' : 'text-white/50'}`}>{appealRights.hint}</p>
                                     ) : null}
                                     {cassationOnlyHint ? (
                                         <p className={`text-[11px] leading-relaxed ${s.isPearl ? 'text-[#FFD4DC]/85' : 'text-amber-200/80'}`}>{cassationOnlyHint}</p>
@@ -443,7 +501,7 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                         <div className={appellantPickerCard}>
                                             <p className={`text-xs font-bold ${appellantPickerTitle}`}>
                                                 {isOpponentRegistration
-                                                    ? `الطرف الذي قام بالطعن · ${appellantLabel}`
+                                                    ? appellantLabel
                                                     : `الطاعنون · ${appellantLabel}`}
                                             </p>
                                             <div className="space-y-1.5 mt-3">
@@ -485,7 +543,9 @@ export const AppealTransitionModal: React.FC<AppealTransitionModalProps> = ({
                                     {showOpponentPicker ? (
                                         <div className={opponentPickerCard}>
                                             <p className={`text-xs font-bold ${opponentPickerTitle}`}>
-                                                المخاصَمون · {opponentLabel}
+                                                {isOpponentRegistration
+                                                    ? opponentLabel
+                                                    : `المخاصَمون · ${opponentLabel}`}
                                             </p>
                                             <div className="space-y-1.5 mt-3">
                                                 {visibleOpponentParties.map((party) => {

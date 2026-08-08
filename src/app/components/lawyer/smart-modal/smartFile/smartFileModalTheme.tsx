@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { SMART_FILE_NESTED_MODAL_OVERLAY_CLASS } from './smartFileOverlayZ';
-import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import { HUB_DOSSIER_ACTIONS_MENU_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { personalPearlModalTheme } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 
 export type SmartFileModalVisualVariant = 'civil' | 'personal-pearl';
@@ -59,15 +59,15 @@ const CIVIL_THEME: SmartFileModalTheme = {
         'px-3 py-1 rounded-full text-[11px] font-bold transition-all border border-[#E6C673]/35 bg-[#E6C673]/18 text-[#E6C673] shadow-[0_0_14px_rgba(230,198,115,0.18)]',
     sectionTitle: 'px-1 pb-2 text-[10px] font-bold text-[#E6C673]/90 tracking-wide',
     actionRow:
-        'flex items-center gap-4 w-full text-right px-5 py-4 rounded-[1.6rem] backdrop-blur-sm border transition-all duration-200 group active:scale-[0.99] bg-white/[0.04] border-white/[0.07] hover:bg-[#E6C673]/[0.08] hover:border-[#E6C673]/22 min-h-[4.5rem]',
+        'flex items-center gap-4 w-full text-right px-5 py-4 rounded-[1.6rem] backdrop-blur-sm border group bg-white/[0.04] border-white/[0.07] hover:bg-[#E6C673]/[0.08] hover:border-[#E6C673]/22 min-h-[4.5rem]',
     actionRowDanger:
-        'flex items-center gap-4 w-full text-right px-5 py-4 rounded-[1.6rem] backdrop-blur-sm border transition-all duration-200 group active:scale-[0.99] bg-rose-500/[0.08] border-rose-500/18 hover:bg-rose-500/12 hover:border-rose-400/28 min-h-[4.5rem]',
+        'flex items-center gap-4 w-full text-right px-5 py-4 rounded-[1.6rem] backdrop-blur-sm border group bg-rose-500/[0.08] border-rose-500/18 hover:bg-rose-500/12 hover:border-rose-400/28 min-h-[4.5rem]',
     actionRowIcon:
-        'w-12 h-12 shrink-0 rounded-[1rem] flex items-center justify-center border bg-white/[0.05] border-white/[0.1] group-hover:border-white/20 transition-colors',
+        'w-12 h-12 shrink-0 rounded-[1rem] flex items-center justify-center border bg-white/[0.05] border-white/[0.1] group-hover:border-white/20',
     actionRowIconDanger:
-        'w-12 h-12 shrink-0 rounded-[1rem] flex items-center justify-center border bg-rose-500/10 border-rose-500/20 group-hover:border-rose-400/30 transition-colors',
+        'w-12 h-12 shrink-0 rounded-[1rem] flex items-center justify-center border bg-rose-500/10 border-rose-500/20 group-hover:border-rose-400/30',
     sheet:
-        `fixed inset-x-2 bottom-2 ${HUB_DOSSIER_MODAL_Z_CLASS} max-h-[calc(100vh-1rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#E6C673]/15 scrollbar-track-transparent rounded-[1.85rem] border border-[#E6C673]/14 bg-[linear-gradient(180deg,rgba(18,24,38,0.992),rgba(9,13,24,0.995))] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.56)] px-5 pt-4 pb-7 md:left-1/2 md:right-auto md:top-6 md:bottom-6 md:w-[min(94vw,68rem)] md:max-h-[calc(100vh-3rem)] md:-translate-x-1/2 md:rounded-[2.1rem]`,
+        `fixed inset-x-2 bottom-2 ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS} max-h-[calc(100vh-1rem)] overflow-y-auto scrollbar-thin scrollbar-thumb-[#E6C673]/15 scrollbar-track-transparent rounded-[1.85rem] border border-[#E6C673]/14 bg-[linear-gradient(180deg,rgba(18,24,38,0.992),rgba(9,13,24,0.995))] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.56)] px-5 pt-4 pb-7 md:left-1/2 md:right-auto md:top-6 md:bottom-6 md:w-[min(94vw,68rem)] md:max-h-[calc(100vh-3rem)] md:-translate-x-1/2 md:rounded-[2.1rem]`,
     sheetHandle: 'w-10 h-1 rounded-full bg-[#E6C673]/20 mx-auto mb-4',
     sheetTitle: 'text-[#E6C673] font-bold text-lg mb-4 text-center flex items-center justify-center gap-2',
     accentText: 'text-[#E6C673]',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Lock, Wallet } from 'lucide-react';
+import { Lock, Wallet } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import { ExecutionInlineAccordion } from '@/app/components/lawyer/ExecutionDashboard/components/ExecutionInlineAccordion';

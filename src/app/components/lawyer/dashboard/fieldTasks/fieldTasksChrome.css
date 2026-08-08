@@ -21,6 +21,10 @@
     transition: none;
 }
 
+.hami-field-tasks-sheet--snap {
+    transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
     .hami-field-tasks-layer {
         transition: none;

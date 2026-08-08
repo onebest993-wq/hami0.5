@@ -48,4 +48,23 @@ describe('resolveActiveFollowupChipTabId', () => {
             }),
         ).toBe('personal');
     });
+
+    it('redirects legacy financial tab to coercive panel key', () => {
+        expect(
+            resolveFollowupActivePanelKey({
+                unifiedModalTab: 'financial',
+                showPersonalCoerciveFollowupTab: true,
+                hideFollowupCoerciveTab: false,
+            }),
+        ).toBe('coercive');
+    });
+
+    it('redirects legacy special tab to admin chip', () => {
+        expect(
+            resolveActiveFollowupChipTabId({
+                unifiedModalTab: 'special',
+                showPersonalCoerciveFollowupTab: true,
+            }),
+        ).toBe('admin');
+    });
 });

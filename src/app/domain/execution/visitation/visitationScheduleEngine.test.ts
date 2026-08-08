@@ -14,6 +14,10 @@ import {
     resolveFirstMatchingAppointmentDate,
     applyAutoResolvedAnchor,
     formatSmartFirstAppointmentMessage,
+    formatDateCompactAr,
+    buildVisitationCalendarDayMarkers,
+    resolveVisitationCalendarCellToneForDate,
+    summarizeVisitationAppointment,
     VISITATION_CALENDAR_WINDOW_MONTHS,
     describeVisitationSessionTiming,
     computeSleepoverReturnYmd,
@@ -110,6 +114,16 @@ describe('visitationScheduleEngine', () => {
         expect(rolled.every((s) => s.date >= '2026-06-01' && s.date <= '2026-09-30')).toBe(true);
     });
 
+    it('rolling sync stabilizes after first pass (no endless session growth)', () => {
+        const config = baseConfig();
+        const first = syncRollingCalendarSessions(config, [], '2026-06-15');
+        const second = syncRollingCalendarSessions(config, first, '2026-06-15');
+        const sig = (list: typeof first) =>
+            list.map((s) => `${s.id}:${s.status}:${s.documentedAt ?? ''}`).join('|');
+        expect(sig(second)).toBe(sig(first));
+        expect(second.length).toBe(first.length);
+    });
+
     it('finds nearest scheduled session (due or upcoming)', () => {
         const sessions = generateVisitationSessions(baseConfig());
         const nearest = findNearestScheduledSession(sessions, '2026-06-01');
@@ -122,6 +136,71 @@ describe('visitationScheduleEngine', () => {
         expect(viewing.successLabel).toContain('المشاهدة');
         const pickup = getVisitationDocumentationActions('viewing_pickup');
         expect(pickup.absenceLabel).toContain('الاستصحاب');
+    });
+
+    it('treats only documentedAt sessions as documented for calendar', () => {
+        const fake = {
+            id: 'vs-2026-06-27-5',
+            date: '2026-06-27',
+            dayLabel: 'جمعة',
+            status: 'completed' as const,
+        };
+        const real = {
+            ...fake,
+            documentedAt: '2026-06-27T10:00:00.000Z',
+        };
+        expect(isVisitationSessionDocumented(fake)).toBe(false);
+        expect(isVisitationSessionDocumented(real)).toBe(true);
+        expect(sanitizeVisitationSession(fake).status).toBe('scheduled');
+        expect(sessionCalendarLabel(fake, 'viewing_pickup', '2026-06-28')).toBe('لم يُوثَّق بعد');
+        expect(sessionCalendarLabel(real, 'viewing_pickup', '2026-06-28')).toContain('استصحاب');
+    });
+
+    it('maps sleepover return dates on calendar with distinct tone', () => {
+        const config: VisitationScheduleConfig = {
+            ...baseConfig(),
+            decisionMode: 'viewing_pickup_sleepover',
+            sleepoverNights: 1,
+            returnTime: '15:00',
+        };
+        const session = {
+            id: 'vs-1',
+            date: '2026-08-04',
+            dayLabel: 'ثلاثاء',
+            status: 'scheduled' as const,
+        };
+        const markers = buildVisitationCalendarDayMarkers(config, [session]);
+        expect(markers.get('2026-08-04')?.[0]?.role).toBe('pickup');
+        expect(markers.get('2026-08-05')?.[0]?.role).toBe('return');
+        expect(
+            resolveVisitationCalendarCellToneForDate(
+                markers.get('2026-08-04'),
+                '2026-08-04',
+                '2026-08-01',
+            ),
+        ).toBe('scheduled');
+        expect(
+            resolveVisitationCalendarCellToneForDate(
+                markers.get('2026-08-05'),
+                '2026-08-05',
+                '2026-08-01',
+            ),
+        ).toBe('return_scheduled');
+    });
+
+    it('summarizes sleepover appointment compactly', () => {
+        const summary = summarizeVisitationAppointment(
+            {
+                ...baseConfig(),
+                decisionMode: 'viewing_pickup_sleepover',
+                sleepoverNights: 2,
+                returnTime: '14:00',
+            },
+            '2026-08-04',
+        );
+        expect(summary.returnDateYmd).toBe('2026-08-06');
+        expect(summary.nightsLabel).toBe('2 ليالي');
+        expect(formatDateCompactAr('2026-08-04')).toContain('4');
     });
 
     it('computes sleepover return date after pickup plus nights', () => {
@@ -149,23 +228,5 @@ describe('visitationScheduleEngine', () => {
         expect(lines.some((l) => l.value.includes('10:00'))).toBe(true);
         expect(lines.some((l) => l.value.includes('22 آب'))).toBe(true);
         expect(lines.some((l) => l.value.includes('4 ليالي'))).toBe(true);
-    });
-
-    it('treats only documentedAt sessions as documented for calendar', () => {
-        const fake = {
-            id: 'vs-2026-06-27-5',
-            date: '2026-06-27',
-            dayLabel: 'جمعة',
-            status: 'completed' as const,
-        };
-        const real = {
-            ...fake,
-            documentedAt: '2026-06-27T10:00:00.000Z',
-        };
-        expect(isVisitationSessionDocumented(fake)).toBe(false);
-        expect(isVisitationSessionDocumented(real)).toBe(true);
-        expect(sanitizeVisitationSession(fake).status).toBe('scheduled');
-        expect(sessionCalendarLabel(fake, 'viewing_pickup', '2026-06-28')).toBe('لم يُوثَّق بعد');
-        expect(sessionCalendarLabel(real, 'viewing_pickup', '2026-06-28')).toContain('استصحاب');
     });
 });

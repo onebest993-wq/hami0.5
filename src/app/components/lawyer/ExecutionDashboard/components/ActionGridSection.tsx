@@ -3,7 +3,8 @@ import type { ElementType } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { ExecutionPinnedNotesTray } from './ExecutionPinnedNotesTray';
 import { prefetchLawReferencePanel } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyShell';
-import { prefetchExecutionActionGridTile, prefetchExecutionFollowupOverlay } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
+import { openFollowupModalStoreFallback } from '@/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen';
+import { prefetchExecutionActionGridTile } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardOverlayPrefetch';
 import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
@@ -169,25 +170,11 @@ export const ActionGridSection = memo(function ActionGridSection({
                             );
                             return;
                         }
-                        // افتح العلم فوراً عبر Zustand — لا تعتمد على handler متأخر
-                        let openedViaStore = false;
-                        try {
-                            prefetchExecutionFollowupOverlay();
-                        } catch {
-                            /* ignore */
-                        }
-                        try {
-                            useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
-                            openedViaStore = true;
-                        } catch {
-                            /* ignore */
-                        }
                         if (typeof onMemoFollowupClick === 'function') {
                             onMemoFollowupClick();
                             return;
                         }
-                        if (openedViaStore) return;
-                        showToast('تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+                        openFollowupModalStoreFallback();
                     },
                     locked: executionToolsTimelineLockedUi,
                 },
@@ -268,22 +255,11 @@ export const ActionGridSection = memo(function ActionGridSection({
                                 disabled={executionToolsTimelineLockedUi}
                                 onClick={() => {
                                     setEmployeeCompulsoryBannerDismissed(true);
-                                    let openedViaStore = false;
-                                    try {
-                                        useExecutionDashboardStore.getState().openModal('showUnifiedExecutionModal');
-                                        openedViaStore = true;
-                                    } catch {
-                                        /* ignore */
-                                    }
                                     if (typeof onMemoFollowupClick === 'function') {
                                         onMemoFollowupClick();
                                         return;
                                     }
-                                    if (openedViaStore) return;
-                                    showToast(
-                                        'تعذر فتح محضر المتابعة لأن الربط الحقيقي لم يصل إلى الواجهة بعد.',
-                                        'error',
-                                    );
+                                    openFollowupModalStoreFallback();
                                 }}
                                 className="rounded-lg border border-amber-400/50 bg-amber-600/80 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-amber-500/90 disabled:opacity-40"
                             >

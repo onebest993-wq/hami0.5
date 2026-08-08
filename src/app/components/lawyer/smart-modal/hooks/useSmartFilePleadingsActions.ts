@@ -10,6 +10,9 @@ import {
 } from '../smartFile/appealStageTransition';
 import { resolveOpponentRegistrationAppealLayout } from '../smartFile/appealPartyEngine';
 import { isAbsentJudgmentForm } from '../smartFile/absentJudgmentFlow';
+import {
+    normalizePersonalStatusAppealMethod,
+} from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 
 type SaveToCloud = (updatedStages: CaseStage[], parent?: SmartFileParentData) => void;
 
@@ -89,7 +92,7 @@ export function useSmartFilePleadingsActions(options: {
         }) => {
             try {
                 const {
-                    appealMethod,
+                    appealMethod: rawAppealMethod,
                     appealCaseNo,
                     appealCourt,
                     appellant: appellantOverride,
@@ -97,6 +100,10 @@ export function useSmartFilePleadingsActions(options: {
                     includedAppellantPartyIds,
                     includedOpponentPartyIds,
                 } = appealData;
+                const appealMethod = normalizePersonalStatusAppealMethod(rawAppealMethod, {
+                    stageName: currentStage.stageName,
+                    stages,
+                });
                 const now = filingDateOverride || getLocalTodayYmd();
                 const appellant =
                     appellantOverride

@@ -3,6 +3,7 @@ import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { useDismissedAlertIds } from '@/app/hooks/useDismissedAlertIds';
 import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';
 import { peekHomeHubSecretaryAlertsCache } from '@/app/services/alerts/homeHubSecretaryAlertsWarmCache';
+import { secretaryAlertsRevisionEqual } from '@/app/services/alerts/homeHubAlertRevision';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 
 type AlertsSlice = {
@@ -15,8 +16,7 @@ function alertsSliceEqual(a: AlertsSlice, b: AlertsSlice): boolean {
     return (
         a.loading === b.loading &&
         a.error === b.error &&
-        a.alerts.length === b.alerts.length &&
-        a.alerts.every((item, i) => item.id === b.alerts[i]?.id)
+        secretaryAlertsRevisionEqual(a.alerts, b.alerts)
     );
 }
 

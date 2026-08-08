@@ -3,7 +3,6 @@ import {
     markCalendarPerfPhase,
     reportCalendarPerf,
 } from '@/app/services/calendar/calendarPerfMetrics';
-import { requestCalendarDossierSyncIdle } from '@/app/services/calendar/requestCalendarDossierSyncIdle';
 import { prefetchRadarWidgets } from '@/app/runtime/radarWidgetLoader';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
 import { getCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
@@ -26,7 +25,6 @@ export function useSmartLegalRadarLifecycle(
 
     useEffect(() => {
         prefetchRadarWidgets();
-        return requestCalendarDossierSyncIdle();
     }, [userId]);
 
     useEffect(() => {

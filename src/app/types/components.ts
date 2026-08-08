@@ -11,6 +11,7 @@
  */
 
 import type { ModalProps, CaseFile, Party, Stage } from './common';
+import type { IncidentalSpawnContextEnriched } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LAWYER NEW CASE TYPES
@@ -26,6 +27,12 @@ export type LawyerNewCaseStructuredSave = {
     isUndeterminedValue?: boolean;
     isFixedFee?: boolean;
     details: Record<string, unknown>;
+    incidentalSpawnMeta?: {
+        filingPartyId?: string;
+        filingPartyName?: string;
+        opposingPartyId?: string;
+        opposingPartyName?: string;
+    };
 };
 
 export type LawyerNewCaseSavePayload = CaseFormData | LawyerNewCaseStructuredSave;
@@ -44,6 +51,10 @@ export interface LawyerNewCaseProps extends ModalProps {
     criminalSeveranceFormMode?: boolean;
     /** شريط تنقل توحيد الدعاوى ظاهر فوق النموذج */
     consolidationNavActive?: boolean;
+    /** نموذج مفتوح فوق إضبارة نشطة (دعوى حادثة / توحيد / شطر مرحلة) */
+    dossierNewCaseElevated?: boolean;
+    /** سياق إنشاء دعوى حادثة منضمة/متقابلة */
+    incidentalSpawnContext?: IncidentalSpawnContextEnriched | null;
 }
 
 export interface CaseFormData {

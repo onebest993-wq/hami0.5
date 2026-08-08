@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { CALENDAR_PERF_BUDGET } from '@/app/services/calendar/calendarPerfBudget';
 import { prepareBootE2E, suppressWeeklyBackupReminder } from './bootFixtures';
+import { writeE2eSecureStoreKey } from './secureStoreE2EFixtures';
 
 /** يجهّز جلسة E2E لرادار المواعيد — إقلاع سريع + بدون toasts حاجبة */
 export async function prepareCalendarE2E(page: Page): Promise<void> {
@@ -84,6 +85,15 @@ export async function seedCalendarEvents(page: Page, events: E2eCalendarEvent[] 
             storeName: SECURE_KV_STORE,
         },
     );
+}
+
+export async function hydrateCalendarEventsForE2E(
+    page: Page,
+    events: E2eCalendarEvent[] = [buildE2eCalendarEvent()],
+): Promise<void> {
+    const raw = JSON.stringify(events);
+    await writeE2eSecureStoreKey(page, CALENDAR_LOCAL_KEY, raw);
+    await primeCalendarEventsOnPage(page, events);
 }
 
 /** يُزامِن أحداث التقويم بعد تحميل اللوحة — localStorage + حدث تحديث */

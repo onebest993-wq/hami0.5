@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ChevronDown, Loader2 } from 'lucide-react';
+import { ChevronDown, Loader2 } from '@/app/components/ui/lucideIcons';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { QuestionCard } from './QuestionCard';
 import { useForumFeedWindow } from '../hooks/useForumFeedWindow';
@@ -77,7 +77,7 @@ export const ForumPostList = memo(function ForumPostList({
 
     return (
         <div className="px-4 pb-4 space-y-4" data-testid="forum-post-list">
-            {loadingPosts ? (
+            {loadingPosts && visiblePosts.length === 0 ? (
                 <div className="flex items-center justify-center gap-2 py-1 text-[#C9A86C]/50 text-[11px] font-bold">
                     <Loader2 size={14} className="animate-spin shrink-0" aria-hidden />
                     <span>جاري التحديث...</span>

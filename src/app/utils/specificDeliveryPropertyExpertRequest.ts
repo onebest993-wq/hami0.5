@@ -6,7 +6,7 @@ import {
     isExecutorHubRowSuperseded,
     isExecutorRowRejectedAndFinal,
     isEvictionProcedureRowPending,
-    patchExecutorDecisionRow,
+    patchExecutorDecisionRowReliable,
     readExecutorDecisionsArray,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { appendUnifiedLedgerExecutionExpense } from '@/app/utils/unifiedFundsLedgerStorage';
@@ -123,16 +123,17 @@ export function finalizeSpecificDeliveryPropertyExpertRequest(input: {
         `دائرة التسجيل العقاري المختصة: ${office}\n` +
         `أجور الخبير: ${fees.toLocaleString('ar-IQ')} د.ع.`;
 
-    const patched = patchExecutorDecisionRow(input.executionId, decisionId, {
+    const patched = patchExecutorDecisionRowReliable(input.executionId, decisionId, {
         body,
         specificDeliveryPropertyExpertSavedAt: new Date().toISOString(),
         specificDeliveryPropertyExpertFees: fees,
         specificDeliveryPropertyExpertOffice: office,
     });
-    if (!patched) return { ok: false };
+    if (!patched.ok) return { ok: false };
+    const ledgerId = String(patched.storageExecutionId || input.executionId || '').trim();
 
     const expenseReason = `أجور خبير مساح / تسجيل عقاري — ${office}`;
-    appendUnifiedLedgerExecutionExpense(input.executionId, fees, expenseReason);
+    appendUnifiedLedgerExecutionExpense(ledgerId, fees, expenseReason);
 
     const expenseRow: SpecificDeliveryCaseExpenseRow = {
         id: `sd-exp-prop-${decisionId}`,

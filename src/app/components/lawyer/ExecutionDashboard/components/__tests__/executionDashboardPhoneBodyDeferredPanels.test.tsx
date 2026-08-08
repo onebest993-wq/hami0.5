@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ExecutionFile } from '@/app/types/execution';
 import type { PropertyInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureInlinePersistence';
+import type { MovableInlineSaveContext } from '@/app/components/lawyer/ExecutionDashboard/utils/movableSeizureInlinePersistence';
 import { ExecutionDashboardPhoneBodyDeferredPanels } from '../ExecutionDashboardPhoneBodyDeferredPanels';
 
 const { secureStoreSetItemSync } = vi.hoisted(() => ({
@@ -63,6 +64,15 @@ describe('ExecutionDashboardPhoneBodyDeferredPanels', () => {
                 pushTimeline: vi.fn(),
                 nextTimelineId: () => 'timeline-1',
             } satisfies PropertyInlineSaveContext,
+            movableInlineSaveCtx: {
+                dossierId: 'exec-1',
+                showToast: vi.fn(),
+                persistMovables: vi.fn(),
+                readMovables: () => [],
+                pushTimeline: vi.fn(),
+                nextTimelineId: () => 'timeline-1',
+            } satisfies MovableInlineSaveContext,
+            saveSeizedMovableInitForDecision: vi.fn(),
             openGuarantorFollowupDetails: vi.fn(),
             closeFinancialHubPortal: vi.fn(),
             toggleFinancialCenterExpanded: vi.fn(),
@@ -117,7 +127,7 @@ describe('ExecutionDashboardPhoneBodyDeferredPanels', () => {
                 handleFundsLedgerPayment: vi.fn(),
                 handleGuarantorRequestFromFollowup: vi.fn(),
                 isAlimonyClaim: false,
-                isEvictionExecutionModule: false,
+                isEvictionExecutionModule: true,
                 isFinancialCenterExpanded: false,
                 isMaritalFurnitureClaim: true,
                 isNonFinancialClaim: false,

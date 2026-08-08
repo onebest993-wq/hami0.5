@@ -10,7 +10,7 @@ import {
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
 /**
- * المستودع الذكي — Entry lazy من MainView؛ Host sync داخل الـ chunk
+ * المستودع الذكي — Entry sync من MainView؛ Host sync داخل الـ chunk
  * (بلا Suspense مزدوج — InstantShell فقط داخل Host إن لم تُجهَّز الـ Modal).
  */
 export function LawyerDashboardRepositoryOverlayEntry({

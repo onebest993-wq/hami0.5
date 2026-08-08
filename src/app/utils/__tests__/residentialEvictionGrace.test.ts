@@ -26,6 +26,16 @@ describe('hasActiveResidentialEvictionGrace', () => {
         ).toBe(false);
     });
 
+    it('returns false when vacate deadline passed', () => {
+        expect(
+            hasActiveResidentialEvictionGrace({
+                premisesUse: 'residential',
+                gracePeriodStart: '2020-01-01',
+                vacateDeadline: '2020-01-02',
+            })
+        ).toBe(false);
+    });
+
     it('returns true for active residential grace', () => {
         expect(
             hasActiveResidentialEvictionGrace({

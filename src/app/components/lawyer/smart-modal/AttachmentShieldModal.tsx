@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock } from 'lucide-react';
+import { X, Lock } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
 interface AttachmentShieldModalProps {

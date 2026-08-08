@@ -6,6 +6,7 @@ import { ArchiveBanner } from './ArchiveBanner';
 import { PartiesSidebar } from './PartiesSidebar';
 import { LifecyclePanel } from './LifecyclePanel';
 import { AdminWorkspacePanel } from './AdminWorkspacePanel';
+import { SparkUrgentNudgeHost } from '@/app/spark/ui/SparkUrgentNudgeHost';
 import type { ActiveOrderFileViewProps } from './ActiveOrderFileViewProps';
 import { URGENT_DOSSIER_CARD } from './urgentDossierUi';
 
@@ -51,6 +52,29 @@ export function ActiveOrderFileView({
                         formatDateTimeText={archive.formatDateTimeText}
                     />
                 ) : null}
+
+                <SparkUrgentNudgeHost
+                    caseId={String(lifecyclePanelProps.caseData?.id ?? '')}
+                    requestNumber={String(lifecyclePanelProps.caseData?.requestNumber ?? '')}
+                    caseLabel={header.workspaceHeaderTitle}
+                    isFinalized={header.isFinalized}
+                    lifecycle={{
+                        fileStatus: lifecyclePanelProps.fileStatus,
+                        activeLifecycleStep: lifecyclePanelProps.activeLifecycleStep,
+                        judgeDecision: lifecyclePanelProps.judgeDecision,
+                        executionData: lifecyclePanelProps.executionData,
+                        grievanceData: lifecyclePanelProps.grievanceData,
+                        grievanceDecisionNotificationConfirmed:
+                            lifecyclePanelProps.grievanceDecisionNotificationConfirmed,
+                        cassationData: lifecyclePanelProps.cassationData,
+                    }}
+                    disabled={header.isFinalized}
+                    onConfirmGrievanceNotification={() =>
+                        lifecyclePanelProps.setDecisionNotificationModalOpen(true)
+                    }
+                    onReviewExecution={() => lifecyclePanelProps.setActiveLifecycleStep('execution')}
+                    onReviewCassation={() => lifecyclePanelProps.setActiveLifecycleStep('cassation')}
+                />
 
                 <div
                     className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]"

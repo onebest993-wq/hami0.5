@@ -191,7 +191,17 @@ export class LocalStorageRepository implements IPersistenceRepository {
 
     public clear(): void {
         try {
-            const appKeyPrefixes = ['hami_', 'hami:', 'lawyer_', 'execution_', 'lawsuit_', 'client_', 'notes_', 'cache_'];
+            const appKeyPrefixes = [
+                'hami_',
+                'hami:',
+                'lawyer_',
+                'execution_',
+                'lawsuit_',
+                'client_',
+                'notes_',
+                'cache_',
+                'spark_',
+            ];
             const keys = Array.from(this.memoryCache.keys());
             keys.forEach((k) => {
                 if (appKeyPrefixes.some((p) => k.startsWith(p))) {

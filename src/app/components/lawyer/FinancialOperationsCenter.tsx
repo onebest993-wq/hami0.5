@@ -10,7 +10,7 @@ import {
     History,
     Send,
     X,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     appendEvictionExecutorRequest,

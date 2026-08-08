@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useCallback } from 'react';
+import { useCallback, useLayoutEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -9,6 +9,10 @@ import { useExecutionDashboardDebtorSummonsCoerciveHandlers } from './useExecuti
 import { useExecutionDashboardDecisionsHeirsModalExclusivity } from './useExecutionDashboardDecisionsHeirsModalExclusivity';
 import { useExecutionDashboardHeirsInvestigationSync } from './useExecutionDashboardHeirsInvestigationSync';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -143,20 +147,23 @@ export function ExecutionDashboardHandlerClusterCoerciveSupportBridge({
         setEarnerFeeCollectionSm: c.setEarnerFeeCollectionSm,
     });
 
-    useEffect(() => {
-        onCluster({
-            dismissDebtorAbsenceBadge,
-            notifyDebtorHandler,
-            heirsNotificationHandlers,
-            debtorSummonsCoerciveHandlers,
-        });
-    }, [
-        debtorSummonsCoerciveHandlers,
+    const cluster: Record<string, unknown> = {
         dismissDebtorAbsenceBadge,
-        heirsNotificationHandlers,
         notifyDebtorHandler,
+        heirsNotificationHandlers,
+        debtorSummonsCoerciveHandlers,
+    };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
+            dismissDebtorAbsenceBadge,
+            ...handlerBagKeyFingerprint(notifyDebtorHandler as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(heirsNotificationHandlers as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(debtorSummonsCoerciveHandlers as Record<string, unknown>),
+        ],
         onCluster,
-    ]);
+    );
 
     return null;
 }

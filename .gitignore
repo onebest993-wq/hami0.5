@@ -1,54 +1,123 @@
-.vercel
-node_modules
-node_modules/.vite/
+# ============================================================
+# Hami Legal — .gitignore
+#
+# كان هذا الملف فارغاً، فصار .env مُتعقَّباً ومنشوراً، وصارت dist/
+# وnode_modules/ على بعد `git add .` واحد من المستودع.
+#
+# قاعدة الملف: كل ما يُولَّد يُحجَب، وكل ما يُكتب بيد إنسان يُتعقَّب.
+# استثناء مقصود: .audit/*baseline*.json وimport-closure-gate.json
+# مُتعقَّبة لأن حوارس CI تقرأها كخطّ أساس — حجبها يُعطّل البوّابة.
+# ============================================================
 
-# Build output
-dist/
-api/_routeManifest.ts
-.next/
-
-# Local / generated artifacts
-.trae/
-.tmp-*
-build-output.txt
-perf-reports/
-
-# Environment & secrets
+# --- أسرار: لا يُتعقَّب أي ملف بيئة إلا القوالب ---
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.keystore
+*.jks
+google-services.json
+GoogleService-Info.plist
 
-# Test artifacts
+# --- اعتماديات ---
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# --- مخرجات البناء ---
+dist/
+dist-ssr/
+build/
+out/
+.next/
+.turbo/
+.vite/
+*.local
+
+# --- مخرجات مولَّدة بسكربتات المستودع ---
+api/_routeManifest.ts
+code-quality-report.json
+src/imports/lawyer-dashboard-error.txt
+
+# --- أدلة تدقيق مؤقتة (خطوط الأساس المُتعقَّبة مستثناة أدناه) ---
+.audit/_atomic_*
+.audit/eslint-temp.json
+.audit/tsc-*.txt
+.audit/ts7006-*.txt
+.audit/phase*-*.txt
+.audit/*-run.txt
+.audit/*-gate.txt
+!.audit/import-closure-gate.json
+!.audit/lint-baseline.json
+!.audit/test-ratchet-baseline.json
+!.audit/ts-nocheck-baseline.json
+!.audit/tsc-ratchet-baseline.json
+
+# --- أدوات المحرّر: القواعد تُتعقَّب، المجسّات لا ---
+.cursor/*.mjs
+.cursor/*.png
+.cursor/*.json
+.cursor/ui-probe/
+!.cursor/rules/
+.vercel/
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# --- أندرويد: المشروع يُتعقَّب (فيه تخصيص شاشة البدء والأيقونات)،
+#     ومخرجات gradle لا تُتعقَّب ---
+android/build/
+android/app/build/
+android/.gradle/
+android/local.properties
+android/captures/
+android/.idea/
+android/app/release/
+android/app/debug/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# --- iOS ---
+ios/App/Pods/
+ios/App/build/
+ios/App/output/
+ios/App/App/public/
+ios/DerivedData/
+xcuserdata/
+*.xcworkspace/xcuserdata/
+
+# --- اختبارات ومقاييس ---
 playwright-report/
 test-results/
+blob-report/
+playwright/.cache/
 coverage/
+.nyc_output/
+.vitest-cache/
+*.lcov
 
-# Capacitor native projects (generated via npx cap add)
-android/
-ios/
-
-# Flutter mobile stub — not part of the Vite web app
-hami/
-*.dill
-
-# OS & editor
-.DS_Store
-Thumbs.db
+# --- سجلات ---
+logs/
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Dev-only local law injection (no service_role)
-data/dev-iraqi-laws.json
-
-# مدخل وهمي من إعادة توجيه صدفة فاشلة — لا يُمثّله ويندوز تمثيلاً صحيحاً ويمنع git add
-/...
-
-# تقارير الفحص الخام — يُعاد توليدها. خطوط أساس المِسنَنات تبقى متتبَّعة لأن CI يحتاجها.
-.audit/vitest-baseline.json
-.audit/vitest-run.json
-.audit/eslint-baseline.json
-.audit/tsc-baseline.txt
-.audit/_gitstatus.txt
-
-.vercel
-
-.vercel
+# --- نظام التشغيل ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini

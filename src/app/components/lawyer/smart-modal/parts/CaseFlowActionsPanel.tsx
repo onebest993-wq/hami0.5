@@ -1,13 +1,13 @@
 import React, { useEffect, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { Activity, AlertOctagon, Archive, Ban, Clock, X, type LucideIcon } from 'lucide-react';
+import { Activity, AlertOctagon, Archive, Ban, Clock, X, type LucideIcon } from '@/app/components/ui/lucideIcons';
 import { resolveAbandonmentFlowAction } from '../smartFile/caseFlowAbandonment';
 import {
     resolvePetitionVoidMenuLabel,
     shouldShowPetitionVoidMenuAction,
 } from '../smartFile/petitionVoidFlow';
 import type { CaseStage } from '../../LawyerShared';
-import { personalPearlModalTheme, PS_DOCK_BTN_ROSE } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
+import { personalPearlModalTheme, PS_DOCK_BTN_ROSE, PS_RAIL_CELL_FLOW, PS_RIBBON_BTN } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { PersonalStatusFlowConfirmDialog } from '@/app/components/lawyer/personal-status/PersonalStatusFlowConfirmDialog';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
 import {
@@ -41,8 +41,10 @@ export interface CaseFlowActionsPanelProps {
     >;
     isPaused?: boolean;
     isInterrupted?: boolean;
-    /** chrome = زر في الشريط العلوي · dock = أيقونة في عمود الأوامر */
-    variant?: 'chrome' | 'dock';
+    /** chrome = زر في الشريط العلوي · dock = أيقونة في عمود الأوامر · rail = خلية في محور الإضبارة */
+    variant?: 'chrome' | 'dock' | 'rail';
+    /** dock مضغوط — شريط أفقي */
+    compactDock?: boolean;
 }
 
 type FlowAction = {
@@ -83,13 +85,17 @@ export const CaseFlowActionsPanel = memo(({
     isPaused,
     isInterrupted,
     variant = 'chrome',
+    compactDock = false,
 }: CaseFlowActionsPanelProps) => {
     const [isOpen, setIsOpen] = useState(false);
     const [pendingConfirm, setPendingConfirm] = useState<FlowConfirmState | null>(null);
     const T = useSmartFileModalTheme();
     const pearlFlow = personalPearlModalTheme();
     const isDock = variant === 'dock';
-    const needsPearlConfirm = isDock || T.variant === 'personal-pearl';
+    const isRail = variant === 'rail';
+    const dockBtnClass = compactDock ? PS_RIBBON_BTN : PS_DOCK_BTN_ROSE;
+    const usePearlFlowChrome = isRail || (isDock && T.variant === 'personal-pearl');
+    const needsPearlConfirm = usePearlFlowChrome || T.variant === 'personal-pearl';
     const closeAnd = (fn: () => void, confirm?: Omit<FlowConfirmState, 'onConfirm'>) => () => {
         setIsOpen(false);
         if (needsPearlConfirm && confirm) {
@@ -198,9 +204,9 @@ export const CaseFlowActionsPanel = memo(({
 
     if (actions.length === 0) return null;
 
-    const panelBackdrop = isDock ? pearlFlow.flowBackdrop : SMART_FILE_FLOW_PANEL_BACKDROP_CLASS;
-    const panelShell = isDock ? pearlFlow.flowPanel : SMART_FILE_FLOW_PANEL_SHELL_CLASS;
-    const panelHeader = isDock
+    const panelBackdrop = usePearlFlowChrome ? pearlFlow.flowBackdrop : SMART_FILE_FLOW_PANEL_BACKDROP_CLASS;
+    const panelShell = usePearlFlowChrome ? pearlFlow.flowPanel : SMART_FILE_FLOW_PANEL_SHELL_CLASS;
+    const panelHeader = usePearlFlowChrome
         ? pearlFlow.header
         : 'relative px-4 py-3.5 border-b border-white/[0.08] bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent';
 
@@ -212,17 +218,17 @@ export const CaseFlowActionsPanel = memo(({
                     <button
                         type="button"
                         onClick={() => setIsOpen(false)}
-                        className={isDock ? pearlFlow.closeBtn : 'absolute left-3 top-3 p-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-colors'}
+                        className={usePearlFlowChrome ? pearlFlow.closeBtn : 'absolute left-3 top-3 p-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-colors'}
                         aria-label="إغلاق"
                     >
                         <X size={16} />
                     </button>
-                    <h3 className={`font-bold text-[13px] flex items-center gap-2 ${isDock ? 'text-[#FFFEF9]' : 'text-white/95 pr-1'}`}>
-                        <Activity size={16} className={isDock ? 'text-[#C9B89A]' : 'text-[#E6C673] shrink-0'} strokeWidth={1.75} />
+                    <h3 className={`font-bold text-[13px] flex items-center gap-2 ${usePearlFlowChrome ? 'text-[#FFFEF9]' : 'text-white/95 pr-1'}`}>
+                        <Activity size={16} className={usePearlFlowChrome ? 'text-[#C9B89A]' : 'text-[#E6C673] shrink-0'} strokeWidth={1.75} />
                         سير الدعوى
                     </h3>
                 </div>
-                <div className={`${isDock ? 'px-2 py-2 space-y-1' : 'px-2 py-3 space-y-1'}`}>
+                <div className={`${usePearlFlowChrome ? 'px-2 py-2 space-y-1' : 'px-2 py-3 space-y-1'}`}>
                     {actions.map((a) => (
                         <FlowActionRow key={a.key} label={a.label} icon={a.icon} iconClass={a.iconClass} onClick={a.onClick} />
                     ))}
@@ -247,16 +253,34 @@ export const CaseFlowActionsPanel = memo(({
               )
             : null;
 
+    if (isRail) {
+        return (
+            <>
+                <button
+                    type="button"
+                    onClick={() => setIsOpen(!isOpen)}
+                    className={PS_RAIL_CELL_FLOW}
+                    title="سير الدعوى"
+                >
+                    <Activity size={16} className="text-[#C9B89A]" strokeWidth={1.75} aria-hidden />
+                    <span className="text-[9px] font-black text-[#FFFEF9] leading-none">سير</span>
+                </button>
+                {panel && createPortal(panel, document.body)}
+                {confirmDialog}
+            </>
+        );
+    }
+
     if (isDock) {
         return (
             <>
                 <button
                     type="button"
                     onClick={() => setIsOpen(!isOpen)}
-                    className={PS_DOCK_BTN_ROSE}
+                    className={dockBtnClass}
                     title="سير الدعوى"
                 >
-                    <Activity size={17} strokeWidth={1.75} />
+                    <Activity size={compactDock ? 15 : 17} strokeWidth={1.75} />
                 </button>
                 {panel && createPortal(panel, document.body)}
                 {confirmDialog}

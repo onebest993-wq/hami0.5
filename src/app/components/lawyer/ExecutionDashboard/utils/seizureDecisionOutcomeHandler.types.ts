@@ -1,7 +1,6 @@
-/** أنواع نتيجة قرار الحجز — منفصلة عن المعالج الثقيل */
 import type React from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
+import type { OpenFollowupModalPersistedFn } from '@/app/components/lawyer/ExecutionDashboard/utils/followupModalOpen';
 
 export type SeizureDecisionOutcomeDetail = {
     executionId?: string;
@@ -27,6 +26,7 @@ export type SeizureDecisionOutcomeContext = {
     focusSeizureThirdPartyInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
     focusSeizureNoticeInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
     openSeizureRequestsTabRef: React.MutableRefObject<() => void>;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowCoerciveActionForm: React.Dispatch<React.SetStateAction<string | null>>;
     setSeizureDetailCompletion: React.Dispatch<
         React.SetStateAction<{

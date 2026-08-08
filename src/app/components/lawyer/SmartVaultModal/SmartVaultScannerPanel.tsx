@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Camera, Upload, Scan, Loader2, CheckCircle2, ChevronLeft, Eye, AlertCircle } from 'lucide-react';
+import { X, Camera, Upload, Scan, Loader2, CheckCircle2, ChevronLeft, Eye, AlertCircle } from '@/app/components/ui/lucideIcons';
 import { saveScannedImageToVault } from '@/app/services/vaultUploadService';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';

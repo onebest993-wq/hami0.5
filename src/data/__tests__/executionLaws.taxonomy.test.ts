@@ -6,7 +6,8 @@ import {
     resolveExecutionLawLeaf,
     type ExecutionLawArticle,
 } from '../executionLaws';
-import { loadExecutionLawSeedData } from '../executionLawsLoader';
+import { loadExecutionLawSeedData, resetExecutionLawSeedCacheForTests } from '../executionLawsLoader';
+import { resetBundledLawLoaderCacheForTests } from '@/app/utils/bundledIraqiLawLoader';
 import {
     EXECUTION_LAW_HIERARCHY,
     buildExecutionLawAdminBrowseFilters,
@@ -16,6 +17,8 @@ describe('executionLawHierarchy', () => {
     let executionLawData: ExecutionLawArticle[];
 
     beforeAll(async () => {
+        resetBundledLawLoaderCacheForTests();
+        resetExecutionLawSeedCacheForTests();
         executionLawData = await loadExecutionLawSeedData();
     });
 

@@ -1,5 +1,16 @@
 /* Notification Panel — luxury shell (navy + gold aurora) */
 
+/* منبثقات الواردة — تحت الهيدر الثابت + safe-area */
+.hami-incoming-notification-popups-host {
+  top: calc(var(--hami-lawyer-header-offset, calc(72px + env(safe-area-inset-top, 0px))) + 0.75rem);
+}
+
+@media (min-width: 640px) {
+  .hami-notif-root {
+    padding-top: var(--hami-lawyer-header-offset, calc(72px + env(safe-area-inset-top, 0px)));
+  }
+}
+
 /* طبقة keep-alive — إظهار فوري بلا display:none / بلا انتظار AnimatePresence */
 .hami-notif-layer {
   opacity: 0;
@@ -13,6 +24,13 @@
 .hami-notif-layer:not(.hami-notif-layer--visible) {
   pointer-events: none !important;
   visibility: hidden;
+}
+
+[data-notification-root][data-open='false'],
+[data-notification-root][aria-hidden='true'] {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .hami-notif-sheet {
@@ -69,6 +87,7 @@
 
 .hami-notif-tabs-track {
   position: relative;
+  isolation: isolate;
   display: flex;
   gap: 0.25rem;
   padding: 0.3rem;
@@ -80,12 +99,21 @@
 
 .hami-notif-tab-pill {
   position: absolute;
-  inset-block: 0.3rem;
+  top: 0.3rem;
+  bottom: 0.3rem;
+  width: calc(50% - 0.425rem);
   border-radius: 0.85rem;
   background: linear-gradient(180deg, rgba(230, 198, 115, 0.22), rgba(230, 198, 115, 0.08));
   border: 1px solid rgba(230, 198, 115, 0.28);
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
   pointer-events: none;
+  z-index: 0;
+  inset-inline-start: 0.3rem;
+  transition: inset-inline-start 220ms cubic-bezier(0.32, 0, 0.67, 0);
+}
+
+.hami-notif-tab-pill[data-active-index='1'] {
+  inset-inline-start: calc(50% + 0.125rem);
 }
 
 .hami-notif-card {
@@ -142,8 +170,40 @@
   color: rgba(255, 255, 255, 0.38);
 }
 
+.hami-notif-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 639px) {
+  .hami-notif-sheet {
+    max-height: 92dvh;
+    min-height: 56dvh;
+    border-radius: 1.65rem 1.65rem 0 0;
+    border-top: 1px solid rgba(230, 198, 115, 0.16);
+    border-inline: 1px solid rgba(255, 255, 255, 0.06);
+    width: 100%;
+  }
+
+  .hami-notif-header {
+    touch-action: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .hami-notif-sheet {
+    max-height: min(82dvh, 720px);
+    border-radius: 1.5rem;
+    border: 1px solid rgba(230, 198, 115, 0.14);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .hami-notif-card {
+    transition: none;
+  }
+
+  .hami-notif-tab-pill {
     transition: none;
   }
 }

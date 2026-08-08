@@ -86,6 +86,8 @@ export type AddDocumentModalProps = ModalShellProps &
         recentDocuments?: TimelineEvent[];
         onDeleteDocument?: (id: string) => void | Promise<void>;
         onReplaceDocument?: (event: TimelineEvent) => void;
+        /** للاطلاع فقط — معاينة المستندات دون رفع أو تعديل */
+        browseOnly?: boolean;
     };
 
 export type AddNoteModalProps = ModalShellProps &
@@ -95,6 +97,8 @@ export type AddNoteModalProps = ModalShellProps &
         voiceUserId?: string;
         savedNotes?: import('@/app/components/lawyer/dossier-notes/DossierNotesVault').DossierVaultNote[];
         onDeleteNote?: (id: string) => void;
+        /** للاطلاع فقط — مخزن الملاحظات دون إضافة أو حذف */
+        browseOnly?: boolean;
     };
 
 export type AddPaymentModalProps = ModalShellProps & {
@@ -114,6 +118,8 @@ export type AddAppointmentModalProps = ModalShellProps &
         recentAppointments?: TimelineEvent[];
         onDeleteAppointment?: (id: string) => void;
         onEditAppointment?: (event: TimelineEvent) => void;
+        /** للاطلاع فقط — سجل المواعيد دون إضافة أو تعديل */
+        browseOnly?: boolean;
     };
 
 export type PauseCaseModalProps = ModalShellProps &
@@ -128,7 +134,9 @@ export type InterruptionModalProps = ModalShellProps &
     };
 
 export type ResumeInterruptionModalProps = ModalShellProps & {
-    onConfirm: () => void;
+    onConfirm: (data: { nextHearingDate: string }) => void;
+    interruptionReason?: string;
+    interruptionParty?: string;
 };
 
 export type LegacyModalParty = {

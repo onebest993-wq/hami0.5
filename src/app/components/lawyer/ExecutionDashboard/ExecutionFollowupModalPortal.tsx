@@ -2,8 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useExecutionFollowupModalPortalController } from './hooks/useExecutionFollowupModalPortalController';
-import { ExecutionFollowupModalShell } from './components/ExecutionFollowupModalShell';
-import { ExecutionFollowupModalTabPanels } from './components/ExecutionFollowupModalTabPanels';
+import { ExecutionFollowupModalView } from './components/ExecutionFollowupModalView';
 
 export function ExecutionFollowupModalPortal() {
     const controller = useExecutionFollowupModalPortalController();
@@ -12,10 +11,5 @@ export function ExecutionFollowupModalPortal() {
 
     if (typeof document === 'undefined') return null;
 
-    return createPortal(
-        <ExecutionFollowupModalShell c={controller}>
-            <ExecutionFollowupModalTabPanels c={controller} />
-        </ExecutionFollowupModalShell>,
-        document.body,
-    );
+    return createPortal(<ExecutionFollowupModalView controller={controller} />, document.body);
 }

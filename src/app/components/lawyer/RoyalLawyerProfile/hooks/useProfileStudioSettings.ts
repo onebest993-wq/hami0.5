@@ -14,10 +14,10 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { LawyerProfileData } from '@/app/services/cloud/lawyerProfileTypes';
 import { setProfileWarmCache } from '@/app/services/profile/profileWarmCache';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
+import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import {
     loadProfileSettingsSheetModule,
 } from '@/app/utils/lazyComponentsIntent';
-import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
 import type { createProfileSaveQueue } from '@/app/services/profile/profileSaveQueue';
 import { canOpenProfileStudio } from '@/app/services/profile/profileStudioAccessLogic';
 import { profileMediaPathsRemovedFrom } from '@/app/services/profile/profileMediaPaths';
@@ -116,15 +116,13 @@ export function useProfileStudioSettings({
             return;
         }
         /* افتح فوراً — أي تسخين/إغلاق طبقات أخرى بعد الإطار الأول */
+        primeProfileStudio();
+        void loadProfileSettingsSheetModule().catch(() => undefined);
         settingsOpenRef.current = true;
         flushSync(() => {
             setSettingsOpen(true);
         });
         dismissTransientOverlays('profile-settings');
-        queueMicrotask(() => {
-            prefetchProfileSettingsSheetModule();
-            void loadProfileSettingsSheetModule().catch(() => undefined);
-        });
     }, [isOwnProfile]);
 
     useEffect(() => {

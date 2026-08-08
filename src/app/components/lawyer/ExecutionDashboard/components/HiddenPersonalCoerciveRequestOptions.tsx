@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { Gavel, Plane, Scale, Send, ShieldAlert, UserX } from 'lucide-react';
+import { Gavel, Plane, Scale, Send, ShieldAlert, UserX } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import {

@@ -1,4 +1,4 @@
-import { GitBranch, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { GitBranch, MoreVertical, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { TransactionTask, TransactionTaskStatus } from '@/app/modules/transactionsThreading/types';
 import { TransactionTaskStatus as TaskStatus } from '@/app/modules/transactionsThreading/types';
 import {

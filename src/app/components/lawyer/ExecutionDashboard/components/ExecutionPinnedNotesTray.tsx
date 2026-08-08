@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronDown, Clock, Pin, Trash2 } from 'lucide-react';
+import { ChevronDown, Clock, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile } from '@/app/types/execution';
 import { formatArTaskDate } from './notesTasksModalUi';
 import { TaskStepDisplayRow } from './TaskStepDisplayRow';

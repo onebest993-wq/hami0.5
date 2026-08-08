@@ -13,12 +13,18 @@ import {
 
 
 import { resolveAppealDossierLayout, inferAppellantSideFromLawyer } from '../../smartFile/appealPartyEngine';
+import {
+    buildAppealArchiveTimelineTitle,
+    resolveAppealStageClientOutcome,
+    resolveClientAppealRole,
+} from '../../smartFile/appealStageJudgmentEngine';
 
 
 import type { UseSmartFileJudgmentActionsOptions } from './judgmentHookTypes';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { buildLawsuitCalendarContext } from '../procedural/lawsuitCalendarContext';
 import { mirrorStageLegalDatesToCalendar } from '@/app/services/lawsuitTimelineCalendarMirror';
+import { normalizePersonalStatusAppealMethod } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 
 export function useAppealTransitionAction(options: UseSmartFileJudgmentActionsOptions) {
     const {
@@ -53,7 +59,11 @@ const handleAppealTransition = (appealData: AppealTransitionPayload) => {
     const judgmentForm = str(tempJudgmentData.judgmentForm);
     const judgmentDate = str(tempJudgmentData.judgmentDate);
     const judgmentNotes = str(tempJudgmentData.notes);
-    const { appealType, appellant, filingDate, newCaseNumber, notes: appealNotes, includedOpponentPartyIds, includedAppellantPartyIds } = appealData;
+    const { appealType: rawAppealType, appellant, filingDate, newCaseNumber, notes: appealNotes, includedOpponentPartyIds, includedAppellantPartyIds } = appealData;
+    const appealType = normalizePersonalStatusAppealMethod(rawAppealType, {
+        stageName: currentStage.stageName,
+        stages,
+    });
 
     const dossierLayout = resolveAppealDossierLayout(currentStage.parties ?? [], {
         judgmentType,
@@ -65,8 +75,13 @@ const handleAppealTransition = (appealData: AppealTransitionPayload) => {
         ),
     });
 
+    const clientRole = resolveClientAppealRole(currentStage.parties);
+    const appealOutcome = resolveAppealStageClientOutcome(judgmentType, clientRole);
+    const toCassation =
+        appealType === 'تمييز' || String(appealType).includes('تمييز');
+
     let decisionText = `انتقال لمرحلة ${appealType} (${judgmentType})`;
-    let timelineTitle = `➡️ حكم بـ ${judgmentType} والانتقال`;
+    let timelineTitle = buildAppealArchiveTimelineTitle(judgmentType, clientRole, toCassation);
 
     if (judgmentType === 'إجابة الدعوى' || judgmentType === 'إجابة الدعوى بالكامل') {
         decisionText = 'إجابة الدعوى (حكم لصالح الموكل)';
@@ -77,6 +92,10 @@ const handleAppealTransition = (appealData: AppealTransitionPayload) => {
     } else if (judgmentType === 'رد الدعوى جزئياً') {
         decisionText = 'رد الدعوى جزئياً (حكم جزئي)';
         timelineTitle = '⚠️ حكم برد الدعوى جزئياً';
+    } else if (appealOutcome === 'win') {
+        decisionText = `محسومة لصالح الموكل — انتقال لمرحلة ${appealType}`;
+    } else if (appealOutcome === 'loss') {
+        decisionText = `محسومة ضد الموكل — انتقال لمرحلة ${appealType}`;
     }
 
     const archiveJudgmentEvent: TimelineEvent = {

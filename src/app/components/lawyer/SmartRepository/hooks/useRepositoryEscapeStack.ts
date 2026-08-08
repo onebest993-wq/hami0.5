@@ -12,6 +12,7 @@ type UseRepositoryEscapeStackParams = {
     pendingUploadSaving?: boolean;
     onResetComposer: () => void;
     onCloseScanner: () => void;
+    onCloseVoice?: () => void;
     onCloseFileViewer?: () => void;
     onCloseEditDoc?: () => void;
     onCancelPendingUpload?: () => void;
@@ -30,6 +31,7 @@ export function useRepositoryEscapeStack({
     pendingUploadSaving = false,
     onResetComposer,
     onCloseScanner,
+    onCloseVoice,
     onCloseFileViewer,
     onCloseEditDoc,
     onCancelPendingUpload,
@@ -39,7 +41,10 @@ export function useRepositoryEscapeStack({
         if (!enabled) return;
 
         const consumeBackStack = (): boolean => {
-            if (showVoiceRecorder) return true;
+            if (showVoiceRecorder) {
+                onCloseVoice?.();
+                return true;
+            }
             if (pendingUploadOpen && !pendingUploadSaving) {
                 onCancelPendingUpload?.();
                 return true;
@@ -66,7 +71,6 @@ export function useRepositoryEscapeStack({
 
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key !== 'Escape') return;
-            if (showVoiceRecorder) return;
 
             e.preventDefault();
             e.stopPropagation();
@@ -89,6 +93,7 @@ export function useRepositoryEscapeStack({
         onCloseFileViewer,
         onCloseModal,
         onCloseScanner,
+        onCloseVoice,
         onResetComposer,
         pendingUploadOpen,
         pendingUploadSaving,

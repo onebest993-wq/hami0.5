@@ -6,12 +6,14 @@ import type { ShapeKey, ThemeKey } from '@/app/types/common';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import {
     applySettingsToDom,
+    consumeSettingsDomFastPath,
     hydrateWallpaperFromSecureStore,
     loadPersistedWallpaper,
     persistWallpaper,
     shouldAllowPush,
 } from '@/app/services/settings/apply';
 import {
+    getLawyerSettingsSnapshot,
     invalidateLawyerSettingsCache,
     publishLawyerSettingsLive,
 } from '@/app/services/settings/settingsSnapshot';
@@ -20,7 +22,6 @@ import type { AppSettingsState } from '@/app/services/settings/types';
 import { PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 import { LAWYER_THEME_TOKENS } from '@/app/services/settings/lawyerThemeTokens';
 import { clearStoredBiometricCredential } from '@/app/services/security/webAuthnLock';
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import {
     LawyerSettingsActionsContext,
     LawyerSettingsAppearanceContext,
@@ -38,6 +39,8 @@ import {
     settingsHydrateEqual,
     stripWallpaperForStorage,
 } from './lawyerSettingsPersistence';
+import { isCloudSyncEnabled } from '@/lib/cloudSyncEnv.js';
+import { useLawyerSettingsCloudSync } from './useLawyerSettingsCloudSync';
 
 export function LawyerSettingsProvider({ children }: { children: React.ReactNode }) {
     const [settingsHydrated, setSettingsHydrated] = useState(false);
@@ -70,7 +73,38 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
 
         const startHydrate = () => {
             if (cancelled) return;
-            void loadInitialSettingsAsync().then((loaded) => applyLoaded(loaded, 'initial'));
+
+            const runInitialHydrate = async () => {
+                let loaded: AppSettingsState | null = null;
+
+                if (isCloudSyncEnabled()) {
+                    try {
+                        const snap = getLawyerSettingsSnapshot();
+                        if (snap.data.cloudSync) {
+                            const { loadFromCloud, applyAppData, migrateLegacyDevUserCloudData } =
+                                await import('@/lib/syncService.js');
+                            await migrateLegacyDevUserCloudData().catch(() => undefined);
+                            const remote = await loadFromCloud();
+                            if (remote && applyAppData(remote)) {
+                                invalidateLawyerSettingsCache();
+                                loaded = await loadInitialSettingsAsync();
+                                applySettingsToDom(loaded);
+                                publishLawyerSettingsLive(loaded);
+                            }
+                        }
+                    } catch {
+                        /* السحابة اختيارية عند الإقلاع */
+                    }
+                }
+
+                if (cancelled) return;
+                if (!loaded) {
+                    loaded = await loadInitialSettingsAsync();
+                }
+                applyLoaded(loaded, 'initial');
+            };
+
+            void runInitialHydrate();
 
             void SecureStoreService.ensureBootShellReady().then(() => {
                 if (cancelled) return;
@@ -96,8 +130,21 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         autoSaveOn,
         settingsHydrated,
     );
-    useAutoSave('lawyer_theme', currentTheme, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
-    useAutoSave('lawyer_shape', currentShape, PERSIST_DEBOUNCE_MS.LIGHT, autoSaveOn, settingsHydrated);
+
+    useLawyerSettingsCloudSync({
+        settings: settingsForPersistence,
+        settingsHydrated,
+        cloudSyncEnabled: settings.data.cloudSync,
+    });
+
+    useEffect(() => {
+        if (!settingsHydrated || !autoSaveOn) return;
+        const timer = window.setTimeout(() => {
+            persistenceRepository.save('lawyer_theme', settings.appearance.theme);
+            persistenceRepository.save('lawyer_shape', settings.appearance.shape);
+        }, PERSIST_DEBOUNCE_MS.LIGHT);
+        return () => window.clearTimeout(timer);
+    }, [settings.appearance.theme, settings.appearance.shape, settingsHydrated, autoSaveOn]);
 
     useEffect(() => {
         if (!settingsHydrated) return;
@@ -121,6 +168,9 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         if (!settingsHydrated) return;
         const timer = window.setTimeout(() => {
             window.dispatchEvent(new CustomEvent('hami:settings-updated', { detail: settings }));
+            void import('@/app/services/notifications/notificationAlertPolicy').then((m) => {
+                m.cacheNotificationPrefsForBackground(settings);
+            });
         }, 120);
         return () => window.clearTimeout(timer);
     }, [settings, settingsHydrated]);
@@ -138,28 +188,29 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         () =>
             JSON.stringify({
                 theme: settings.appearance.theme,
+                cardTheme: settings.appearance.cardTheme,
+                patternTheme: settings.appearance.patternTheme,
+                themeApplyTarget: settings.appearance.themeApplyTarget,
+                patternApplyTarget: settings.appearance.patternApplyTarget,
                 shape: settings.appearance.shape,
                 brandColor: settings.appearance.brandColor,
                 glassOpacity: settings.appearance.glassOpacity,
-                reduceMotion: settings.appearance.reduceMotion,
                 wallpaper: loadPersistedWallpaper() ? '1' : '0',
                 wallpaperStamp: settings.appearance.wallpaperStamp ?? 0,
                 backgroundPreset: settings.appearance.backgroundPreset,
                 backgroundPatternOpacity: settings.appearance.backgroundPatternOpacity,
                 backgroundPatternBlur: settings.appearance.backgroundPatternBlur,
                 homeContainerBorder: settings.appearance.homeContainerBorder,
-                fontSize: settings.appearance.fontSize,
                 language: settings.appearance.language,
-                highContrast: settings.appearance.highContrast,
                 themeMode: settings.appearance.themeMode,
-                enableAnimations: settings.performance.enableAnimations,
                 localOnlyMode: settings.security.localOnlyMode,
             }),
-        [settings.appearance, settings.performance.enableAnimations, settings.security.localOnlyMode],
+        [settings.appearance, settings.security.localOnlyMode],
     );
 
     useEffect(() => {
         if (!settingsHydrated) return;
+        if (consumeSettingsDomFastPath()) return;
         invalidateLawyerSettingsCache();
         applySettingsToDom(settingsRef.current);
     }, [domSettingsSignature, settingsHydrated]);
@@ -191,55 +242,50 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
     }, [settings.appearance.shape, currentShape]);
 
     useEffect(() => {
-        if (isCapacitorNativePlatform()) {
-            document.body.style.filter = 'none';
-            return undefined;
-        }
-        const onVis = () => {
-            if (!document.hidden || !settings.security.privacyBlur) {
-                document.body.style.filter = 'none';
-                return;
-            }
-            document.body.style.filter = 'blur(14px)';
-        };
-        document.addEventListener('visibilitychange', onVis);
-        return () => {
-            document.removeEventListener('visibilitychange', onVis);
-            document.body.style.filter = 'none';
-        };
-    }, [settings.security.privacyBlur]);
-
-    useEffect(() => {
-        if (!settings.security.screenshotDeterrent) return undefined;
         let unbind: (() => void) | undefined;
         let cancelled = false;
-        void import('@/app/runtime/screenshotDeterrentRuntime')
+        void import('@/app/runtime/privacyBlurRuntime')
             .then((m) => {
                 if (cancelled) return;
-                unbind = m.bindWebScreenshotDeterrent();
+                unbind = m.bindPrivacyBlur(settings.security.privacyBlur);
             })
             .catch(() => undefined);
         return () => {
             cancelled = true;
             unbind?.();
         };
-    }, [settings.security.screenshotDeterrent]);
+    }, [settings.security.privacyBlur]);
 
     useEffect(() => {
-        let unwire: (() => void) | undefined;
+        let unbind: (() => void) | undefined;
         let cancelled = false;
-        void import('@/app/runtime/nativeSecurityBoot')
-            .then((m) => {
-                if (cancelled) return;
-                void m.applyNativeSecurityFromSettings();
-                unwire = m.wireNativeSecuritySettingsListener();
-            })
+
+        const run = () => {
+            if (cancelled) return;
+            if (!settings.security.screenshotDeterrent) {
+                void import('@/app/runtime/screenshotDeterrentRuntime')
+                    .then((m) => m.syncNativeScreenshotGuard(false))
+                    .catch(() => undefined);
+                return;
+            }
+            void import('@/app/runtime/screenshotDeterrentRuntime')
+                .then((m) => {
+                    if (cancelled) return;
+                    unbind = m.bindWebScreenshotDeterrent();
+                })
+                .catch(() => undefined);
+        };
+
+        void import('@/app/runtime/nativeCapacitorBoot')
+            .then((boot) => boot.whenNativeCapacitorBootComplete())
+            .then(run)
             .catch(() => undefined);
+
         return () => {
             cancelled = true;
-            unwire?.();
+            unbind?.();
         };
-    }, []);
+    }, [settings.security.screenshotDeterrent]);
 
     const patchSettings = useCallback(
         (patch: Partial<AppSettingsState> | ((prev: AppSettingsState) => AppSettingsState)) => {
@@ -298,6 +344,10 @@ export function LawyerSettingsProvider({ children }: { children: React.ReactNode
         [
             settings.appearance.themeMode,
             settings.appearance.theme,
+            settings.appearance.cardTheme,
+            settings.appearance.patternTheme,
+            settings.appearance.themeApplyTarget,
+            settings.appearance.patternApplyTarget,
             settings.appearance.shape,
             settings.appearance.language,
             settings.appearance.fontSize,

@@ -12,24 +12,26 @@ export type UseHomeHubPanelStateResult = {
 
 export function useHomeHubPanelState(
     alertsTabCount: number,
+    secretaryTabCount: number,
     pinsCount: number,
 ): UseHomeHubPanelStateResult {
-    const [hubPanel, setHubPanelState] = useState<HomeHubPanel>('alerts');
-    const panelInitRef = useRef(false);
+    const [hubPanel, setHubPanelState] = useState<HomeHubPanel>(() =>
+        resolveDefaultHomeHubPanel(alertsTabCount, secretaryTabCount, pinsCount),
+    );
+    const panelInitRef = useRef(
+        alertsTabCount > 0 || secretaryTabCount > 0 || pinsCount > 0,
+    );
 
     const selectHubPanel = useCallback((panel: HomeHubPanel) => {
         setHubPanelState(panel);
-        requestAnimationFrame(() => {
-            document.getElementById(`home-hub-tab-${panel}`)?.focus();
-        });
     }, []);
 
     useEffect(() => {
         if (panelInitRef.current) return;
-        if (alertsTabCount === 0 && pinsCount === 0) return;
+        if (alertsTabCount === 0 && secretaryTabCount === 0 && pinsCount === 0) return;
         panelInitRef.current = true;
-        setHubPanelState(resolveDefaultHomeHubPanel(alertsTabCount, pinsCount));
-    }, [alertsTabCount, pinsCount]);
+        setHubPanelState(resolveDefaultHomeHubPanel(alertsTabCount, secretaryTabCount, pinsCount));
+    }, [alertsTabCount, secretaryTabCount, pinsCount]);
 
     return { hubPanel, selectHubPanel };
 }

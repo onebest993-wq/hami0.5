@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X, Scale, History } from 'lucide-react';
+import { X, Scale, History } from '@/app/components/ui/lucideIcons';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
 import { ExecutionArchivePartyBlock } from './ExecutionArchivePartyBlock';
 import type { LooseArchiveFile } from '../types';

@@ -122,7 +122,7 @@ export class RealtimeService {
             });
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           debug.log('[RealtimeService] حالة الاشتراك:', status);
 
           if (status === 'SUBSCRIBED') {
@@ -183,7 +183,7 @@ export class RealtimeService {
             });
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: string) => {
           debug.log('[RealtimeService] حالة الاشتراك:', status);
 
           if (status === 'SUBSCRIBED') {

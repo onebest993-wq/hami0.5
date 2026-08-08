@@ -8,13 +8,17 @@ import {
     Trash2,
     ExternalLink,
     Pencil,
-} from 'lucide-react';
+    MapPin,
+    Bell,
+    StickyNote,
+} from '@/app/components/ui/lucideIcons';
 import { TYPE_STYLES } from './utils';
-import { RADAR_GLASS_PANEL } from './radarTheme';
+import { RADAR_GLASS_PANEL, RADAR_TEXT, RADAR_TEXT_MUTED, RADAR_ACCENT_CHIP } from './radarTheme';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { calendarModuleVisual } from '@/app/services/calendarModuleVisuals';
 import { resolveRadarEventDisplayMeta } from './radarEventDisplayMeta';
 import { describeLegalDeadlineForCalendarCard } from '@/app/services/calendar/legalDeadlineEngine';
+import { formatCalendarReminderLabel } from '@/app/services/calendar/calendarEventReminder';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 
@@ -198,7 +202,7 @@ function shouldShowLegalCountdown(event: UnifiedEvent): boolean {
 }
 
 function Dot() {
-    return <span className="shrink-0 text-[#F5EDE0]/25 select-none" aria-hidden>·</span>;
+    return <span className="shrink-0 text-[#94A3B8]/45 select-none" aria-hidden>·</span>;
 }
 
 /**
@@ -218,6 +222,8 @@ export const EventCard = React.memo(function EventCard({
     const isDiscovered = Boolean(event.bridge?.sourceEventId?.startsWith('field_'));
     const canOpenSource = Boolean(event.isBridged && onOpenSource);
     const canMutateCalendar = event.source === 'calendar' && !isDiscovered;
+    const isManualAppointment =
+        event.source === 'calendar' && !event.isBridged && event.type === 'custom';
     const reduceMotion = useReduceMotion();
 
     const meta = useMemo(
@@ -283,10 +289,10 @@ export const EventCard = React.memo(function EventCard({
             : `${legalCountdown.remainingLegalWorkingDays}ي عمل`
         : null;
 
-    const cardClassName = `relative ${RADAR_GLASS_PANEL} transition-colors overflow-hidden group ${
+    const cardClassName = `relative ${RADAR_GLASS_PANEL} transition-colors overflow-hidden group border-white ${
         highlighted
-            ? 'border-[#E8DCC8]/40 ring-2 ring-[#FAF7F2]/12'
-            : 'hover:border-[#E8DCC8]/28'
+            ? 'ring-2 ring-white/25'
+            : 'hover:border-white'
     }`;
     /* Android WebView: بلا motion على أول رسم — نفس الهيكل البصري */
     const skipMotion = reduceMotion || isAndroidNativeShell();
@@ -308,6 +314,81 @@ export const EventCard = React.memo(function EventCard({
         >
             <div className={`absolute top-0 right-0 bottom-0 w-1 bg-gradient-to-b ${moduleVisual.rail}`} />
 
+            {isManualAppointment ? (
+                <div className="px-3 py-2.5 space-y-2" dir="rtl">
+                    <div className="flex items-start gap-2 min-w-0">
+                        <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                                <span
+                                    className={`inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${style.bg} ${style.color} ${style.border}`}
+                                >
+                                    <Icon size={10} aria-hidden />
+                                    موعد
+                                </span>
+                                {event.time ? (
+                                    <span className={`inline-flex items-center gap-0.5 font-mono text-[10px] font-bold ${RADAR_TEXT}`}>
+                                        <Clock size={10} aria-hidden />
+                                        {event.time}
+                                    </span>
+                                ) : null}
+                                {event.reminderMinutesBefore ? (
+                                    <span
+                                        className={`inline-flex items-center gap-0.5 rounded-md border ${RADAR_ACCENT_CHIP} px-1.5 py-0.5 text-[10px] font-bold ${RADAR_TEXT}`}
+                                        data-testid={`radar-event-reminder-badge-${event.id}`}
+                                    >
+                                        <Bell size={10} aria-hidden />
+                                        {formatCalendarReminderLabel(event.reminderMinutesBefore)}
+                                    </span>
+                                ) : null}
+                            </div>
+                            <p
+                                className={`text-[14px] font-extrabold leading-snug ${RADAR_TEXT}`}
+                                data-testid={`radar-event-title-${event.id}`}
+                            >
+                                {event.title}
+                            </p>
+                            {event.location?.trim() ? (
+                                <p
+                                    className={`flex items-start gap-1 text-[11px] font-semibold ${RADAR_TEXT_MUTED}`}
+                                    data-testid={`radar-event-location-${event.id}`}
+                                >
+                                    <MapPin size={11} className="shrink-0 mt-0.5" aria-hidden />
+                                    <span className="min-w-0">{event.location}</span>
+                                </p>
+                            ) : null}
+                            {event.notes?.trim() ? (
+                                <p
+                                    className={`flex items-start gap-1 text-[11px] leading-relaxed ${RADAR_TEXT_MUTED} line-clamp-2`}
+                                    data-testid={`radar-event-notes-${event.id}`}
+                                >
+                                    <StickyNote size={11} className="shrink-0 mt-0.5" aria-hidden />
+                                    <span className="min-w-0">{event.notes}</span>
+                                </p>
+                            ) : null}
+                        </div>
+                        {canMutateCalendar ? (
+                            <div className="flex shrink-0 items-center gap-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                <button
+                                    type="button"
+                                    onClick={() => onEdit(event)}
+                                    aria-label={`تعديل الموعد ${event.title}`}
+                                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${RADAR_TEXT_MUTED} transition-colors touch-manipulation hami-radar-hover-row`}
+                                >
+                                    <Pencil size={13} aria-hidden />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => onDelete(event)}
+                                    aria-label={`حذف الموعد ${event.title}`}
+                                    className={`flex h-11 w-11 items-center justify-center rounded-xl ${RADAR_TEXT_MUTED} transition-colors touch-manipulation hami-radar-hover-row`}
+                                >
+                                    <Trash2 size={13} aria-hidden />
+                                </button>
+                            </div>
+                        ) : null}
+                    </div>
+                </div>
+            ) : (
             <div className="flex items-center gap-1.5 py-2 pl-1.5 pr-3 min-h-[52px]">
                 <div className="min-w-0 flex-1 flex items-center gap-1.5 overflow-hidden" dir="rtl">
                     <span
@@ -319,7 +400,7 @@ export const EventCard = React.memo(function EventCard({
                     </span>
 
                     {event.time ? (
-                        <span className="inline-flex shrink-0 items-center gap-0.5 font-mono text-[10px] font-bold text-[#FAF7F2]/90">
+                        <span className={`inline-flex shrink-0 items-center gap-0.5 font-mono text-[10px] font-bold ${RADAR_TEXT}`}>
                             <Clock size={10} aria-hidden />
                             {event.time}
                         </span>
@@ -331,7 +412,7 @@ export const EventCard = React.memo(function EventCard({
 
                     {lines.primary ? (
                         <p
-                            className="min-w-0 max-w-[50%] truncate text-[13px] font-extrabold text-[#FAF7F2] leading-none tracking-tight"
+                            className={`min-w-0 max-w-[50%] truncate text-[13px] font-extrabold ${RADAR_TEXT} leading-none tracking-tight`}
                             data-testid={`radar-event-source-${event.id}`}
                             title={lines.primaryIsSource ? `المصدر: ${lines.primary}` : lines.primary}
                         >
@@ -343,7 +424,7 @@ export const EventCard = React.memo(function EventCard({
                         <>
                             <Dot />
                             <p
-                                className="min-w-0 flex-1 truncate text-[11px] font-semibold text-[#E8DCC8]/75 leading-none"
+                                className={`min-w-0 flex-1 truncate text-[11px] font-semibold ${RADAR_TEXT_MUTED} leading-none`}
                                 data-testid={`radar-event-summary-${event.id}`}
                                 title={lines.secondary}
                             >
@@ -354,7 +435,7 @@ export const EventCard = React.memo(function EventCard({
 
                     {countdownLabel ? (
                         <span
-                            className="shrink-0 rounded-md border border-[#E8DCC8]/22 bg-[#F5EDE0]/[0.06] px-1.5 py-0.5 text-[10px] font-bold text-[#EDE4D6] leading-none"
+                            className={`shrink-0 rounded-md border ${RADAR_ACCENT_CHIP} px-1.5 py-0.5 text-[10px] font-bold ${RADAR_TEXT} leading-none`}
                             data-testid={`radar-event-legal-deadline-${event.id}`}
                             title={
                                 legalCountdown
@@ -376,7 +457,7 @@ export const EventCard = React.memo(function EventCard({
                             onClick={() => onOpenSource!(event)}
                             title="فتح المصدر"
                             aria-label={`فتح المصدر الأصلي للموعد ${event.title}`}
-                            className="flex h-11 w-11 items-center justify-center rounded-xl text-[#B7C5C7] transition-colors touch-manipulation hover:bg-[#FAF7F2]/10 hover:text-[#FAF7F2]"
+                            className={`flex h-11 w-11 items-center justify-center rounded-xl ${RADAR_TEXT_MUTED} transition-colors touch-manipulation hami-radar-hover-row`}
                         >
                             <ExternalLink size={14} aria-hidden />
                         </button>
@@ -387,7 +468,7 @@ export const EventCard = React.memo(function EventCard({
                                 type="button"
                                 onClick={() => onEdit(event)}
                                 aria-label={`تعديل الموعد ${event.title}`}
-                                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#E8DCC8]/60 transition-colors touch-manipulation hover:bg-[#F5EDE0]/10 hover:text-[#FAF7F2]"
+                                className={`flex h-11 w-11 items-center justify-center rounded-xl ${RADAR_TEXT_MUTED} transition-colors touch-manipulation hami-radar-hover-row`}
                             >
                                 <Pencil size={13} aria-hidden />
                             </button>
@@ -395,7 +476,7 @@ export const EventCard = React.memo(function EventCard({
                                 type="button"
                                 onClick={() => onDelete(event)}
                                 aria-label={`حذف الموعد ${event.title}`}
-                                className="flex h-11 w-11 items-center justify-center rounded-xl text-[#E8DCC8]/45 transition-colors touch-manipulation hover:bg-[#9AADB0]/18 hover:text-[#B7C5C7]"
+                                className={`flex h-11 w-11 items-center justify-center rounded-xl ${RADAR_TEXT_MUTED} transition-colors touch-manipulation hami-radar-hover-row`}
                             >
                                 <Trash2 size={13} aria-hidden />
                             </button>
@@ -403,6 +484,7 @@ export const EventCard = React.memo(function EventCard({
                     ) : null}
                 </div>
             </div>
+            )}
         </CardRoot>
     );
 });

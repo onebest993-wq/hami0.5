@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import {
     collectExecutionViewScopeBindings,
-    extractPhoneBodyDestructuredKeys,
+    collectPhoneBodyScopeWiringKeys,
     isPassthroughScopeKey,
     loadExecutionCoreScopeContext,
     validateScopeKeys,
@@ -15,6 +15,14 @@ const phoneBodyPath = path.join(
     process.cwd(),
     'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBody.tsx',
 );
+const pickBagPath = path.join(
+    process.cwd(),
+    'src/app/components/lawyer/ExecutionDashboard/hooks/pickExecutionPhoneBodyScopeReadBag.ts',
+);
+const orchestratorPath = path.join(
+    process.cwd(),
+    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardPhoneBodyScope.ts',
+);
 
 describe('ExecutionDashboard phone-body scope', () => {
     it('does not treat destructuring source keys or TS noise as bindings', () => {
@@ -24,12 +32,19 @@ describe('ExecutionDashboard phone-body scope', () => {
         expect(bindings.has('key')).toBe(false);
     });
 
-    it('scope keys align with phone body destructure', () => {
+    it('scope keys align with phone body scope wiring', () => {
         const keys = JSON.parse(fs.readFileSync(keysPath, 'utf8'));
         expect(validateScopeKeys(corePathText, keys)).toEqual([]);
         const body = fs.readFileSync(phoneBodyPath, 'utf8');
-        const destructured = extractPhoneBodyDestructuredKeys(body);
-        const missing = keys.filter((k: string) => !destructured.has(k) && !isPassthroughScopeKey(k));
+        const pickBag = fs.readFileSync(pickBagPath, 'utf8');
+        const orchestrator = fs.readFileSync(orchestratorPath, 'utf8');
+        const wired = collectPhoneBodyScopeWiringKeys({ body, pickBag, orchestrator });
+        const missing = keys.filter((k: string) => {
+            if (isPassthroughScopeKey(k)) return false;
+            if (wired.has(k)) return false;
+            if (wired.has('__full_props_passthrough__')) return false;
+            return true;
+        });
         expect(missing).toEqual([]);
     });
 

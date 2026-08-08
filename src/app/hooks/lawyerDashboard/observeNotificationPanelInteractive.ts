@@ -36,7 +36,7 @@ export function observeNotificationPanelInteractive({
         new MutationObserver(() => {
             scheduleTry();
         });
-    obs?.observe(anchor, { childList: true, subtree: true });
+    if (anchor && obs) obs.observe(anchor, { childList: true, subtree: true });
 
     const onVisibility = () => {
         if (!document.hidden) scheduleTry();

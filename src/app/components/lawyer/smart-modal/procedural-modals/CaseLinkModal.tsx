@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { Link } from 'lucide-react';
+import { Link } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { MoroccanGlassShell } from '../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../smartFile/smartModalChrome';
+import type { CaseLinkCandidate, CaseLinkPeerSelection } from '../smartFile/caseLinking';
 
 type CaseLinkModalProps = {
     isOpen: boolean;
     onClose: () => void;
     currentFileId: number;
     currentCaseNo: string;
-    candidates: Array<{ id: number; caseNo: string; status: string; court?: string }>;
-    onLinkExisting: (data: { secondaryFileId: number; linkDate: string; reason?: string }) => void;
+    candidates: CaseLinkCandidate[];
+    onLinkExisting: (data: { peer: CaseLinkPeerSelection; linkDate: string; reason?: string }) => void;
     onLinkExternal: (data: { peerCaseNo: string; linkDate: string; reason?: string }) => void;
 };
 
@@ -38,7 +39,7 @@ export const CaseLinkModal = ({
     const [step, setStep] = useState<'choose' | 'existing' | 'external'>('choose');
     const [linkDate, setLinkDate] = useState(getLocalTodayYmd());
     const [reason, setReason] = useState('');
-    const [selectedId, setSelectedId] = useState<number | null>(null);
+    const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [peerCaseNo, setPeerCaseNo] = useState('');
 
     React.useEffect(() => {
@@ -46,7 +47,7 @@ export const CaseLinkModal = ({
         setStep('choose');
         setLinkDate(getLocalTodayYmd());
         setReason('');
-        setSelectedId(null);
+        setSelectedKey(null);
         setPeerCaseNo('');
     }, [isOpen, currentFileId]);
 
@@ -58,6 +59,15 @@ export const CaseLinkModal = ({
         return 'نشطة';
     };
 
+    const selectedCandidate = candidates.find((c) => c.key === selectedKey) ?? null;
+
+    const toPeerSelection = (candidate: CaseLinkCandidate): CaseLinkPeerSelection => ({
+        dossierKind: candidate.dossierKind,
+        lawsuitFileId: candidate.lawsuitFileId,
+        criminalId: candidate.criminalId,
+        caseNo: candidate.caseNo,
+    });
+
     return (
         <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-3xl">
             <SmartModalHeader icon={Link} title="ربط الدعوى" onClose={onClose} />
@@ -68,10 +78,10 @@ export const CaseLinkModal = ({
                         <p className={`text-sm font-bold ${highlight}`}>{currentCaseNo || `#${currentFileId}`}</p>
                     </div>
                     <div className={cardSecondary}>
-                        <p className="text-[10px] text-white/50 mb-0.5">الدعوى المربوطة</p>
+                        <p className="text-[10px] text-white/50 mb-0.5">الإضبارة المربوطة</p>
                         <p className="text-sm font-bold text-white/55">
-                            {step === 'existing' && selectedId
-                                ? candidates.find((c) => c.id === selectedId)?.caseNo ?? '—'
+                            {step === 'existing' && selectedCandidate
+                                ? selectedCandidate.caseNo
                                 : step === 'external' && peerCaseNo.trim()
                                   ? peerCaseNo.trim()
                                   : 'غير محددة بعد'}
@@ -82,7 +92,7 @@ export const CaseLinkModal = ({
                 {step === 'choose' ? (
                     <>
                         <p className="text-xs text-white/60 leading-relaxed">
-                            الربط لا يوحّد الدعاوى — يتيح التنقل بينهما فقط عند وجود الإضبارة بالمخزن.
+                            الربط لا يوحّد الإضابير — يجلب نسخة للاطلاع من أي إضبارة (مدنية، أحوال، أو جزائية) نشطة أو مؤرشفة وبأي مرحلة طعن، دون تعديل ملف المخزن.
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                             <button type="button" onClick={() => setStep('existing')} className={optionBtn}>
@@ -99,7 +109,7 @@ export const CaseLinkModal = ({
                             type="button"
                             onClick={() => {
                                 setStep('choose');
-                                setSelectedId(null);
+                                setSelectedKey(null);
                             }}
                             className="text-[11px] text-white/50 hover:text-white/75"
                         >
@@ -107,22 +117,28 @@ export const CaseLinkModal = ({
                         </button>
                         <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                             {candidates.length === 0 ? (
-                                <p className="text-xs text-white/50 py-4 text-center">لا توجد إضابير متاحة</p>
+                                <p className="text-xs text-white/50 py-4 text-center">
+                                    لا توجد إضابير متاحة للربط
+                                </p>
                             ) : (
                                 candidates.map((candidate) => {
-                                    const active = selectedId === candidate.id;
+                                    const active = selectedKey === candidate.key;
                                     return (
                                         <button
-                                            key={candidate.id}
+                                            key={candidate.key}
                                             type="button"
-                                            onClick={() => setSelectedId(candidate.id)}
+                                            onClick={() => setSelectedKey(candidate.key)}
                                             className={`w-full text-right rounded-xl border px-4 py-3.5 transition-colors ${
                                                 active ? listItemActive : listItemIdle
                                             }`}
                                         >
                                             <div className="flex items-center justify-between gap-2">
                                                 <span className="text-sm font-bold text-white/90">{candidate.caseNo}</span>
-                                                <span className="text-[10px] text-white/45">{statusLabel(candidate.status)}</span>
+                                                <span className="text-[10px] text-white/45">
+                                                    {candidate.kindLabel ? `${candidate.kindLabel} · ` : ''}
+                                                    {statusLabel(candidate.status)}
+                                                    {candidate.stageLabel ? ` · ${candidate.stageLabel}` : ''}
+                                                </span>
                                             </div>
                                         </button>
                                     );
@@ -163,9 +179,9 @@ export const CaseLinkModal = ({
                         <button
                             type="button"
                             onClick={() => {
-                                if (step === 'existing' && selectedId) {
+                                if (step === 'existing' && selectedCandidate) {
                                     onLinkExisting({
-                                        secondaryFileId: selectedId,
+                                        peer: toPeerSelection(selectedCandidate),
                                         linkDate,
                                         reason: reason.trim() || undefined,
                                     });
@@ -179,7 +195,7 @@ export const CaseLinkModal = ({
                                     onClose();
                                 }
                             }}
-                            disabled={(step === 'existing' && !selectedId) || (step === 'external' && !peerCaseNo.trim())}
+                            disabled={(step === 'existing' && !selectedCandidate) || (step === 'external' && !peerCaseNo.trim())}
                             className={`${T.btn} ${T.btnDisabled}`}
                         >
                             تأكيد الربط

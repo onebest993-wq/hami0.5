@@ -1,11 +1,9 @@
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge/core';
+import { toBaghdadYmd } from '@/app/utils/baghdadTime';
 
-/** YYYY-MM-DD محلي */
+/** YYYY-MM-DD وفق Asia/Baghdad */
 export function localTodayYmd(now: Date = new Date()): string {
-    const y = now.getFullYear();
-    const m = String(now.getMonth() + 1).padStart(2, '0');
-    const d = String(now.getDate()).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return toBaghdadYmd(now) ?? normalizeDateToYmd(now.toISOString()) ?? '';
 }
 
 export function compareYmd(a: string, b: string): number {

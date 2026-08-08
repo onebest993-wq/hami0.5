@@ -129,7 +129,6 @@ export const PROFILE_CANVAS_INTERACTIONS: { id: ProfileCanvasInteraction; label:
 export const PROFILE_TEXT_EFFECTS: { id: ProfileTextEffect; label: string }[] = [
     { id: 'none', label: 'بدون' },
     { id: 'glow', label: 'توهج' },
-    { id: 'gradient', label: 'تدرج' },
     { id: 'underline', label: 'خط سفلي' },
     { id: 'shadow', label: 'ظل' },
 ];

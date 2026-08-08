@@ -2,7 +2,11 @@
 /** مسار تكليف حضور المدين الموظف — handlers محضر المتابعة والتبليغ */
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
-import { appendPersonalCoerciveExecutorRequest } from '@/app/utils/executorSeizureDecisionQueue';
+import {
+    appendPersonalCoerciveExecutorRequest,
+    closePersonalCoerciveSubtypeDecisionCycle,
+} from '@/app/utils/executorSeizureDecisionQueue';
+import { buildForcedBringPersonalOutcomePatch } from '@/app/components/lawyer/execution/forcedBringInvestigationLifecycle';
 import {
     addCalendarDaysYmd,
     buildEmployeeAssignmentPatchForDebtorKey,
@@ -461,9 +465,9 @@ export function useExecutionDashboardEmployeeAssignmentHandlers({
         ]
     );
 
-    /** بعد موافقة المنفذ على الإحضار الجبري: نفس منطق محضر المتابعة مع إنهاء التكليف للمدين المستهدف */
+    /** بعد موافقة المنفذ على الإحضار الجبري: نفس دورة الحياة (حضور / تجاهل / متخفي) + إنهاء التكليف */
     const handleEmployeeAssignmentResolveForcedBringOutcome = useCallback(
-        (which: 'brought' | 'absconded') => {
+        (which: 'brought' | 'absconded' | 'dismissed') => {
             const d = executionData;
             if (!d) return;
             if (!employeeForcedBringAwaitingPersonalOutcome) {
@@ -478,7 +482,10 @@ export function useExecutionDashboardEmployeeAssignmentHandlers({
             const label =
                 which === 'brought'
                     ? '✅ تم إحضار المدين أمام المنفذ'
-                    : '⚠️ المدين متخفي / مجهول محل الإقامة';
+                    : which === 'dismissed'
+                      ? '↩️ تم تجاهل متابعة الإحضار الجبري'
+                      : '⚠️ المدين متخفي عن الأنظار';
+            const lifecyclePatch = buildForcedBringPersonalOutcomePatch(which);
             setTimelineEvents((prev) => {
                 const ev: TimelineEvent = {
                     id: nextTimelineId(),
@@ -493,16 +500,25 @@ export function useExecutionDashboardEmployeeAssignmentHandlers({
                 const next = [ev, ...prev];
                 persistExecutionMerge({
                     ...buildEmployeeAssignmentPatchForDebtorKey(d, targetKey, null, pk),
-                    forced_bring_in_personal_outcome: which === 'brought' ? null : 'absconded',
+                    ...lifecyclePatch,
                     timelineEvents: next,
                 });
                 return next;
             });
+            const exId = String(d.id ?? '').trim();
+            if (exId) {
+                closePersonalCoerciveSubtypeDecisionCycle({
+                    executionId: exId,
+                    subtype: 'forced_bring_in',
+                    debtorKey: targetKey,
+                    primaryDebtorKey: pk,
+                });
+            }
             showToast(
-                which === 'brought'
-                    ? 'تم التسجيل وتصفير دورة الإحضار الجبري لإتاحة طلب جديد عند الحاجة.'
-                    : 'تم تسجيل النتيجة في محضر المتابعة.',
-                'success'
+                which === 'absconded'
+                    ? 'تم التسجيل — راجع مسار المفاتحة عند الحاجة.'
+                    : 'تم التسجيل وتصفير دورة الإحضار الجبري لإتاحة طلب جديد عند الحاجة.',
+                which === 'dismissed' ? 'info' : 'success',
             );
         },
         [

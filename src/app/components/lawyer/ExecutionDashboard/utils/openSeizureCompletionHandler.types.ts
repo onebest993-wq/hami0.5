@@ -29,4 +29,5 @@ export type OpenSeizureCompletionContext = {
     seizedAssetsSnapshotRef: React.MutableRefObject<SeizedAsset[]>;
     setSeizedAssets: React.Dispatch<React.SetStateAction<SeizedAsset[]>>;
     setSeizureDetailCompletion: React.Dispatch<React.SetStateAction<SeizureDetailCompletionState | null>>;
+    setShowCoerciveActionForm: React.Dispatch<React.SetStateAction<string | null>>;
 };

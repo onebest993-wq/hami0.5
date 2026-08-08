@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@/app/components/ui/lucideIcons';
 
 export type FollowupFlowBackButtonProps = {
     onClick: () => void;

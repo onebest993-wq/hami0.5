@@ -5,6 +5,14 @@ import { ExecutionDashboardPhoneBody } from '../ExecutionDashboardPhoneBody';
 import { ExecutionPhoneBodyScopeProvider } from '../../hooks/executionPhoneBodyScope';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
 
+vi.mock('../ExecutionDashboardSparkNudgeBridge', () => ({
+    ExecutionDashboardSparkNudgeBridge: () => null,
+}));
+
+vi.mock('@/app/spark/ui/SparkVaultDocOpenBridge', () => ({
+    SparkVaultDocOpenBridge: () => null,
+}));
+
 vi.mock('../ExecutionDashboardPhoneBodySecondarySections', () => ({
     ExecutionDashboardPhoneBodySecondarySections: (props: {
         safeOpenAppointmentModal?: () => void;
@@ -19,6 +27,14 @@ vi.mock('../ExecutionDashboardPhoneBodySecondarySections', () => ({
             </button>
         </>
     ),
+}));
+
+vi.mock('../ExecutionDashboardPhoneBodyQuaternaryPanels', () => ({
+    ExecutionDashboardPhoneBodyQuaternaryPanels: () => null,
+}));
+
+vi.mock('../ExecutionDashboardPhoneBodyTertiaryPanels', () => ({
+    ExecutionDashboardPhoneBodyTertiaryPanels: () => null,
 }));
 
 vi.mock('../ExecutionDashboardPhoneBodyDeferredPanels', () => ({

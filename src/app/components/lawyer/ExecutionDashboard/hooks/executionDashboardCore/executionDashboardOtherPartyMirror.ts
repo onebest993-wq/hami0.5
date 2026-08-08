@@ -5,6 +5,7 @@ import type {
     HiddenGuarantorContext,
 } from '@/app/components/lawyer/ExecutionDashboard/components/hiddenFollowupRequestsUtils';
 import type { SettlementGuarantorGateSlice } from './executionDashboardFollowupSeizureTabs';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 
 export type OtherPartyCreditorMirrorProps = {
     executionId: string | undefined;
@@ -53,7 +54,11 @@ export function buildOtherPartyCreditorMirrorProps(
 ): OtherPartyCreditorMirrorProps | null {
     if (!input.isRepresentingDebtor) return null;
 
-    const resolvedExecutionId = input.decisionsStorageExecutionId ?? input.executionId;
+    const resolvedExecutionId = requireDecisionsStorageExecutionId({
+        decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+        executionId: input.executionId,
+        executionData: input.executionData as Record<string, unknown> | null,
+    });
 
     return {
         executionId: resolvedExecutionId,

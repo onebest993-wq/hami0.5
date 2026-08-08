@@ -14,6 +14,7 @@ import {
     sortProfileCustomBlocks,
 } from '@/app/services/profile/profilePageCustomization';
 import { uploadProfileMedia, profileMediaErrorMessage } from '@/app/services/profileMediaService';
+import { prefetchProfileCanvasBackgroundEditor } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileCanvasBackgroundEditorChunk';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
 type BlockOpsArgs = {
@@ -48,6 +49,9 @@ export function useProfileSettingsBlockOps({
 }: BlockOpsArgs) {
     const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
     const [uploadingCanvasBlockId, setUploadingCanvasBlockId] = useState<string | null>(null);
+    const [canvasBgEditor, setCanvasBgEditor] = useState<{ file: File; blockId: string } | null>(
+        null,
+    );
     const [expandedBlockId, setExpandedBlockId] = useState<string | null>(null);
     const [containerKind, setContainerKind] = useState<ContainerKindTab>('text');
     const fileRef = useRef<HTMLInputElement>(null);
@@ -256,17 +260,9 @@ export function useProfileSettingsBlockOps({
         [isOwnProfile, userId, updateBlock, draft.customBlocks, baseline.customBlocks, saving],
     );
 
-    const triggerCanvasBg = useCallback((blockId: string) => {
-        pendingCanvasBlockIdRef.current = blockId;
-        canvasFileRef.current?.click();
-    }, []);
-
-    const onCanvasBgSelected = useCallback(
-        async (file: File) => {
+    const uploadCanvasBackground = useCallback(
+        async (blockId: string, file: File) => {
             if (!isOwnProfile || !openRef.current || saving) return;
-            const blockId = pendingCanvasBlockIdRef.current;
-            if (!blockId) return;
-            pendingCanvasBlockIdRef.current = null;
             const requestUserId = userId;
             const uploadGen = ++canvasUploadGenRef.current;
             uploadingCanvasBlockIdRef.current = blockId;
@@ -327,6 +323,51 @@ export function useProfileSettingsBlockOps({
             }
         },
         [isOwnProfile, userId, setDraft, draft.customBlocks, baseline.customBlocks, saving],
+    );
+
+    const triggerCanvasBg = useCallback((blockId: string) => {
+        prefetchProfileCanvasBackgroundEditor();
+        pendingCanvasBlockIdRef.current = blockId;
+        canvasFileRef.current?.click();
+    }, []);
+
+    const onCanvasBgSelected = useCallback(
+        async (file: File) => {
+            if (!isOwnProfile || !openRef.current || saving) return;
+            const blockId = pendingCanvasBlockIdRef.current;
+            if (!blockId) return;
+            pendingCanvasBlockIdRef.current = null;
+
+            const mime = (file.type || '').toLowerCase();
+            if (!mime.startsWith('image/') || mime.includes('svg')) {
+                SmartToast.warning('يرجى اختيار صورة JPG أو PNG أو WebP');
+                return;
+            }
+            if (file.size > 12 * 1024 * 1024) {
+                SmartToast.warning('الصورة كبيرة جداً — الحد 12 ميغابايت');
+                return;
+            }
+
+            setCanvasBgEditor({ file, blockId });
+        },
+        [isOwnProfile, saving],
+    );
+
+    const cancelCanvasBgEditor = useCallback(() => {
+        setCanvasBgEditor(null);
+        pendingCanvasBlockIdRef.current = null;
+        if (canvasFileRef.current) canvasFileRef.current.value = '';
+    }, []);
+
+    const confirmCanvasBgEditor = useCallback(
+        async (file: File) => {
+            const blockId = canvasBgEditor?.blockId;
+            setCanvasBgEditor(null);
+            if (canvasFileRef.current) canvasFileRef.current.value = '';
+            if (!blockId) return;
+            await uploadCanvasBackground(blockId, file);
+        },
+        [canvasBgEditor?.blockId, uploadCanvasBackground],
     );
 
     const clearBlockImage = useCallback(
@@ -409,6 +450,9 @@ export function useProfileSettingsBlockOps({
         onBlockImageSelected,
         triggerCanvasBg,
         onCanvasBgSelected,
+        canvasBgEditor,
+        cancelCanvasBgEditor,
+        confirmCanvasBgEditor,
         clearBlockImage,
         clearCanvasBackground,
     };

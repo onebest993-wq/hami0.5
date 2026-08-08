@@ -45,17 +45,46 @@ export function filterDisplayHomeWidgets(
 export function buildDefaultPlacements(): HomeWidgetPlacements {
     return {
         alerts: { zone: 'main', order: 0 },
-        hubExecution: { zone: 'main', order: 1 },
-        hubLawsuit: { zone: 'main', order: 2 },
+        hubLawsuit: { zone: 'main', order: 1 },
+        hubExecution: { zone: 'main', order: 2 },
         hubTransaction: { zone: 'main', order: 3 },
-        forum: { zone: 'main', order: 4 },
-        dockRepository: { zone: 'dock', order: 0 },
+        dockTasks: { zone: 'main', order: 4 },
+        forum: { zone: 'main', order: 5 },
+        dockCalendar: { zone: 'main', order: 6 },
+        dockRepository: { zone: 'main', order: 7 },
         dockNotepad: { zone: 'dock', order: 98 },
-        dockCalendar: { zone: 'dock', order: 1 },
         dockVault: { zone: 'dock', order: 99 },
-        dockTasks: { zone: 'dock', order: 2 },
-        dockQuickNote: { zone: 'dock', order: 3 },
+        dockQuickNote: { zone: 'dock', order: 0 },
     };
+}
+
+/** ترتيب الشبكة الرئيسية — تثبيت، دعاوى، تنفيذ، معاملات، مهام، منتدى، تقويم، مستودع */
+export const CANONICAL_MAIN_WIDGET_ORDER: HomeWidgetId[] = [
+    'alerts',
+    'hubLawsuit',
+    'hubExecution',
+    'hubTransaction',
+    'dockTasks',
+    'forum',
+    'dockCalendar',
+    'dockRepository',
+];
+
+export function applyCanonicalMainWidgetOrder(
+    placements: HomeWidgetPlacements,
+): HomeWidgetPlacements {
+    const mainIds = getWidgetsInZone(placements, 'main');
+    const canonical = CANONICAL_MAIN_WIDGET_ORDER.filter((id) => mainIds.includes(id));
+    const trailing = mainIds.filter((id) => !CANONICAL_MAIN_WIDGET_ORDER.includes(id));
+    const nextOrder = [...canonical, ...trailing];
+    if (nextOrder.every((id, index) => id === mainIds[index])) {
+        return placements;
+    }
+    const next = { ...placements };
+    nextOrder.forEach((id, index) => {
+        next[id] = { zone: 'main', order: index };
+    });
+    return next;
 }
 
 export function isHomeWidgetId(id: string): id is HomeWidgetId {
@@ -184,7 +213,9 @@ export function migrateLegacyOrdersToPlacements(raw: {
                 base[id] = { zone: p.zone, order: p.order };
             }
         }
-        return consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock'));
+        return applyCanonicalMainWidgetOrder(
+            consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock')),
+        );
     }
 
     const base = buildDefaultPlacements();
@@ -214,7 +245,9 @@ export function migrateLegacyOrdersToPlacements(raw: {
         if (isHomeWidgetId(id as string)) base[id as HomeWidgetId] = { zone: 'dock', order: i };
     });
 
-    return consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock'));
+    return applyCanonicalMainWidgetOrder(
+        consolidateLegacyRepositoryDock(reindexZone(reindexZone(base, 'main'), 'dock')),
+    );
 }
 
 function stashRepositoryLegacyWidgets(placements: HomeWidgetPlacements): {
@@ -240,6 +273,7 @@ export function consolidateLegacyRepositoryDock(
     const mainIds = getWidgetsInZone(placements, 'main');
     const hasLegacyOnSurface =
         dockIds.some(isRepositoryLegacyWidget) || mainIds.some(isRepositoryLegacyWidget);
+    const repositoryInMain = mainIds.includes('dockRepository');
 
     if (dockIds.includes('dockRepository')) {
         if (!hasLegacyOnSurface) return placements;
@@ -251,6 +285,13 @@ export function consolidateLegacyRepositoryDock(
 
     const hasLegacy = dockIds.includes('dockNotepad') || dockIds.includes('dockVault');
     if (!hasLegacy) return placements;
+
+    if (repositoryInMain) {
+        const stashed = stashRepositoryLegacyWidgets(placements);
+        return stashed.changed
+            ? reindexZone(reindexZone(stashed.placements, 'main'), 'dock')
+            : placements;
+    }
 
     const next = { ...placements };
     const legacyOrder = Math.min(
@@ -273,7 +314,6 @@ export const DOCK_ONLY_WIDGETS: HomeWidgetId[] = [
 
 export function defaultMainSpan(widgetId: HomeWidgetId): 1 | 2 {
     if (widgetId === 'alerts' || widgetId === 'forum') return 2;
-    if (widgetId === 'hubExecution') return 2;
     return 1;
 }
 

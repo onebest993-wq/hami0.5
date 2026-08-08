@@ -9,8 +9,8 @@
     "mainCssGzipKb": 85
   },
   "targets": {
-    "entryGzipKb": 38,
-    "criticalPathGzipKb": 200,
+    "entryGzipKb": 8,
+    "criticalPathGzipKb": 120,
     "anyChunkRawKb": 280,
     "bootTtfiMs": 2500,
     "lighthouseMobileMin": 85
@@ -18,8 +18,21 @@
   "namedChunkMaxRawKb": {
     "ExecutionDashboard": 420,
     "criminal-runtime": 300,
-    "LawyerDashboard": 210,
-    "boot-ui-primitives": 250
+    "LawyerDashboard": 200,
+    "boot-ui-primitives": 250,
+    "execution-handler-cluster-core": 120,
+    "execution-handler-cluster-light": 80,
+    "execution-handler-cluster-shared": 120,
+    "execution-handler-cluster-handlers": 180,
+    "execution-handler-cluster-runtime": 300,
+    "execution-handler-cluster-foundation": 280,
+    "execution-handler-cluster-party": 200,
+    "execution-handler-cluster-coercive": 120,
+    "execution-handler-cluster-seizure": 120,
+    "execution-handler-cluster-publication": 80,
+    "execution-handler-cluster-followup": 80,
+    "execution-handler-cluster-dossier": 80,
+    "execution-handler-cluster-eviction": 80
   },
   "chunkRegression": {
     "maxPercentIncrease": 5,
@@ -35,6 +48,11 @@
       "execution-lazy-registry",
       "execution-followup-shared",
       "execution-hooks",
+      "execution-handler-cluster",
+      "execution-handler-cluster-party",
+      "execution-handler-cluster-dossier",
+      "execution-handler-cluster-foundation",
+      "execution-handler-cluster-eviction",
       "criminal-store-slices",
       "execution-phone-body",
       "execution-overlays",

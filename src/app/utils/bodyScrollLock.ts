@@ -15,8 +15,7 @@ export type TransientOverlayId =
     | 'profile-settings'
     | 'settings'
     | 'forum'
-    | 'notepad'
-    | 'home-layout-edit';
+    | 'notepad';
 
 export function dismissTransientOverlays(except?: TransientOverlayId): void {
     if (typeof window === 'undefined') return;

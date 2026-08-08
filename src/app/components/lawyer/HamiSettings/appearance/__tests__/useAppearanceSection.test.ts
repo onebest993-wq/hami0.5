@@ -4,7 +4,7 @@ import { LAWYER_SETTINGS_V2_DEFAULTS } from '@/app/services/settings/defaults';
 
 const patchAppearance = vi.fn();
 const patchPerformance = vi.fn();
-const patchHomeLayout = vi.fn();
+const patchGlobalGlassTransparency = vi.fn();
 const setCurrentTheme = vi.fn();
 const setCurrentShape = vi.fn();
 const persistWallpaper = vi.fn();
@@ -30,7 +30,7 @@ vi.mock('@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches', () => (
     useSettingsPatches: () => ({
         patchAppearance,
         patchPerformance,
-        patchHomeLayout,
+        patchGlobalGlassTransparency,
     }),
 }));
 
@@ -62,10 +62,17 @@ describe('useAppearanceSection', () => {
         persistWallpaper.mockReturnValue(true);
     });
 
-    it('selectTheme يستدعي setCurrentTheme', () => {
+    it('selectTheme يوحّد اللون على اللوحة والبطاقات والنقوش', () => {
         const { result } = renderHook(() => useAppearanceSection());
         act(() => result.current.selectTheme('navy'));
-        expect(setCurrentTheme).toHaveBeenCalledWith('navy');
+        expect(patchAppearance).toHaveBeenCalledWith(
+            expect.objectContaining({
+                theme: 'navy',
+                cardTheme: 'navy',
+                patternTheme: 'navy',
+                brandColor: expect.any(String),
+            }),
+        );
     });
 
     it('removeWallpaper يمسح التخزين ويحدّث المظهر', () => {
@@ -80,27 +87,5 @@ describe('useAppearanceSection', () => {
             expect.objectContaining({ wallpaper: undefined, wallpaperStamp: expect.any(Number) }),
         );
         expect(info).toHaveBeenCalled();
-    });
-
-    it('toggleDockVisible يحدّث homeLayout عند الإخفاء', () => {
-        homeLayoutState = {
-            ...LAWYER_SETTINGS_V2_DEFAULTS.homeLayout,
-            dockVisible: true,
-            placements: LAWYER_SETTINGS_V2_DEFAULTS.homeLayout.placements,
-            dockHiddenWidgetIds: [],
-        };
-        const { result } = renderHook(() => useAppearanceSection());
-        act(() => result.current.toggleDockVisible(false));
-        expect(patchHomeLayout).toHaveBeenCalled();
-        expect(info).toHaveBeenCalled();
-    });
-
-    it('patternControlsDisabled عندما لا wallpaper و preset=none', () => {
-        appearanceState = {
-            ...LAWYER_SETTINGS_V2_DEFAULTS.appearance,
-            backgroundPreset: 'none',
-        };
-        const { result } = renderHook(() => useAppearanceSection());
-        expect(result.current.patternControlsDisabled).toBe(true);
     });
 });

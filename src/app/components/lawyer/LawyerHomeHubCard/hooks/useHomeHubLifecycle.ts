@@ -29,8 +29,12 @@ export function useHomeHubLifecycle({
     pinsCount,
     radarLoading,
 }: UseHomeHubLifecycleParams) {
-    const [hadRadarCache, setHadRadarCache] = useState(false);
-    const [hadAlertsCache, setHadAlertsCache] = useState(false);
+    const [hadRadarCache, setHadRadarCache] = useState(() =>
+        Boolean(lawyerId && (peekHomeHubRadarCache(lawyerId)?.length ?? 0) > 0),
+    );
+    const [hadAlertsCache, setHadAlertsCache] = useState(() =>
+        Boolean(lawyerId && (peekHomeHubSecretaryAlertsCache(lawyerId)?.length ?? 0) > 0),
+    );
     const reportedRef = useRef(false);
 
     useEffect(() => {

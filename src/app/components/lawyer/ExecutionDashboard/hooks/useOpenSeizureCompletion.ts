@@ -34,7 +34,7 @@ export function useOpenSeizureCompletion(ctx: OpenSeizureCompletionContext) {
                 .catch(() => undefined);
         };
 
-        removeIdle = scheduleIdleWork(attach, 1800);
+        removeIdle = scheduleIdleWork(attach, 0);
 
         return () => {
             cancelled = true;

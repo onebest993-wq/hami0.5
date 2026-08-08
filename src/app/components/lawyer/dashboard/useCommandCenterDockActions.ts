@@ -26,8 +26,15 @@ import type { HomeWidgetId } from '@/app/services/settings/homeLayout';
 import type { HomeDockQuickSheetMode } from './HomeDockQuickSheet';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 
-/** يمنع فتح طبقات متعددة من النقر السريع المتكرر على الشريط السفلي */
-const DOCK_ACTION_COOLDOWN_MS = 400;
+/** يمنع فتح نفس أيقونة الدوك مرتين بسرعة — لكل أيقونة على حدة */
+const DOCK_ACTION_COOLDOWN_MS = 120;
+
+/** يُفتح على pointerdown — التسخين يحدث في prime بلا prefetch مكرر على النقر */
+const DOCK_TOUCH_FAST_WIDGETS = new Set<HomeWidgetId>([
+    'dockCalendar',
+    'dockTasks',
+    'dockRepository',
+]);
 
 export type CommandCenterDockActionsOptions = {
     userId?: string;
@@ -64,7 +71,7 @@ export function useCommandCenterDockActions({
     urgentAlertsCount = 0,
 }: CommandCenterDockActionsOptions) {
     const [hubDockSheet, setHubDockSheet] = useState<HomeDockQuickSheetMode>(null);
-    const lastDockActionAtRef = useRef(0);
+    const lastDockActionAtRef = useRef<Partial<Record<HomeWidgetId, number>>>({});
 
     useEffect(() => {
         const onDismiss = (_e: Event) => {
@@ -84,11 +91,6 @@ export function useCommandCenterDockActions({
     );
 
     const openSmartRepository = useCallback(() => {
-        dismissTransientOverlays('repository');
-        void import('@/app/runtime/repositoryBootHydrator')
-            .then((m) => m.dispatchRepositoryPrimeHost())
-            .catch(() => undefined);
-        /* المستودع الموحّد — تبويب المفكرة / فلتر «الكل» (لا وسائط فقط) */
         if (onOpenRepository) onOpenRepository({ tab: 'notepad' });
         else onOpenFullNotepad?.();
     }, [onOpenFullNotepad, onOpenRepository]);
@@ -99,21 +101,24 @@ export function useCommandCenterDockActions({
 
             const run = (handler: () => void) => () => {
                 const now = Date.now();
-                if (now - lastDockActionAtRef.current < DOCK_ACTION_COOLDOWN_MS) return;
-                lastDockActionAtRef.current = now;
-                prefetchDockWidgetIntentImmediate(widgetId);
+                const last = lastDockActionAtRef.current[widgetId] ?? 0;
+                if (now - last < DOCK_ACTION_COOLDOWN_MS) return;
+                lastDockActionAtRef.current[widgetId] = now;
+                if (!DOCK_TOUCH_FAST_WIDGETS.has(widgetId)) {
+                    prefetchDockWidgetIntentImmediate(widgetId);
+                }
                 handler();
             };
 
             switch (widgetId) {
                 case 'dockRepository':
                     return run(() => {
-                        if (!requireSignedIn('المستودع الذكي')) return;
+                        if (!requireSignedIn('المستودع')) return;
                         openSmartRepository();
                     });
                 case 'dockNotepad':
                     return run(() => {
-                        if (!requireSignedIn('المستودع الذكي')) return;
+                        if (!requireSignedIn('المستودع')) return;
                         openSmartRepository();
                     });
                 case 'dockCalendar':
@@ -122,7 +127,7 @@ export function useCommandCenterDockActions({
                             signedIn: requireSignedIn(CALENDAR_DOCK_FEATURE),
                             onSignedOut: () => undefined,
                             onOpenCalendar: () => {
-                                dismissTransientOverlays();
+                                /* إغلاق الطبقات يحدث داخل commitScheduleTabOpen — بلا dismiss مبكر يكشف #0a0f1c */
                                 if (onOpenCalendar) onOpenCalendar();
                                 else SmartToast.info('📅 فتح التقويم...');
                             },
@@ -130,13 +135,13 @@ export function useCommandCenterDockActions({
                     });
                 case 'dockVault':
                     return run(() => {
-                        if (!requireSignedIn('المستودع الذكي')) return;
+                        if (!requireSignedIn('المستودع')) return;
                         if (onOpenRepository || onOpenFullNotepad) {
                             openSmartRepository();
                             return;
                         }
                         if (onOpenVault) onOpenVault();
-                        else SmartToast.info('المستودع الذكي');
+                        else SmartToast.info('المستودع');
                     });
                 case 'dockTasks':
                     return run(() => {
@@ -160,7 +165,7 @@ export function useCommandCenterDockActions({
                     });
                 case 'dockQuickNote':
                     return run(() => {
-                        if (!requireSignedIn('المستودع الذكي')) return;
+                        if (!requireSignedIn('المستودع')) return;
                         dismissTransientOverlays('repository');
                         if (onOpenRepository) onOpenRepository({ tab: 'notepad', notepadMode: 'create' });
                         else onOpenFullNotepad?.();

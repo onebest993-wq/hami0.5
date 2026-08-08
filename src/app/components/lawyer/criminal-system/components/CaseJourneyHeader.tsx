@@ -349,7 +349,6 @@ export const CaseJourneyHeader = ({
                             className="shrink-0 self-center order-first inline-flex items-center gap-1.5 rounded-full border border-[#E6C673]/45 bg-gradient-to-b from-[#E6C673]/22 to-[#E6C673]/10 px-3.5 py-2 text-xs font-black text-[#E6C673] hover:from-[#E6C673]/30 hover:to-[#E6C673]/14 transition disabled:opacity-40 disabled:pointer-events-none shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]"
                             title={referralButtonTitle}
                         >
-                            <span aria-hidden>⚖️</span>
                             <span>{referralButtonLabel}</span>
                         </button>
                     ) : null}

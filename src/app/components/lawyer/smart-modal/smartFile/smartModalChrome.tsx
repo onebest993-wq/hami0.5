@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { SMART_FILE_NESTED_MODAL_Z } from './smartFileOverlayZ';
 import {
     GLASS_MODAL_HEADER,

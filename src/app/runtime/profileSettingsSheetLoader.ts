@@ -1,6 +1,6 @@
 import type { ComponentProps, ComponentType } from 'react';
 import { ensureRejectClearingPromise } from '@/app/runtime/ensureRejectClearingPromise';
-import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
+import { prefetchProfileStudioChunk } from '@/app/runtime/profileSettingsStudioTabsLoader';
 
 type ProfileSettingsSheetModule =
     typeof import('@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet');
@@ -29,7 +29,7 @@ function ensureModule(): Promise<ProfileSettingsSheetModule> {
     return ensureRejectClearingPromise(modulePromise, (next) => {
         modulePromise = next;
     }, () => {
-        prefetchProfileSettingsStudioTabsModule();
+        prefetchProfileStudioChunk('appearance');
         return import(
             '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileSettingsSheet'
         ).then((mod) => {

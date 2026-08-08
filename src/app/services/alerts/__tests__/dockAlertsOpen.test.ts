@@ -8,7 +8,7 @@ import {
 
 describe('dockAlertsOpen', () => {
     it('exports Arabic feature label', () => {
-        expect(ALERTS_DOCK_FEATURE).toBe('التنبيهات والتثبيت');
+        expect(ALERTS_DOCK_FEATURE).toBe('البطاقة الذكية');
     });
 
     it('opens alerts panel by default', () => {

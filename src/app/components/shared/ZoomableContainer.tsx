@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { animate, motion, useMotionValue } from 'motion/react';
-import { Maximize, ZoomIn, ZoomOut } from 'lucide-react';
+import { Maximize, ZoomIn, ZoomOut } from '@/app/components/ui/lucideIcons';
 
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 3;

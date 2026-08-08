@@ -34,7 +34,6 @@ function buildShellFingerprintCacheKey(o: Orchestration): string {
     return [
         o.user?.id ?? '',
         overlays.activeTab,
-        overlays.homeLayoutEditMode ? '1' : '0',
         overlays.showCommunity ? '1' : '0',
         overlays.showLawsuitsWorkspace ? '1' : '0',
         overlays.lawsuitsWorkspaceTab,

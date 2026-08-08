@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Lock, Plus, UserRound, Users, X } from 'lucide-react';
+import { Lock, Plus, UserRound, Users, X } from '@/app/components/ui/lucideIcons';
 import {
     countAliveAlimonyBeneficiaries,
     type AlimonyBeneficiaryProfile,

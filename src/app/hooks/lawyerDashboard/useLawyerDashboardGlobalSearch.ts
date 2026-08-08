@@ -14,7 +14,10 @@ import {
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
     concealGlobalSearchWarmShell,
+    revealGlobalSearchWarmShell,
 } from '@/app/runtime/globalSearchInstantPaint';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
+import { snapGlobalSearchShellClose } from '@/app/services/search/globalSearchShellSnap';
 import { clearGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import { commitGlobalSearchShellOpen } from '@/app/hooks/lawyerDashboard/globalSearch/globalSearchShellOpenFlow';
 import {
@@ -40,14 +43,19 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
 
     const closeGlobalSearch = useCallback(() => {
         showGlobalSearchRef.current = false;
-        concealGlobalSearchWarmShell();
-        clearGlobalSearchDraftQuery();
-        setShowGlobalSearch(false);
-        /* لا تُسقط searchHostMounted — الطبقة الدافئة تبقى لفتح تالٍ فوري */
-        setGlobalSearchInitialQuery('');
-        setGlobalSearchSessionKey((k) => k + 1);
-        persistGlobalSearchSessionOpen(false);
-        /* useBodyScrollLock(open) يحرّر قفل البحث — لا releaseBodyScrollLock العام */
+        executeOverlaySnapClose({
+            conceal: () => {
+                concealGlobalSearchWarmShell();
+                snapGlobalSearchShellClose();
+            },
+            commit: () => {
+                setShowGlobalSearch(false);
+                setGlobalSearchInitialQuery('');
+                setGlobalSearchSessionKey((k) => k + 1);
+                persistGlobalSearchSessionOpen(false);
+                clearGlobalSearchDraftQuery();
+            },
+        });
     }, []);
 
     useEffect(() => {
@@ -73,7 +81,11 @@ export function useLawyerDashboardGlobalSearch({ userId }: UseLawyerDashboardGlo
                 onSignedOut: () =>
                     SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${GLOBAL_SEARCH_SHELL_FEATURE}`),
                 onOpen: (querySeed) => {
-                    if (showGlobalSearchRef.current || openInFlightRef.current) return;
+                    if (showGlobalSearchRef.current) {
+                        revealGlobalSearchWarmShell();
+                        return;
+                    }
+                    if (openInFlightRef.current) return;
                     openInFlightRef.current = true;
                     showGlobalSearchRef.current = true;
                     try {

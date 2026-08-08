@@ -29,14 +29,35 @@ test.describe('الإضبارة الجنائية', () => {
         await expect(page.getByRole('button', { name: 'القرارات' })).toBeVisible();
     });
 
-    test('زر الرجوع يعيد مساحة الدعاوى', async ({ page }) => {
+    test('زر الإغلاق يغلق الإضبارة إلى الواجهة الرئيسية', async ({ page }) => {
         await bootCriminalDossierE2E(page);
         await dismissProductivityBlockers(page);
 
         await openCriminalDossierFromWorkspace(page);
-        await page.getByTestId(CRIMINAL_E2E_TEST_IDS.back).click({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeHidden();
+        await page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit).click({ timeout: 15_000 });
 
         await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.dossier)).toBeHidden({ timeout: 15_000 });
-        await expect(page.getByTestId('lawsuits-workspace')).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId('lawyer-home-tab')).toBeVisible({ timeout: 15_000 });
+    });
+
+    test('يفضّل زر الرجوع عند فتح سلة المهملات', async ({ page }) => {
+        await bootCriminalDossierE2E(page);
+        await dismissProductivityBlockers(page);
+
+        await openCriminalDossierFromWorkspace(page);
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeHidden();
+
+        await page.getByTestId(CRIMINAL_E2E_TEST_IDS.headerTrash).click({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.trashModal)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeVisible();
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeHidden();
+
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.trashModal)).toBeHidden({ timeout: 10_000 });
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.exit)).toBeVisible();
+        await expect(page.getByTestId(CRIMINAL_E2E_TEST_IDS.back)).toBeHidden();
     });
 });

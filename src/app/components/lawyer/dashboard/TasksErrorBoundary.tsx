@@ -12,7 +12,7 @@ export function TasksErrorBoundary({
         <ErrorBoundary
             fallback={
                 <div
-                    className="fixed inset-0 z-[230] flex flex-col items-center justify-center px-6 bg-[#051410]/95 text-[#E8F5F0]"
+                    className="fixed inset-0 z-[230] flex flex-col items-center justify-center px-6 bg-[#05060D]/95 text-[#F4F4F5]"
                     role="alertdialog"
                     aria-label="خطأ في أجندة المهام"
                     data-testid="tasks-manager-error-fallback"
@@ -24,7 +24,7 @@ export function TasksErrorBoundary({
                         type="button"
                         onClick={onClose}
                         data-testid="tasks-manager-error-close"
-                        className="min-h-[48px] px-8 rounded-2xl bg-[#A67C52]/15 text-[#D4B896] border border-[#A67C52]/35 active:bg-[#A67C52]/25 transition-colors text-sm font-bold"
+                        className="min-h-[48px] px-8 rounded-2xl bg-[#E6C673]/15 text-[#E6C673] border border-[#E6C673]/35 active:bg-[#E6C673]/25 transition-colors text-sm font-bold"
                     >
                         إغلاق
                     </button>

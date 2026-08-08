@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
-import type { ExecutionFile, SeizedMovable, SeizedProperty } from '@/app/types/execution';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
+import type { ExecutionFile } from '@/app/types/execution';
+import { useMemo } from 'react';
+import type { SeizedMovable, SeizedProperty } from '@/app/types/execution';
+import { resolveSeizureWorkflowDossierId } from '../utils/seizureWorkflowDossierUtils';
 
 export function useSeizureLogEntityData(input: {
     viewExecutionData: ExecutionFile | null | undefined;
@@ -23,9 +25,23 @@ export function useSeizureLogEntityData(input: {
         return list;
     }, [input.viewExecutionData]);
 
+    const storageExecutionId = useMemo(
+        () =>
+            resolveSeizureWorkflowDossierId({
+                decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+                executionDataId: input.viewExecutionData?.id,
+                executionData: input.viewExecutionData as Record<string, unknown> | undefined,
+            }),
+        [input.decisionsStorageExecutionId, input.viewExecutionData],
+    );
+
     const seizureLogExecutorDecisions = useMemo(
-        () => readExecutorDecisionsArray(input.decisionsStorageExecutionId) as Array<Record<string, unknown>>,
-        [input.decisionsStorageExecutionId, input.decisionsReloadEpoch]
+        () =>
+            readExecutorDecisionsArray(
+                storageExecutionId,
+                input.viewExecutionData as Record<string, unknown> | undefined,
+            ) as Array<Record<string, unknown>>,
+        [storageExecutionId, input.viewExecutionData, input.decisionsReloadEpoch],
     );
 
     return {

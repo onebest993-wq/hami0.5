@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check, FolderKanban, FolderPlus, X } from 'lucide-react';
+import { Check, FolderKanban, FolderPlus, X } from '@/app/components/ui/lucideIcons';
 import {
     buildRepositoryRoomCounts,
     resolvePinnedRailRooms,

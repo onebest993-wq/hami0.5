@@ -2,7 +2,7 @@ import type { DockItemId, HomeCustomizableId, HomeHubTileId, HomeScrollBlockId }
 import type { HomeWidgetId } from './homeWidgetPlacements';
 
 export const HOME_SCROLL_BLOCK_LABELS: Record<HomeScrollBlockId, string> = {
-    alerts: 'التنبيهات والتثبيت',
+    alerts: 'البطاقة الذكية',
     hub: 'مركز القيادة',
     forum: 'المنتدى القانوني',
 };
@@ -14,7 +14,7 @@ export const HOME_HUB_TILE_LABELS: Record<HomeHubTileId, string> = {
 };
 
 export const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
-    dockRepository: 'المستودع الذكي',
+    dockRepository: 'المستودع',
     dockCalendar: 'التقويم',
     dockTasks: 'مهام',
     dockQuickNote: 'ملاحظة',
@@ -22,7 +22,7 @@ export const DOCK_ITEM_LABELS: Record<DockItemId, string> = {
 
 /** تسميات مختصرة موحّدة داخل الشريط السفلي */
 export const DOCK_SHELL_SHORT_LABELS: Partial<Record<HomeWidgetId, string>> = {
-    alerts: 'تنبيهات',
+    alerts: 'البطاقة الذكية',
     forum: 'المنتدى',
     hubExecution: 'تنفيذ',
     hubLawsuit: 'دعاوى',
@@ -31,15 +31,15 @@ export const DOCK_SHELL_SHORT_LABELS: Partial<Record<HomeWidgetId, string>> = {
 };
 
 export const HOME_WIDGET_LABELS: Record<HomeWidgetId, string> = {
-    alerts: 'التنبيهات والتثبيت',
+    alerts: 'البطاقة الذكية',
     hubExecution: 'تنفيذ',
     hubLawsuit: 'دعاوى',
     hubTransaction: 'معاملات',
     forum: 'المنتدى القانوني',
-    dockRepository: 'المستودع الذكي',
-    dockNotepad: 'المستودع الذكي',
+    dockRepository: 'المستودع',
+    dockNotepad: 'المستودع',
     dockCalendar: 'التقويم',
-    dockVault: 'المستودع الذكي',
+    dockVault: 'المستودع',
     dockTasks: 'مهام',
     dockQuickNote: 'ملاحظة',
 };

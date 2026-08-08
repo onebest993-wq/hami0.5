@@ -1,5 +1,5 @@
 import type { TimelineEvent } from '@/app/types/execution';
-import { appendPendingExecutorSeizureDecision } from '@/app/utils/executorSeizureDecisionQueue';
+import { submitBasicSeizurePendingRequest } from '@/app/domain/seizure/seizureBasicRequestService';
 
 export type SeizureRequestSubmitDeps = {
     exId: string;
@@ -23,15 +23,16 @@ export function runSubmitPropertySeizureRequest(
     deps: SeizureRequestSubmitDeps,
 ): void {
     const { exId, nextTimelineId, pushTimelineEvent, showToast } = deps;
-    if (!exId || exId === 'undefined') return;
     const subject = String(subjectDraft || '').trim() || 'طلب حجز عقار';
     const body = `موضوع الطلب:\n${subject}`;
-    const did = appendPendingExecutorSeizureDecision({
-        executionId: exId,
-        requestTitle: 'طلب حجز عقار — قيد البت لدى المنفذ',
-        requestBody: body,
-        seizureSubtype: 'property',
+    const result = submitBasicSeizurePendingRequest({
+        dossierInput: { executionId: exId },
+        title: 'طلب حجز عقار',
+        body,
+        subtype: 'property',
     });
+    if (result.error === 'invalid_dossier') return;
+    const did = result.decisionId;
     if (!did) {
         showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
             decisionsLink: true,
@@ -63,15 +64,16 @@ export function runSubmitMovableSeizureRequest(
     deps: SeizureRequestSubmitDeps,
 ): void {
     const { exId, nextTimelineId, pushTimelineEvent, showToast } = deps;
-    if (!exId || exId === 'undefined') return;
     const subject = String(subjectDraft || '').trim() || 'طلب حجز مال منقول';
     const body = `موضوع الطلب:\n${subject}`;
-    const did = appendPendingExecutorSeizureDecision({
-        executionId: exId,
-        requestTitle: 'طلب حجز مال منقول — قيد البت لدى المنفذ',
-        requestBody: body,
-        seizureSubtype: 'movable_auction',
+    const result = submitBasicSeizurePendingRequest({
+        dossierInput: { executionId: exId },
+        title: 'طلب حجز مال منقول',
+        body,
+        subtype: 'movable_auction',
     });
+    if (result.error === 'invalid_dossier') return;
+    const did = result.decisionId;
     if (!did) {
         showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
             decisionsLink: true,

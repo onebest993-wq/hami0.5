@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
+﻿import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
 
 describe('forum dock section surgical close honesty', () => {
-    it('PostModeration لا يرسل أحداث تصحيح إلى 127.0.0.1:7777', () => {
+    it('PostModeration ┘╪د ┘è╪▒╪│┘ ╪ث╪ص╪»╪د╪س ╪ز╪╡╪ص┘è╪ص ╪ح┘┘ë 127.0.0.1:7777', () => {
         const mod = fs.readFileSync(
             path.join(
                 root,
@@ -17,7 +17,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(mod).not.toContain('debug-point');
     });
 
-    it('MainView: Community Entry sync بلا Suspense؛ Host keepAlive + isOpen', () => {
+    it('MainView: Community Entry sync ╪ذ┘╪د Suspense╪ؤ Host keepAlive + isOpen', () => {
         const main = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
             'utf8',
@@ -50,7 +50,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(entry).not.toContain('Suspense');
     });
 
-    it('بعد boot-reveal: تسخين بلا arm؛ بعد interactive: arm Host مثل الإعدادات', () => {
+    it('╪ذ╪╣╪» boot-reveal: ╪ز╪│╪«┘è┘ ╪ذ┘╪د arm╪ؤ ╪ذ╪╣╪» interactive: arm Host ┘à╪س┘ ╪د┘╪ح╪╣╪»╪د╪»╪د╪ز', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCommunity.ts'),
             'utf8',
@@ -69,7 +69,7 @@ describe('forum dock section surgical close honesty', () => {
         );
     });
 
-    it('المنتدى حي في orchestration خارج الجزيرة المؤجّلة (مثل الإعدادات)', () => {
+    it('╪د┘┘à┘╪ز╪»┘ë ╪ص┘è ┘┘è orchestration ╪«╪د╪▒╪ش ╪د┘╪ش╪▓┘è╪▒╪ر ╪د┘┘à╪ج╪ش┘ّ┘╪ر (┘à╪س┘ ╪د┘╪ح╪╣╪»╪د╪»╪د╪ز)', () => {
         const orch = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration.ts'),
             'utf8',
@@ -94,7 +94,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(deferred).toContain('params.closeCommunity');
     });
 
-    it('مسار الفتح لا يكرر hydrate بعد warmForumOnOpen', () => {
+    it('┘à╪│╪د╪▒ ╪د┘┘╪ز╪ص ┘╪د ┘è┘â╪▒╪▒ hydrate ╪ذ╪╣╪» warmForumOnOpen', () => {
         const openFlow = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/community/communityShellOpenFlow.ts'),
             'utf8',
@@ -108,7 +108,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(hook).toContain('commitCommunityOpen');
     });
 
-    it('بلاطة المنتدى تستخدم HomeMessageCircleIcon بدل lucide MessageCircle', () => {
+    it('╪ذ┘╪د╪╖╪ر ╪د┘┘à┘╪ز╪»┘ë ╪ز╪│╪ز╪«╪»┘à HomeMessageCircleIcon ╪ذ╪»┘ lucide MessageCircle', () => {
         const home = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
             'utf8',
@@ -116,14 +116,14 @@ describe('forum dock section surgical close honesty', () => {
         expect(home).toContain('HomeMessageCircleIcon');
         expect(home).toContain('data-testid="home-dock-forum"');
         expect(home).not.toMatch(/\bMessageCircle\b/);
-        /* قد يختفي lucide بالكامل من HomeTab — لا نفرض وجود الاستيراد */
+        /* ┘é╪» ┘è╪«╪ز┘┘è lucide ╪ذ╪د┘┘â╪د┘à┘ ┘à┘ HomeTab ظ¤ ┘╪د ┘┘╪▒╪╢ ┘ê╪ش┘ê╪» ╪د┘╪د╪│╪ز┘è╪▒╪د╪» */
         if (home.includes("from 'lucide-react'")) {
             expect(home).not.toMatch(/MessageCircle,\s*\n\s*Warehouse/);
             expect(home).not.toMatch(/,\s*MessageCircle\s*[,}]/);
         }
     });
 
-    it('فتح المنتدى ما زال عبر isRealSignedIn(userId) وليس null', () => {
+    it('┘╪ز╪ص ╪د┘┘à┘╪ز╪»┘ë ┘à╪د ╪▓╪د┘ ╪╣╪ذ╪▒ isRealSignedIn(userId) ┘ê┘┘è╪│ null', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCommunity.ts'),
             'utf8',
@@ -132,7 +132,7 @@ describe('forum dock section surgical close honesty', () => {
         expect(hook).not.toContain('isRealSignedIn(null)');
     });
 
-    it('CommunityScreenHost متزامن — بلا dynamic import ولا InstantShell', () => {
+    it('CommunityScreenHost ┘à╪ز╪▓╪د┘à┘ ظ¤ ╪ذ┘╪د dynamic import ┘ê┘╪د InstantShell', () => {
         const host = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/CommunityScreen/CommunityScreenHost.tsx'),
             'utf8',

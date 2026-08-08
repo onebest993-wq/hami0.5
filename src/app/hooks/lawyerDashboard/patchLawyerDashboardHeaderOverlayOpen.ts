@@ -13,6 +13,7 @@ import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashb
 export type LawyerDashboardHeaderOverlayPatchInput = {
     showSettings: boolean;
     showGlobalSearch: boolean;
+    searchHostMounted: boolean;
     showCommunity?: boolean;
     showNotifications: boolean;
     notificationsUnreadCount: number;
@@ -36,7 +37,8 @@ export function patchLawyerDashboardHeaderOverlayOpen(
     const scheduleTabMounted = isLawyerDashboardTabMounted(scheduleTabBaseActive, input.tabStackMask);
     const overlaysBundleOverlayChanged =
         view.overlaysBundle.overlays.showSettings !== input.showSettings ||
-        view.overlaysBundle.overlays.showGlobalSearch !== input.showGlobalSearch;
+        view.overlaysBundle.overlays.showGlobalSearch !== input.showGlobalSearch ||
+        view.overlaysBundle.overlays.searchHostMounted !== input.searchHostMounted;
 
     if (
         view.tabStackHidden === tabStackHidden &&
@@ -45,6 +47,7 @@ export function patchLawyerDashboardHeaderOverlayOpen(
         view.headerProps.unreadCount === input.notificationsUnreadCount &&
         view.overlaysBundle.overlays.showSettings === input.showSettings &&
         view.overlaysBundle.overlays.showGlobalSearch === input.showGlobalSearch &&
+        view.overlaysBundle.overlays.searchHostMounted === input.searchHostMounted &&
         view.homeTabProps.visible === homeTabMounted &&
         view.scheduleTabProps.visible === scheduleTabMounted
     ) {
@@ -78,6 +81,7 @@ export function patchLawyerDashboardHeaderOverlayOpen(
                       ...view.overlaysBundle.overlays,
                       showSettings: input.showSettings,
                       showGlobalSearch: input.showGlobalSearch,
+                      searchHostMounted: input.searchHostMounted,
                   },
               }
             : view.overlaysBundle,

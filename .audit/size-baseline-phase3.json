@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-08-06T19:07:48.971Z",
+  "totalMb": 11.29,
+  "fileCount": 337,
+  "byExtMb": {
+    ".js": 8.59,
+    ".css": 1.11,
+    ".html": 0.01,
+    ".pdf": 0,
+    ".svg": 0,
+    ".png": 0.22,
+    ".jpg": 0.11,
+    ".webp": 0.07,
+    ".json": 1.18,
+    "(none)": 0
+  },
+  "js": {
+    "fileCount": 285,
+    "totalMb": 8.56,
+    "microUnder5k": 31,
+    "top": [
+      {
+        "file": "lawsuit-archive-grid-CpQELOKn.js",
+        "rawKb": 461
+      },
+      {
+        "file": "archive-portal-execution-DaogYOlr.js",
+        "rawKb": 372.3
+      },
+      {
+        "file": "ExecutionDashboard-mH1psvOP.js",
+        "rawKb": 361.7
+      },
+      {
+        "file": "vendor-pdf-BJoAr5aP.js",
+        "rawKb": 326.2
+      },
+      {
+        "file": "criminalStore-TqoASJvY.js",
+        "rawKb": 240.5
+      },
+      {
+        "file": "vendor-supabase-BpcYmkDH.js",
+        "rawKb": 196.8
+      },
+      {
+        "file": "Dashboard_Active_Order_File-tPg6frEw.js",
+        "rawKb": 185.6
+      },
+      {
+        "file": "vendor-misc-Da23H8e7.js",
+        "rawKb": 174
+      },
+      {
+        "file": "CriminalDashboard-pZ0Vtfx_.js",
+        "rawKb": 173.5
+      },
+      {
+        "file": "SmartFileModal-Bx8IgeW5.js",
+        "rawKb": 159.1
+      },
+      {
+        "file": "execution-handler-cluster-seizure-AKXsMOYQ.js",
+        "rawKb": 153.2
+      },
+      {
+        "file": "vendor-react-HjyJKqEg.js",
+        "rawKb": 138.8
+      },
+      {
+        "file": "LawyerDashboardInnerRuntime-BMuLeMMa.js",
+        "rawKb": 135.8
+      },
+      {
+        "file": "DecisionsHub-DIVJ77s9.js",
+        "rawKb": 129.6
+      },
+      {
+        "file": "FinancialOperationsCenter-B7i4hArw.js",
+        "rawKb": 121.8
+      },
+      {
+        "file": "ExecutionCreationView-CP9TbsnC.js",
+        "rawKb": 107.4
+      },
+      {
+        "file": "calendarReconcileScheduler-CGMDh9cg.js",
+        "rawKb": 106.9
+      },
+      {
+        "file": "SmartRepositoryUnifiedFeed-vvyLzEWV.js",
+        "rawKb": 106.5
+      },
+      {
+        "file": "ExecutionDashboardPhoneBody-BfqvM09t.js",
+        "rawKb": 106.3
+      },
+      {
+        "file": "execution-handler-cluster-handlers-BuPefqUz.js",
+        "rawKb": 105.4
+      }
+    ],
+    "hasExecutionLawsChunk": false,
+    "hasVendorCapacitor": false,
+    "hasBundledPdfWorker": false
+  },
+  "pdfAssetsMb": 0
+}

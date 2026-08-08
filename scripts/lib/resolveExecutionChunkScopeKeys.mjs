@@ -150,8 +150,18 @@ function collectPhaseCScopeArchitectureKeys(resolved) {
     for (const k of extractPipeFragmentKeys(`${coreDir}/executionDashboardCoreScopeBagFragments.ui.ts`)) {
         resolved.add(k);
     }
-    for (const k of extractPipeFragmentKeys(`${coreDir}/executionDashboardCoreScopeBagFragments.ts`)) {
-        resolved.add(k);
+    const scopeFragmentsDir = `${coreDir}/scopeBagFragments`;
+    if (fs.existsSync(scopeFragmentsDir)) {
+        for (const name of fs.readdirSync(scopeFragmentsDir)) {
+            if (!name.endsWith('.ts') || name === 'index.ts') continue;
+            for (const k of extractPipeFragmentKeys(`${scopeFragmentsDir}/${name}`)) {
+                resolved.add(k);
+            }
+        }
+    } else {
+        for (const k of extractPipeFragmentKeys(`${coreDir}/executionDashboardCoreScopeBagFragments.ts`)) {
+            resolved.add(k);
+        }
     }
 
     for (const file of [

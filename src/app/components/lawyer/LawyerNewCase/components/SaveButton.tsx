@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from '@/app/components/ui/lucideIcons';
 import { NC_FOOTER } from '../newCaseGlassTheme';
 import {
     PERSONAL_STATUS_FOOTER,

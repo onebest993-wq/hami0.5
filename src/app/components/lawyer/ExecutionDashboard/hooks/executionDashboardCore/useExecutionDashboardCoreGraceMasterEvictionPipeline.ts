@@ -1,4 +1,4 @@
-// @ts-nocheck
+// @ts-nocheck — يُزال بعد typed ExecutionDashboardCoreGraceMasterEvictionPipelineInput (جاري)
 /** Phase C Slice 27 — grace / master state / coercive UI / eviction badges */
 import { useMemo } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -7,7 +7,7 @@ import {
     hasApprovedLawyerFeePayout,
     hasApprovedUnifiedCollection,
 } from '@/app/utils/executorDecisionReadQueries';
-import { applyEarnerFinancialPersonalCoerciveOverlay } from '@/app/utils/earnerPersonalCoerciveFinancialGate';
+import { applyFollowupSpecializationOverlays } from '@/app/utils/applyFollowupSpecializationOverlays';
 import { useExecutionDashboardGraceAndSummoning } from './useExecutionDashboardGraceAndSummoning';
 import { useEarnerFinancialPersonalCoerciveFlags } from '../executionDashboardEarnerFinancialCoerciveGate';
 import { useExecutionDashboardOtherPartyMirror } from './useExecutionDashboardOtherPartyMirror';
@@ -56,8 +56,10 @@ export function useExecutionDashboardCoreGraceMasterEvictionPipeline(
         paidClientFees,
         activeDebtorIsEmployee,
         followupSpecializationEffective,
+        followupModalSpecialization,
         followupModalSpecializationEffective,
         followupModalDebtorIsEmployee,
+        followupModalDebtorIsDeceased,
         decisionsReloadEpoch,
         isRepresentingDebtor,
         decisionsStorageExecutionId,
@@ -153,24 +155,41 @@ export function useExecutionDashboardCoreGraceMasterEvictionPipeline(
     const {
         earnerFinancialPersonalCoerciveActive,
         hideExecutiveDetentionJudgeCard,
-    } = useEarnerFinancialPersonalCoerciveFlags(Boolean(activeDebtorIsEmployee), graceRemaining);
+    } = useEarnerFinancialPersonalCoerciveFlags(
+        Boolean(activeDebtorIsEmployee),
+        graceRemaining,
+        followupSpecialization.isFinancialDebtCollection,
+        Boolean(activeDebtorIsDeceased),
+    );
 
     const followupSpecializationWithEarnerGate = useMemo(
         () =>
-            applyEarnerFinancialPersonalCoerciveOverlay(followupSpecializationEffective, {
+            applyFollowupSpecializationOverlays(followupSpecialization, {
                 isEmployee: Boolean(activeDebtorIsEmployee),
                 financialCenterTotalIqd: graceRemaining,
+                activeDebtorIsDeceased: Boolean(activeDebtorIsDeceased),
             }),
-        [followupSpecializationEffective, activeDebtorIsEmployee, graceRemaining],
+        [
+            followupSpecialization,
+            activeDebtorIsEmployee,
+            graceRemaining,
+            activeDebtorIsDeceased,
+        ],
     );
 
     const followupModalSpecializationEffectiveWithEarnerGate = useMemo(
         () =>
-            applyEarnerFinancialPersonalCoerciveOverlay(followupModalSpecializationEffective, {
+            applyFollowupSpecializationOverlays(followupModalSpecialization, {
                 isEmployee: Boolean(followupModalDebtorIsEmployee),
                 financialCenterTotalIqd: graceRemaining,
+                activeDebtorIsDeceased: Boolean(followupModalDebtorIsDeceased),
             }),
-        [followupModalSpecializationEffective, followupModalDebtorIsEmployee, graceRemaining],
+        [
+            followupModalSpecialization,
+            followupModalDebtorIsEmployee,
+            graceRemaining,
+            followupModalDebtorIsDeceased,
+        ],
     );
 
     const unifiedCollectionApproved = useMemo(

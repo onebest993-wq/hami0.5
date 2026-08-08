@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCheck, Loader2, X } from 'lucide-react';
+import { Bell, CheckCheck, Loader2, Volume2, VolumeX, X } from '@/app/components/ui/lucideIcons';
 
 interface NotificationHeaderProps {
     unreadCount: number;
@@ -7,6 +7,11 @@ interface NotificationHeaderProps {
     isMarkingAllRead: boolean;
     onMarkAllRead: () => void;
     onClose: () => void;
+    showDragHandle?: boolean;
+    alertControlsOpen?: boolean;
+    isAlertsMuted?: boolean;
+    onToggleAlertControls?: () => void;
+    onQuickMute?: () => void;
 }
 
 export function NotificationHeader({
@@ -15,26 +20,31 @@ export function NotificationHeader({
     isMarkingAllRead,
     onMarkAllRead,
     onClose,
+    showDragHandle = false,
+    alertControlsOpen = false,
+    isAlertsMuted = false,
+    onToggleAlertControls,
+    onQuickMute,
 }: NotificationHeaderProps) {
     return (
-        <div className="relative shrink-0 px-4 pt-2 pb-3 sm:px-5 sm:pt-4 border-b border-white/[0.06]">
-            <div className="w-11 h-1 rounded-full bg-gradient-to-r from-transparent via-white/25 to-transparent mx-auto mb-4 sm:hidden" aria-hidden />
+        <div className="hami-notif-header relative shrink-0 border-b border-white/[0.06] px-4 pb-3 pt-[max(0.35rem,env(safe-area-inset-top))] sm:px-5 sm:pt-4">
+            {showDragHandle ? (
+                <div
+                    className="hami-notif-handle touch-none"
+                    aria-hidden
+                    data-testid="notification-sheet-handle"
+                />
+            ) : null}
 
-            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#E6C673]/50 to-transparent" aria-hidden />
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#E6C673]/45 to-transparent"
+                aria-hidden
+            />
 
             <div className="flex items-center gap-2.5">
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="shrink-0 text-sm font-bold text-[#E6C673]/80 active:text-[#E6C673] active:scale-[0.97] px-1 min-h-[44px] sm:hidden touch-manipulation"
-                    aria-label="إغلاق الإشعارات"
-                >
-                    إغلاق
-                </button>
-
-                <div className="flex-1 min-w-0 flex items-center gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className="relative shrink-0">
-                        <div className="w-11 h-11 rounded-2xl bg-[#E6C673]/10 border border-[#E6C673]/25 flex items-center justify-center shadow-[0_0_24px_rgba(230,198,115,0.12)]">
+                        <div className="hami-notif-header-icon flex h-11 w-11 items-center justify-center rounded-2xl">
                             <Bell
                                 className="text-[#E6C673] drop-shadow-[0_0_8px_rgba(230,198,115,0.35)]"
                                 size={20}
@@ -43,37 +53,65 @@ export function NotificationHeader({
                             />
                         </div>
                         {unreadCount > 0 ? (
-                            <span className="absolute -top-1 -start-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center border-2 border-[#080D18]">
+                            <span className="absolute -top-1 -start-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full border-2 border-[#080D18] bg-rose-500 px-1 text-[10px] font-bold text-white">
                                 {unreadCount > 99 ? '99+' : unreadCount}
                             </span>
                         ) : null}
                     </div>
                     <div className="min-w-0">
-                        <h2 className="text-lg sm:text-xl font-bold text-white truncate tracking-tight">
+                        <h2 className="truncate text-lg font-bold tracking-tight text-white sm:text-xl">
                             الإشعارات
                         </h2>
                         {unreadCount > 0 ? (
-                            <p className="text-[11px] text-white/45 truncate">
-                                {unreadCount} غير مقروء — وارد حقيقي فقط
+                            <p className="truncate text-[11px] text-white/45">
+                                {unreadCount} غير مقروء
+                                {isAlertsMuted ? ' · صامت' : ''}
                             </p>
                         ) : showHeaderBusy ? (
-                            <p className="text-[11px] text-white/35 truncate sr-only" aria-live="polite">
+                            <p className="sr-only truncate text-[11px] text-white/35" aria-live="polite">
                                 جاري التحديث
                             </p>
                         ) : (
-                            <p className="text-[11px] text-white/35 truncate">لا جديد حالياً</p>
+                            <p className="truncate text-[11px] text-white/35">
+                                {isAlertsMuted ? 'التنبيهات مكتومة مؤقتاً' : 'لا جديد حالياً'}
+                            </p>
                         )}
                     </div>
                     {showHeaderBusy ? (
                         <Loader2
                             size={18}
-                            className="text-[#E6C673]/70 animate-spin shrink-0"
+                            className="shrink-0 animate-spin text-[#E6C673]/70"
                             aria-hidden
                         />
                     ) : null}
                 </div>
 
-                <div className="flex items-center gap-1.5 shrink-0">
+                <div className="flex shrink-0 items-center gap-1.5">
+                    <button
+                        type="button"
+                        data-testid="notification-alert-controls-toggle"
+                        onClick={onToggleAlertControls}
+                        aria-pressed={alertControlsOpen}
+                        aria-label={alertControlsOpen ? 'إخفاء تحكم التنبيهات' : 'تحكم التنبيهات والصوت'}
+                        title="تحكم الصوت والتنبيهات"
+                        className={`flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl border transition-colors active:scale-[0.96] ${
+                            alertControlsOpen || isAlertsMuted
+                                ? 'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673]'
+                                : 'border-white/[0.08] bg-white/[0.04] text-white/55 hover:border-[#E6C673]/25 hover:text-[#E6C673]'
+                        }`}
+                    >
+                        {isAlertsMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                    </button>
+                    <button
+                        type="button"
+                        data-testid="notification-quick-mute"
+                        onClick={onQuickMute}
+                        aria-label="كتم سريع لمدة ساعة"
+                        title="كتم سريع — ساعة واحدة"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-white/50 transition-colors active:scale-[0.96] hover:border-rose-400/30 hover:text-rose-300"
+                    >
+                        <VolumeX size={17} />
+                    </button>
                     {unreadCount > 0 ? (
                         <button
                             type="button"
@@ -82,7 +120,7 @@ export function NotificationHeader({
                             aria-busy={isMarkingAllRead}
                             title="تحديد الكل كمقروء"
                             aria-label="تحديد الكل كمقروء"
-                            className="w-11 h-11 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-[#E6C673]/70 hover:text-[#E6C673] hover:border-[#E6C673]/25 transition-colors disabled:opacity-50 active:scale-[0.96] touch-manipulation"
+                            className="flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-[#E6C673]/70 transition-colors active:scale-[0.96] hover:border-[#E6C673]/25 hover:text-[#E6C673] disabled:opacity-50"
                         >
                             <CheckCheck size={18} />
                         </button>
@@ -90,7 +128,7 @@ export function NotificationHeader({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="hidden sm:flex w-11 h-11 min-h-[44px] min-w-[44px] rounded-2xl bg-white/[0.04] border border-white/[0.08] items-center justify-center text-white/40 hover:text-white hover:border-white/15 active:scale-[0.96] touch-manipulation"
+                        className="flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-2xl border border-white/[0.08] bg-white/[0.04] text-white/50 transition-colors active:scale-[0.96] hover:border-white/15 hover:text-white"
                         aria-label="إغلاق الإشعارات"
                     >
                         <X size={18} />

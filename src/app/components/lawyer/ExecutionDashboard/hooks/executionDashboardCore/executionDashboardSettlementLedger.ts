@@ -11,17 +11,17 @@ import {
     clearSettlementFromStore,
     releaseSalarySeizedAssets,
 } from '@/app/slices/financial/specialtyPublic';
-import {
-    executionGarnishmentDetailsStorageKey,
-    executionGarnishmentFlagStorageKey,
-} from '@/app/utils/executionStorageKeys';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 
 export function clearSettlementFromLedgerStorage(
     decisionsStorageExecutionId: string | undefined,
     executionId: string | undefined,
     setUnifiedLedgerRevision: Dispatch<SetStateAction<number>>,
 ): void {
-    const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
+    const exId = requireDecisionsStorageExecutionId({
+        decisionsStorageExecutionId,
+        executionId,
+    });
     if (!exId) return;
     const key = storageKey(exId);
     const stored = storageCache.get(key);
@@ -51,7 +51,10 @@ export function clearActiveSalarySeizurePathStorage(args: {
         persistExecutionMerge,
         setUnifiedLedgerRevision,
     } = args;
-    const exId = String(decisionsStorageExecutionId ?? executionId ?? '').trim();
+    const exId = requireDecisionsStorageExecutionId({
+        decisionsStorageExecutionId,
+        executionId,
+    });
     const nextAssets = releaseSalarySeizedAssets(
         seizedAssets as unknown as Array<Record<string, unknown>>,
     ) as unknown as SeizedAsset[];

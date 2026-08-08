@@ -57,7 +57,6 @@ export function ProfileCustomBlockView({
                     template={block.mediaTemplate ?? 'circle'}
                     alt={block.title?.trim() || 'صورة الملف'}
                     heightPx={imageHeight}
-                    borderless
                     previewInteractive={interactive}
                 />
             ) : (

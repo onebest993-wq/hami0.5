@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Eye, FileText, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Eye, FileText, Loader2, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
 import {
     formatRepositoryTimestamp,
     resolveRepositoryEntryLayout,
@@ -15,6 +15,7 @@ import {
     REPO_CARD_ICON_BTN,
     REPO_CARD_META,
     REPO_CARD_NOTE,
+    REPO_CARD_TIMESTAMP,
     REPO_CARD_TITLE,
 } from '../smartRepositoryTheme';
 import { plainTextFromPossiblyHtml } from '../legalRichTextEditorUtils';
@@ -148,7 +149,7 @@ export const VaultEntryCard = React.memo(function VaultEntryCard({
 
     const meta = (
         <div className={REPO_CARD_META}>
-            <span className="text-[10px] tabular-nums text-white/40">{timestamp}</span>
+            <span className={REPO_CARD_TIMESTAMP}>{timestamp}</span>
             <RepositoryMediaKindBadge kind={mediaKind} />
         </div>
     );

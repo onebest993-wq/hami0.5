@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin } from '@/app/components/ui/lucideIcons';
 import {
     isAffiliativeThirdPartyRole,
     isAppealIntegratedInterpleaderRole,

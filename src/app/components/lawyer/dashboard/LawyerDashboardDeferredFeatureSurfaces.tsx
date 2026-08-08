@@ -1,10 +1,8 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { onBootContentReady } from '@/app/bootstrap/bootReveal';
 import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
-import { useLawyerDashboardRepository } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
 import { useLawyerDashboardProfileTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab';
 import { useLawyerDashboardFieldTasks } from '@/app/hooks/lawyerDashboard/useLawyerDashboardFieldTasks';
-import { useLawyerDashboardScheduleTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab';
 import { useLawyerDashboardGlobalSearch } from '@/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch';
 import { useLawyerDashboardGlobalSearchNav } from '@/app/hooks/useLawyerDashboardGlobalSearchNav';
 import { deferredFeatureBagFingerprint } from '@/app/components/lawyer/dashboard/deferredFeatureBagFingerprint';
@@ -25,22 +23,17 @@ function DeferredFeatureSurfacesInner({
         setArchiveType: params.setArchiveType,
         setShowLawsuitsWorkspace: params.setShowLawsuitsWorkspace,
     });
-    const repository = useLawyerDashboardRepository({ userId: params.userId });
     const profile = useLawyerDashboardProfileTab({
         userId: params.userId,
         activeTab: params.activeTab,
         setActiveTab: params.setActiveTab,
         setShowCommunity: params.setShowCommunity,
+        closeSettings: params.closeSettings,
     });
     const fieldTasks = useLawyerDashboardFieldTasks({
         userId: params.userId,
         setActiveTab: params.setActiveTab,
         closeCommunity: params.closeCommunity,
-    });
-    const schedule = useLawyerDashboardScheduleTab({
-        userId: params.userId,
-        activeTab: params.activeTab,
-        setActiveTab: params.setActiveTab,
     });
     const globalSearch = useLawyerDashboardGlobalSearch({ userId: params.userId });
 
@@ -51,7 +44,7 @@ function DeferredFeatureSurfacesInner({
         closeGlobalSearch: globalSearch.closeGlobalSearch,
         openNotifications: params.openNotifications,
         openProfileTab: params.openProfileTab,
-        openScheduleTab: schedule.openScheduleTab,
+        openScheduleTab: params.openScheduleTab,
         setActiveTab: params.setActiveTab,
         openCommunityTab: params.openCommunityTab,
         setCommunityDeepLink: params.setCommunityDeepLink,
@@ -59,8 +52,8 @@ function DeferredFeatureSurfacesInner({
         openCriminalCase: params.openCriminalCase,
         openTransactionsHub: params.openTransactionsHub,
         openTasksManager: fieldTasks.openTasksManager,
-        openNotepad: repository.openNotepad,
-        openVaultModal: repository.openVaultModal,
+        openNotepad: params.openNotepad,
+        openVaultModal: params.openVaultModal,
         setActiveFile: params.setActiveFile,
         selectCase: params.selectCase,
         onNavigateToCase: params.onNavigateToCase,
@@ -68,10 +61,8 @@ function DeferredFeatureSurfacesInner({
 
     const bag: DeferredFeatureBag = {
         transactions,
-        repository,
         profile,
         fieldTasks,
-        schedule,
         globalSearch,
         globalSearchNav,
     };

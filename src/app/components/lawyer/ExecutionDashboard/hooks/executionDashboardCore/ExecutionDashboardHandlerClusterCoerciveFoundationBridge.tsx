@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -9,6 +8,10 @@ import { useExecutionDashboardPersonalCoerciveDecisionSync } from './useExecutio
 import { useExecutionDashboardEmployeeInvestigationSync } from './useExecutionDashboardEmployeeInvestigationSync';
 import { useExecutionDashboardExecutiveDetentionLifecycle } from './useExecutionDashboardExecutiveDetentionLifecycle';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 type Props = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -58,13 +61,21 @@ export function ExecutionDashboardHandlerClusterCoerciveFoundationBridge({
         showToast: c.showToast,
     });
 
-    useEffect(() => {
-        onCluster({
-            pushTimelineEventBinding,
+    const cluster: Record<string, unknown> = {
+        pushTimelineEventBinding,
+        pushTimelineEvent,
+        debtorEmploymentHandler,
+    };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
             pushTimelineEvent,
-            debtorEmploymentHandler,
-        });
-    }, [debtorEmploymentHandler, onCluster, pushTimelineEvent, pushTimelineEventBinding]);
+            ...handlerBagKeyFingerprint(pushTimelineEventBinding as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(debtorEmploymentHandler as Record<string, unknown>),
+        ],
+        onCluster,
+    );
 
     return null;
 }

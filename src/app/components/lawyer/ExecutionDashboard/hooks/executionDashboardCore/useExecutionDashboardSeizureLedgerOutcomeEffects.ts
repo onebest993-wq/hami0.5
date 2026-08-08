@@ -36,6 +36,7 @@ export type ExecutionDashboardSeizureLedgerOutcomeEffectsInput = {
     focusSeizureThirdPartyInlineRef: SeizureDecisionOutcomeContext['focusSeizureThirdPartyInlineRef'];
     focusSeizureNoticeInlineRef: SeizureDecisionOutcomeContext['focusSeizureNoticeInlineRef'];
     openSeizureRequestsTabRef: SeizureDecisionOutcomeContext['openSeizureRequestsTabRef'];
+    openFollowupModalPersisted?: SeizureDecisionOutcomeContext['openFollowupModalPersisted'];
     setShowCoerciveActionForm: SeizureDecisionOutcomeContext['setShowCoerciveActionForm'];
     setSeizureDetailCompletion: SeizureDecisionOutcomeContext['setSeizureDetailCompletion'];
     setShowUnifiedExecutionModal: SeizureDecisionOutcomeContext['setShowUnifiedExecutionModal'];
@@ -82,6 +83,7 @@ export function useExecutionDashboardSeizureLedgerOutcomeEffects(
         focusSeizureThirdPartyInlineRef: p.focusSeizureThirdPartyInlineRef,
         focusSeizureNoticeInlineRef: p.focusSeizureNoticeInlineRef,
         openSeizureRequestsTabRef: p.openSeizureRequestsTabRef,
+        openFollowupModalPersisted: p.openFollowupModalPersisted,
         setShowCoerciveActionForm: p.setShowCoerciveActionForm,
         setSeizureDetailCompletion: p.setSeizureDetailCompletion,
         setShowUnifiedExecutionModal: p.setShowUnifiedExecutionModal,
@@ -117,6 +119,7 @@ export function useExecutionDashboardSeizureLedgerOutcomeEffects(
         seizedAssetsSnapshotRef: p.seizedAssetsSnapshotRef,
         setSeizedAssets: p.setSeizedAssets,
         setSeizureDetailCompletion: p.setSeizureDetailCompletion,
+        setShowCoerciveActionForm: p.setShowCoerciveActionForm,
     });
 
     useTrustDisbursedOutcome({

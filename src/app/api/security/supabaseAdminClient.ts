@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+﻿import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.ts';
 
 export function getSupabaseAdminClient(): SupabaseClient | null {

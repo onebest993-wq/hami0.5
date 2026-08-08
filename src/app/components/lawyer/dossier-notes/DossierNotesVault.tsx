@@ -1,8 +1,16 @@
 import React from 'react';
-import { Pencil, Pin, Trash2 } from 'lucide-react';
+import { Pencil, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { DossierNoteBodyPreview } from './DossierNoteBodyPreview';
 import { parseLocalNotificationDate } from '@/app/utils/executionStateMachine';
+import {
+    REPO_CARD,
+    REPO_CARD_HEADING,
+    REPO_CARD_ICON_BTN,
+    REPO_CARD_ICON_BTN_ACTIVE,
+    REPO_CARD_TIMESTAMP,
+    REPO_NOTE_ROW,
+} from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
 
 export type DossierVaultNote = {
     id: string;
@@ -19,40 +27,13 @@ type DossierNotesVaultProps = {
     onTogglePin?: (id: string) => void;
     emptyLabel?: string;
     heading?: string;
+    /** @deprecated — التصميم موحّد عبر repo و execution */
     variant?: 'repo' | 'execution';
     renderNoteExtra?: (note: DossierVaultNote) => React.ReactNode;
     testId?: string;
     lawContext?: DossierNoteContext;
-    /** محتوى تدفق داخل لوحة الملاحظات — لا يغيّر الشكل إن لم يُستخدم */
     flowContent?: boolean;
 };
-
-const variantStyles = {
-    repo: {
-        shell: 'rounded-2xl border border-[#E6C673]/18 bg-[#0A0F1C]/40 p-3',
-        heading: 'text-xs font-bold text-[#E6C673]/90',
-        row: 'rounded-xl border border-white/[0.06] bg-white/[0.02] p-3',
-        title: 'text-white text-xs font-semibold break-words',
-        date: 'text-[10px] text-white/35 font-mono tabular-nums',
-        pinActive: 'border-[#E6C673]/35 bg-[#E6C673]/12 text-[#E6C673]',
-        pinIdle: 'border-white/10 text-white/45 hover:bg-white/5',
-        delete: 'border-rose-500/25 text-rose-300 hover:bg-rose-950/40',
-        edit: 'border-[#E6C673]/28 text-[#E6C673]/90 hover:bg-[#E6C673]/10',
-        empty: 'text-[11px] text-white/40 text-center py-3',
-    },
-    execution: {
-        shell: 'rounded-2xl border border-amber-500/25 bg-[#0B1120] p-3',
-        heading: 'text-xs font-bold text-amber-300/90',
-        row: 'rounded-xl border border-amber-500/15 bg-slate-900/80 p-3',
-        title: 'text-white text-xs font-semibold break-words',
-        date: 'text-[10px] text-slate-400 font-mono tabular-nums',
-        pinActive: 'border-amber-400/35 bg-amber-500/15 text-amber-200',
-        pinIdle: 'border-white/10 text-slate-400 hover:bg-white/5',
-        delete: 'border-rose-500/25 text-rose-300 hover:bg-rose-950/40',
-        edit: 'border-amber-400/30 text-amber-100 hover:bg-amber-900/30',
-        empty: 'text-[11px] text-slate-500 text-center py-3',
-    },
-} as const;
 
 function formatVaultNoteDate(raw?: string): string | null {
     const s = String(raw ?? '').trim();
@@ -76,81 +57,84 @@ export function DossierNotesVault({
     onTogglePin,
     emptyLabel = 'لا توجد ملاحظات محفوظة بعد.',
     heading = 'مخزن الملاحظات',
-    variant = 'repo',
     renderNoteExtra,
     testId = 'dossier-notes-vault',
     lawContext,
 }: DossierNotesVaultProps) {
-    const s = variantStyles[variant];
-
     return (
         <div className="space-y-2" data-testid={testId} dir="rtl">
-            <p className={`${s.heading} text-right`}>
+            <p className={REPO_CARD_HEADING}>
                 {heading}
                 {notes.length > 0 ? ` (${notes.length})` : ''}
             </p>
-            <div className={`${s.shell} max-h-[min(66vh,620px)] overflow-y-auto space-y-2`}>
+            <div className={`${REPO_CARD} max-h-[min(66vh,620px)] overflow-y-auto space-y-2`}>
                 {notes.length === 0 ? (
-                    <p className={s.empty}>{emptyLabel}</p>
+                    <p className="text-[11px] text-white/40 text-center py-3">{emptyLabel}</p>
                 ) : (
                     notes.map((note) => (
                         <div
                             key={note.id}
-                            className={`flex items-start gap-2 text-right ${s.row}`}
+                            className={`group/note-row flex items-start gap-2 text-right ${REPO_NOTE_ROW}`}
                             dir="rtl"
                         >
                             <div className="min-w-0 flex-1">
-                                <p className={s.title}>{note.title}</p>
+                                <p className="text-white text-xs font-semibold break-words">{note.title}</p>
                                 {note.date ? (
-                                    <p className={`${s.date} mt-0.5`}>{formatVaultNoteDate(note.date)}</p>
+                                    <p className={`${REPO_CARD_TIMESTAMP} mt-0.5`}>
+                                        {formatVaultNoteDate(note.date)}
+                                    </p>
                                 ) : null}
                                 <DossierNoteBodyPreview body={note.body} className="mt-0.5" lawContext={lawContext} />
                             </div>
                             {renderNoteExtra?.(note)}
-                            {onTogglePin ? (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onTogglePin(note.id);
-                                    }}
-                                    className={`shrink-0 rounded-lg border p-1 transition-all ${
-                                        note.pinned ? s.pinActive : s.pinIdle
-                                    }`}
-                                    title={note.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
-                                    data-testid={`dossier-note-pin-${note.id}`}
-                                >
-                                    <Pin size={14} className={note.pinned ? 'fill-current' : undefined} />
-                                </button>
-                            ) : null}
-                            {onEdit ? (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onEdit(note);
-                                    }}
-                                    className={`shrink-0 rounded-lg border p-1 transition-all ${s.edit}`}
-                                    title="تعديل"
-                                    data-testid={`dossier-note-edit-${note.id}`}
-                                >
-                                    <Pencil size={14} />
-                                </button>
-                            ) : null}
-                            {onDelete ? (
-                                <button
-                                    type="button"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDelete(note.id);
-                                    }}
-                                    className={`shrink-0 rounded-lg border p-1 transition-all ${s.delete}`}
-                                    title="حذف"
-                                    data-testid={`dossier-note-delete-${note.id}`}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            ) : null}
+                            <div className="flex shrink-0 items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover/note-row:opacity-100 sm:group-focus-within/note-row:opacity-100 transition-opacity duration-150">
+                                {onTogglePin ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onTogglePin(note.id);
+                                        }}
+                                        className={note.pinned ? REPO_CARD_ICON_BTN_ACTIVE : REPO_CARD_ICON_BTN}
+                                        title={note.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                                        data-testid={`dossier-note-pin-${note.id}`}
+                                        aria-label={note.pinned ? 'إلغاء التثبيت' : 'تثبيت'}
+                                        aria-pressed={Boolean(note.pinned)}
+                                    >
+                                        <Pin size={14} className={note.pinned ? 'fill-current' : undefined} />
+                                    </button>
+                                ) : null}
+                                {onEdit ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onEdit(note);
+                                        }}
+                                        className={REPO_CARD_ICON_BTN}
+                                        title="تعديل"
+                                        data-testid={`dossier-note-edit-${note.id}`}
+                                        aria-label="تعديل"
+                                    >
+                                        <Pencil size={14} />
+                                    </button>
+                                ) : null}
+                                {onDelete ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDelete(note.id);
+                                        }}
+                                        className={`${REPO_CARD_ICON_BTN} hover:text-red-400 hover:border-red-400/25`}
+                                        title="حذف"
+                                        data-testid={`dossier-note-delete-${note.id}`}
+                                        aria-label="حذف"
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                ) : null}
+                            </div>
                         </div>
                     ))
                 )}

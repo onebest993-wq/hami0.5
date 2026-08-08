@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { X, Handshake, CheckCircle, AlertCircle, Calendar } from 'lucide-react';
+import { X, Handshake, CheckCircle, AlertCircle, Calendar } from '@/app/components/ui/lucideIcons';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,

@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import type { Dispatch, MutableRefObject, SetStateAction } from 'react';
 import type { ExecutionFile, DossierLifecycleStatus, SeizedAsset } from '@/app/types/execution';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
-import type { TimelineEvent } from '@/app/components/lawyer/ExecutionDashboard/types';
+import type { TimelineEvent } from '@/app/types/execution';
 import { buildExecutionTimelineSnapshot } from '@/app/utils/buildExecutionTimelineSnapshot';
 import { dossierLifecycleLabelAr } from '../helpers/dossierLifecycleUtils';
 import type { ExecutionFileKey } from './executionOrchestratorTypes';

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 
 const confirm = vi.fn();
@@ -34,12 +34,14 @@ vi.mock('@/app/services/settings/verifySensitiveSettingsAction', () => ({
     }),
 }));
 
+vi.mock('@/app/services/platform/exportTextFile', () => ({
+    exportTextFile: vi.fn(async () => 'downloaded' as const),
+}));
+
+import { exportTextFile } from '@/app/services/platform/exportTextFile';
 import { useBusinessBackup } from '@/app/components/lawyer/HamiSettings/hooks/useBusinessBackup';
 
 describe('useBusinessBackup — export', () => {
-    let createElementSpy: ReturnType<typeof vi.spyOn> | undefined;
-    const anchorClick = vi.fn();
-
     beforeEach(() => {
         vi.clearAllMocks();
         buildPayload.mockResolvedValue({
@@ -49,41 +51,21 @@ describe('useBusinessBackup — export', () => {
             counts: {},
         });
         encrypt.mockResolvedValue({ kind: 'hami-business-backup-encrypted' });
-        vi.stubGlobal('URL', {
-            createObjectURL: vi.fn(() => 'blob:test'),
-            revokeObjectURL: vi.fn(),
-        });
+        vi.mocked(exportTextFile).mockResolvedValue('downloaded');
     });
-
-    afterEach(() => {
-        createElementSpy?.mockRestore();
-        createElementSpy = undefined;
-    });
-
-    function stubDownloadAnchor() {
-        anchorClick.mockClear();
-        const original = document.createElement.bind(document);
-        createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
-            if (tag === 'a') {
-                return { click: anchorClick, href: '', download: '' } as unknown as HTMLAnchorElement;
-            }
-            return original(tag);
-        });
-    }
 
     it('يرفض التصدير بدون كلمة مرور', async () => {
         confirm.mockResolvedValueOnce(true);
         prompt.mockResolvedValueOnce('');
 
         const { result } = renderHook(() => useBusinessBackup());
-        stubDownloadAnchor();
 
         await act(async () => {
             await result.current.exportBusinessBackup();
         });
 
         expect(encrypt).not.toHaveBeenCalled();
-        expect(anchorClick).not.toHaveBeenCalled();
+        expect(exportTextFile).not.toHaveBeenCalled();
     });
 
     it('يصدّر نسخة محمية عند إدخال كلمة مرور صالحة', async () => {
@@ -91,21 +73,19 @@ describe('useBusinessBackup — export', () => {
         prompt.mockResolvedValueOnce('secret12chars');
 
         const { result } = renderHook(() => useBusinessBackup());
-        stubDownloadAnchor();
 
         await act(async () => {
             await result.current.exportBusinessBackup();
         });
 
         expect(encrypt).toHaveBeenCalledTimes(1);
-        expect(anchorClick).toHaveBeenCalledTimes(1);
+        expect(exportTextFile).toHaveBeenCalledTimes(1);
     });
 
     it('لا يصدّر عند إلغاء تأكيد التصدير', async () => {
         confirm.mockResolvedValueOnce(false);
 
         const { result } = renderHook(() => useBusinessBackup());
-        stubDownloadAnchor();
 
         await act(async () => {
             await result.current.exportBusinessBackup();

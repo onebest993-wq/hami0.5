@@ -5,36 +5,13 @@ import {
     getExecutorDecisionRowById,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import type {
+    OpenSeizureCompletionContext,
+    OpenSeizureCompletionDetail,
+    SeizureDetailCompletionState,
+} from './openSeizureCompletionHandler.types';
 
-export type OpenSeizureCompletionDetail = {
-    executionId?: string;
-    decisionId?: string;
-};
-
-export type SeizureDetailCompletionState = {
-    decisionRowId: string;
-    assetId: string;
-    actionType: 'salary' | 'property' | 'vehicle';
-};
-
-export type OpenSeizureCompletionContext = {
-    executionDataId?: string;
-    executionId?: string;
-    executionDataRef: React.MutableRefObject<ExecutionFile | null>;
-    persistExecutionMergeRef: React.MutableRefObject<((patch: Record<string, unknown>) => void) | null>;
-    pushTimelineEventRef: React.MutableRefObject<
-        ((event: TimelineEvent, options?: { mergePatch?: Record<string, unknown> }) => void) | null
-    >;
-    nextTimelineId: () => string;
-    focusSeizurePropertyInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
-    focusSeizureMovableInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
-    focusSeizureThirdPartyInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
-    focusSeizureNoticeInlineRef: React.MutableRefObject<(decisionId: string, subject?: string) => void>;
-    seizedAssetsSnapshotRef: React.MutableRefObject<SeizedAsset[]>;
-    setSeizedAssets: React.Dispatch<React.SetStateAction<SeizedAsset[]>>;
-    setSeizureDetailCompletion: React.Dispatch<React.SetStateAction<SeizureDetailCompletionState | null>>;
-};
-
+export type { OpenSeizureCompletionDetail, SeizureDetailCompletionState, OpenSeizureCompletionContext };
 function resolveSeizureUiKind(hit: SeizedAsset): 'salary' | 'property' | 'vehicle' {
     const d = (hit.details || {}) as Record<string, unknown>;
     const raw = d.seizureUiKind;
@@ -252,4 +229,5 @@ export function handleOpenSeizureCompletionEvent(e: Event, ctx: OpenSeizureCompl
         assetId: hit.id,
         actionType: resolveSeizureUiKind(hit),
     });
+    ctx.setShowCoerciveActionForm(resolveSeizureUiKind(hit));
 }

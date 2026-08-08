@@ -37,6 +37,16 @@ describe('useProfileLoader', () => {
         expect(result.current.profile?.header.name).toBe('أحمد');
     });
 
+    it('يبدأ بلا تحميل عند كاش دافئ بلا اسم — يطبّع الاسم للمالك', async () => {
+        setProfileWarmCache('u1', {
+            header: { name: '', title: '', coverImage: '', profileImage: '' },
+            sections: [],
+        } as never);
+        const { result } = renderHook(() => useProfileLoader('u1', 'u1', true, stableUserMeta, undefined));
+        expect(result.current.loading).toBe(false);
+        await waitFor(() => expect(result.current.profile?.header.name).toBe('اختبار'));
+    });
+
     it('يطبّق displayNameHint للزائر عند غياب الاسم', async () => {
         vi.mocked(fetchLawyerProfile).mockResolvedValue({
             header: { name: '', title: '', coverImage: '', profileImage: '' },

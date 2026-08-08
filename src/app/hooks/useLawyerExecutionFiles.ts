@@ -36,7 +36,7 @@ import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { debug } from '@/app/utils/debug';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
-import { purgeDeletedExecutionDossiers } from '@/app/utils/purgeDeletedExecutionDossiers';
+import { readExecutionFilesBootstrap } from '@/app/utils/executionFilesBootstrap';
 
 const EXECUTION_MUTATION_FEATURE = 'تنفيذ';
 
@@ -106,7 +106,14 @@ export function useLawyerExecutionFiles({
         resolveLiteExecutionFilesStorageKey(sessionUserId),
     );
 
-    const [executionFiles, setExecutionFiles] = useState<ExecutionFile[]>([]);
+    const [executionFiles, setExecutionFiles] = useState<ExecutionFile[]>(() => {
+        if (typeof window === 'undefined') return [];
+        try {
+            return normalizeExecutionFiles(readExecutionFilesBootstrap());
+        } catch {
+            return [];
+        }
+    });
 
     const bootstrapExecutionFilesRef = useRef(executionFiles);
 

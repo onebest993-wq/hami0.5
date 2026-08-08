@@ -327,6 +327,19 @@ function findLatestWardTimelineEvent(
     return latest;
 }
 
+export function wardAwaitingRescheduleAfterMissed(
+    ward: CustodyWardDeliveryRecord,
+    events: TimelineEvent[],
+): boolean {
+    if (ward.status !== 'pending' || ward.appointmentYmd) return false;
+    const apptEvent = findLatestWardTimelineEvent(events, ward.wardKey, 'appointment');
+    const missedEvent = findLatestWardTimelineEvent(events, ward.wardKey, 'not_received');
+    if (!missedEvent) return false;
+    const apptMs = apptEvent ? wardTimelineEventMs(apptEvent) : -1;
+    const missedMs = wardTimelineEventMs(missedEvent);
+    return missedMs >= apptMs;
+}
+
 /** مزامنة بطاقة المحضون من السجل عندما تتقدّم الأحداث على بيانات الحفظ */
 export function enrichCustodyWardsFromTimeline(
     wards: CustodyWardDeliveryRecord[],
@@ -339,15 +352,7 @@ export function enrichCustodyWardsFromTimeline(
         'not_received',
     ];
     return wards.map((ward) => {
-        let next: CustodyWardDeliveryRecord = { ...ward };
         const apptEvent = findLatestWardTimelineEvent(events, ward.wardKey, 'appointment');
-        if (apptEvent) {
-            const ymd = parseCustodyTimelineEventYmd(apptEvent);
-            if (ymd && (!next.appointmentYmd || next.status === 'pending')) {
-                next.appointmentYmd = ymd;
-                if (next.status === 'pending') next.status = 'scheduled';
-            }
-        }
         let latestOutcome: { kind: CustodyWardTimelineEventKind; event: TimelineEvent } | null =
             null;
         for (const kind of outcomeKinds) {
@@ -356,6 +361,36 @@ export function enrichCustodyWardsFromTimeline(
             const ms = wardTimelineEventMs(event);
             if (!latestOutcome || ms >= wardTimelineEventMs(latestOutcome.event)) {
                 latestOutcome = { kind, event };
+            }
+        }
+
+        const apptMs = apptEvent ? wardTimelineEventMs(apptEvent) : -1;
+        const outcomeMs = latestOutcome ? wardTimelineEventMs(latestOutcome.event) : -1;
+
+        const awaitingReschedule =
+            ward.status === 'pending' &&
+            !ward.appointmentYmd &&
+            latestOutcome?.kind === 'not_received' &&
+            outcomeMs >= apptMs;
+
+        if (awaitingReschedule) {
+            return { ...ward };
+        }
+
+        let next: CustodyWardDeliveryRecord = { ...ward };
+        if (apptEvent) {
+            const ymd = parseCustodyTimelineEventYmd(apptEvent);
+            const apptStillActive =
+                !latestOutcome ||
+                latestOutcome.kind !== 'not_received' ||
+                apptMs > outcomeMs;
+            if (
+                ymd &&
+                apptStillActive &&
+                (!next.appointmentYmd || next.status === 'pending')
+            ) {
+                next.appointmentYmd = ymd;
+                if (next.status === 'pending') next.status = 'scheduled';
             }
         }
         if (latestOutcome) {
@@ -367,7 +402,7 @@ export function enrichCustodyWardsFromTimeline(
             }
             next = {
                 ...next,
-                status: latestOutcome.kind,
+                status: latestOutcome.kind as CustodyWardDeliveryStatus,
                 statusAt: String(latestOutcome.event.timestamp ?? next.statusAt ?? ''),
             };
         }

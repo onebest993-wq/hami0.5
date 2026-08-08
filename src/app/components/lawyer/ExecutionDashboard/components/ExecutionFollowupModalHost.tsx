@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 
 import { FollowupModalStoreProvider, type FollowupModalSnapshot } from '../followupModalContext';
 import { ExecutionFollowupModalPortal } from '../ExecutionFollowupModalPortal';
+import { prefetchExecutionCoreHandlers } from '../executionCoreHandlersPrefetch';
 import { prefetchExecutionFollowupTab } from '../executionFollowupTabPrefetch';
 import { useExecutionDashboardStore } from '@/app/stores';
 
@@ -25,6 +26,10 @@ export function ExecutionFollowupModalHost({ open: _openFromProp, snapshot }: Ex
     useEffect(() => {
         if (!open) return;
         prefetchExecutionFollowupTab(tabToPrefetch);
+        prefetchExecutionFollowupTab('coercive');
+        prefetchExecutionCoreHandlers('coercive');
+        prefetchExecutionCoreHandlers('coercive-eviction');
+        prefetchExecutionCoreHandlers('coercive-lifecycle');
     }, [open, tabToPrefetch]);
 
     if (!open) return null;

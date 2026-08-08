@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 
 import { motion } from 'motion/react';
 
-import { X, Lock, FileText, Ban, Clock, PhoneOff } from 'lucide-react';
+import { X, Lock, FileText, Ban, Clock, PhoneOff } from '@/app/components/ui/lucideIcons';
 
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 

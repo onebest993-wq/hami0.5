@@ -1,0 +1,49 @@
+{
+  "url": "http://localhost:8080/",
+  "device": "Desktop Chrome",
+  "throttle": "none",
+  "measuredAt": "2026-08-01T18:33:57.660Z",
+  "wallClockMs": 1373,
+  "timeline": [
+    {
+      "phase": "start",
+      "ms": 0
+    },
+    {
+      "phase": "static-shell-visible",
+      "ms": 0
+    },
+    {
+      "phase": "app-render",
+      "ms": 77
+    },
+    {
+      "phase": "shell-visible",
+      "ms": null
+    },
+    {
+      "phase": "overlay-removed",
+      "ms": null
+    },
+    {
+      "phase": "dashboard-chunk-loaded",
+      "ms": 135
+    },
+    {
+      "phase": "dashboard-interactive",
+      "ms": 135
+    },
+    {
+      "phase": "first-tab-open",
+      "ms": 790
+    }
+  ],
+  "ttfiMs": 135,
+  "probeTtfiMs": 135,
+  "overlayRemovedMs": null,
+  "firstTabOpenMs": 790,
+  "staticShellMs": 0,
+  "chunkLoadedMs": 135,
+  "fcpMs": 84,
+  "domContentLoadedMs": 103
+}

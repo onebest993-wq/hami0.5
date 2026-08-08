@@ -36,6 +36,19 @@ function getProfileLocalKey(userId: string): string {
     return `${PROFILE_LOCAL_KEY_PREFIX}${userId}`;
 }
 
+/** قراءة محلية متزامنة — للفتح الفوري بلا انتظار getProfile الكامل */
+export function readLocalProfileSync(userId: string): LawyerProfileData | null {
+    try {
+        const uid = userId.trim();
+        if (!uid || typeof window === 'undefined') return null;
+        const raw = SecureStoreService.getItemSync(getProfileLocalKey(uid));
+        if (!raw) return null;
+        return sanitizeLawyerProfile(JSON.parse(raw) as LawyerProfileData);
+    } catch {
+        return null;
+    }
+}
+
 async function loadLocalProfile(userId: string): Promise<LawyerProfileData | null> {
     try {
         const key = getProfileLocalKey(userId);

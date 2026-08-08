@@ -2,7 +2,6 @@ import React, { Suspense, useCallback, useEffect } from 'react';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
 import { setExecutionDossierNavHandlers } from '@/app/components/lawyer/ExecutionDashboard/utils/executionDossierNavRegistry';
-import { ExecutionDossierInstantChrome } from '@/app/components/lawyer/dashboard/ExecutionDossierInstantChrome';
 import { LazyExecutionDashboardPortal } from '@/app/components/lawyer/dashboard/executionDashboardPortalLazy';
 
 type Props = Pick<LawyerDashboardOverlaysBundleProps, 'dossier' | 'archive'> & {
@@ -52,13 +51,7 @@ export function LawyerDashboardExecutionDossierOverlayEntry({
     }
 
     return (
-        <Suspense
-            fallback={
-                open ? (
-                    <ExecutionDossierInstantChrome file={file} onExitToHome={exitToHome} />
-                ) : null
-            }
-        >
+        <Suspense fallback={null}>
             <LazyExecutionDashboardPortal {...portalProps} />
         </Suspense>
     );

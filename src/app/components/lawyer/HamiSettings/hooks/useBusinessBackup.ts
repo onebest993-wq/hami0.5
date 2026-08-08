@@ -21,6 +21,7 @@ import {
     verifySensitiveSettingsAction,
 } from '@/app/services/settings/verifySensitiveSettingsAction';
 import { registerSettingsBackupUiGuard } from '@/app/components/lawyer/HamiSettings/settingsEscapeStack';
+import { exportTextFile } from '@/app/services/platform/exportTextFile';
 
 export function useBusinessBackup() {
     const importBusinessInputRef = useRef<HTMLInputElement>(null);
@@ -149,15 +150,20 @@ export function useBusinessBackup() {
             const plainText = JSON.stringify(built.payload, null, 2);
             const payload = await encryptBusinessBackupText(plainText, p);
             const outText = JSON.stringify(payload, null, 2);
-            const blob = new Blob([outText], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
             const date = new Date().toISOString().slice(0, 10);
-            a.download = `hami-business-backup-${date}.protected.json`;
-            a.click();
-            window.setTimeout(() => URL.revokeObjectURL(url), 2_000);
-            SmartToast.success('تم تصدير نسخة البيانات');
+            const filename = `hami-business-backup-${date}.protected.json`;
+            const result = await exportTextFile({
+                filename,
+                content: outText,
+                mimeType: 'application/json',
+                dialogTitle: 'حفظ نسخة احتياطية',
+            });
+            if (result === 'cancelled') return;
+            if (result === 'failed') {
+                SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
+                return;
+            }
+            SmartToast.success(result === 'shared' ? 'اختر تطبيقاً لحفظ النسخة' : 'تم تصدير نسخة البيانات');
         } catch {
             SmartToast.warning('تعذر تصدير نسخة البيانات على هذا الجهاز');
         }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CalendarClock, Scale, ShieldOff, Unlock } from 'lucide-react';
+import { CalendarClock, Scale, ShieldOff, Unlock } from '@/app/components/ui/lucideIcons';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
 import type { CriminalCaseUserRole } from '../complainantCassationGovernance';
 import type { CriminalDefendant } from '../criminalStore';

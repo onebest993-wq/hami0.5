@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     appendImplicitForcedBringBroughtPatch,
+    buildInvestigationCourtWithdrawExecutionPatch,
+    buildExecutiveDetentionReleasePatch,
+    buildExecutiveDetentionJudgeRejectedClosurePatch,
     buildPersonalCoerciveStaleExecutionPatch,
     isArrestWarrantEnforceable,
     isExecutiveDetentionPathEnforceable,
@@ -11,8 +14,10 @@ import {
     isTravelBanRequestWithdrawn,
     resolveExecutiveDetentionJudgeUiOutcome,
     resolveForcedBringNeedsOutcomeUi,
+    buildForcedBringPersonalOutcomePatch,
     resolvePrimaryDebtorCoerciveStack,
     shouldShowInvestigationCourtBlock,
+    canWithdrawInvestigationCourtPath,
 } from '@/app/components/lawyer/execution/coerciveStackUtils';
 
 describe('isTravelBanRequestWithdrawn', () => {
@@ -150,6 +155,24 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
                 outcome: 'absconded',
             })
         ).toBe(false);
+        expect(
+            resolveForcedBringNeedsOutcomeUi({
+                forcedApproved: true,
+                forcedPending: false,
+                outcome: 'dismissed',
+            })
+        ).toBe(false);
+    });
+
+    it('brought/dismissed restart patches clear outcome for new cycle', () => {
+        const brought = buildForcedBringPersonalOutcomePatch('brought');
+        expect(brought.forced_bring_in_personal_outcome).toBeNull();
+        expect(brought.debtorForcedToAttend).toBe(true);
+        const dismissed = buildForcedBringPersonalOutcomePatch('dismissed');
+        expect(dismissed.forced_bring_in_personal_outcome).toBeNull();
+        expect(dismissed.debtorForcedToAttend).toBe(false);
+        const absconded = buildForcedBringPersonalOutcomePatch('absconded');
+        expect(absconded.forced_bring_in_personal_outcome).toBe('absconded');
     });
 
     it('still shows outcome UI when investigation lane was settled earlier', () => {
@@ -173,7 +196,7 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
         ).toBe(false);
     });
 
-    it('hides outcome UI when request is not effectively enforced', () => {
+    it('still shows outcome UI when enforcement badge lags behind approval', () => {
         expect(
             resolveForcedBringNeedsOutcomeUi({
                 forcedApproved: true,
@@ -181,7 +204,7 @@ describe('resolveForcedBringNeedsOutcomeUi', () => {
                 outcome: null,
                 requestEffectivelyEnforced: false,
             })
-        ).toBe(false);
+        ).toBe(true);
     });
 });
 
@@ -347,8 +370,34 @@ describe('appendImplicitForcedBringBroughtPatch', () => {
     });
 });
 
+describe('canWithdrawInvestigationCourtPath', () => {
+    it('is disabled — withdraw removed from forced-bring rebuild', () => {
+        expect(
+            canWithdrawInvestigationCourtPath({
+                forcedOutcomeAbsconded: true,
+                investigationCourtWithdrawn: false,
+                warrantCustodyRecorded: false,
+                arrestPending: true,
+                investigationCourtRequested: true,
+                arrestApproved: false,
+                arrestAlternative: false,
+                investigationPostApprovalActive: false,
+            }),
+        ).toBe(false);
+    });
+});
+
+describe('buildInvestigationCourtWithdrawExecutionPatch', () => {
+    it('resets investigation lane and forced outcome for re-registration', () => {
+        const patch = buildInvestigationCourtWithdrawExecutionPatch('2026-01-01T00:00:00.000Z');
+        expect(patch.investigation_court_withdrawn_at).toBe('2026-01-01T00:00:00.000Z');
+        expect(patch.forced_bring_in_personal_outcome).toBeNull();
+        expect(patch.personal_arrest_warrant_stage).toBe('none');
+    });
+});
+
 describe('buildPersonalCoerciveStaleExecutionPatch', () => {
-    it('clears orphan dossier phase when eligible decision row is missing', () => {
+    it('keeps dossier phase when judge lane is open after presentation row closes', () => {
         const patch = buildPersonalCoerciveStaleExecutionPatch({
             executionId: 'exec-no-dossier-row',
             executionData: {
@@ -356,7 +405,43 @@ describe('buildPersonalCoerciveStaleExecutionPatch', () => {
                 executive_detention_judge_eligible_decision_id: 'personal_coercive_dossier_1',
             },
         });
-        expect(patch?.executive_dossier_phase).toBeNull();
+        expect(patch).toBeNull();
+    });
+
+    it('clears orphan dossier fields when lane is fully inactive', () => {
+        const patch = buildPersonalCoerciveStaleExecutionPatch({
+            executionId: 'exec-no-dossier-row',
+            executionData: {
+                executive_dossier_phase: null,
+                executive_detention_judge_eligible_decision_id: 'personal_coercive_dossier_1',
+            },
+        });
         expect(patch?.executive_detention_judge_eligible_decision_id).toBeNull();
+        expect(patch?.executive_dossier_phase).toBeUndefined();
+    });
+});
+
+describe('buildExecutiveDetentionReleasePatch', () => {
+    it('resets detention and dossier lane fields for a new manual presentation cycle', () => {
+        const patch = buildExecutiveDetentionReleasePatch('2026-08-04T12:00:00.000Z');
+        expect(patch.executive_detention_released_or_closed_at).toBe('2026-08-04T12:00:00.000Z');
+        expect(patch.debtor_executive_detention_active).toBe(false);
+        expect(patch.executive_dossier_phase).toBeNull();
+        expect(patch.executive_detention_judge_outcome).toBeNull();
+        expect(patch.executive_detention_judge_decision_id).toBeNull();
+    });
+});
+
+describe('buildExecutiveDetentionJudgeRejectedClosurePatch', () => {
+    it('closes dossier lane and keeps judge rejection for appeals', () => {
+        const patch = buildExecutiveDetentionJudgeRejectedClosurePatch(
+            '2026-08-04T12:00:00.000Z',
+            'لا يوجد سبب',
+            'judge-dec-1',
+        );
+        expect(patch.executive_dossier_phase).toBeNull();
+        expect(patch.executive_detention_judge_outcome).toBe('rejected');
+        expect(patch.executive_detention_judge_decision_id).toBe('judge-dec-1');
+        expect(patch.executive_detention_released_or_closed_at).toBe('2026-08-04T12:00:00.000Z');
     });
 });

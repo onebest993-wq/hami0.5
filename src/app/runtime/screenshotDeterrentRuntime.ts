@@ -1,37 +1,35 @@
+import { whenNativeBridgeReady } from '@/app/runtime/nativeBridgeReady';
+import { callPrivacyScreenGuard } from '@/app/runtime/privacyScreenNative';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
-import { loadOptionalCapacitorPlugin } from '@/app/runtime/optionalCapacitorPluginLoad';
 
 const GUARD_DATASET_KEY = 'hamiScreenshotGuard';
-const PRIVACY_SCREEN_MODULE = '@capacitor-community/privacy-screen';
 let allowedClipboardActionDepth = 0;
 
-type PrivacyScreenPlugin = {
-    PrivacyScreen: {
-        enable(): Promise<void>;
-        disable(): Promise<void>;
-    };
-};
+async function invokeNativeScreenshotGuard(enabled: boolean): Promise<void> {
+    if (!isCapacitorNativePlatform()) return;
 
-async function loadPrivacyScreenPlugin(): Promise<PrivacyScreenPlugin['PrivacyScreen'] | null> {
-    if (!isCapacitorNativePlatform()) return null;
-    const mod = await loadOptionalCapacitorPlugin<PrivacyScreenPlugin>(PRIVACY_SCREEN_MODULE);
-    return mod?.PrivacyScreen ?? null;
+    try {
+        await whenNativeBridgeReady();
+        await callPrivacyScreenGuard(enabled);
+    } catch {
+        /* best effort — لا نُسقط الإقلاع */
+    }
 }
 
 /** يُفعّل/يُوقف حماية لقطة الشاشة — ويب + FLAG_SECURE / app-switcher على الموبايل */
 export async function syncNativeScreenshotGuard(enabled: boolean): Promise<void> {
-    const plugin = await loadPrivacyScreenPlugin();
-    if (!plugin) return;
-    try {
-        if (enabled) await plugin.enable();
-        else await plugin.disable();
-    } catch {
-        /* best effort */
-    }
+    await invokeNativeScreenshotGuard(enabled);
 }
 
 /** مستمعات الويب — تُكمّل (لا تستبدل) الحماية الأصلية */
 export function bindWebScreenshotDeterrent(): () => void {
+    if (isCapacitorNativePlatform()) {
+        void invokeNativeScreenshotGuard(true);
+        return () => {
+            void invokeNativeScreenshotGuard(false);
+        };
+    }
+
     const blockMenu = (e: Event) => e.preventDefault();
     const blockClipboard = (e: ClipboardEvent) => {
         if (allowedClipboardActionDepth > 0) return;
@@ -43,14 +41,14 @@ export function bindWebScreenshotDeterrent(): () => void {
     document.addEventListener('copy', blockClipboard, true);
     document.addEventListener('cut', blockClipboard, true);
 
-    void syncNativeScreenshotGuard(true);
+    void invokeNativeScreenshotGuard(true);
 
     return () => {
         delete document.documentElement.dataset[GUARD_DATASET_KEY];
         document.removeEventListener('contextmenu', blockMenu);
         document.removeEventListener('copy', blockClipboard, true);
         document.removeEventListener('cut', blockClipboard, true);
-        void syncNativeScreenshotGuard(false);
+        void invokeNativeScreenshotGuard(false);
     };
 }
 

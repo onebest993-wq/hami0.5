@@ -52,7 +52,18 @@ export function useLawyerDashboardWorkspace({
 }: UseLawyerDashboardWorkspaceParams) {
     const [activeFile, setActiveFile] = useState<FileData | ExecutionFile | null>(null);
 
-    const { files, setFiles, reloadLawsuitFiles } = useLawsuitFilesState({
+    const {
+        files,
+        setFiles,
+        lawsuitSegments,
+        setLawsuitSegments,
+        lawsuitLifecycleCounts,
+        lawsuitArchivedFiles,
+        lawsuitTrashFiles,
+        ensureLawsuitArchivedLoaded,
+        ensureLawsuitTrashLoaded,
+        reloadLawsuitFiles,
+    } = useLawsuitFilesState({
         localAutoSave,
         backgroundRuntimeEnabled,
     });
@@ -60,6 +71,8 @@ export function useLawyerDashboardWorkspace({
     const lawsuitMutations = useLawsuitFileMutations({
         files,
         setFiles,
+        lawsuitSegments,
+        setLawsuitSegments,
         setActiveFile,
         userId: user?.id,
         authUserId,
@@ -112,6 +125,7 @@ export function useLawyerDashboardWorkspace({
         refreshAppAlerts,
         selectCase,
         openExecutionArchiveFile: execution.openExecutionArchiveFile,
+        onOpenLinkedCriminalCase: onOpenCriminalDashboard,
     });
 
     return {
@@ -119,6 +133,13 @@ export function useLawyerDashboardWorkspace({
         setActiveFile,
         files,
         setFiles,
+        lawsuitSegments,
+        setLawsuitSegments,
+        lawsuitLifecycleCounts,
+        lawsuitArchivedFiles,
+        lawsuitTrashFiles,
+        ensureLawsuitArchivedLoaded,
+        ensureLawsuitTrashLoaded,
         reloadLawsuitFiles,
         archiveType,
         setArchiveType,

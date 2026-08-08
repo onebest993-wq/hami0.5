@@ -1,11 +1,17 @@
+import React from 'react';
 import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
 import { ExecutionFollowupModalShell } from './ExecutionFollowupModalShell';
 import { ExecutionFollowupModalTabPanels } from './ExecutionFollowupModalTabPanels';
 
-export function ExecutionFollowupModalView({ c }: { c: ExecutionFollowupModalPortalController }) {
+/** طبقة العرض — Shell + TabPanels (منفصلة عن Portal/createPortal) */
+export function ExecutionFollowupModalView({
+    controller,
+}: {
+    controller: ExecutionFollowupModalPortalController;
+}) {
     return (
-        <ExecutionFollowupModalShell c={c}>
-            <ExecutionFollowupModalTabPanels c={c} />
+        <ExecutionFollowupModalShell c={controller}>
+            <ExecutionFollowupModalTabPanels c={controller} />
         </ExecutionFollowupModalShell>
     );
 }

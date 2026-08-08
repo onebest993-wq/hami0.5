@@ -1,6 +1,5 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Loader2, SearchX } from 'lucide-react';
+import { Loader2, SearchX } from '@/app/components/ui/lucideIcons';
 import type { GroupedSearchResults } from '@/app/services/globalSearchIndex';
 import { ResultsBody } from '@/app/components/lawyer/GlobalSearchOverlay/components/ResultsBody';
 import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSearchEntry';
@@ -35,7 +34,7 @@ export function SearchResultsPanel({
     if (isSearching || (Boolean(query.trim()) && isLoadingIndex && !results)) {
         return (
             <div
-                className="flex flex-col items-center justify-center py-16 gap-3"
+                className="flex flex-col items-center justify-center min-h-[12rem] py-16 gap-3"
                 data-testid="global-search-loading"
                 aria-live="polite"
             >
@@ -47,17 +46,15 @@ export function SearchResultsPanel({
 
     if (!results || !results.hasResults) {
         return (
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex flex-col items-center justify-center py-16 gap-3"
+            <div
+                className="flex flex-col items-center justify-center min-h-[12rem] py-16 gap-3"
                 data-testid="global-search-no-results"
             >
-                <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center">
+                <div className="hami-gs-empty-orb">
                     <SearchX size={26} className="text-white/15" />
                 </div>
                 <p className="text-white/35 text-sm">لا نتائج لـ «{query}»</p>
-            </motion.div>
+            </div>
         );
     }
 

@@ -301,7 +301,12 @@ export interface FileData {
     subInfo?: string; 
     parties: Party[];
     currentStage?: string;
-    history: { id: number; stage: string; result: string; date: string }[];
+    /**
+     * شكلان يتعايشان: الإضبارات المنشأة اليوم تُكتب أحداث خط زمني، والمحفوظ
+     * من نسخ أقدم يحمل {stage,result}. القارئ الوحيد يقرأ `date` وهو مشترك
+     * بينهما، فالاتّحاد يصف الواقع بدل أن يصف أحد نصفيه.
+     */
+    history: ({ id: number; stage: string; result: string; date: string } | TimelineEvent)[];
     notes: { id: number; text: string; meta: string; stageCtx: string; date: string; apptDate?: string; isPinned?: boolean }[];
     images: { url: string; name: string }[];
     date: string;
@@ -357,6 +362,12 @@ export interface CaseLinkRecord {
     linkDate: string;
     reason?: string;
     isExternal: boolean;
+    /** الإضبارة التي أنشأت الربط — تبقى قابلة للتحرير؛ المربوطة للاطلاع فقط */
+    originFileId?: number;
+    /** نوع الإضبارة المربوطة في المخزن */
+    peerDossierKind?: 'lawsuit' | 'criminal';
+    /** معرّف الإضبارة الجزائية عند الربط عبر مخزن الجزائي */
+    peerCriminalId?: string;
 }
 
 export interface Party {
@@ -420,6 +431,10 @@ export type IncidentalFileLink = {
     parentCaseNo: string;
     incidentalId: string;
     type: 'joined' | 'counter';
+    filingPartyId?: string;
+    filingPartyName?: string;
+    opposingPartyId?: string;
+    opposingPartyName?: string;
 };
 export type NotificationStatus = 'pending' | 'in_person' | 'via_media' | 'publication';
 
@@ -429,6 +444,8 @@ export interface TimelineEvent {
     subType?: AppointmentType;
     date: string;
     time?: string;
+    /** مدة الجلسة بالدقائق — من الإضبارة أو metadata */
+    durationMinutes?: number;
     title: string;
     details?: string;
     isNew?: boolean;
@@ -547,6 +564,14 @@ export interface CaseStage {
     isInExecution?: boolean;
     executionData?: Record<string, unknown>;
     stayReason?: string;
+    /** إحالة لعدم الاختصاص — المحكمة المحال إليها */
+    referredToCourt?: string;
+    courtReferralDate?: string;
+    courtReferralNotes?: string;
+    /** اسم المحكمة قبل الإحالة (للعرض عند الضغط على المؤشر) */
+    previousCourtName?: string;
+    courtReferralAcceptance?: 'pending' | 'accepted' | 'rejected';
+    courtReferralDecisionDate?: string;
     /** إبطال العريضة عبر سير الدعوى — طعن ثم تأييد/نقض */
     petitionVoidFlow?: {
         status: 'registered' | 'appeal_pending' | 'upheld_closed' | 'quash_revived' | 'waived';

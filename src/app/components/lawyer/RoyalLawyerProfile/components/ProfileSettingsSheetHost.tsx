@@ -3,9 +3,8 @@ import type { ProfilePageCustomization } from '@/app/services/profile/profilePag
 import {
     getCachedProfileSettingsSheet,
     loadProfileSettingsSheetModule,
-    prefetchProfileSettingsSheetModule,
 } from '@/app/runtime/profileSettingsSheetLoader';
-import { prefetchProfileSettingsStudioTabsModule } from '@/app/runtime/profileSettingsStudioTabsLoader';
+import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import { ProfileSettingsSheetLoadingFallback } from './ProfileSettingsSheetLoadingFallback';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
@@ -41,8 +40,7 @@ export function ProfileSettingsSheetHost(props: ProfileSettingsSheetProps) {
     }, []);
 
     useLayoutEffect(() => {
-        prefetchProfileSettingsSheetModule();
-        prefetchProfileSettingsStudioTabsModule();
+        primeProfileStudio();
 
         const cached = getCachedProfileSettingsSheet();
         if (cached) {

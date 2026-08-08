@@ -1,10 +1,11 @@
 import React, { useEffect } from 'react';
-import { ChevronDown, ChevronUp, FileText, X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { ChevronDown, ChevronUp, FileText, X } from '@/app/components/ui/lucideIcons';
 import { prefetchVaultPdfJsViewer, VaultPdfJsViewerLazy } from '@/app/components/lawyer/SmartVaultModal/VaultPdfJsViewerLazy';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { resolveVaultDocUrl, resolveVaultDocViewerKind } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
-import { SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS } from '../../smartFile/smartFileOverlayZ';
+import { SMART_FILE_DOCUMENT_PREVIEW_OVERLAY_CLASS } from '../../smartFile/smartFileOverlayZ';
 import type { TimelineEvent } from '../../smartFile/modalFormTypes';
 import {
     MoroccanCloseButton,
@@ -50,6 +51,7 @@ export function ModalInlineTimeline({
     collapsible = false,
     expanded = true,
     onToggle,
+    pinActions = false,
 }: {
     title: string;
     emptyLabel: string;
@@ -60,6 +62,8 @@ export function ModalInlineTimeline({
     collapsible?: boolean;
     expanded?: boolean;
     onToggle?: () => void;
+    /** إبقاء أزرار الإجراءات ظاهرة (وضع الاطلاع / اللمس) */
+    pinActions?: boolean;
 }) {
     return (
         <div className="rounded-[22px] border border-white/[0.08] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.02))] p-4 space-y-3">
@@ -86,7 +90,7 @@ export function ModalInlineTimeline({
                     {items.map((item) => (
                         <div
                             key={String(item.id)}
-                            className="rounded-2xl border border-white/[0.06] bg-black/10 px-3 py-2.5"
+                            className="group/tl-card rounded-2xl border border-white/[0.06] bg-black/10 px-3 py-2.5 transition-colors hover:border-white/[0.1] hover:bg-black/15"
                         >
                             <div className="flex items-center justify-between gap-2">
                                 <span className="truncate text-[12px] font-bold text-[#F4E9CD]">
@@ -107,7 +111,13 @@ export function ModalInlineTimeline({
                                 </p>
                             ) : null}
                             {renderActions ? (
-                                <div className="mt-2 flex justify-end">
+                                <div
+                                    className={`mt-2 flex justify-end transition-opacity duration-150 ${
+                                        pinActions
+                                            ? 'opacity-100'
+                                            : 'opacity-100 sm:opacity-0 sm:group-hover/tl-card:opacity-100 sm:group-focus-within/tl-card:opacity-100'
+                                    }`}
+                                >
                                     {renderActions(item)}
                                 </div>
                             ) : null}
@@ -213,8 +223,10 @@ export function extractVaultDocSnapshot(item: TimelineEvent): SmartVaultDoc | nu
 
 export function DocumentTimelinePreview({
     item,
+    onPreviewClick,
 }: {
     item: TimelineEvent;
+    onPreviewClick?: () => void;
 }) {
     const [previewUrl, setPreviewUrl] = React.useState<string | null>(null);
     const snapshot = React.useMemo(() => extractVaultDocSnapshot(item), [item]);
@@ -243,14 +255,38 @@ export function DocumentTimelinePreview({
     }, [previewUrl]);
 
     if (previewKind === 'image' && previewUrl) {
-        return (
+        const frame = (
             <div className="mt-2 overflow-hidden rounded-xl border border-white/[0.06] bg-black/20">
                 <img src={previewUrl} alt={String(item.title ?? 'مستند')} className="h-28 w-full object-cover" />
             </div>
         );
+        if (onPreviewClick) {
+            return (
+                <button
+                    type="button"
+                    onClick={onPreviewClick}
+                    className="block w-full text-right touch-manipulation"
+                    aria-label="معاينة المستند"
+                >
+                    {frame}
+                </button>
+            );
+        }
+        return frame;
     }
 
     if (previewKind === 'pdf') {
+        if (onPreviewClick) {
+            return (
+                <button
+                    type="button"
+                    onClick={onPreviewClick}
+                    className="mt-2 w-full rounded-xl border border-white/[0.08] bg-black/10 px-3 py-2 text-[10px] font-bold text-[#E6C673]/85 text-right touch-manipulation"
+                >
+                    فتح ملف PDF للاطلاع
+                </button>
+            );
+        }
         return (
             <div className="mt-2 rounded-xl border border-white/[0.06] bg-black/10 px-3 py-2 text-[10px] text-white/42">
                 ملف PDF جاهز للاطلاع
@@ -282,8 +318,8 @@ export function FullDocumentPreviewOverlay({
 
     if (!isOpen || !url || !kind) return null;
 
-    return (
-        <div className={`${SMART_FILE_NESTED_MODAL_OVERLAY_DARK_CLASS} z-[340]`} onClick={onClose}>
+    const layer = (
+        <div className={SMART_FILE_DOCUMENT_PREVIEW_OVERLAY_CLASS} onClick={onClose} role="dialog" aria-modal="true">
             <div
                 className="w-[min(98vw,96rem)] h-[min(94dvh,62rem)] rounded-[28px] border border-white/[0.08] bg-[#070B14] shadow-[0_24px_80px_rgba(0,0,0,0.6)] overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
@@ -328,4 +364,6 @@ export function FullDocumentPreviewOverlay({
             </div>
         </div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(layer, document.body) : layer;
 }

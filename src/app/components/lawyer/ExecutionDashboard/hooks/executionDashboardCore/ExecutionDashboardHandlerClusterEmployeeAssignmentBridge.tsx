@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
 } from './handlerClusterContextShared';
 import { useExecutionDashboardEmployeeAssignmentHandlers } from './useExecutionDashboardEmployeeAssignmentHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -29,9 +32,13 @@ export function ExecutionDashboardHandlerClusterEmployeeAssignmentBridge({
         employeeForcedBringAwaitingPersonalOutcome: c.employeeForcedBringAwaitingPersonalOutcome,
     });
 
-    useEffect(() => {
-        onCluster({ employeeAssignmentHandlers });
-    }, [employeeAssignmentHandlers, onCluster]);
+    const cluster: Record<string, unknown> = { employeeAssignmentHandlers };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        handlerBagKeyFingerprint(employeeAssignmentHandlers as Record<string, unknown>),
+        onCluster,
+    );
 
     return null;
 }

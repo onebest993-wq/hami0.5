@@ -3,6 +3,7 @@ import type Fuse from 'fuse.js';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import type { GlobalSearchExtras } from '@/app/services/globalSearchLoad';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { LawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import { useSearchExtras } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchExtras';
 import { useSearchIndex } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useSearchIndex';
 
@@ -12,6 +13,7 @@ export type GlobalSearchRuntimeProviderProps = {
     warmIndex?: boolean;
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
+    lawsuitLifecycleIndex?: LawsuitLifecycleIndex;
     globalNotes: { id: number | string; title?: string; body?: string; type?: string }[];
     notifications?: { id: string; title: string; message: string; type: string }[];
     criminalCases?: unknown[];
@@ -34,6 +36,7 @@ export function GlobalSearchRuntimeProvider({
     warmIndex = false,
     files,
     executionFiles,
+    lawsuitLifecycleIndex,
     globalNotes,
     notifications,
     criminalCases = [],
@@ -49,6 +52,7 @@ export function GlobalSearchRuntimeProvider({
     const { fuse, isBuildingIndex } = useSearchIndex({
         files,
         executionFiles,
+        lawsuitLifecycleIndex,
         globalNotes,
         notifications,
         criminalCases,

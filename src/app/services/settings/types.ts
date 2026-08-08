@@ -1,9 +1,11 @@
 import type { FontSize, Language, ShapeKey, ThemeKey, ThemeMode } from '@/app/types/common';
 import type { BackgroundPresetId } from './backgroundPresets';
 import type { HomeLayoutSettings } from './homeLayout';
+import type { SurfaceApplyTarget, ColorApplyTarget } from './surfaceApplyTarget';
+import type { NotificationSettings } from './notificationSettings';
 
 export type { HomeLayoutSettings };
-export const SETTINGS_SCHEMA_VERSION = 2 as const;
+export const SETTINGS_SCHEMA_VERSION = 3 as const;
 
 export type ViewMode = 'list' | 'grid';
 export type AutoLockMinutes = 0 | 1 | 5 | 15 | 30 | 60;
@@ -19,10 +21,14 @@ export interface AppearanceSettings {
     glassOpacity: number;
     /** إظهار إطار ثابت لبطاقات لوحة القيادة — يبقى مرئياً عند الشفافية المنخفضة */
     homeContainerBorder: boolean;
-    /** تطبيق السمة على الواجهة و/أو الوثائق */
-    themeApplyTarget?: 'ui' | 'docs' | 'both';
-    /** تطبيق نمط الخلفية: واجهة / وثائق / كلاهما / أقسام (كتل) فقط */
-    patternApplyTarget?: 'ui' | 'docs' | 'both' | 'blocks';
+    /** لون بطاقات الرئيسية — عند غيابه يُستخدم theme */
+    cardTheme?: ThemeKey;
+    /** أين يُطبَّق اختيار لون الشبكة */
+    themeApplyTarget?: ColorApplyTarget;
+    /** لون زخرفة/نقوش البطاقة — منفصل عن لون خلفية البطاقة */
+    patternTheme?: ThemeKey;
+    /** تطبيق زخرفة البطاقة — blocks افتراضياً */
+    patternApplyTarget?: SurfaceApplyTarget;
     /** @deprecated — تُخزَّن في lawyer_wallpaper فقط، لا في حالة React */
     wallpaper?: string;
     /** نبضة تحديث بعد رفع/حذف الخلفية دون تخزين blob في الذاكرة */
@@ -64,7 +70,7 @@ export interface PerformanceSettings {
     litePerformance: LitePerformanceMode;
 }
 
-/** Unified lawyer app settings (schema v2). */
+/** Unified lawyer app settings (schema v3). */
 export interface AppSettingsState {
     version: typeof SETTINGS_SCHEMA_VERSION;
     appearance: AppearanceSettings;
@@ -72,6 +78,7 @@ export interface AppSettingsState {
     data: DataSettings;
     performance: PerformanceSettings;
     homeLayout: HomeLayoutSettings;
+    notifications: NotificationSettings;
 }
 
 export type SettingsSectionId = 'appearance' | 'security' | 'data' | 'account';

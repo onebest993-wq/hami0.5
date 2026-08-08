@@ -6,9 +6,7 @@ import { ExecutionDashboardRootFrame } from '../components/ExecutionDashboardRoo
 import { ExecutionDashboardChunkHost } from '../components/ExecutionDashboardChunkHost';
 import { useExecutionDashboardCore } from './useExecutionDashboardCore';
 import type { ExecutionDashboardRuntimeAssemblyResult } from './executionDashboardCore/buildExecutionDashboardRuntimeAssemblyResult';
-// Structural contract: assembly implementation lives in useExecutionDashboardRuntimeAssembly.
-// This path uses Core as the single assembly owner (avoids double-hooking boot/pipelines).
-import { useExecutionDashboardRuntimeAssembly } from './useExecutionDashboardRuntimeAssembly';
+// Core هو المالك الوحيد للتجميع — Surface يستهلك vm الجاهز فقط (لا double-hook).
 
 const LazyExecutionToast = lazy(() =>
     import('../components/ExecutionToast').then((m) => ({
@@ -30,8 +28,6 @@ export const ExecutionDashboardResolvedRuntimeSurface = React.memo(
     function ExecutionDashboardResolvedRuntimeSurface({
         vm,
     }: ExecutionDashboardResolvedRuntimeSurfaceProps) {
-        // Keep the assembly symbol referenced for structure gates / twin path.
-        void useExecutionDashboardRuntimeAssembly;
         const runtimeVm = vm as unknown as CoreAssembledRuntimeVm;
 
         const colleagueShareSource = useMemo(

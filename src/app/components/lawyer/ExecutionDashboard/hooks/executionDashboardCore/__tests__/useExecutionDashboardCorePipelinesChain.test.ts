@@ -312,6 +312,7 @@ describe('useExecutionDashboardCorePipelinesChain', () => {
             settlementGuarantorGate: {},
             isPersonalStatusExecutionClaim: false,
             showGuarantorInSeizureFollowupTab: false,
+            seizureMatrix: { hideSeizureTab: false },
         });
 
         useExecutionDashboardCoreGraceMasterEvictionPipelineMock.mockReturnValue({
@@ -322,6 +323,14 @@ describe('useExecutionDashboardCorePipelinesChain', () => {
             remaining: 100,
             unifiedCollectionApproved: false,
             statuteStatus: {},
+            followupModalSpecializationEffectiveWithEarnerGate: {
+                hidePersonalCoerciveFollowupTab: false,
+                hideFollowupCoerciveTab: false,
+            },
+            followupSpecializationWithEarnerGate: {
+                hidePersonalCoerciveFollowupTab: false,
+                hideFollowupCoerciveTab: false,
+            },
         });
 
         useExecutionDashboardCorePersistHandlerPipelineMock.mockReturnValue({

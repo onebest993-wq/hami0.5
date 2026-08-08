@@ -14,22 +14,24 @@ describe('section open snappiness — settings/home/execution', () => {
         expect(src).toMatch(/fieldTasksHostMounted:\s*false/);
     });
 
-    it('settings: Host دافئ = paint ثم flushSync؛ cold = flushSync ثم paint', () => {
+    it('settingsHostMounted يبدأ من الجلسة فقط؛ lifecycle عند interactive', () => {
         const src = readFileSync(
             join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardSettings.ts'),
             'utf8',
         );
-        expect(src).toContain('paintSettingsInstantChrome()');
-        expect(src).toContain('hasSettingsOverlayHost()');
-        expect(src).toContain('setSettingsHostMounted(true)');
-        expect(src).toContain('setShowSettings(true)');
-        expect(src).toContain('removeSettingsInstantBridge()');
-        expect(src).toContain('flushSync');
-        expect(src).toContain('openInFlightRef.current = false');
-        expect(src).not.toMatch(
-            /onDashboardInteractive\(\(\) => \{\s*armSettingsHost\(\)/,
+        expect(src).toContain('useSettingsHostLifecycle');
+        expect(src).toContain('commitSettingsShellOpen');
+        expect(src).not.toContain('flushSync(() => {\n            setShowSettings(false)');
+    });
+
+    it('settings: paint فوري ثم rAF أو flushSync عبر commitSettingsShellOpen', () => {
+        const flow = readFileSync(
+            join(root, 'src/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow.ts'),
+            'utf8',
         );
-        expect(src).toContain('warmSettingsOnHover()');
+        expect(flow).toContain('paintSettingsInstantChrome');
+        expect(flow).toContain('requestAnimationFrame');
+        expect(flow).toContain('flushSync');
     });
 
     it('PostInteractive يؤخّر التسليح بعد interactive', () => {
@@ -47,9 +49,10 @@ describe('section open snappiness — settings/home/execution', () => {
         );
     });
 
-    it('execution warm يقيّم ExecutionArchiveFileGrid فوراً', () => {
+    it('execution warm يقيّم أول paint للإضبارة فوراً', () => {
         const src = readFileSync(join(root, 'src/app/runtime/executionWorkspaceWarm.ts'), 'utf8');
-        expect(src).toContain('ExecutionArchiveFileGrid');
+        expect(src).toContain('ensureExecutionDossierFirstPaintReady');
+        expect(src).toContain('primeExecutionDossierSurface');
     });
 
     it('MainView underlay inert عبر DOM وليس inertProps على كل فتح', () => {

@@ -14,7 +14,7 @@ import {
     UserX,
     Wallet,
     X,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import {
     resolveOtherPartyRequestOptionBadges,
     type OtherPartyRequestBadge,

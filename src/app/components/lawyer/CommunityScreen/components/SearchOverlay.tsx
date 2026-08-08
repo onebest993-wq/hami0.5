@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowRight, Search, Paperclip, ImageIcon, User, EyeOff, BookOpen, FileText, Zap } from 'lucide-react';
+import { ArrowRight, Search, Paperclip, ImageIcon, User, EyeOff, BookOpen, FileText, Zap } from '@/app/components/ui/lucideIcons';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import type { CommunityPost, RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';

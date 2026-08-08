@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { executionDecisionsStorageKey } from '@/app/utils/executionStorageKeys';
 import { setLiveAuthUserId } from '@/app/utils/liveAuthUserId';
@@ -14,6 +14,7 @@ import {
     readExecutorDecisionsUnionAcrossCandidateIds,
     writeExecutorDecisionsArray,
     writeExecutorDecisionsUnionForExecution,
+    flushExecutorDecisionsStorageAwait,
 } from '../executionDecisionsNamespace';
 import { clearDomainReconcileMarker } from '../executionDomainReconcile';
 
@@ -602,5 +603,32 @@ describe('executionDecisionsNamespace', () => {
 
         const parentUnion = readExecutorDecisionsUnionAcrossCandidateIds(parentId, ctx);
         expect(parentUnion.map((r) => r.id).sort()).toEqual(['manual_prune_parent', 'seizure_prune_child']);
+    });
+
+    it('flushExecutorDecisionsStorageAwait awaits IndexedDB setItem for decision keys', async () => {
+        const financialData = {
+            id: execId,
+            claimType: 'استحصال دين مالي',
+            creditors: [{ name: 'دائن', isClient: true }],
+            debtors: [{ name: 'مدين' }],
+        };
+        writeExecutorDecisionsArray(
+            execId,
+            [
+                {
+                    id: 'admin-followup-1',
+                    requestKind: 'special_followup',
+                    title: 'طلب يدوي',
+                    executorOutcome: 'pending',
+                    payloadJson: JSON.stringify({ kind: 'manual_followup', source: 'followup_admin' }),
+                },
+            ],
+            financialData,
+        );
+        const setItemSpy = vi.spyOn(SecureStoreService, 'setItem');
+        await flushExecutorDecisionsStorageAwait(execId, financialData);
+        expect(
+            setItemSpy.mock.calls.some(([key]) => String(key).includes('_decisions_ns_')),
+        ).toBe(true);
     });
 });

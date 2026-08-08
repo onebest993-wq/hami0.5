@@ -1,6 +1,7 @@
-import type { JourneyNode, SeveranceReason, TimelineEvent } from '@/app/types/criminal';
+import type { JourneyNode, SeveranceReason } from '@/app/types/criminal';
+import type { TimelineEvent } from './criminalCaseModel';
 import type { CriminalCase, Statement } from './criminalStore';
-import { resolveOfficialCaseNumber } from './criminalStore';
+import { resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
 import { buildInitialStageJourney } from './stageJourney';
 import { parseEventDateKey } from './stageJourney';
 

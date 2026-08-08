@@ -16,12 +16,12 @@ function stripHeaderPaths<T extends { profileImagePath?: string; coverImagePath?
 function stripStoragePathsFromGallery(
     data: string[] | ProfileGalleryItem[],
 ): string[] | ProfileGalleryItem[] {
-    return data.map((entry) => {
+    return data.map((entry): string | ProfileGalleryItem => {
         if (typeof entry === 'string') return entry;
-        const item = { ...entry };
+        const item: ProfileGalleryItem = { ...entry };
         delete item.storagePath;
         return item;
-    });
+    }) as string[] | ProfileGalleryItem[];
 }
 
 function stripStoragePathsFromBlocks(

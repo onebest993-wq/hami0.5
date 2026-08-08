@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { X, Plus, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile } from '@/app/types/execution';
 
 export type PartyDeathSavePayload =

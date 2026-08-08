@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { AlertTriangle, Loader2, X } from 'lucide-react';
+import { AlertTriangle, Loader2, X } from '@/app/components/ui/lucideIcons';
 
 interface ForumDeleteConfirmModalProps {
     open: boolean;

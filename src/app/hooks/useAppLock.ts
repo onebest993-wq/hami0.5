@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { SecuritySettings } from '@/app/services/settings/types';
+import { whenNativeCapacitorBootComplete } from '@/app/runtime/nativeCapacitorBoot';
+import { snapAppLockClose, snapAppLockOpen } from '@/app/runtime/appLockInstantPaint';
+import '@/app/components/lawyer/appLockOverlay.css';
 import {
-    hasStoredBiometricCredential,
-    isWebAuthnLockSupported,
-    verifyBiometricUnlock,
-} from '@/app/services/security/webAuthnLock';
+    hasBiometricSessionEnrollment,
+    verifyBiometricSessionUnlock,
+} from '@/app/services/security/biometricSessionService';
 
 const ACTIVITY_EVENTS = ['mousedown', 'keydown', 'touchstart', 'scroll', 'pointerdown'] as const;
 const TICK_MS = 4_000;
@@ -22,7 +24,7 @@ function loadNativeBiometricLifecycle() {
 }
 
 /**
- * قفل الجلسة — الجسر الأصلي يُحمَّل كسولاً حتى لا يدخل stem اللوحة (~biometric+Capacitor).
+ * قفل الجلسة — التحقق عبر BiometricSessionService؛ الجسر الأصلي للـ lifecycle فقط.
  */
 export function useAppLock(security: SecuritySettings) {
     const [locked, setLocked] = useState(false);
@@ -50,9 +52,7 @@ export function useAppLock(security: SecuritySettings) {
     }, [security.biometricLock]);
 
     const idleLockEnabled = security.autoLockMinutes > 0;
-    const biometricAvailable =
-        security.biometricLock &&
-        ((isWebAuthnLockSupported() && hasStoredBiometricCredential()) || nativeEnrolled);
+    const biometricAvailable = security.biometricLock && hasBiometricSessionEnrollment();
     const resumeLockEnabled = biometricAvailable;
     const requiresBiometricToUnlock = biometricAvailable;
     const sessionGuardEnabled = idleLockEnabled || resumeLockEnabled;
@@ -61,7 +61,20 @@ export function useAppLock(security: SecuritySettings) {
         if (!locked) lastActivityRef.current = Date.now();
     }, [locked]);
 
-    const lockNow = useCallback(() => setLocked(true), []);
+    const lockNow = useCallback(() => {
+        setLocked(true);
+    }, []);
+
+    useLayoutEffect(() => {
+        if (locked) snapAppLockOpen();
+        else snapAppLockClose();
+    }, [locked]);
+
+    useEffect(() => {
+        return () => {
+            snapAppLockClose();
+        };
+    }, []);
 
     useEffect(() => {
         if (!sessionGuardEnabled) return undefined;
@@ -117,11 +130,14 @@ export function useAppLock(security: SecuritySettings) {
     useEffect(() => {
         if (!security.biometricLock || !nativeEnrolled) return undefined;
 
-        let dispose = () => undefined;
+        let dispose: () => void = () => undefined;
         let cancelled = false;
-        void loadNativeBiometricLifecycle()
+        void whenNativeCapacitorBootComplete()
+            .then(() => loadNativeBiometricLifecycle())
             .then((m) => m.wireNativeBiometricAvailabilityListener((available) => {
-                if (!available) setLocked(true);
+                if (!available) {
+                    setLocked(true);
+                }
             }))
             .then((cleanup) => {
                 if (cancelled) {
@@ -141,25 +157,21 @@ export function useAppLock(security: SecuritySettings) {
     const unlockWithBiometric = useCallback(async (): Promise<boolean> => {
         setUnlocking(true);
         try {
-            const bridge = await loadNativeBiometricBridge();
-            const nativeResult = await bridge.verifyNativeBiometricUnlock();
-            const ok =
-                nativeResult === true
-                    ? true
-                    : nativeResult === false
-                      ? false
-                      : await verifyBiometricUnlock();
+            await whenNativeCapacitorBootComplete();
+            const ok = await verifyBiometricSessionUnlock();
             if (ok) {
                 setLocked(false);
+                snapAppLockClose();
                 lastActivityRef.current = Date.now();
             }
-            return ok;
+            return Boolean(ok);
         } finally {
             setUnlocking(false);
         }
     }, []);
 
     const unlockContinue = useCallback(() => {
+        snapAppLockClose();
         setLocked(false);
         lastActivityRef.current = Date.now();
     }, []);

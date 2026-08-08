@@ -1,6 +1,6 @@
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
@@ -10,6 +10,7 @@ import type { ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts
 import type { RepositoryFeedFilter } from '@/app/services/repository/repositoryUnifiedFeed';
 import { SmartRepositoryUnifiedFeed } from './SmartRepository/SmartRepositoryUnifiedFeed';
 import { REPO_HEADER, REPO_ICON_BTN, REPO_OVERLAY, REPO_PANEL } from './SmartRepository/smartRepositoryTheme';
+import { concealRepositoryWarmShell } from '@/app/runtime/repositoryInstantPaint';
 
 export type RepositoryTab = 'notepad' | 'vault';
 
@@ -80,6 +81,7 @@ export function SmartRepositoryModal({
         }
 
         setIsVisible(false);
+        concealRepositoryWarmShell();
         if (!keepAlive && reduceMotion) {
             setLayerMounted(false);
             wasLayerMountedRef.current = false;
@@ -99,12 +101,13 @@ export function SmartRepositoryModal({
     useBodyScrollLock(isOpen);
     useOpaqueFeatureSurface(isOpen);
 
-    const requestClose = useCallback(() => {
-        if (keepAlive) {
-            setIsVisible(false);
-        }
+    const requestClose = useCallback((event?: React.SyntheticEvent) => {
+        event?.preventDefault();
+        event?.stopPropagation();
         onClose();
-    }, [keepAlive, onClose]);
+    }, [onClose]);
+
+    const overlayVisible = keepAlive ? isOpen : isVisible;
 
     const handleOverlayTransitionEnd = useCallback(
         (e: React.TransitionEvent<HTMLDivElement>) => {
@@ -123,7 +126,7 @@ export function SmartRepositoryModal({
         REPO_OVERLAY,
         'hami-repository-overlay-layer',
         overlaySnapClass(keepAlive),
-        isVisible ? 'hami-repository-overlay-layer--visible' : 'pointer-events-none',
+        overlayVisible ? 'hami-repository-overlay-layer--visible pointer-events-auto' : 'pointer-events-none',
     ]
         .filter(Boolean)
         .join(' ');
@@ -134,29 +137,35 @@ export function SmartRepositoryModal({
             dir="rtl"
             data-testid="smart-repository-modal"
             role="presentation"
-            aria-hidden={!isVisible}
+            aria-hidden={!overlayVisible}
             onTransitionEnd={handleOverlayTransitionEnd}
         >
             <div
                 className={`${REPO_PANEL} flex flex-col`}
                 role="dialog"
-                aria-modal={isVisible ? 'true' : undefined}
-                aria-label="المستودع الذكي"
+                aria-modal={overlayVisible ? 'true' : undefined}
+                aria-label="المستودع"
             >
                 <div className="pointer-events-none absolute inset-0 hami-repository-ambient" aria-hidden />
                 <div className={REPO_HEADER}>
                     <div className="flex items-center gap-3 min-w-0">
                         <button
                             type="button"
-                            onClick={requestClose}
+                            onPointerDown={(event) => {
+                                requestClose(event);
+                            }}
+                            onClick={(event) => {
+                                event.preventDefault();
+                            }}
                             data-testid="smart-repository-close"
                             className={REPO_ICON_BTN}
                             aria-label="إغلاق"
+                            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                         >
                             <ChevronLeft size={18} />
                         </button>
                         <div className="flex items-center gap-2 min-w-0">
-                            <h2 className="font-bold text-lg text-[#F4F0E8] truncate">المستودع الذكي</h2>
+                            <h2 className="font-bold text-lg text-[#F4F0E8] truncate">المستودع</h2>
                         </div>
                     </div>
                 </div>
@@ -176,7 +185,7 @@ export function SmartRepositoryModal({
                     onUpdateLawsuitFile={onUpdateLawsuitFile}
                     onUpdateExecutionFile={onUpdateExecutionFile}
                     onRequestClose={requestClose}
-                    escapeEnabled={isVisible}
+                    escapeEnabled={overlayVisible}
                 />
             </div>
         </div>,

@@ -73,7 +73,7 @@ cd "New folder"
 ### 2. تثبيت التبعيات
 
 ```bash
-npm ci --legacy-peer-deps
+npm ci
 ```
 
 ### 3. إعداد المتغيرات البيئية

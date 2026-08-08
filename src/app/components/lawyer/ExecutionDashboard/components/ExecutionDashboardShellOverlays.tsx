@@ -1,6 +1,6 @@
 /** Shell overlays — chunk منفصل */
 import React, { useEffect } from 'react';
-import { AlertCircle, CheckCircle, History, Pause, Play } from 'lucide-react';
+import { AlertCircle, CheckCircle, History, Pause, Play } from '@/app/components/ui/lucideIcons';
 import { EXEC_MODAL_Z, EXEC_MODAL_BACKDROP_STRONG } from '@/app/components/lawyer/execution/executionModalStack';
 import {
     ExecutionDashboardEditOverlays,

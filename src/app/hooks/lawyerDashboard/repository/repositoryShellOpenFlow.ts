@@ -2,6 +2,7 @@ import { flushSync } from 'react-dom';
 
 import type { RepositoryTab } from '@/app/components/lawyer/SmartRepositoryModal';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import {
     clearRepositoryPerfMarks,
     markRepositoryPerfPhase,
@@ -9,30 +10,12 @@ import {
 import {
     applyRepositoryOpaqueChrome,
     concealRepositoryWarmShell,
-    markRepositoryShellOpenCommitted,
     paintRepositoryInstantChrome,
 } from '@/app/runtime/repositoryInstantPaint';
-import {
-    persistRepositorySessionOpen,
-    type LawyerRepositorySessionTab,
-} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
     loadRepositoryIntentWarm,
     prefetchRepositoryHubAndOverlay,
 } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
-
-let repositoryOpenRaf = 0;
-
-function cancelRepositoryOpenRaf(): void {
-    if (repositoryOpenRaf && typeof window !== 'undefined') {
-        cancelAnimationFrame(repositoryOpenRaf);
-    }
-    repositoryOpenRaf = 0;
-}
-
-function persistRepositoryTab(tab: RepositoryTab): LawyerRepositorySessionTab {
-    return tab === 'notepad' ? 'notepad' : 'vault';
-}
 
 export type OpenRepositoryShellOptions = {
     tab?: RepositoryTab;
@@ -81,7 +64,6 @@ function applyRepositoryOpenState(
     setters.setRepositoryOpenEpoch((epoch) => (epoch === 0 ? 1 : epoch));
     setters.setIsRepositoryOpen(true);
     markRepositoryPerfPhase('first-paint');
-    persistRepositorySessionOpen(true, persistRepositoryTab(tab));
 }
 
 /** فتح المستودع: طلاء DOM فوري ثم commit React (مثل الإعدادات). */
@@ -105,20 +87,21 @@ export function commitRepositoryOpen({
         /* ignore */
     }
 
+    dismissTransientOverlays('repository');
+
     prefetchRepositoryHubAndOverlay();
-    markRepositoryShellOpenCommitted(true);
     applyRepositoryOpaqueChrome();
 
     void loadRepositoryIntentWarm()
-        .then((m) => m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad'))
-        .catch(() => undefined);
-    void loadRepositoryIntentWarm()
-        .then((m) => m.warmRepositoryDataCache(userId))
+        .then((m) => {
+            void m.warmRepositoryOnOpen(userId, opts?.tab ?? 'notepad');
+            void m.warmRepositoryDataCache(userId);
+        })
         .catch(() => undefined);
 
-    const revealed = paintRepositoryInstantChrome();
+    paintRepositoryInstantChrome();
 
-    const commitOpen = () => {
+    flushSync(() => {
         applyRepositoryOpenState(opts, {
             armRepositoryHost,
             setRepositoryTab,
@@ -128,40 +111,21 @@ export function commitRepositoryOpen({
             setRepositoryOpenEpoch,
             setIsRepositoryOpen,
         });
-    };
-
-    if (revealed) {
-        if (typeof window !== 'undefined') {
-            cancelRepositoryOpenRaf();
-            repositoryOpenRaf = window.requestAnimationFrame(() => {
-                repositoryOpenRaf = 0;
-                commitOpen();
-            });
-        } else {
-            commitOpen();
-        }
-    } else {
-        cancelRepositoryOpenRaf();
-        flushSync(commitOpen);
-        paintRepositoryInstantChrome();
-    }
-
-    queueMicrotask(() => dismissTransientOverlays('repository'));
+    });
 }
 
-/** إغلاق المستودع: إخفاء فوري ثم setState في الإطار التالي */
+/** إغلاق المستودع: إخفاء فوري + commit متزامن */
 export function commitRepositoryClose({
     setIsRepositoryOpen,
     setFocusNoteId,
     setVaultOpenScanner,
 }: CommitRepositoryCloseParams): void {
-    cancelRepositoryOpenRaf();
-    concealRepositoryWarmShell();
-    persistRepositorySessionOpen(false);
-
-    flushSync(() => {
-        setIsRepositoryOpen(false);
-        setFocusNoteId(undefined);
-        setVaultOpenScanner(false);
+    executeOverlaySnapClose({
+        conceal: concealRepositoryWarmShell,
+        commit: () => {
+            setIsRepositoryOpen(false);
+            setFocusNoteId(undefined);
+            setVaultOpenScanner(false);
+        },
     });
 }

@@ -154,9 +154,6 @@ export function CaseInfoSection({
                                 onChange={(e) => setBasicField('legalArticle', e.target.value)}
                                 placeholder="413 ق.ع — يمكن تعديل المادة يدوياً إذا غيّر القاضي الوصف"
                             />
-                            <p className="mt-1.5 text-[11px] text-white/35 leading-relaxed">
-                                تُعرض في الإضبارة وتنتقل تلقائياً إلى بيانات الإحالة عند التسجيل بمرحلة محكمة الموضوع.
-                            </p>
                             {!isPublicProsecutionComplainant ? (
                                 <PremiumCheckbox
                                     className="mt-3"

@@ -9,6 +9,10 @@ vi.mock('@/app/utils/bffAuthClient', () => ({
     isBffAuthEnabled: vi.fn(() => true),
 }));
 
+vi.mock('@/app/services/auth/shellAuth', () => ({
+    isShellAuthBypassed: vi.fn(() => false),
+}));
+
 describe('sameOriginApiProbe', () => {
     afterEach(() => {
         resetSameOriginApiProbeForTests();
@@ -19,6 +23,19 @@ describe('sameOriginApiProbe', () => {
     it('skips fetch when BFF auth is disabled', async () => {
         const { isBffAuthEnabled } = await import('@/app/utils/bffAuthClient');
         vi.mocked(isBffAuthEnabled).mockReturnValue(false);
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        await probeSameOriginApi();
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(isSameOriginApiBlocked()).toBe(true);
+    });
+
+    it('skips fetch when shell auth is bypassed (trial)', async () => {
+        const { isBffAuthEnabled } = await import('@/app/utils/bffAuthClient');
+        const { isShellAuthBypassed } = await import('@/app/services/auth/shellAuth');
+        vi.mocked(isBffAuthEnabled).mockReturnValue(true);
+        vi.mocked(isShellAuthBypassed).mockReturnValue(true);
         const fetchMock = vi.fn();
         vi.stubGlobal('fetch', fetchMock);
 

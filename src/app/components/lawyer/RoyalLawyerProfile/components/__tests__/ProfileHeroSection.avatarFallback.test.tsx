@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ProfileHeroSection } from '@/app/components/lawyer/RoyalLawyerProfile/components/ProfileHeroSection';
 
@@ -17,7 +17,7 @@ vi.mock('@/app/components/shared/MoroccanGlassOverlay', () => ({
 }));
 
 describe('ProfileHeroSection avatar fallback', () => {
-    it('يعرض الحرف الأول عند فشل رابط الصورة', () => {
+    it('┘è╪╣╪▒╪╢ ╪د┘╪ص╪▒┘ ╪د┘╪ث┘ê┘ ╪╣┘╪» ┘╪┤┘ ╪▒╪د╪ذ╪╖ ╪د┘╪╡┘ê╪▒╪ر', () => {
         render(
             <ProfileHeroSection
                 isEditing={false}
@@ -25,13 +25,13 @@ describe('ProfileHeroSection avatar fallback', () => {
                 draft={null}
                 setDraft={vi.fn()}
                 header={{
-                    name: 'سارة',
+                    name: '╪│╪د╪▒╪ر',
                     title: '',
                     coverImage: '',
                     profileImage: 'https://cdn.example/broken.jpg',
                 }}
-                initials="س"
-                displayNamePublic="سارة"
+                initials="╪│"
+                displayNamePublic="╪│╪د╪▒╪ر"
                 syndicateIdPublic=""
                 showSyndicate={false}
                 metaItems={[]}
@@ -47,6 +47,6 @@ describe('ProfileHeroSection avatar fallback', () => {
         const img = document.querySelector('img');
         expect(img).toBeTruthy();
         fireEvent.error(img!);
-        expect(screen.getByText('س')).toBeTruthy();
+        expect(screen.getByText('╪│')).toBeTruthy();
     });
 });

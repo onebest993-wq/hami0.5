@@ -195,9 +195,13 @@ describe('CriminalDashboard structural splits', () => {
             "import { useCriminalDashboardNavigationGuard } from './useCriminalDashboardNavigationGuard';",
         );
         expect(orchestrationSource).toContain('useCriminalDashboardNavigationGuard({');
-        expect(orchestrationSource).toContain('const { handleDashboardBack } = useCriminalDashboardNavigationGuard(');
+        expect(orchestrationSource).toContain(
+            'const { handleDashboardBack, dossierNestedNav } = useCriminalDashboardNavigationGuard(',
+        );
         // handleDashboardBack is forwarded to the dossier body via the props-bag builder (shorthand), not inline JSX.
-        expect(orchestrationSource).toMatch(/useCriminalDashboardDossierBodyProps\(\{[\s\S]*?\bhandleDashboardBack\b[\s\S]*?\}\);/);
+        expect(orchestrationSource).toMatch(
+            /useCriminalDashboardDossierBodyProps\(\{[\s\S]*?\bhandleDashboardBack\b[\s\S]*?\bdossierNestedNav\b[\s\S]*?\}\);/,
+        );
 
         const navigationGuardPath = path.join(
             root,
@@ -207,7 +211,7 @@ describe('CriminalDashboard structural splits', () => {
         expect(navigationGuardSource).toContain('export function useCriminalDashboardNavigationGuard');
         expect(navigationGuardSource).toContain('const handleDashboardBack = useCallback(');
         expect(navigationGuardSource).toContain("window.addEventListener('keydown', onKeyDown, true)");
-        expect(navigationGuardSource).toContain('return { handleDashboardBack };');
+        expect(navigationGuardSource).toContain('return { handleDashboardBack, dossierNestedNav };');
     });
 
     it('delegates the useCriminalStore selector bindings to a dedicated hook instead of dozens of inline calls', () => {

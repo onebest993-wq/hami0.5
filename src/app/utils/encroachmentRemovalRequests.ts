@@ -3,11 +3,16 @@ import { writeExecutorDecisionsArray } from '@/app/utils/executionDecisionsNames
 import {
     dispatchDecisionsReload,
     executorDecisionRowHubDefaults,
-    patchExecutorDecisionRow,
+    getGoverningEncroachmentProcedureRowForMatch,
+    isEvictionProcedureHubRow,
+    isEvictionProcedureRowActive,
+    patchExecutorDecisionRowReliable,
     readExecutorDecisionsArray,
     supersedeEncroachmentRejectedHubRowsBeforeNewRequest,
+    evictionProcedureRowsMatch,
     type EvictionRequestKind,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import { supersedePriorExecutorHubRows } from '@/app/utils/executorRequestLifecycleMutations';
 import {
     appendUnifiedLedgerExecutionExpense,
     type EncroachmentCaseExpenseRow,
@@ -40,6 +45,7 @@ export function appendEncroachmentRemovalExecutorRequest(input: {
     title: string;
     body: string;
     encroachmentWorkflowKey: EncroachmentRemovalWorkflowKey;
+    supersedeCompletedHub?: boolean;
 }): string | null {
     try {
         let arr = readExecutorDecisionsArray(input.executionId);
@@ -47,6 +53,25 @@ export function appendEncroachmentRemovalExecutorRequest(input: {
             arr,
             input.encroachmentWorkflowKey
         );
+        const allRows = arr as Record<string, unknown>[];
+        const matchInput = { encroachmentWorkflowKey: input.encroachmentWorkflowKey };
+        const hubMatches = (row: Record<string, unknown>) =>
+            String((row as { requestKind?: string }).requestKind || '') === 'eviction_procedure' &&
+            evictionProcedureRowsMatch(row, matchInput) &&
+            isEvictionProcedureHubRow(row);
+        const governing = getGoverningEncroachmentProcedureRowForMatch(
+            allRows,
+            input.encroachmentWorkflowKey,
+        );
+        if (governing?.id) {
+            if (input.supersedeCompletedHub) {
+                arr = supersedePriorExecutorHubRows(allRows, hubMatches) as typeof arr;
+            } else if (isEvictionProcedureRowActive(governing, allRows)) {
+                return null;
+            } else {
+                arr = supersedePriorExecutorHubRows(allRows, hubMatches) as typeof arr;
+            }
+        }
         const decisionId = newEncroachmentDecisionId();
         const row = {
             id: decisionId,
@@ -96,12 +121,14 @@ export function sendInitialEncroachmentRemovalRequest(input: {
     title: string;
     body: string;
     encroachmentWorkflowKey: EncroachmentRemovalWorkflowKey;
+    supersedeCompletedHub?: boolean;
 }): { ok: boolean; decisionId?: string } {
     const decisionId = appendEncroachmentRemovalExecutorRequest({
         executionId: input.executionId,
         title: input.title,
         body: input.body,
         encroachmentWorkflowKey: input.encroachmentWorkflowKey,
+        supersedeCompletedHub: input.supersedeCompletedHub,
     });
     return decisionId ? { ok: true, decisionId } : { ok: false };
 }
@@ -120,11 +147,11 @@ export function finalizeEncroachmentRemovalRequestDetails(input: {
     const decisionId = String(input.decisionId || '').trim();
     if (amount <= 0 || !decisionId) return { ok: false };
 
-    const patched = patchExecutorDecisionRow(input.executionId, decisionId, {
+    const patched = patchExecutorDecisionRowReliable(input.executionId, decisionId, {
         body: input.body,
         encroachmentRequestSavedAt: new Date().toISOString(),
     });
-    if (!patched) return { ok: false };
+    if (!patched.ok) return { ok: false };
 
     const expenseRow = buildEncroachmentCaseExpenseRow({
         amount,

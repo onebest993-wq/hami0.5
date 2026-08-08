@@ -1,6 +1,6 @@
 import { PartyChip } from './PartyChip';
 import { INTERPLEADER_STRIP_SHELL, type InterpleaderPartiesPaneProps } from './interpleaderPresentation';
-import { Users } from 'lucide-react';
+import { Users } from '@/app/components/ui/lucideIcons';
 
 export function InterpleaderPartiesPane({
     parties,

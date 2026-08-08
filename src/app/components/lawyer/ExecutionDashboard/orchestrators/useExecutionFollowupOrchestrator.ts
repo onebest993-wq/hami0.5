@@ -1,6 +1,7 @@
 import { useExecutionFollowupController } from '../hooks/useExecutionFollowupController';
 import { useExecutionSummonsHub } from '../hooks/useExecutionSummonsHub';
-import type { ExecutionOrchestratorCoreInput, ExecutionOrchestratorSlice } from './executionOrchestratorTypes';
+import type { ExecutionOrchestratorCoreInput } from './executionOrchestratorTypes';
+import type { ExecutionFollowupOrchestratorSlice } from './executionFollowupOrchestratorTypes';
 
 export type UseExecutionFollowupOrchestratorInput = Pick<
     ExecutionOrchestratorCoreInput,
@@ -13,7 +14,7 @@ export function useExecutionFollowupOrchestrator({
     executionData,
     setExecutionModal,
     executionDashboardFileId,
-}: UseExecutionFollowupOrchestratorInput): ExecutionOrchestratorSlice {
+}: UseExecutionFollowupOrchestratorInput): ExecutionFollowupOrchestratorSlice {
     const followup = useExecutionFollowupController({
         showUnifiedExecutionModal,
         executionData,

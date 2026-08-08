@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, ChevronDown, FolderPlus, Layers, Plus, Settings2, X } from 'lucide-react';
+import { Check, ChevronDown, FolderPlus, Layers, Plus, Settings2, X } from '@/app/components/ui/lucideIcons';
 import {
     countDocsInCategory,
     countRepositoryCategoryItems,
@@ -59,6 +59,8 @@ type RepositoryFiltersRailProps = {
     onAddCategory?: (name: string) => void;
     onRemoveCategory?: (name: string) => void;
     onMainFilterChange?: (filter: RepositoryFeedFilter) => void;
+    /** التصنيفات مدمجة في نافذة البحث — يُخفى شريط التصنيف المكرر */
+    classificationInSearch?: boolean;
 };
 
 function isChipActive(activeFilter: string, value: string): boolean {
@@ -114,6 +116,7 @@ export function RepositoryFiltersRail({
     onAddCategory,
     onRemoveCategory = () => undefined,
     onMainFilterChange,
+    classificationInSearch = false,
 }: RepositoryFiltersRailProps) {
     const customCategoriesSafe = customCategories ?? [];
     const [roomMenuOpen, setRoomMenuOpen] = useState(false);
@@ -319,8 +322,12 @@ export function RepositoryFiltersRail({
         ) : null;
 
     return (
-        <div className={REPO_FILTER_RAIL} dir="rtl" data-testid="repository-filter-row">
-            {creatingCategory ? (
+        <div
+            className={`${REPO_FILTER_RAIL}${classificationInSearch ? ' !py-1.5' : ''}`}
+            dir="rtl"
+            data-testid="repository-filter-row"
+        >
+            {!classificationInSearch && creatingCategory ? (
                 <div className="flex items-center gap-2 w-full min-w-0 px-0">
                     <input
                         type="text"
@@ -387,7 +394,9 @@ export function RepositoryFiltersRail({
                             : null}
                     </div>
 
-                    {ACTION_FILTER_CHIPS.map((chip) => {
+                    {!classificationInSearch ? (
+                        <>
+                            {ACTION_FILTER_CHIPS.map((chip) => {
                         const active = isChipActive(activeFilter, chip.value);
                         const count =
                             chip.value === 'الكل'
@@ -462,6 +471,8 @@ export function RepositoryFiltersRail({
                             <Plus size={14} aria-hidden />
                             <span>تصنيف</span>
                         </button>
+                    ) : null}
+                        </>
                     ) : null}
                 </div>
             )}

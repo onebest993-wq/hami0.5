@@ -3,7 +3,7 @@ import { buildDefaultPlacements, type HomeWidgetId } from './homeWidgetPlacement
 /** Defaults فقط — بلا surfaceAppearance/normalize graph (boot-safe عبر defaults.ts) */
 export const HOME_LAYOUT_DEFAULTS = {
     placements: buildDefaultPlacements(),
-    dockVisible: true,
+    dockVisible: false,
     quickNoteVisible: false,
     dockHiddenWidgetIds: [] as HomeWidgetId[],
     overrides: {},

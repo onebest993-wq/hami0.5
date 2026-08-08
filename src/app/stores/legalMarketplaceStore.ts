@@ -2,7 +2,18 @@
  * سوق المحامين (نموذج): ربط «ابحث عن محامي» مع «طلبات التوكيل» عبر حالة مشتركة + persist.
  */
 import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { persist } from 'zustand/middleware';
+import {
+    LEGAL_MARKETPLACE_PERSIST_VERSION,
+    LEGAL_MARKETPLACE_STORE_KEY,
+    migrateLegalMarketplacePersistState,
+    normalizeLegalMarketplacePersistSlice,
+    type LegalMarketplacePersistSlice,
+} from '@/app/infrastructure/persistence/legalMarketplaceStorePersist';
+import {
+    createGuardedJSONStorage,
+    createPersistRehydrateReporter,
+} from '@/app/infrastructure/persistence/zustandPersistFoundation';
 import type { ClientRequest, RequestUrgency } from '@/app/types/common';
 
 export type LawyerDirectoryEntry = {
@@ -135,7 +146,7 @@ interface LegalMarketplaceState {
 }
 
 export const useLegalMarketplaceStore = create<LegalMarketplaceState>()(
-    persist(
+    persist<LegalMarketplaceState, [], [], LegalMarketplacePersistSlice>(
         (set, get) => ({
             lawyers: INITIAL_LAWYERS,
             escrowWallet: 500_000,
@@ -205,8 +216,19 @@ export const useLegalMarketplaceStore = create<LegalMarketplaceState>()(
             },
         }),
         {
-            name: 'hami-legal-marketplace',
-            storage: createJSONStorage(() => localStorage),
+            name: LEGAL_MARKETPLACE_STORE_KEY,
+            version: LEGAL_MARKETPLACE_PERSIST_VERSION,
+            storage: createGuardedJSONStorage<LegalMarketplacePersistSlice>(() => localStorage),
+            migrate: migrateLegalMarketplacePersistState,
+            merge: (persisted, current): LegalMarketplaceState => ({
+                ...current,
+                ...normalizeLegalMarketplacePersistSlice(persisted),
+            }),
+            onRehydrateStorage: createPersistRehydrateReporter({
+                area: 'legal-marketplace-store',
+                storageKey: LEGAL_MARKETPLACE_STORE_KEY,
+                version: LEGAL_MARKETPLACE_PERSIST_VERSION,
+            }),
             partialize: (s) => ({
                 escrowWallet: s.escrowWallet,
                 lawyerWallet: s.lawyerWallet,

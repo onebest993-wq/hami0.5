@@ -208,7 +208,11 @@ export function openJudicialCustodianCompletion(
         requestTitle,
         onSaved: (payload: JudicialCustodianSavePayload) => {
             const ts = new Date().toISOString();
-            actions.patchDecision(decisionId, { judicialCustodianDetailsSavedAt: ts });
+            actions.patchDecision(decisionId, {
+                judicialCustodianDetailsSavedAt: ts,
+                judicialCustodianName: payload.name,
+                judicialCustodianSalary: payload.salary,
+            });
             actions.persistJudicialCustodianDetails({
                 decisionId,
                 fullName: payload.name,

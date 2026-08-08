@@ -13,8 +13,9 @@ describe('archive dossier card cohesion', () => {
         expect(lawsuit).not.toContain('function PartyRow');
     });
 
-    it('UnifiedDossierCard remains the single visual shell', () => {
-        const grid = fs.readFileSync(path.join(root, 'ArchivePortalFileGrid.tsx'), 'utf8');
-        expect(grid).toContain('UnifiedDossierCard');
+    it('LawsuitArchiveFileGrid يستخدم LawsuitArchiveCard وليس UnifiedDossierCard', () => {
+        const grid = fs.readFileSync(path.join(root, 'LawsuitArchiveFileGrid.tsx'), 'utf8');
+        expect(grid).toContain('LawsuitArchiveCard');
+        expect(grid).not.toContain('UnifiedDossierCard');
     });
 });

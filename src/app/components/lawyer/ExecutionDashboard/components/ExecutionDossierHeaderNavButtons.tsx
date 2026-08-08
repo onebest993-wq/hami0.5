@@ -1,10 +1,13 @@
 import React from 'react';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 import { EXECUTION_DOSSIER_TEST_IDS } from '@/app/components/lawyer/ExecutionDashboard/executionDossierTestIds';
 
 export type ExecutionDossierHeaderNavButtonsProps = {
     onBack?: () => void;
     onExit: () => void;
+    nestedNavigation?: boolean;
+    /** @deprecated استخدم nestedNavigation */
     showBack?: boolean;
 };
 
@@ -12,13 +15,18 @@ export type ExecutionDossierHeaderNavButtonsProps = {
 export function ExecutionDossierHeaderNavButtons({
     onBack,
     onExit,
-    showBack = true,
+    nestedNavigation = false,
+    showBack,
 }: ExecutionDossierHeaderNavButtonsProps) {
+    const nestedNav = showBack === false ? false : nestedNavigation;
+    const nav = resolveDossierHeaderNavVisibility(nestedNav);
+
     return (
         <DossierHeaderNavButtons
             onBack={onBack}
             onExit={onExit}
-            showBack={showBack}
+            showBack={nav.showBack}
+            showExit={nav.showExit}
             backTestId={EXECUTION_DOSSIER_TEST_IDS.back}
             exitTestId={EXECUTION_DOSSIER_TEST_IDS.close}
         />

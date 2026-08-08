@@ -3,7 +3,7 @@ import {
     RotateCcw,
     Trash2,
     X,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { TimelineEvent } from '../../../LawyerShared';
 
 

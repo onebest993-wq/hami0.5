@@ -1,19 +1,13 @@
-import React from 'react';
-import { User, Scale, Sparkles, Heart, Users } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Brain, Scale, Sparkles } from '@/app/components/ui/lucideIcons';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
-
-interface AlimonyCalculationResult {
-    baseDurationMonths: number;
-    baseDurationDays: number;
-    baseAccumulation: number;
-    pastDurationMonths: number;
-    pastAccumulation: number;
-    totalAccumulated: number;
-    monthlyOngoing: number;
-    legalCapApplied: boolean;
-    explanation: string;
-}
+import {
+    analyzeAlimonyCreationContext,
+    type AlimonyAnalysisSeverity,
+} from '../hooks/analyzeAlimonyCreationContext';
+import type { AlimonyCalculationResult } from '../hooks/useAlimonyCalculator';
+import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 
 interface SmartAlimonyCalculatorProps {
     alimonyBeneficiary: 'زوجة فقط' | 'أولاد فقط' | 'زوجة وأولاد';
@@ -29,16 +23,23 @@ interface SmartAlimonyCalculatorProps {
     onWifeMonthlyChange: (v: string) => void;
     onChildrenMonthlyChange: (v: string) => void;
     onChildrenCountChange: (v: string) => void;
+    judgmentDate?: string;
+    docType?: string;
+    claimType?: string;
+    activeClaimTypes?: string[];
+    submissionDate?: string;
+    includesPastCalc?: boolean;
+    alimonyPastStartDate?: string;
+    todayYmd?: string;
 }
 
 const BENEFICIARY_OPTIONS: Array<{
     value: 'زوجة فقط' | 'أولاد فقط' | 'زوجة وأولاد';
     label: string;
-    icon: React.ReactNode;
 }> = [
-    { value: 'زوجة فقط', label: 'زوجة فقط', icon: <Heart size={14} /> },
-    { value: 'أولاد فقط', label: 'أولاد فقط', icon: <Users size={14} /> },
-    { value: 'زوجة وأولاد', label: 'زوجة وأولاد', icon: <User size={14} /> },
+    { value: 'زوجة فقط', label: 'زوجة فقط' },
+    { value: 'أولاد فقط', label: 'أولاد فقط' },
+    { value: 'زوجة وأولاد', label: 'زوجة وأولاد' },
 ];
 
 const formatCurrency = formatMoneyIntegerDisplay;
@@ -46,6 +47,12 @@ const formatCurrency = formatMoneyIntegerDisplay;
 const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
     handleMoneyInputChange(e.target.value, setter);
 };
+
+function severityClass(severity: AlimonyAnalysisSeverity): string {
+    if (severity === 'critical') return 'border-rose-500/35 bg-rose-950/20';
+    if (severity === 'warning') return 'border-amber-500/30 bg-amber-950/15';
+    return 'border-[#E6C673]/20 bg-[#0A0F1C]/35';
+}
 
 export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
     alimonyBeneficiary,
@@ -61,7 +68,67 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
     onWifeMonthlyChange,
     onChildrenMonthlyChange,
     onChildrenCountChange,
+    judgmentDate = '',
+    docType = '',
+    claimType = '',
+    activeClaimTypes = [],
+    submissionDate = '',
+    includesPastCalc = false,
+    alimonyPastStartDate = '',
+    todayYmd,
 }) => {
+    const today = todayYmd ?? getLocalTodayYmd();
+
+    const analysis = useMemo(
+        () =>
+            analyzeAlimonyCreationContext({
+                alimonyBeneficiary,
+                alimonyLawsuitDate,
+                alimonyExecutionDate,
+                alimonyWifeMonthly,
+                alimonyChildrenMonthly,
+                alimonyChildrenCount,
+                calculatedAlimonyNew,
+                includesPastCalc,
+                alimonyPastStartDate,
+                judgmentDate,
+                docType,
+                claimType,
+                activeClaimTypes,
+                submissionDate,
+                todayYmd: today,
+            }),
+        [
+            alimonyBeneficiary,
+            alimonyLawsuitDate,
+            alimonyExecutionDate,
+            alimonyWifeMonthly,
+            alimonyChildrenMonthly,
+            alimonyChildrenCount,
+            calculatedAlimonyNew,
+            includesPastCalc,
+            alimonyPastStartDate,
+            judgmentDate,
+            docType,
+            claimType,
+            activeClaimTypes,
+            submissionDate,
+            today,
+        ],
+    );
+
+    const applyRecommendation = (field: 'lawsuitDate' | 'executionDate', value: string) => {
+        if (field === 'lawsuitDate') onLawsuitDateChange(value);
+        else onExecutionDateChange(value);
+    };
+
+    const showResults =
+        calculatedAlimonyNew &&
+        (calculatedAlimonyNew.baseAccumulation > 0 ||
+            calculatedAlimonyNew.pastAccumulation > 0 ||
+            calculatedAlimonyNew.monthlyOngoing > 0 ||
+            analysis.projectedAccumulatedIqd != null);
+
     return (
         <div className={ecg.card}>
             <div className={ecg.cardHeader}>
@@ -69,9 +136,98 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                     <Sparkles size={18} className="text-[#E6C673]" />
                     حاسبة النفقة الذكية
                 </h4>
+                <p className={ecg.cardSubtitle}>تحليل سياقي — يقرأ العلاقة بين التواريخ والمطالبات والمبالغ</p>
             </div>
 
             <div className="space-y-4">
+                <div
+                    className="rounded-xl border border-[#E6C673]/25 bg-[#05060D]/40 p-4 space-y-3"
+                    role="region"
+                    aria-label="تحليل السياق"
+                    aria-live="polite"
+                >
+                    <div className="flex items-center justify-between gap-2 flex-row-reverse">
+                        <div className="flex items-center gap-2 text-[#E6C673]">
+                            <Brain size={16} />
+                            <span className="text-xs font-bold">تحليل السياق</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 tabular-nums">
+                            اكتمال {analysis.completeness}% · تماسك {analysis.coherenceScore}%
+                        </span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-300 text-right">{analysis.synthesis}</p>
+                    <p className="text-[10px] text-slate-500 text-right border-t border-white/5 pt-2">
+                        {analysis.timelineNarrative}
+                    </p>
+
+                    {analysis.findings.length > 0 ? (
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-400 text-right">ملاحظات مستخرجة</p>
+                            {analysis.findings.map((f) => (
+                                <div
+                                    key={f.id}
+                                    className={`rounded-lg border p-2.5 ${severityClass(f.severity)}`}
+                                >
+                                    <p className="text-[11px] text-slate-200 text-right">{f.observation}</p>
+                                    {f.evidence.length > 0 ? (
+                                        <ul className="mt-1 space-y-0.5">
+                                            {f.evidence.map((e) => (
+                                                <li key={e} className="text-[10px] text-slate-500 text-right">
+                                                    — {e}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {analysis.inferences.length > 0 ? (
+                        <div className="space-y-2">
+                            <p className="text-[10px] font-bold text-slate-400 text-right">استنتاجات</p>
+                            {analysis.inferences.map((inf) => (
+                                <div
+                                    key={inf.id}
+                                    className="rounded-lg border border-white/8 bg-white/[0.02] p-2.5"
+                                >
+                                    <p className="text-[11px] text-slate-200 text-right">{inf.conclusion}</p>
+                                    <ul className="mt-1 space-y-0.5">
+                                        {inf.because.map((b) => (
+                                            <li key={b} className="text-[10px] text-slate-500 text-right">
+                                                • {b}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+
+                    {analysis.recommendations.length > 0 ? (
+                        <div className="space-y-2 border-t border-white/5 pt-2">
+                            <p className="text-[10px] font-bold text-slate-400 text-right">مقترحات مبررة</p>
+                            {analysis.recommendations.map((rec) => (
+                                <div key={rec.id} className="text-right">
+                                    <p className="text-[11px] text-emerald-200/90">{rec.action}</p>
+                                    <p className="text-[10px] text-slate-500 mt-0.5">{rec.rationale}</p>
+                                    {rec.apply ? (
+                                        <button
+                                            type="button"
+                                            className="text-[10px] text-[#E6C673] mt-1 hover:underline"
+                                            onClick={() =>
+                                                applyRecommendation(rec.apply!.field, rec.apply!.value)
+                                            }
+                                        >
+                                            تطبيق المقترح
+                                        </button>
+                                    ) : null}
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+
                 <div>
                     <label className={ecg.labelGold}>
                         المستفيد من النفقة <span className="text-rose-400">*</span>
@@ -82,11 +238,10 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                                 key={opt.value}
                                 type="button"
                                 onClick={() => onBeneficiaryChange(opt.value)}
-                                className={`${ecg.choiceBtn} flex items-center justify-center gap-1.5 ${
+                                className={`${ecg.choiceBtn} flex items-center justify-center ${
                                     alimonyBeneficiary === opt.value ? ecg.choiceBtnActive : ecg.choiceBtnIdle
                                 }`}
                             >
-                                <span className="opacity-80">{opt.icon}</span>
                                 <span className="text-[11px] sm:text-xs">{opt.label}</span>
                             </button>
                         ))}
@@ -104,6 +259,7 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                             onChange={(e) => onLawsuitDateChange(e.target.value)}
                             className={ecg.field}
                             style={{ direction: 'ltr', textAlign: 'right' }}
+                            aria-invalid={analysis.insights.status === 'missing_lawsuit_date'}
                         />
                     </div>
                     <div>
@@ -116,6 +272,7 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                             onChange={(e) => onExecutionDateChange(e.target.value)}
                             className={ecg.field}
                             style={{ direction: 'ltr', textAlign: 'right' }}
+                            aria-invalid={analysis.insights.status === 'execution_before_lawsuit'}
                         />
                     </div>
                 </div>
@@ -174,39 +331,37 @@ export const SmartAlimonyCalculator: React.FC<SmartAlimonyCalculatorProps> = ({
                     </div>
                 )}
 
-                {calculatedAlimonyNew && calculatedAlimonyNew.baseAccumulation > 0 ? (
+                {showResults && calculatedAlimonyNew ? (
                     <div className={ecg.resultCard}>
                         <h5 className="text-emerald-300/95 font-bold text-sm mb-3 flex items-center gap-2">
                             <Scale size={16} />
-                            النتائج الفورية
+                            نتائج محرك الحاسبة
                         </h5>
                         <div className="space-y-2 text-sm">
-                            <div className="flex flex-row-reverse items-center justify-between gap-3">
-                                <span className="text-slate-400 text-xs">المدة (أيام)</span>
-                                <span className="text-white font-bold tabular-nums">
-                                    {calculatedAlimonyNew.baseDurationDays} يوم
-                                </span>
-                            </div>
-                            <div className="flex flex-row-reverse items-center justify-between gap-3">
-                                <span className="text-slate-400 text-xs">المدة (أشهر)</span>
-                                <span className="text-white font-bold tabular-nums">
-                                    {calculatedAlimonyNew.baseDurationMonths.toFixed(1)} شهر
-                                </span>
-                            </div>
-                            <div className="border-t border-emerald-500/15 pt-3 mt-2 space-y-2">
+                            {analysis.insights.daysBetween != null && analysis.insights.isExecutionAfterLawsuit ? (
                                 <div className="flex flex-row-reverse items-center justify-between gap-3">
-                                    <span className="text-rose-200/90 font-bold text-xs">إجمالي النفقة المتراكمة</span>
-                                    <span className="text-rose-300 font-black font-mono text-base tabular-nums">
+                                    <span className="text-slate-400 text-xs">المدة (أيام)</span>
+                                    <span className="text-white font-bold tabular-nums">
+                                        {analysis.insights.daysBetween} يوم
+                                    </span>
+                                </div>
+                            ) : null}
+                            {calculatedAlimonyNew.baseAccumulation > 0 ? (
+                                <div className="flex flex-row-reverse items-center justify-between gap-3">
+                                    <span className="text-rose-200/90 font-bold text-xs">المتراكم الأساسي</span>
+                                    <span className="text-rose-300 font-black font-mono tabular-nums">
                                         {formatCurrency(String(calculatedAlimonyNew.baseAccumulation))} د.ع
                                     </span>
                                 </div>
+                            ) : null}
+                            {calculatedAlimonyNew.monthlyOngoing > 0 ? (
                                 <div className="flex flex-row-reverse items-center justify-between gap-3 rounded-xl border border-emerald-500/25 bg-emerald-950/30 px-3 py-2.5">
-                                    <span className="text-emerald-200/90 font-bold text-[11px]">النفقة المستمرة (شهرياً)</span>
+                                    <span className="text-emerald-200/90 font-bold text-[11px]">شهرياً مستمرة</span>
                                     <span className="text-emerald-300 font-black font-mono tabular-nums">
                                         +{formatCurrency(String(calculatedAlimonyNew.monthlyOngoing))} د.ع
                                     </span>
                                 </div>
-                            </div>
+                            ) : null}
                         </div>
                     </div>
                 ) : null}

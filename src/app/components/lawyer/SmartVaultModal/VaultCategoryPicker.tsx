@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import { VAULT_INPUT } from './vaultDustyRoseTheme';
 
 interface VaultCategoryPickerProps {

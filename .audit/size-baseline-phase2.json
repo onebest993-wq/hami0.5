@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-08-06T18:53:13.735Z",
+  "totalMb": 11.3,
+  "fileCount": 350,
+  "byExtMb": {
+    ".js": 8.59,
+    ".css": 1.11,
+    ".html": 0.01,
+    ".pdf": 0,
+    ".svg": 0,
+    ".png": 0.22,
+    ".jpg": 0.11,
+    ".webp": 0.07,
+    ".json": 1.18,
+    "(none)": 0
+  },
+  "js": {
+    "fileCount": 298,
+    "totalMb": 8.56,
+    "microUnder5k": 34,
+    "top": [
+      {
+        "file": "lawsuit-archive-grid-BejejKKC.js",
+        "rawKb": 461
+      },
+      {
+        "file": "archive-portal-execution-DRVRqCva.js",
+        "rawKb": 372.3
+      },
+      {
+        "file": "ExecutionDashboard-9xJcG-6N.js",
+        "rawKb": 361.8
+      },
+      {
+        "file": "vendor-pdf-BJoAr5aP.js",
+        "rawKb": 326.2
+      },
+      {
+        "file": "criminalStore-CAK_YsK9.js",
+        "rawKb": 240.6
+      },
+      {
+        "file": "vendor-supabase-A_Qj2JiY.js",
+        "rawKb": 196.8
+      },
+      {
+        "file": "Dashboard_Active_Order_File-Bamalh1a.js",
+        "rawKb": 185.3
+      },
+      {
+        "file": "vendor-misc-BLZH_GMC.js",
+        "rawKb": 177.2
+      },
+      {
+        "file": "CriminalDashboard-BaEn8kNF.js",
+        "rawKb": 173.6
+      },
+      {
+        "file": "SmartFileModal-BlXfOkvM.js",
+        "rawKb": 159.3
+      },
+      {
+        "file": "execution-handler-cluster-seizure-B6PpWPvi.js",
+        "rawKb": 153.1
+      },
+      {
+        "file": "vendor-react-HjyJKqEg.js",
+        "rawKb": 138.8
+      },
+      {
+        "file": "LawyerDashboardInnerRuntime-BaaKSpH0.js",
+        "rawKb": 135.8
+      },
+      {
+        "file": "DecisionsHub-kB9RbAzx.js",
+        "rawKb": 129.7
+      },
+      {
+        "file": "FinancialOperationsCenter-DtIiIuc2.js",
+        "rawKb": 122.2
+      },
+      {
+        "file": "ExecutionCreationView-yViujOwW.js",
+        "rawKb": 107.3
+      },
+      {
+        "file": "SmartRepositoryUnifiedFeed-C9PVWqAt.js",
+        "rawKb": 107
+      },
+      {
+        "file": "ExecutionDashboardPhoneBody-JmCtxWSx.js",
+        "rawKb": 106.4
+      },
+      {
+        "file": "execution-handler-cluster-handlers-BJvsRnn3.js",
+        "rawKb": 105.4
+      },
+      {
+        "file": "calendarReconcileScheduler-CvqEiDUO.js",
+        "rawKb": 105
+      }
+    ],
+    "hasExecutionLawsChunk": false,
+    "hasVendorCapacitor": false,
+    "hasBundledPdfWorker": false
+  },
+  "pdfAssetsMb": 0
+}

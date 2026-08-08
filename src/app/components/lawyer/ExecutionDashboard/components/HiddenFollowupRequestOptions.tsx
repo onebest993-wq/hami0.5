@@ -12,7 +12,7 @@ import {
     ShieldAlert,
     UserX,
     Wallet,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { HiddenGuarantorRequestOptions } from './HiddenGuarantorRequestOptions';
 import { HiddenBreakInventoryRequestOptions } from './HiddenBreakInventoryRequestOptions';
 import { HiddenPersonalCoerciveRequestOptions } from './HiddenPersonalCoerciveRequestOptions';

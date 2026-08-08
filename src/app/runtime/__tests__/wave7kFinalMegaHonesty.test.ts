@@ -22,7 +22,7 @@ describe('wave7k final mega honesty', () => {
 
     it('warm TTFI script يطابق إعدادات cold (dock + strip failure)', () => {
         const t = fs.readFileSync(path.join(root, 'scripts/boot-ttfi-warm.mjs'), 'utf8');
-        expect(t).toContain('dockVisible: true');
+        expect(t).toContain('dockVisible: false');
         expect(t).toContain('hami-boot-failure');
         expect(t).toContain('timeout: 90_000');
         expect(t).toContain('assertPortFree');

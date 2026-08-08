@@ -1,8 +1,8 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
+import { profileBootHydratorState as profileBootState } from '@/app/runtime/profileBootHydratorState';
 
 function loadProfileHubLoader() {
     return import('@/app/runtime/profileHubLoader');
@@ -18,17 +18,16 @@ function warmProfileData(userId?: string | null): void {
     const uid = userId?.trim();
     if (!uid) return;
     void import('@/app/services/profile/profileWarmCache')
-        .then((m) => m.warmProfileDataCache(uid))
+        .then((m) => {
+            m.hydrateProfileWarmCachePeekSync(uid);
+            return m.warmProfileDataCache(uid);
+        })
         .catch(() => undefined);
 }
 
 export const PROFILE_SHELL_HYDRATED_EVENT = 'hami:profile-shell-hydrated';
 /** pointerdown على زر الملف المهني — يركّب Host مخفياً قبل الـ click */
 export const PROFILE_PRIME_HOST_EVENT = 'hami:profile-prime-host';
-
-let bootHydratorArmed = false;
-let hydrateInflight: Promise<boolean> | null = null;
-let coldBootPrefetchStarted = false;
 
 async function profilePrefetchAllowed(): Promise<boolean> {
     try {
@@ -45,7 +44,6 @@ async function profilePrefetchAllowed(): Promise<boolean> {
 
 async function hydrateDelayMs(): Promise<number> {
     if (!(await profilePrefetchAllowed())) return -1;
-    if (isCapacitorNativePlatform()) return 80;
     return 0;
 }
 
@@ -64,12 +62,14 @@ export function dispatchProfilePrimeHost(): void {
  * ورقة الاستوديو تُحمَّل عند نية الفتح (زر الاستوديو / openSettings).
  */
 export function prefetchProfileAfterBootReveal(userId?: string | null): void {
-    if (typeof window === 'undefined' || coldBootPrefetchStarted) return;
+    if (typeof window === 'undefined' || profileBootState.coldBootPrefetchStarted) return;
     void profilePrefetchAllowed().then((ok) => {
-        if (!ok || coldBootPrefetchStarted) return;
-        coldBootPrefetchStarted = true;
+        if (!ok || profileBootState.coldBootPrefetchStarted) return;
+        profileBootState.coldBootPrefetchStarted = true;
         void ensureDeferredFeatureStylesLoaded();
-        prefetchProfileHubModuleNow();
+        void import('@/app/runtime/profileShellPrime')
+            .then((m) => m.primeProfileForBoot())
+            .catch(() => undefined);
         void hydrateProfileShellForInstantOpenWithData(userId, false).catch(() => undefined);
     });
 }
@@ -93,8 +93,8 @@ export function hydrateProfileShellForInstantOpenWithData(
             dispatchHydratedOnce();
             return true;
         }
-        if (hydrateInflight) {
-            return hydrateInflight.then((ok) => {
+        if (profileBootState.hydrateInflight) {
+            return profileBootState.hydrateInflight.then((ok) => {
                 if (ok && userId?.trim()) {
                     warmProfileData(userId);
                 }
@@ -102,7 +102,7 @@ export function hydrateProfileShellForInstantOpenWithData(
             });
         }
 
-        hydrateInflight = hub
+        profileBootState.hydrateInflight = hub
             .hydrateProfileShellForInstantOpen()
             .then((ok) => {
                 if (ok) {
@@ -114,10 +114,10 @@ export function hydrateProfileShellForInstantOpenWithData(
                 return ok;
             })
             .finally(() => {
-                hydrateInflight = null;
+                profileBootState.hydrateInflight = null;
             });
 
-        return hydrateInflight;
+        return profileBootState.hydrateInflight;
     };
     return run();
 }
@@ -128,8 +128,8 @@ export function hydrateProfileShellForInstantOpenWithData(
  * 2) hydrate إضافي عند `hami:dashboard-interactive`
  */
 export function bindProfileBootHydrator(userId?: string | null): () => void {
-    if (typeof window === 'undefined' || bootHydratorArmed) return () => undefined;
-    bootHydratorArmed = true;
+    if (typeof window === 'undefined' || profileBootState.bootHydratorArmed) return () => undefined;
+    profileBootState.bootHydratorArmed = true;
 
     let cancelIdle: (() => void) | undefined;
     const uid = userId?.trim() || undefined;
@@ -165,7 +165,7 @@ export function bindProfileBootHydrator(userId?: string | null): () => void {
     }
 
     return () => {
-        bootHydratorArmed = false;
+        profileBootState.bootHydratorArmed = false;
         cancelIdle?.();
         cancelIdle = undefined;
         window.removeEventListener(BOOT_REVEAL_DONE_EVENT, onBootRevealDone);
@@ -175,7 +175,7 @@ export function bindProfileBootHydrator(userId?: string | null): () => void {
 
 /** للاختبارات */
 export function resetProfileBootHydratorForTests(): void {
-    bootHydratorArmed = false;
-    hydrateInflight = null;
-    coldBootPrefetchStarted = false;
+    profileBootState.bootHydratorArmed = false;
+    profileBootState.hydrateInflight = null;
+    profileBootState.coldBootPrefetchStarted = false;
 }

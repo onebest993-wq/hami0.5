@@ -67,6 +67,22 @@ describe('computeVisibleCommunityPosts', () => {
         });
         expect(visible.map((p) => p.id)).toEqual(['mine']);
     });
+
+    it('يُزيل تكرار المعرّفات في القائمة المصدر', () => {
+        const older = basePost('dup', 'u1');
+        const newer = { ...older, content: 'نص محدّث', updatedAt: '2026-02-01T00:00:00.000Z' };
+        const visible = computeVisibleCommunityPosts({
+            posts: [older, newer],
+            mutedIds: new Set(),
+            currentUserId: 'me',
+            forumFeedScope: 'all',
+            followingIds: new Set(),
+            selectedFilterIndex: 0,
+            filterLabels: ['الكل'],
+        });
+        expect(visible.map((p) => p.id)).toEqual(['dup']);
+        expect(visible[0]?.content).toBe('نص محدّث');
+    });
 });
 
 describe('trimCommunityPostsRetention', () => {

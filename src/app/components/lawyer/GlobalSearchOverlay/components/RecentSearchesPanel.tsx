@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Clock, RotateCcw } from 'lucide-react';
+import { Clock, RotateCcw } from '@/app/components/ui/lucideIcons';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 
 export interface RecentSearchesPanelProps {
@@ -15,7 +15,7 @@ export function RecentSearchesPanel({ recentSearches, onSelect, onClear }: Recen
     if (recentSearches.length === 0) return null;
 
     const chipClass =
-        'min-h-[44px] px-3.5 py-2 rounded-xl text-sm text-white/80 bg-white/[0.04] border border-white/[0.06] hover:border-[#E6C673]/25 hover:bg-[#E6C673]/[0.06] hover:text-[#E6C673] transition-colors truncate max-w-[220px] touch-manipulation';
+        'hami-gs-recent-chip hover:border-[#E6C673]/25 hover:bg-[#E6C673]/[0.06] hover:text-[#E6C673] transition-colors';
 
     return (
         <div className="px-5 py-4 space-y-3" data-testid="global-search-recent-panel">

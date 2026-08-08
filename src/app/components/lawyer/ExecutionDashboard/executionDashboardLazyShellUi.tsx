@@ -2,7 +2,7 @@
  * ثوابت وعناصر UI صغيرة لـ ExecutionDashboard — بلا lazy imports (لا دورات chunk).
  */
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/app/components/ui/lucideIcons';
 import { FocInstantShell } from '@/app/components/lawyer/FinancialOperationsCenter/FocInstantShell';
 
 export { formatUnifiedLedgerDate } from './helpers/formatUnifiedLedgerDate';

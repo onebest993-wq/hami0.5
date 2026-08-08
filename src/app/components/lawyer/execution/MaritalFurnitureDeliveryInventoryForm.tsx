@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Sofa, Truck, XCircle } from 'lucide-react';
+import { CheckCircle, Sofa, Truck, XCircle } from '@/app/components/ui/lucideIcons';
 import type { MaritalFurnitureItem, MaritalFurnitureDeliveryOutcome } from '@/app/types/maritalFurniture';
 import {
     areAllMaritalFurnitureItemsDeliveryLocked,

@@ -1,5 +1,5 @@
 import React, { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { AlertTriangle, RefreshCw } from '@/app/components/ui/lucideIcons';
 import { FORUM_PLUM_DEEP, FORUM_PUBLISH_BTN, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from './forumPlumTheme';
 
 interface Props {

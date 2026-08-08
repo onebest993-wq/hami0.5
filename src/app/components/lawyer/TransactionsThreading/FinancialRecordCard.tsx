@@ -1,4 +1,4 @@
-import { ArrowDownLeft, ArrowUpRight, MoreVertical, Pencil, Trash2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, MoreVertical, Pencil, Trash2 } from '@/app/components/ui/lucideIcons';
 import { FinanceRecordType, type FinanceRecord } from '@/app/modules/transactionsThreading/types';
 import {
     TransactionsDropdownMenu,

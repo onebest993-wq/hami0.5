@@ -55,6 +55,7 @@ export const LegalRichTextEditor = forwardRef<LegalRichTextEditorHandle, LegalRi
                     suppressContentEditableWarning
                     onInput={editor.handleInput}
                     onBeforeInput={editor.handleBeforeInput}
+                    onKeyDown={editor.handleKeyDown}
                     onBlur={editor.handleBlur}
                     onKeyUp={editor.syncToolbarFromSelection}
                     onMouseUp={editor.syncToolbarFromSelection}

@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Lock, UserPlus } from 'lucide-react';
+import { Lock, UserPlus } from '@/app/components/ui/lucideIcons';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import { getProfilePageAccessMeta } from '@/app/services/profile/profilePageAccess';

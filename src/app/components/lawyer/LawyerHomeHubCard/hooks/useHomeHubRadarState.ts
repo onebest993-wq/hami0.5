@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-    buildCalendarAlertIdSet,
-    filterRadarEventsExcludingCalendarAlerts,
+    filterHomeHubUrgentRadarEvents,
 } from '@/app/services/alerts/homeHubCardLogic';
 import {
     filterVisibleHomeHubRadarEvents,
@@ -15,9 +14,10 @@ import type { CalendarRadarEvent } from '@/app/workspace/types';
 import { useCalendarRadar48h } from '@/app/workspace/useCalendarRadar48h';
 
 export type UseHomeHubRadarStateResult = {
-    radarFiltered: CalendarRadarEvent[];
+    /** مواعيد اليوم/غداً لعرض تبويب «عاجل» (بدون إخفاء التقويم) */
+    radarUrgent: CalendarRadarEvent[];
     radarLoading: boolean;
-    hasRadar: boolean;
+    hasUrgentRadar: boolean;
 };
 
 export function useHomeHubRadarState(
@@ -51,22 +51,14 @@ export function useHomeHubRadarState(
         return () => window.removeEventListener(HOME_HUB_RADAR_DISMISSED_EVENT, onDismissed);
     }, [lawyerId]);
 
-    const alertCalendarIds = useMemo(
-        () => buildCalendarAlertIdSet(secretaryAlerts),
-        [secretaryAlerts],
-    );
-
-    const radarFiltered = useMemo(() => {
-        const withoutCalendarDupes = filterRadarEventsExcludingCalendarAlerts(
-            radarEvents,
-            alertCalendarIds,
-        );
-        return filterVisibleHomeHubRadarEvents(withoutCalendarDupes, dismissedRadarIds);
-    }, [radarEvents, alertCalendarIds, dismissedRadarIds]);
+    const radarUrgent = useMemo(() => {
+        const withoutFieldDupes = filterHomeHubUrgentRadarEvents(radarEvents, secretaryAlerts);
+        return filterVisibleHomeHubRadarEvents(withoutFieldDupes, dismissedRadarIds);
+    }, [radarEvents, secretaryAlerts, dismissedRadarIds]);
 
     return {
-        radarFiltered,
+        radarUrgent,
         radarLoading,
-        hasRadar: radarFiltered.length > 0,
+        hasUrgentRadar: radarUrgent.length > 0,
     };
 }

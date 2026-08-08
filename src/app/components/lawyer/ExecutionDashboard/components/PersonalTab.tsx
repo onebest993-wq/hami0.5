@@ -51,7 +51,9 @@ export interface PersonalTabProps {
     handleEmployeeAssignmentRequestInvestigation: () => void;
     handleEmployeeRegisterArrestOrder: () => void;
     handleEmployeeAssignmentRequestForcedBring: () => void;
-    handleEmployeeAssignmentResolveForcedBringOutcome: (which: 'brought' | 'absconded') => void;
+    handleEmployeeAssignmentResolveForcedBringOutcome: (
+        which: 'brought' | 'absconded' | 'dismissed',
+    ) => void;
     handleEmployeeWarrantOutcome: (which: 'brought' | 'terminate') => void;
     handleEmployeeAssignmentTerminate: () => void;
 }
@@ -134,7 +136,7 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
             </div>
         </div>
     ) : (
-        <div className="p-4 sm:p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+        <div className="space-y-5 p-3 text-right" dir="rtl" onClick={(e) => e.stopPropagation()}>
             {showEmployeeAssignmentCoerciveBlock &&
             resolvedEmployeeSummonsAssignment ? (
                 <Suspense fallback={EXEC_SECTION_LAZY_FALLBACK}>
@@ -155,18 +157,13 @@ export const PersonalTab: React.FC<PersonalTabProps> = ({
                         }
                         forcedBringRejected={forcedBringDecisionState.rejected}
                         onWarrantDebtorBrought={() =>
-                            employeeForcedBringAwaitingPersonalOutcome
-                                ? handleEmployeeAssignmentResolveForcedBringOutcome(
-                                      'brought'
-                                  )
-                                : handleEmployeeWarrantOutcome('brought')
+                            handleEmployeeWarrantOutcome('brought')
                         }
                         onWarrantTerminate={() =>
-                            employeeForcedBringAwaitingPersonalOutcome
-                                ? handleEmployeeAssignmentResolveForcedBringOutcome(
-                                      'absconded'
-                                  )
-                                : handleEmployeeWarrantOutcome('terminate')
+                            handleEmployeeWarrantOutcome('terminate')
+                        }
+                        onForcedBringOutcome={
+                            handleEmployeeAssignmentResolveForcedBringOutcome
                         }
                         onTerminateAssignment={
                             handleEmployeeAssignmentTerminate

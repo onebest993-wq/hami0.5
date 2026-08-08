@@ -1,4 +1,4 @@
-import { AlertTriangle, ClipboardList, Clock, Hammer, Scale, FileText, Inbox } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Clock, Hammer, Scale, FileText, Inbox } from '@/app/components/ui/lucideIcons';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { isInjectedFieldTaskAlert } from '@/app/services/fieldTaskAlerts';
 import { filterVisibleAlerts } from '@/app/services/appAlertDismiss';

@@ -1,6 +1,7 @@
 import type { LegalCase } from '@/app/stores/caseStore';
 import type { GlobalSearchExtras } from '@/app/services/globalSearchLoad';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { LawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import type { SearchLifecycle } from '@/app/services/searchLifecycle';
 
 export { buildGlobalSearchIndex } from '@/app/services/search/globalSearchIndexPure';
@@ -94,6 +95,7 @@ const ALL_CATEGORIES: GlobalSearchCategory[] = [
 export type BuildGlobalSearchIndexInput = {
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
+    lawsuitLifecycleIndex?: LawsuitLifecycleIndex;
     globalNotes: GlobalNoteRow[];
     cases: LegalCase[];
     criminalCases?: unknown[];

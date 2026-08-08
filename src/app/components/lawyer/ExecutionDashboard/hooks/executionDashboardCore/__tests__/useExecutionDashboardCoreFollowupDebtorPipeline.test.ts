@@ -12,7 +12,7 @@ const useDebtorScopedTimelineMock = vi.fn();
 const resolveDebtorEntityKindMock = vi.fn();
 const isLegalEntityDebtorKindMock = vi.fn();
 const isLawyerRepresentingDebtorMock = vi.fn();
-const resolveFollowupSpecializationFromExecutionMock = vi.fn();
+const resolveFollowupFlagsForDebtorContextMock = vi.fn();
 const applyDebtorDeathFollowupOverlayMock = vi.fn();
 const executionTimelineVisibilityFromFollowupMock = vi.fn();
 const resolveExecutionTimelineFilterOptionsMock = vi.fn();
@@ -62,9 +62,9 @@ vi.mock('@/app/utils/debtorAgentRepresentationUtils', () => ({
     isLawyerRepresentingDebtor: (...args: unknown[]) => isLawyerRepresentingDebtorMock(...args),
 }));
 
-vi.mock('@/app/utils/followupSpecializationVisibility', () => ({
-    resolveFollowupSpecializationFromExecution: (...args: unknown[]) =>
-        resolveFollowupSpecializationFromExecutionMock(...args),
+vi.mock('@/app/utils/executionDomainIsolation', () => ({
+    resolveFollowupFlagsForDebtorContext: (...args: unknown[]) =>
+        resolveFollowupFlagsForDebtorContextMock(...args),
 }));
 
 vi.mock('@/app/utils/partyDeathFollowupOverlay', () => ({
@@ -156,7 +156,7 @@ describe('useExecutionDashboardCoreFollowupDebtorPipeline', () => {
             hideFollowupSeizureRequestsTab: false,
             hideFollowupCoerciveTab: false,
         };
-        resolveFollowupSpecializationFromExecutionMock.mockReturnValue(followupModalSpecialization);
+        resolveFollowupFlagsForDebtorContextMock.mockReturnValue(followupModalSpecialization);
         applyDebtorDeathFollowupOverlayMock.mockImplementation((value) => value);
         useSeizureLogEntityDataMock.mockReturnValue({
             seizedPropertiesForSeizureLog: [{ id: 'property-1' }],

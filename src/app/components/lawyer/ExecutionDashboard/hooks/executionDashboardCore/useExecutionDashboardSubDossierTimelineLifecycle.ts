@@ -11,6 +11,8 @@ import {
 } from './executionDashboardDossierBootSync';
 import {
     buildTimelineEventRowSignature,
+    reconcileCaseNotesLogState,
+    reconcileCaseTasksPendingState,
     reconcileTimelineEventsState,
 } from './executionDashboardTimelineAndGraceSync';
 
@@ -120,8 +122,16 @@ export function useExecutionDashboardSubDossierTimelineLifecycle({
                 forceReplace: contextChanged,
             }),
         );
-        setCaseNotesLog(patch.caseNotesLog);
-        setCaseTasksPending(patch.caseTasksPending);
+        setCaseNotesLog((prev) =>
+            reconcileCaseNotesLogState(prev, patch.caseNotesLog, {
+                forceReplace: contextChanged,
+            }),
+        );
+        setCaseTasksPending((prev) =>
+            reconcileCaseTasksPendingState(prev, patch.caseTasksPending, {
+                forceReplace: contextChanged,
+            }),
+        );
         setSeizedAssets(patch.seizedAssets);
         setSeizureDraftsByDecisionId(patch.seizureDraftsByDecisionId);
         setActiveCoerciveActions(patch.activeCoerciveActions);
@@ -152,7 +162,7 @@ export function useExecutionDashboardExecutionFileCoerciveRefresh({
     setActiveCoerciveActions: Dispatch<SetStateAction<string[]>>;
     setSeizureDraftsByDecisionId: Dispatch<SetStateAction<Record<string, SeizedAsset>>>;
     setForcedAttendanceIssued: Dispatch<SetStateAction<boolean>>;
-    setActiveNoticeState: Dispatch<SetStateAction<ExecutionFile['activeNoticeState']>>;
+    setActiveNoticeState: Dispatch<SetStateAction<string | null>>;
     setCaseTasksPending: Dispatch<SetStateAction<NonNullable<ExecutionFile['caseTasksPending']>>>;
 }) {
     useEffect(() => {

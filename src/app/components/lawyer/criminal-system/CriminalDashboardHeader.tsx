@@ -1,10 +1,11 @@
 import React, { Fragment, useEffect, useState } from 'react';
-import { ChevronDown, Gavel, GitMerge, MapPin, Pencil, Scissors, Trash2, Unlock, Zap } from 'lucide-react';
+import { ChevronDown, Gavel, GitMerge, MapPin, Pencil, Scissors, Trash2, Unlock, Zap } from '@/app/components/ui/lucideIcons';
 import type { PhysicalLocation, StageConclusion } from './criminalStore';
 import { isInvestigationStoredStage } from './criminalStageUtils';
 import { useColleagueConsultation } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 import {
     DropdownMenu,
@@ -104,6 +105,8 @@ export type CriminalDashboardHeaderProps = {
     onNavBack?: () => void;
     /** مغادرة إلى الواجهة الرئيسية */
     onNavExit?: () => void;
+    /** تنقل متداخل داخل الإضبارة — يُظهر زر الرجوع بدل الإغلاق */
+    dossierNestedNav?: boolean;
 };
 
 export const CriminalDashboardHeader = ({
@@ -145,6 +148,7 @@ export const CriminalDashboardHeader = ({
     onEndTemporaryClosure,
     onNavBack,
     onNavExit,
+    dossierNestedNav = false,
 }: CriminalDashboardHeaderProps) => {
     const consultation = useColleagueConsultation();
     const [locationLocal, setLocationLocal] = useState<PhysicalLocation>(physicalLocation);
@@ -165,6 +169,7 @@ export const CriminalDashboardHeader = ({
     };
 
     const showDossierNav = Boolean(onNavExit);
+    const dossierNavVisibility = resolveDossierHeaderNavVisibility(dossierNestedNav);
     const isInvestigationStage = isInvestigationStoredStage(stage);
 
     const canShowSeverance = Boolean(showSeverance && onOpenSeverance);
@@ -436,6 +441,8 @@ export const CriminalDashboardHeader = ({
                     type="button"
                     onClick={onOpenTrash}
                     title="فتح سلة المهملات"
+                    data-testid={CRIMINAL_DOSSIER_TEST_IDS.headerTrash}
+                    aria-label="فتح سلة المهملات"
                     className={`${glassHeaderButtonClass} !h-10 !w-10 !px-0 relative text-white/80 hover:text-[#E6C673]`}
                 >
                     {trashCount > 0 ? (
@@ -476,6 +483,8 @@ export const CriminalDashboardHeader = ({
                             <DossierHeaderNavButtons
                                 onBack={onNavBack}
                                 onExit={onNavExit!}
+                                showBack={dossierNavVisibility.showBack}
+                                showExit={dossierNavVisibility.showExit}
                                 backTestId={CRIMINAL_DOSSIER_TEST_IDS.back}
                                 exitTestId={CRIMINAL_DOSSIER_TEST_IDS.exit}
                             />

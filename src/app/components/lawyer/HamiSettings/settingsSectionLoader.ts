@@ -1,55 +1,39 @@
 import type { SettingsSectionId } from '@/app/services/settings';
+import { AppearanceSection } from './appearance/AppearanceSection';
+import { SecuritySection } from './security/SecuritySection';
+import { DataSection } from './data/DataSection';
+import { AccountSection } from './account/AccountSection';
 import { readPersistedSettingsSection } from './settingsSectionPersistence';
 
 type SectionModule = {
-    AppearanceSection?: typeof import('./appearance/AppearanceSection').AppearanceSection;
-    SecuritySection?: typeof import('./security/SecuritySection').SecuritySection;
-    DataSection?: typeof import('./data/DataSection').DataSection;
-    AccountSection?: typeof import('./account/AccountSection').AccountSection;
+    AppearanceSection?: typeof AppearanceSection;
+    SecuritySection?: typeof SecuritySection;
+    DataSection?: typeof DataSection;
+    AccountSection?: typeof AccountSection;
 };
 
-const sectionPromises = new Map<SettingsSectionId, Promise<SectionModule>>();
+const SECTION_MODULES: Record<SettingsSectionId, SectionModule> = {
+    appearance: { AppearanceSection },
+    security: { SecuritySection },
+    data: { DataSection },
+    account: { AccountSection },
+};
 
-function loadSectionModule(id: SettingsSectionId): Promise<SectionModule> {
-    const cached = sectionPromises.get(id);
-    if (cached) return cached;
-
-    const promise = (() => {
-        switch (id) {
-            case 'appearance':
-                return import('./appearance/AppearanceSection');
-            case 'security':
-                return import('./security/SecuritySection');
-            case 'data':
-                return import('./data/DataSection');
-            case 'account':
-                return import('./account/AccountSection');
-            default:
-                return Promise.resolve({} as SectionModule);
-        }
-    })();
-
-    sectionPromises.set(id, promise);
-    return promise;
+/** تحميل فوري — الأقسام مُضمَّنة مع shell الإعدادات */
+export function loadSettingsSection(id: SettingsSectionId): Promise<SectionModule> {
+    return Promise.resolve(SECTION_MODULES[id] ?? {});
 }
 
 /** تحميل مسبق لقسم — عند hover/لمس التبويب */
-export function prefetchSettingsSection(id: SettingsSectionId): void {
-    if (typeof window === 'undefined') return;
-    void loadSectionModule(id);
+export function prefetchSettingsSection(_id: SettingsSectionId): void {
+    /* sync — لا عمل */
 }
 
 /** تحميل مسبق للتبويب المحفوظ — قبل فتح الإعدادات */
 export function prefetchPersistedSettingsSection(): void {
-    prefetchSettingsSection(readPersistedSettingsSection());
+    readPersistedSettingsSection();
 }
 
 export function prefetchAllSettingsSections(): void {
-    (['appearance', 'security', 'data', 'account'] as const).forEach((id) => {
-        prefetchSettingsSection(id);
-    });
-}
-
-export async function loadSettingsSection(id: SettingsSectionId): Promise<SectionModule> {
-    return loadSectionModule(id);
+    /* sync — لا عمل */
 }

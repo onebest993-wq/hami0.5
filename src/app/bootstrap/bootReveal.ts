@@ -1,8 +1,11 @@
-/** أقل مدة عرض لطبقة الإقلاع — 0 على الأصلي (نص→لوحة فور الجاهزية) */
-export const BOOT_REVEAL_MIN_MS = 0;
+/** أقل مدة عرض لطبقة الإقلاع — يمنع وميض «لون فقط» بلا شعار */
+import { HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/homeMainGridPaintGate';
+import { hasStaticBootShell, purgeStaticBootShellPermanently } from '@/app/bootstrap/bootStaticShell';
+
+export const BOOT_REVEAL_MIN_MS = 520;
 
 export function getBootRevealMinMs(): number {
-    return BOOT_REVEAL_MIN_MS;
+    return isDemoShellAuthBuild() ? 0 : BOOT_REVEAL_MIN_MS;
 }
 
 /**
@@ -14,10 +17,61 @@ export const BOOT_EXIT_MS = 0;
 /** أقصى انتظار قبل إجبار الكشف (حماية من التعليق) */
 export const BOOT_REVEAL_MAX_MS = 14_000;
 
+/** نسخة تجريبية مفتوحة — 0 = كشف فوري بدون انتظار شعار */
+export const BOOT_REVEAL_MAX_MS_DEMO = 0;
+
+/**
+ * كشف عند أول إطار ذي معنى (هيكل اللوحة).
+ * deferred-app + dock يُحمَّلان بالتوازي لكن لا يحجبان الكشف — critical-shell + الشبكة الفورية يثبتان التخطيط.
+ */
+function isBootRevealGateReady(
+    shellPaintedReady: boolean,
+    _stylesReady: boolean,
+    _dockChunkReady: boolean,
+): boolean {
+    return shellPaintedReady;
+}
+
+export function isDemoShellAuthBuild(): boolean {
+    return import.meta.env.VITE_SHELL_AUTH_OPEN === 'true';
+}
+
+export function getBootRevealMaxMs(): number {
+    return isDemoShellAuthBuild() ? BOOT_REVEAL_MAX_MS_DEMO : BOOT_REVEAL_MAX_MS;
+}
+
+/** مهلة جاهزية المحتوى قبل كشف — أقصر في التجريبي بعد التوازي المبكر */
+export function getBootContentReadyMaxMs(): number {
+    return isDemoShellAuthBuild() ? 800 : 8_000;
+}
+
+export function getBootStaticShellWatchdogMs(): number {
+    return isDemoShellAuthBuild() ? 4_000 : 14_000;
+}
+
+/**
+ * أساس الإقلاع الفوري للنسخة التجريبية — يُستدعى من hami-boot.js وindex.tsx.
+ * يثبت الكشف + جاهزية المحتوى بلا microtask/rAF/انتظار CSS.
+ */
+export function applyInstantDemoBootFoundation(): void {
+    if (!isDemoShellAuthBuild() || typeof window === 'undefined') return;
+
+    /* لا كشف فوري ولا إزالة shell — MainView + useBootReveal يكشفان بعد paint */
+    try {
+        document.documentElement.dataset.hamiDemoInstantBoot = '1';
+    } catch {
+        /* ignore */
+    }
+}
+
 export const BOOT_CONTENT_READY_EVENT = 'hami:boot-content-ready';
 export const BOOT_REVEAL_DONE_EVENT = 'hami:boot-reveal-done';
 /** يُطلق عند أول طلاء لتبويب المنزل الظاهر — مسار كشف أسرع من انتظار deferred الكامل */
 export const FIRST_TAB_OPEN_EVENT = 'hami:first-tab-open';
+/** يُطلق عند أول commit لـ MainView — يغطي التبويبات غير الرئيسية */
+export const DASHBOARD_SHELL_PAINTED_EVENT = 'hami:dashboard-shell-painted';
+/** يُطلق بعد أول paint لشبكة الرئيسية — بوابة إزالة splash الثابت */
+export { HOME_MAIN_GRID_PAINTED_EVENT } from '@/app/bootstrap/homeMainGridPaintGate';
 
 /**
  * مرة واحدة لكل تبويب/جلسة — يمنع إعادة شعار الإقلاع عند الرجوع من التنفيذ/الدعاوى/الإعدادات.
@@ -38,6 +92,8 @@ declare global {
         __hamiBootRevealDone__?: boolean;
         __hamiBootExitStarted__?: boolean;
         __hamiStaticBootPainted__?: boolean;
+        /** true فقط بعد paint شبكة الرئيسية — بوابة إزالة #hami-static-boot */
+        __hamiHomeMainGridPainted__?: boolean;
     }
 }
 
@@ -63,18 +119,32 @@ export function isBootRevealDone(): boolean {
 /** يثبت أن الإقلاع اكتمل لهذه الجلسة — لا يُعرض Splash مرة أخرى */
 export function markBootRevealDone(): void {
     if (typeof window === 'undefined') return;
+    if (window.__hamiBootRevealDone__ === true) return;
     window.__hamiBootRevealDone__ = true;
-    try {
-        document.documentElement.dataset.hamiBootRevealed = '1';
-    } catch {
-        /* ignore */
-    }
     try {
         for (const key of HAMI_BOOT_SESSION_KEYS) {
             sessionStorage.setItem(key, '1');
         }
     } catch {
         /* ignore */
+    }
+
+    const applyRevealedDom = () => {
+        try {
+            document.documentElement.dataset.hamiBootRevealed = '1';
+            document.documentElement.removeAttribute('data-hami-initial-boot');
+        } catch {
+            /* ignore */
+        }
+    };
+
+    if (hasStaticBootShell()) {
+        purgeStaticBootShellPermanently();
+    }
+    if (typeof window !== 'undefined') {
+        window.requestAnimationFrame(applyRevealedDom);
+    } else {
+        applyRevealedDom();
     }
 }
 
@@ -110,20 +180,102 @@ export function onBootContentReady(run: () => void): () => void {
     return () => window.removeEventListener(BOOT_CONTENT_READY_EVENT, handler);
 }
 
+function finishAfterStablePaint(cancelled: () => boolean, finish: () => void): void {
+    if (isDemoShellAuthBuild()) {
+        if (!cancelled()) finish();
+        return;
+    }
+    requestAnimationFrame(() => {
+        if (!cancelled()) finish();
+    });
+}
+
 /**
- * كشف بعد أسبق من المسارين:
- * 1) اكتمال deferred-app (استقرار كامل) — يبدأ بعد stylesDeferMs لمنح HomeTab الشبكة
- * 2) first-tab-open — critical-shell يغطي تخطيط المنزل
+ * كشف عند first-tab-open / dashboard-shell-painted ثم إطار paint واحد.
+ * المسارات الثانوية (deferred-app، home-dock) تُشغَّل بالتوازي ولا تحجب الكشف.
  */
 export function scheduleBootContentReadyAfterStyles(
     ensureStyles: () => Promise<void>,
     opts?: { maxWaitMs?: number; onReady?: () => void; stylesDeferMs?: number },
 ): () => void {
     if (typeof window === 'undefined') return () => undefined;
+
+    /** تجريبي: نفس بوابات الإنتاج — يمنع قفز البطاقات/العناوين بعد الكشف */
+    if (isDemoShellAuthBuild()) {
+        const maxWaitMs = opts?.maxWaitMs ?? getBootContentReadyMaxMs();
+        let cancelled = false;
+        let done = false;
+        let shellPaintedReady = false;
+        let stylesReady = false;
+        let dockChunkReady = false;
+
+        const finish = () => {
+            if (cancelled || done) return;
+            done = true;
+            notifyBootContentReady();
+            opts?.onReady?.();
+        };
+
+        const finishAfterStablePaintLocal = () => {
+            finishAfterStablePaint(() => cancelled, finish);
+        };
+
+        const tryFinish = () => {
+            if (isBootRevealGateReady(shellPaintedReady, stylesReady, dockChunkReady)) {
+                finishAfterStablePaintLocal();
+            }
+        };
+
+        const onShellPainted = () => {
+            shellPaintedReady = true;
+            tryFinish();
+        };
+        window.addEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted, { once: true });
+        window.addEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted, { once: true });
+        window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted, { once: true });
+
+        void ensureStyles().then(() => {
+            if (!cancelled) {
+                stylesReady = true;
+                tryFinish();
+            }
+        });
+
+        void import('@/app/bootstrap/homeDockBootGate')
+            .then((m) => m.waitForHomeDockBootChunk())
+            .then(() => {
+                if (!cancelled) {
+                    dockChunkReady = true;
+                    tryFinish();
+                }
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    dockChunkReady = true;
+                    tryFinish();
+                }
+            });
+
+        const maxTimer = window.setTimeout(() => {
+            if (!cancelled) finishAfterStablePaintLocal();
+        }, maxWaitMs);
+
+        return () => {
+            cancelled = true;
+            window.clearTimeout(maxTimer);
+            window.removeEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted);
+            window.removeEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted);
+            window.removeEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted);
+        };
+    }
+
     let cancelled = false;
     let done = false;
+    let shellPaintedReady = false;
+    let stylesReady = false;
+    let dockChunkReady = false;
     const maxWaitMs = opts?.maxWaitMs ?? 8_000;
-    const stylesDeferMs = opts?.stylesDeferMs ?? 320;
+    const stylesDeferMs = opts?.stylesDeferMs ?? 0;
 
     const finish = () => {
         if (cancelled || done) return;
@@ -132,13 +284,24 @@ export function scheduleBootContentReadyAfterStyles(
         opts?.onReady?.();
     };
 
-    const finishAfterPaint = () => {
-        requestAnimationFrame(() => {
-            if (!cancelled) finish();
-        });
+    const finishAfterStablePaintLocal = () => {
+        finishAfterStablePaint(() => cancelled, finish);
     };
 
-    const hangId = window.setTimeout(finish, maxWaitMs);
+    const tryFinish = () => {
+        if (cancelled || done) return;
+        if (!isBootRevealGateReady(shellPaintedReady, stylesReady, dockChunkReady)) return;
+        finishAfterStablePaintLocal();
+    };
+
+    const hangId = window.setTimeout(() => {
+        if (!cancelled && !done) {
+            shellPaintedReady = true;
+            stylesReady = true;
+            dockChunkReady = true;
+            finishAfterStablePaintLocal();
+        }
+    }, maxWaitMs);
 
     let stylesStarted = false;
     const startStylesRace = () => {
@@ -146,40 +309,58 @@ export function scheduleBootContentReadyAfterStyles(
         stylesStarted = true;
         void ensureStyles()
             .then(() => {
-                window.clearTimeout(hangId);
                 if (cancelled || done) return;
-                finishAfterPaint();
+                stylesReady = true;
+                tryFinish();
             })
             .catch(() => {
-                window.clearTimeout(hangId);
-                if (!done) finish();
+                if (cancelled || done) return;
+                stylesReady = true;
+                tryFinish();
             });
     };
 
-    /* امنح HomeTab(~52KB) أولوية شبكة قبل deferred-app(~577KB) */
-    const stylesDelayId = window.setTimeout(startStylesRace, stylesDeferMs);
+    const stylesDelayId =
+        stylesDeferMs > 0
+            ? window.setTimeout(startStylesRace, stylesDeferMs)
+            : (startStylesRace(), 0);
 
-    const onFirstTab = () => {
-        window.clearTimeout(stylesDelayId);
-        window.clearTimeout(hangId);
+    void import('@/app/bootstrap/homeDockBootGate')
+        .then((m) => m.waitForHomeDockBootChunk())
+        .then(() => {
+            if (cancelled || done) return;
+            dockChunkReady = true;
+            tryFinish();
+        })
+        .catch(() => {
+            if (cancelled || done) return;
+            dockChunkReady = true;
+            tryFinish();
+        });
+
+    const onShellPainted = () => {
         if (cancelled || done) return;
-        finish();
-        /* بعد الكشف — حمّل/أكمل الأنماط للتحسين بدون حجب الشعار */
-        stylesStarted = true;
-        void ensureStyles().catch(() => undefined);
+        shellPaintedReady = true;
+        tryFinish();
     };
-    window.addEventListener(FIRST_TAB_OPEN_EVENT, onFirstTab, { once: true });
-    if (
-        typeof performance !== 'undefined' &&
-        performance.getEntriesByName('hami:boot:first-tab-open', 'mark').length > 0
-    ) {
-        queueMicrotask(onFirstTab);
+    window.addEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted, { once: true });
+    window.addEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted, { once: true });
+    window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted, { once: true });
+    if (typeof performance !== 'undefined') {
+        if (performance.getEntriesByName('hami:boot:first-tab-open', 'mark').length > 0) {
+            queueMicrotask(onShellPainted);
+        }
+        if (performance.getEntriesByName('hami:boot:dashboard-main-view', 'mark').length > 0) {
+            queueMicrotask(onShellPainted);
+        }
     }
 
     return () => {
         cancelled = true;
         window.clearTimeout(hangId);
-        window.clearTimeout(stylesDelayId);
-        window.removeEventListener(FIRST_TAB_OPEN_EVENT, onFirstTab);
+        if (stylesDelayId) window.clearTimeout(stylesDelayId);
+        window.removeEventListener(FIRST_TAB_OPEN_EVENT, onShellPainted);
+        window.removeEventListener(DASHBOARD_SHELL_PAINTED_EVENT, onShellPainted);
+        window.removeEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onShellPainted);
     };
 }

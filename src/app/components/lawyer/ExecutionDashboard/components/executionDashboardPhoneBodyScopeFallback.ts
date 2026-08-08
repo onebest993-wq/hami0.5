@@ -1,4 +1,4 @@
-import { Bell, Calendar, MapPin, Phone, X } from 'lucide-react';
+import { Bell, Calendar, MapPin, Phone, X } from '@/app/components/ui/lucideIcons';
 import { ColleagueConsultationProvider } from '@/app/components/lawyer/caseShare/ColleagueConsultationContext';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import SecureStoreService from '@/app/services/SecureStoreService';
@@ -68,6 +68,9 @@ export function withPhoneBodyScopeFallback(scope: Record<string, unknown>): Reco
         setDossierLifecyclePanelOpen: () => undefined,
         setDossierLifecyclePanelPhase: () => undefined,
         setDossierPendingStatus: () => undefined,
+        seizedMovablesForSeizureLog: [],
+        seizedPropertiesForSeizureLog: [],
+        seizureLogExecutorDecisions: [],
     };
     for (const [key, value] of Object.entries(componentFallbacks)) {
         if (out[key] == null && value != null) {

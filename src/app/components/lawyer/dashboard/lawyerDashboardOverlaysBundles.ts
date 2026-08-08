@@ -29,6 +29,12 @@ export type LawyerDashboardDataBundle = {
     notesBootSettled?: boolean;
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
     criminalCasesForCluster: unknown[];
+    lawsuitLifecycleCounts: Workspace['lawsuitLifecycleCounts'];
+    lawsuitLifecycleIndex: Workspace['lawsuitSegments']['index'];
+    lawsuitArchivedFiles: Workspace['lawsuitArchivedFiles'];
+    lawsuitTrashFiles: Workspace['lawsuitTrashFiles'];
+    ensureLawsuitArchivedLoaded: Workspace['ensureLawsuitArchivedLoaded'];
+    ensureLawsuitTrashLoaded: Workspace['ensureLawsuitTrashLoaded'];
 };
 
 export type LawyerDashboardDossierBundle = {
@@ -46,6 +52,11 @@ export type LawyerDashboardDossierBundle = {
     consolidationNavActive: Workspace['consolidationNavActive'];
     caseLinkNav: Workspace['caseLinkNav'];
     consolidationSpawnNav: Workspace['consolidationSpawnNav'];
+    caseLinkViewOnly: Workspace['caseLinkViewOnly'];
+    returnFromCaseLinkBrowse: Workspace['returnFromCaseLinkBrowse'];
+    clearCaseLinkBrowse: Workspace['clearCaseLinkBrowse'];
+    handleUnlinkCaseLink: Workspace['handleUnlinkCaseLink'];
+    caseLinkBrowse: Workspace['caseLinkBrowse'];
 };
 
 export type LawyerDashboardArchiveBundle = {
@@ -85,6 +96,8 @@ export type LawyerDashboardNewCaseBundle = {
     newCaseModalKey: Workspace['newCaseModalKey'];
     newCasePresetType: Workspace['presetSelectedType'];
     isCriminalSeveranceRedirect: Workspace['isCriminalSeveranceRedirect'];
+    dossierNewCaseElevated: Workspace['dossierNewCaseElevated'];
+    incidentalSpawnContext: Workspace['incidentalSpawnContext'];
     onNewCaseOpenCriminalDashboard: Workspace['onNewCaseOpenCriminalDashboard'];
     handleNewCaseSave: Workspace['handleNewCaseSave'];
 };

@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { BadgeCheck, ChevronDown, Handshake, Wallet } from 'lucide-react';
+import { BadgeCheck, ChevronDown, Handshake, Wallet } from '@/app/components/ui/lucideIcons';
 import { formatIqdDisplay, formatNumberInput } from '../utils';
 import type { SettlementDuePhase } from '../utils';
 import type { PendingSettlement, UnifiedLedgerStore } from '../types';

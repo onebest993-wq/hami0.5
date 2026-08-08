@@ -3,7 +3,6 @@ import React from 'react';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { DECISIONS_RELOAD_EVENT } from '@/app/utils/executorDecisionContracts';
 import {
-    appendPendingExecutorSeizureDecision,
     closeSeizureSubtypeDecisionCycle,
     getGoverningSeizureDecisionBySubtype,
     isExecutorRowRejectedAndFinal,
@@ -27,6 +26,17 @@ import type {
     VehicleCompletionDraft,
 } from '../components/SeizureRequestCompletionForms';
 import type { InlineActionGateKey } from '../types';
+import { useSeizureInlineFocusBridge } from '@/app/components/lawyer/ExecutionDashboard/hooks/useSeizureInlineFocusBridge';
+import {
+    resolveGoverningMovableDecision,
+    resolveGoverningPropertyDecision,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
+import { submitBasicSeizurePendingRequest } from '@/app/domain/seizure/seizureBasicRequestService';
+import {
+    buildPendingSeizureDraftAsset,
+    dispatchOpenSeizureCompletion,
+    mergeSeizureDraftPatch,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 
 export type UseSeizureRequestsTabDecisionsParams = {
     executionId: string | undefined;
@@ -39,6 +49,7 @@ export type UseSeizureRequestsTabDecisionsParams = {
     nextTimelineId: () => string;
     inlineActionGateKey: InlineActionGateKey | null;
     setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
     activeDebtorIsDeceased?: boolean;
 };
 
@@ -55,6 +66,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         inlineActionGateKey,
         setInlineActionGateKey,
         activeDebtorIsDeceased = false,
+        persistExecutionMerge,
     } = p;
 
     const normalizeExecutionId = React.useCallback((v: unknown): string => {
@@ -77,9 +89,13 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         return Array.from(new Set(ids));
     }, [executionData, executionId, normalizeExecutionId]);
     const resolvedExecutionId = executionIdsForDecisions[0] || '';
+
+    const { inlineFocusMovableDecisionId, inlineFocusPropertyDecisionId } = useSeizureInlineFocusBridge({
+        executionIds: executionIdsForDecisions,
+    });
+
     const [guarantorExistingWarningOpen, setGuarantorExistingWarningOpen] = React.useState(false);
     const [lastSalaryDecisionId, setLastSalaryDecisionId] = React.useState('');
-    const salaryAutoRegisterSigRef = React.useRef('');
 
     const readAllDecisions = React.useCallback((): Record<string, unknown>[] => {
         const merged: Record<string, unknown>[] = [];
@@ -188,11 +204,13 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     const acknowledgeSeizureRequestFromLog = React.useCallback(
         (tab: UnifiedSeizureLogTab) => {
             if (!resolvedExecutionId) return;
-            closeSeizureSubtypeDecisionCycle({
-                executionId: resolvedExecutionId,
-                subtype: SEIZURE_LOG_TAB_SUBTYPE[tab],
-            });
             openUnifiedSeizureLogTab(tab);
+            window.setTimeout(() => {
+                closeSeizureSubtypeDecisionCycle({
+                    executionId: resolvedExecutionId,
+                    subtype: SEIZURE_LOG_TAB_SUBTYPE[tab],
+                });
+            }, 0);
         },
         [resolvedExecutionId]
     );
@@ -212,12 +230,22 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         setLastSalaryDecisionId(did);
     }, [salaryDecision]);
     const propertyDecision = React.useMemo(
-        () => getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'property', decisions),
-        [resolvedExecutionId, decisions]
+        () =>
+            resolveGoverningPropertyDecision(
+                resolvedExecutionId,
+                decisions,
+                inlineFocusPropertyDecisionId,
+            ),
+        [resolvedExecutionId, decisions, inlineFocusPropertyDecisionId],
     );
     const movableDecision = React.useMemo(
-        () => getGoverningSeizureDecisionBySubtype(resolvedExecutionId, 'movable_auction', decisions),
-        [resolvedExecutionId, decisions]
+        () =>
+            resolveGoverningMovableDecision(
+                resolvedExecutionId,
+                decisions,
+                inlineFocusMovableDecisionId,
+            ),
+        [resolvedExecutionId, decisions, inlineFocusMovableDecisionId],
     );
 
     const submitBasicSeizureRequest = React.useCallback(
@@ -227,11 +255,6 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
             body: string;
             subtype: any;
         }) => {
-            const exId = resolvedExecutionId;
-            if (!exId) {
-                showToast('تعذّر إرسال الطلب — معرّف الإضبارة غير جاهز', 'error');
-                return null;
-            }
             if (
                 args.actionType === 'salary' &&
                 isSalarySeizureLaneOccupied({
@@ -244,16 +267,26 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
                 showToast('يوجد حجز راتب نشط أو طلب قيد البت — لا يمكن التكرار قبل فك الحجز.', 'warning');
                 return null;
             }
-            const decisionId = appendPendingExecutorSeizureDecision({
-                executionId: exId,
-                requestTitle: `${args.title} — قيد البت لدى المنفذ`,
-                requestBody: args.body,
-                seizureSubtype: args.subtype,
-            } as any);
-            if (!decisionId) {
+            const result = submitBasicSeizurePendingRequest({
+                dossierInput: {
+                    executionId: resolvedExecutionId,
+                    executionDataId: executionData?.id,
+                    executionData: executionData as Record<string, unknown> | null,
+                },
+                title: args.title,
+                body: args.body,
+                subtype: String(args.subtype || ''),
+                decisions,
+            });
+            if (result.error === 'invalid_dossier') {
+                showToast('تعذّر إرسال الطلب — معرّف الإضبارة غير جاهز', 'error');
+                return null;
+            }
+            if (!result.ok || !result.decisionId) {
                 showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning');
                 return null;
             }
+            const decisionId = result.decisionId;
             const nowIso = new Date().toISOString();
             pushTimelineEvent(
                 {
@@ -268,9 +301,35 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
                 } as any
             );
             showToast('تم إنشاء الطلب — قرار المنفذ يظهر هنا مباشرة.', 'success');
+            if (persistExecutionMerge && decisionId) {
+                const uiActionType =
+                    args.actionType === 'vehicle' ? 'vehicle' : args.actionType === 'salary' ? 'salary' : 'property';
+                const draft = buildPendingSeizureDraftAsset({
+                    decisionId,
+                    actionType: uiActionType,
+                    activeDebtorIsDeceased,
+                });
+                const nextDrafts = mergeSeizureDraftPatch(
+                    executionData?.seizureDraftsByDecisionId as
+                        | Record<string, import('@/app/types/execution').SeizedAsset>
+                        | undefined,
+                    decisionId,
+                    draft,
+                );
+                persistExecutionMerge({ seizureDraftsByDecisionId: nextDrafts });
+            }
             return decisionId;
         },
-        [executionData?.seizedAssets, executionData?.seizureDraftsByDecisionId, nextTimelineId, pushTimelineEvent, resolvedExecutionId, showToast]
+        [
+            activeDebtorIsDeceased,
+            decisions,
+            executionData,
+            nextTimelineId,
+            persistExecutionMerge,
+            pushTimelineEvent,
+            resolvedExecutionId,
+            showToast,
+        ],
     );
 
     const salaryRowForUi = React.useMemo(() => {
@@ -375,6 +434,8 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
             const savedAt = String(salaryRowForUi?.seizureRequestSavedAt || '').trim();
             const needsCompletion = approved && !savedAt;
             if (needsCompletion) {
+                const exId = String(resolvedExecutionId || '').trim();
+                if (exId && did) dispatchOpenSeizureCompletion(exId, did);
                 return;
             }
             if (approved && savedAt) {
@@ -390,6 +451,7 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
         coerciveUiLocked,
         hasActiveSalarySeizure,
         openDecisions,
+        resolvedExecutionId,
         salaryRowForUi,
         seizureActionsDisabled,
     ]);
@@ -397,38 +459,6 @@ export function useSeizureRequestsTabDecisions(p: UseSeizureRequestsTabDecisions
     const salaryRequestTitle = activeDebtorIsDeceased
         ? 'طلب حجز الحوافز والمخصصات'
         : 'طلب حجز راتب';
-
-    React.useEffect(() => {
-        const row = salaryRowForUi;
-        if (!row?.id) return;
-        if (isExecutorRowRejectedAndFinal(row)) return;
-        if (!isExecutorRowApprovedWorkflowActive(row, decisions)) return;
-        const savedAt = String(row.seizureRequestSavedAt || '').trim();
-        if (savedAt) {
-            salaryAutoRegisterSigRef.current = '';
-            return;
-        }
-        const decisionId = String(row.id).trim();
-        if (!decisionId) return;
-        if (salaryAutoRegisterSigRef.current === decisionId) return;
-        const alreadyInRegistry = (executionData?.seizedAssets || []).some((a) => {
-            if (!isSalarySeizureAsset(a)) return false;
-            const det =
-                typeof a.details === 'object' && a.details && !Array.isArray(a.details)
-                    ? (a.details as Record<string, unknown>)
-                    : null;
-            return String(det?.decisionRowId || '') === decisionId;
-        });
-        if (alreadyInRegistry) return;
-        salaryAutoRegisterSigRef.current = decisionId;
-        saveCoerciveAction('salary', {
-            decisionRowId: decisionId,
-            employerName: '',
-            salaryAmount: '',
-            monthlyDeductionIqd: '',
-        });
-    }, [decisions, executionData?.seizedAssets, salaryRowForUi, saveCoerciveAction]);
-
 
     const sharedAssetProps = {
         seizureActionsDisabled,

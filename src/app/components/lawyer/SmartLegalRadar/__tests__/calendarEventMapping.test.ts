@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { mapStoredEventsToUnified } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
+import {
+    mapAllCalendarEventsForSparkScan,
+    mapStoredEventsToUnified,
+} from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
 import type { CalendarEvent } from '@/app/services/lawyer-cloud';
 
-vi.mock('@/app/services/calendarBridge', () => ({
+vi.mock('@/app/services/calendar/calendarEventAuthorship', () => ({
     isBridgedCalendarEvent: (e: CalendarEvent) => Boolean(e.sourceModule),
-}));
-
-vi.mock('@/app/services/calendarAuthenticity', () => ({
     isUserAuthoredBridgedCalendarEvent: () => true,
 }));
 
@@ -48,5 +48,17 @@ describe('mapStoredEventsToUnified', () => {
             sourceEventId: 'evt-1',
             calendarRecordId: 'xyz',
         });
+    });
+
+    it('يستخرج المحكمة من الملاحظات في مسح سبارك', () => {
+        const stored: CalendarEvent = {
+            id: 'court-1',
+            title: 'جلسة',
+            date: '2026-06-03',
+            type: 'hearing',
+            notes: 'المحكمة: محكمة الكرخ',
+        };
+        const out = mapAllCalendarEventsForSparkScan([stored]);
+        expect(out[0]?.court).toBe('محكمة الكرخ');
     });
 });

@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import { useRuntimePhase } from '@/app/runtime/runtimePhase';
 import {
@@ -8,18 +8,11 @@ import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
 import { LawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
 import { QuantumTasksProvider } from '@/app/context/QuantumTasksProvider';
 import type { LawyerDashboardShellProps } from './LawyerDashboardQuantumShell';
+import { LawyerDashboardMainView } from './LawyerDashboardMainView';
 import { useLawyerDashboardCore } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCore';
 import { usePendingFieldTasksCountMetric, useQuantumTasksFingerprint } from '@/app/hooks/useQuantumTasksContext';
-import { lazyWithRetry, type LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 
 export type LawyerDashboardInnerRuntimeProps = LawyerDashboardShellProps;
-
-/** يبدأ مع تقييم Runtime — يطوي انتظار MainView بعد mark */
-const lawyerDashboardMainViewPromise = import('./LawyerDashboardMainView').then((m) => ({
-    default: m.LawyerDashboardMainView as unknown as LazyComponent,
-}));
-
-const LazyLawyerDashboardMainView = lazyWithRetry(() => lawyerDashboardMainViewPromise);
 
 /**
  * Runtime اللوحة بعد interactive mark —
@@ -81,18 +74,5 @@ function LawyerDashboardCore({
     if (model.status === 'gate') return <>{model.node}</>;
     if (model.status === 'empty') return null;
 
-    return (
-        <Suspense
-            fallback={
-                <div
-                    className="min-h-screen w-full bg-[#0a0f1c]"
-                    data-testid="lawyer-main-view-suspense"
-                    aria-busy
-                    aria-label="جاري فتح اللوحة"
-                />
-            }
-        >
-            <LazyLawyerDashboardMainView model={model} />
-        </Suspense>
-    );
+    return <LawyerDashboardMainView model={model} />;
 }

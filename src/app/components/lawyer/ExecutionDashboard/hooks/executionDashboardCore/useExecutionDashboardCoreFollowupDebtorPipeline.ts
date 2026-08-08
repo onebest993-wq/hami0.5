@@ -1,12 +1,14 @@
-// @ts-nocheck
 /** Phase C Slice 26 — debtor workspace + followup specialization + tab assembly */
-import { useMemo } from 'react';
+import { useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, Debtor } from '@/app/types/execution';
+import type { ExecutionFollowupOrchestratorSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
+import type { ExecutionDashboardCoreBootPipelineValue } from './executionDashboardCoreBootPipelineTypes';
 import type { DebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';
 import { resolveDebtorEntityKind, isLegalEntityDebtorKind } from '@/app/utils/debtorEntityKindUtils';
 import { isLawyerRepresentingDebtor } from '@/app/utils/debtorAgentRepresentationUtils';
-import { resolveFollowupSpecializationFromExecution } from '@/app/utils/followupSpecializationVisibility';
-import { applyDebtorDeathFollowupOverlay } from '@/app/utils/partyDeathClaimPolicy';
+import { resolveFollowupFlagsForDebtorContext } from '@/app/utils/executionDomainIsolation';
+import { applyDebtorDeathFollowupOverlay } from '@/app/utils/partyDeathFollowupOverlay';
 import {
     executionTimelineVisibilityFromFollowup,
     resolveExecutionTimelineFilterOptions,
@@ -36,57 +38,32 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
     claimType: string;
     creditors: ExecutionFile['creditors'];
     debtors: ExecutionFile['debtors'];
-    mergedTimelineEvents: unknown[];
-    activeTimelineEvents: unknown[];
-    activeCoerciveActions: string[];
-    realEstateSeizureRegistryAssets: unknown;
-    salarySeizureRegistryAssets: unknown;
-    movableSeizureRegistryAssets: unknown;
-    thirdPartySeizureRegistryAssets: unknown;
-    thirdPartySeizuresUi: unknown;
-    showToast: (msg: string, type?: string) => void;
+    mergedTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['mergedTimelineEvents'];
+    activeTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['activeTimelineEvents'];
+    activeCoerciveActions: ExecutionDashboardCoreWorkspacePipelineValue['activeCoerciveActions'];
+    realEstateSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['realEstateSeizureRegistryAssets'];
+    salarySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['salarySeizureRegistryAssets'];
+    movableSeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['movableSeizureRegistryAssets'];
+    thirdPartySeizureRegistryAssets: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizureRegistryAssets'];
+    thirdPartySeizuresUi: ExecutionDashboardCoreWorkspacePipelineValue['thirdPartySeizuresUi'];
+    showToast: ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
     showUnifiedExecutionModal: boolean;
     dossierFileKey: string;
     executionFileKey: string;
     setShowDecisionsModal: (show: boolean) => void;
     showDecisionsModal: boolean;
-    setActiveTimelineFilter: (v: string) => void;
+    setActiveTimelineFilter: Dispatch<SetStateAction<string>>;
     setShowExtraCreditors: (v: boolean) => void;
     setShowExtraDebtors: (v: boolean) => void;
-    caseTasksPendingRef: { current: unknown };
-    setCaseTasksPending: (v: unknown) => void;
-    setTimelineEvents: (v: unknown) => void;
-    persistExecutionMergeRef: { current: unknown };
+    caseTasksPendingRef: ExecutionDashboardCoreWorkspacePipelineValue['caseTasksPendingRef'];
+    setCaseTasksPending: ExecutionDashboardCoreWorkspacePipelineValue['setCaseTasksPending'];
+    setTimelineEvents: ExecutionDashboardCoreWorkspacePipelineValue['setTimelineEvents'];
+    persistExecutionMergeRef: ExecutionDashboardCoreWorkspacePipelineValue['persistExecutionMergeRef'];
     setNotificationCount: React.Dispatch<React.SetStateAction<number>>;
-    setDebtorSummonsMarkerLocal: React.Dispatch<React.SetStateAction<unknown>>;
-    pushTimelineEventRef: { current: unknown };
-    nextTimelineId: () => string;
-    followupOrchestrator: {
-        executionDebtorTabIndex: number;
-        setExecutionDebtorTabIndex: (i: number) => void;
-        followupSolidaryDebtorIndex: number;
-        setFollowupSolidaryDebtorIndex: (i: number) => void;
-        summonsContextDebtorKey: string | null | undefined;
-        openExecutionSeizuresTab: () => void;
-        showHeirsNotificationModal: boolean;
-        setShowHeirsNotificationModal: (v: boolean) => void;
-        employeeCompulsoryBannerDismissed: boolean;
-        setEmployeeCompulsoryBannerDismissed: (v: boolean) => void;
-        unifiedModalTab: string;
-        setUnifiedModalTab: (v: string) => void;
-        setShowUnifiedExecutionModal: (v: boolean) => void;
-        followupModalBodyScrollRef: { current: unknown };
-        followupModalSectionTabsRef: { current: unknown };
-        followupModalOpenGenerationRef: { current: unknown };
-        seizureMatrixRef: { current: unknown };
-        openSeizureRequestsTabRef: { current: unknown };
-        setEvictionVacateDeadlineLocal: (v: unknown) => void;
-        setEvictionVacateDraft: (v: unknown) => void;
-        setEvictionResidentialGracePeriodStart: (v: unknown) => void;
-        setEvictionResidentialGraceManuallyEndedAt: (v: unknown) => void;
-        setEvictionExecutorVacateGrantApproved: (v: unknown) => void;
-        setGraceModalAllowResave: (v: unknown) => void;
-    };
+    setDebtorSummonsMarkerLocal: ExecutionDashboardCoreBootPipelineValue['setDebtorSummonsMarkerLocal'];
+    pushTimelineEventRef: ExecutionDashboardCoreWorkspacePipelineValue['pushTimelineEventRef'];
+    nextTimelineId: ExecutionDashboardCoreWorkspacePipelineValue['nextTimelineId'];
+    followupOrchestrator: ExecutionFollowupOrchestratorSlice;
 }) {
     const debtorWorkspaceContext = useExecutionDashboardDebtorWorkspaceContext({
         executionData: p.executionData,
@@ -187,7 +164,7 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
                 const ad = p.executionData?.party_multiplicity?.additionalDebtors?.find(
                     (a) => String(a.id) === entry.key,
                 );
-                debtor = ad ?? entry.d;
+                debtor = (ad ?? entry.d) as Debtor | Record<string, unknown>;
             } else {
                 debtor = prim ?? entry.d;
             }
@@ -207,11 +184,13 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
 
     const followupModalSpecialization = useMemo(
         () =>
-            resolveFollowupSpecializationFromExecution(
+            resolveFollowupFlagsForDebtorContext(
                 p.executionData as Record<string, unknown> | null | undefined,
-                followupModalDebtorIsEmployee,
-                p.claimType,
-                followupModalEntityKind,
+                {
+                    isEmployeeDebtor: followupModalDebtorIsEmployee,
+                    fallbackClaimType: p.claimType,
+                    debtorEntityKind: followupModalEntityKind,
+                },
             ),
         [p.executionData, followupModalDebtorIsEmployee, p.claimType, followupModalEntityKind],
     );
@@ -309,7 +288,7 @@ export function useExecutionDashboardCoreFollowupDebtorPipeline(p: {
                 const ad = p.executionData?.party_multiplicity?.additionalDebtors?.find(
                     (a) => String(a.id) === activeWorkspaceDebtorForFollowup.key,
                 );
-                debtor = ad ?? activeWorkspaceDebtorForFollowup.d;
+                debtor = (ad ?? activeWorkspaceDebtorForFollowup.d) as Debtor | Record<string, unknown>;
             } else {
                 debtor = prim ?? activeWorkspaceDebtorForFollowup.d;
             }

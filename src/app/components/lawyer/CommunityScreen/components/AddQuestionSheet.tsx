@@ -3,7 +3,7 @@ import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useCommunitySheetChrome } from '@/app/hooks/useCommunitySheetChrome';
-import { X, ImageIcon, Paperclip, FileText, Mic, Square, Loader2, EyeOff, Zap } from 'lucide-react';
+import { X, ImageIcon, Paperclip, FileText, Mic, Square, Loader2, EyeOff, Zap } from '@/app/components/ui/lucideIcons';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
 import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
 import { ForumMentionSuggestions } from './ForumMentionSuggestions';

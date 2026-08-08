@@ -1,29 +1,29 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-28T15:56:14.696Z",
+  "generatedAt": "2026-08-06T19:23:10.427Z",
   "bundles": {
     "civil-procedure": {
-      "path": "/static-law-data/v1/civil-procedure.8c77fe711b94.json",
-      "sha256": "8c77fe711b94d3306e0882b1db346cf02b45995268d4f49ff57751d6eaf1139f",
+      "path": "/static-law-data/v1/civil-procedure.2967ae7d7919.json",
+      "sha256": "2967ae7d791924b778d8e7b8fe352afce6a519759aa4fc271b2d524bf760953e",
       "articleCount": 325,
       "law_name": "قانون المرافعات المدنية العراقي رقم 83 لسنة 1969"
     },
     "criminal-procedure": {
-      "path": "/static-law-data/v1/criminal-procedure.7fc0d240e377.json",
-      "sha256": "7fc0d240e3778681008c8896caa56bdd06ee5f50b1f6d3e60d52c1881c94dae9",
+      "path": "/static-law-data/v1/criminal-procedure.b54bfe6fc413.json",
+      "sha256": "b54bfe6fc4133f8ecf902161c28d9fa695658731375c27fc3a79d98ad5aeb3da",
       "articleCount": 372,
       "law_name": "قانون أصول المحاكمات الجزائية العراقي رقم 23 لسنة 1971"
     },
     "evidence": {
-      "path": "/static-law-data/v1/evidence.b87b09e052d1.json",
-      "sha256": "b87b09e052d1d375e328e69eb74742a8f6b9c0f04a2d1591e5ff7b1ee319fab6",
+      "path": "/static-law-data/v1/evidence.318451e4f514.json",
+      "sha256": "318451e4f51418bd7d4a4ff99a49e076de4a92c0fb417e8fd9eaaa08600d7674",
       "articleCount": 149,
       "law_name": "قانون الإثبات العراقي رقم 107 لسنة 1979"
     },
     "execution": {
-      "path": "/static-law-data/v1/execution.a9b6f5c37051.json",
-      "sha256": "a9b6f5c37051150cd3d00654574e278fae46126fd5e7b770ac49445db10a4551",
-      "articleCount": 129,
+      "path": "/static-law-data/v1/execution.192daa4e7c3a.json",
+      "sha256": "192daa4e7c3a1dc59c0718768d4a494fb6b2e03a00976a63ea8b26da0f2b0f76",
+      "articleCount": 130,
       "law_name": "قانون التنفيذ العراقي رقم 45 لسنة 1980"
     },
     "jaafari-code": {
@@ -33,14 +33,14 @@
       "law_name": "المدونة الجعفرية"
     },
     "juvenile": {
-      "path": "/static-law-data/v1/juvenile.05813f833b92.json",
-      "sha256": "05813f833b92356bb63f963a01fa7517604fedfe5b3d3119c97ab49da355650f",
+      "path": "/static-law-data/v1/juvenile.80d75d5f434a.json",
+      "sha256": "80d75d5f434aa3eff7c70f8b3b7315aae7122db82015425ec1e6f385bb6c0f0b",
       "articleCount": 110,
       "law_name": "قانون رعاية الأحداث العراقي رقم 76 لسنة 1983"
     },
     "penal": {
-      "path": "/static-law-data/v1/penal.da1aab487470.json",
-      "sha256": "da1aab487470d31e05372b4ddc1e827a1d373679e30d263a5e5549e469c22768",
+      "path": "/static-law-data/v1/penal.d274e7918fe1.json",
+      "sha256": "d274e7918fe1b0634664fc8ed57d00da797d423daeab5df7f4f7f3f34ee7dbda",
       "articleCount": 503,
       "law_name": "قانون العقوبات العراقي رقم 111 لسنة 1969"
     },

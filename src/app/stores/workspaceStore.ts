@@ -1,12 +1,19 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
+import type { WorkspacePinnedItem } from '@/app/workspace/types';
+import {
+    WORKSPACE_STORE_KEY,
+    WORKSPACE_STORE_PERSIST_VERSION,
+    migrateWorkspacePersistState,
+    normalizeWorkspacePersistSlice,
+} from '@/app/infrastructure/persistence/workspaceStorePersist';
+import { createPersistRehydrateReporter } from '@/app/infrastructure/persistence/zustandPersistFoundation';
+import { buildWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 import {
     WORKSPACE_PIN_TYPES,
     isClusterPinEligibleType,
-    type WorkspacePinnedItem,
 } from '@/app/workspace/types';
-import { buildWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 
 const MAX_PIN_TITLE = 200;
 
@@ -25,8 +32,6 @@ function sanitizePinnedItem(item: WorkspacePinnedItem): WorkspacePinnedItem | nu
     };
 }
 
-const storage = createSecureJSONStorage<Pick<WorkspaceStoreState, 'pinnedItems'>>();
-
 type WorkspaceStoreState = {
     pinnedItems: WorkspacePinnedItem[];
     pinItem: (item: WorkspacePinnedItem) => void;
@@ -39,12 +44,14 @@ type WorkspaceStoreState = {
     pruneIneligiblePins: () => void;
 };
 
+type WorkspacePersisted = Pick<WorkspaceStoreState, 'pinnedItems'>;
+
 function pinKey(id: string, type: WorkspacePinnedItem['type']): string {
     return `${type}:${id}`;
 }
 
 export const useWorkspaceStore = create<WorkspaceStoreState>()(
-    persist(
+    persist<WorkspaceStoreState, [], [], WorkspacePersisted>(
         (set, get) => ({
             pinnedItems: [],
             pinItem: (item) => {
@@ -83,18 +90,20 @@ export const useWorkspaceStore = create<WorkspaceStoreState>()(
                 })),
         }),
         {
-            name: 'hami:workspace:pins:v1',
-            storage,
+            name: WORKSPACE_STORE_KEY,
+            version: WORKSPACE_STORE_PERSIST_VERSION,
+            storage: createSecureJSONStorage<WorkspacePersisted>(),
+            migrate: migrateWorkspacePersistState,
             partialize: (s) => ({ pinnedItems: s.pinnedItems }),
-            merge: (persisted, current) => {
-                const p = persisted as Partial<WorkspaceStoreState> | undefined;
-                const raw = Array.isArray(p?.pinnedItems) ? p.pinnedItems : [];
-                const pinnedItems = raw
-                    .map((item) => sanitizePinnedItem(item as WorkspacePinnedItem))
-                    .filter((item): item is WorkspacePinnedItem => Boolean(item))
-                    .slice(0, 24);
-                return { ...current, pinnedItems };
-            },
+            merge: (persisted, current) => ({
+                ...current,
+                ...normalizeWorkspacePersistSlice(persisted),
+            }),
+            onRehydrateStorage: createPersistRehydrateReporter({
+                area: 'workspace-store',
+                storageKey: WORKSPACE_STORE_KEY,
+                version: WORKSPACE_STORE_PERSIST_VERSION,
+            }),
         },
     ),
 );

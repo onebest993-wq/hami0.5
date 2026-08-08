@@ -8,7 +8,6 @@ const useExecutionDashboardClaimFinancialsMock = vi.fn();
 const useExecutionDashboardEvictionLawyerFeeBackfillMock = vi.fn();
 const useExecutionDashboardSeizureLedgerOutcomeEffectsMock = vi.fn();
 const useExecutionDashboardLedgerSyncMock = vi.fn();
-const useExecutionDashboardFollowupSeizureTabsMock = vi.fn();
 const resolveSeizureMatrixFromExecutionMock = vi.fn();
 const resolveIsPersonalStatusExecutionClaimMock = vi.fn();
 
@@ -42,11 +41,6 @@ vi.mock('../useExecutionDashboardSeizureLedgerOutcomeEffects', () => ({
 vi.mock('../useExecutionDashboardLedgerSync', () => ({
     useExecutionDashboardLedgerSync: (...args: unknown[]) =>
         useExecutionDashboardLedgerSyncMock(...args),
-}));
-
-vi.mock('../useExecutionDashboardFollowupSeizureTabs', () => ({
-    useExecutionDashboardFollowupSeizureTabs: (...args: unknown[]) =>
-        useExecutionDashboardFollowupSeizureTabsMock(...args),
 }));
 
 vi.mock('@/app/utils/seizureMatrix', () => ({
@@ -109,14 +103,6 @@ describe('useExecutionDashboardCoreClaimFinancialLedgerPipeline', () => {
         useExecutionDashboardLedgerSyncMock.mockReturnValue({
             remainingBalanceForSeizure: 700,
             settlementGuarantorGate,
-        });
-
-        const openSeizureRequestsTab = vi.fn();
-        useExecutionDashboardFollowupSeizureTabsMock.mockReturnValue({
-            showGuarantorInSeizureFollowupTab: false,
-            effectiveFollowupSectionTabOrder: ['coercive'],
-            effectiveFollowupModalTabs: [{ id: 'coercive', label: 'إجراءات' }],
-            openSeizureRequestsTab,
         });
 
         const seizureMatrix = { hideSeizureTab: false };
@@ -225,13 +211,6 @@ describe('useExecutionDashboardCoreClaimFinancialLedgerPipeline', () => {
                 setShowCoerciveActionForm: input.setShowCoerciveActionForm,
             }),
         );
-        expect(useExecutionDashboardFollowupSeizureTabsMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                remainingBalanceForSeizure: 700,
-                settlementGuarantorGate,
-                followupSpecialization: input.followupSpecialization,
-            }),
-        );
         expect(resolveSeizureMatrixFromExecutionMock).toHaveBeenCalledWith({
             remainingBalanceIqd: 700,
             executionData,
@@ -240,7 +219,6 @@ describe('useExecutionDashboardCoreClaimFinancialLedgerPipeline', () => {
         });
         expect(seizureMatrixRef.current).toBe(seizureMatrix);
         expect(result.current.remainingBalanceForSeizure).toBe(700);
-        expect(result.current.openSeizureRequestsTab).toBe(openSeizureRequestsTab);
         expect(result.current.isPersonalStatusExecutionClaim).toBe(false);
     });
 });

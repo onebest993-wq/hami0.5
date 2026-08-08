@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
-import { Eye, Fingerprint, Shield, WifiOff } from 'lucide-react';
+import { Eye, Fingerprint, WifiOff } from '@/app/components/ui/lucideIcons';
 import { AUTO_LOCK_OPTIONS } from '@/app/services/settings';
 import { SettingCard, SettingRow, Toggle, SelectRow } from '../settings-ui';
+import { AsyncSettingToggle } from '../AsyncSettingToggle';
 import { useSecuritySection } from './useSecuritySection';
 
 export const SecuritySection = memo(function SecuritySection() {
@@ -16,7 +17,7 @@ export const SecuritySection = memo(function SecuritySection() {
                     data-testid="settings-local-only-banner"
                 >
                     <p className="text-xs font-bold text-amber-200/95">قطع الاتصال مفعّل</p>
-                    <p className="text-[10px] text-amber-100/70 mt-1">كل العمل محلي — لا مزامنة ولا اتصال خارجي</p>
+                    <p className="text-xs text-amber-100/80 mt-1">كل العمل محلي — لا مزامنة ولا اتصال خارجي</p>
                 </div>
             ) : null}
 
@@ -25,21 +26,10 @@ export const SecuritySection = memo(function SecuritySection() {
                     icon={WifiOff}
                     label="قطع الاتصال"
                     action={
-                        <Toggle
+                        <AsyncSettingToggle
                             testId="settings-toggle-security-localOnlyMode"
                             checked={vm.security.localOnlyMode}
-                            onChange={(v) => void vm.toggleLocalOnly(v)}
-                        />
-                    }
-                />
-                <SettingRow
-                    icon={Shield}
-                    label="تمويه عند الخروج"
-                    action={
-                        <Toggle
-                            testId="settings-toggle-security-privacyBlur"
-                            checked={vm.security.privacyBlur}
-                            onChange={(v) => vm.patchSecurity({ privacyBlur: v })}
+                            onCommit={vm.toggleLocalOnly}
                         />
                     }
                 />
@@ -48,22 +38,27 @@ export const SecuritySection = memo(function SecuritySection() {
                     label="قفل بيومتري"
                     subLabel={vm.biometricSubLabel}
                     action={
-                        <Toggle
+                        <AsyncSettingToggle
                             testId="settings-toggle-security-biometricLock"
                             checked={vm.security.biometricLock}
-                            onChange={vm.toggleBiometric}
+                            onCommit={vm.toggleBiometric}
                         />
                     }
                 />
                 <SelectRow
                     label="قفل تلقائي بعد"
                     value={String(vm.security.autoLockMinutes)}
-                    options={AUTO_LOCK_OPTIONS.map((o) => ({ value: String(o.value), label: o.label }))}
+                    options={AUTO_LOCK_OPTIONS.map((o) => ({
+                        value: String(o.value),
+                        label: o.label,
+                        testId: `settings-auto-lock-${o.value}`,
+                    }))}
                     onChange={vm.setAutoLockMinutes}
                 />
                 <SettingRow
                     icon={Eye}
                     label="حماية لقطة الشاشة"
+                    subLabel="يمنع لقطة الشاشة وتسجيل الشاشة على الجهاز"
                     isLast
                     action={
                         <Toggle

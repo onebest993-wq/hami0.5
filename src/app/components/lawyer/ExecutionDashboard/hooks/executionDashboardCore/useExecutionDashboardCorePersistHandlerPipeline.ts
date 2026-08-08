@@ -1,5 +1,6 @@
-// @ts-nocheck
+// @ts-nocheck — يُزال بعد typed ExecutionDashboardCorePersistHandlerPipelineInput (جاري)
 /** Phase C Slice 27 — summons profile + persist/save + trash/party edit sync */
+import { useCallback } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
 import { useDebtorSummonsProfile } from '../useDebtorSummonsProfile';
 import { useSubsequentNoticeFlow } from '../useSubsequentNoticeFlow';
@@ -7,6 +8,7 @@ import { useExecutionDashboardSaveExecutionData } from './useExecutionDashboardS
 import { useExecutionDashboardExecutorApprovalActions } from './useExecutionDashboardExecutorApprovalActions';
 import { useExecutionDashboardPushSeizureAuctionCalendarAppointment } from './useExecutionDashboardPushSeizureAuctionCalendarAppointment';
 import { useExecutionDashboardPendingExecutorDecisionOpeners } from './useExecutionDashboardPendingExecutorDecisionOpeners';
+import { dispatchDecisionsReload, patchExecutorDecisionRowReliable } from '@/app/utils/executorSeizureDecisionQueue';
 import { useExecutionDashboardPersistExecutionMerge } from './useExecutionDashboardPersistExecutionMerge';
 import { useExecutionTrashAndPins } from '../useExecutionTrashAndPins';
 import { usePartyEditWorkflow } from '../usePartyEditWorkflow';
@@ -91,6 +93,7 @@ export function useExecutionDashboardCorePersistHandlerPipeline(
         paidClientFees,
         earnerFeeCollectionSm,
         followupOrchestrator,
+        openFollowupModalPersisted,
         file,
         currentFileId,
         isMaritalFurnitureClaim,
@@ -299,6 +302,7 @@ const {
     const executorApprovalActions = useExecutionDashboardExecutorApprovalActions({
         executionData,
         executionId,
+        decisionsStorageExecutionId,
         file,
         currentFileId,
         isMaritalFurnitureClaim,
@@ -308,6 +312,7 @@ const {
         executionFileSnapshotRef,
         showToast,
         setShowDecisionsModal,
+        openFollowupModalPersisted: p.openFollowupModalPersisted,
         setShowUnifiedExecutionModal: followupOrchestrator.setShowUnifiedExecutionModal,
         setUnifiedModalTab: followupOrchestrator.setUnifiedModalTab,
         setFollowupExpandProcedureKey: followupOrchestrator.setFollowupExpandProcedureKey,
@@ -325,6 +330,7 @@ const {
     const pendingExecutorOpeners = useExecutionDashboardPendingExecutorDecisionOpeners({
             executionId,
             decisionsStorageExecutionId,
+            executionData,
             executorApprovalActions,
             setShowDecisionsModal,
             openBreakInventoryCompletion,
@@ -333,6 +339,42 @@ const {
 
     const { tryOpenPendingBreakInventoryLedger, tryOpenPendingCustodianDetails } =
         pendingExecutorOpeners;
+
+    const saveJudicialCustodianEntry = useCallback(
+        (payload: { decisionId: string; name: string; salary: string }) => {
+            const did = String(payload.decisionId || '').trim();
+            const fullName = String(payload.name || '').trim();
+            const salary = String(payload.salary || '').trim();
+            if (!did || !fullName || !salary) return;
+            const storageId = String(
+                decisionsStorageExecutionId || executionData?.id || executionId || '',
+            ).trim();
+            const ts = new Date().toISOString();
+            const { ok } = patchExecutorDecisionRowReliable(storageId, did, {
+                judicialCustodianDetailsSavedAt: ts,
+                judicialCustodianName: fullName,
+                judicialCustodianSalary: salary,
+            });
+            if (!ok) {
+                showToast('تعذر حفظ بيانات الحارس على القرار', 'error');
+                return;
+            }
+            executorApprovalActions.persistJudicialCustodianDetails({
+                decisionId: did,
+                fullName,
+                salary,
+            });
+            dispatchDecisionsReload();
+            showToast('تم حفظ بيانات الحارس القاضي', 'success');
+        },
+        [
+            decisionsStorageExecutionId,
+            executionData?.id,
+            executionId,
+            executorApprovalActions,
+            showToast,
+        ]
+    );
 
     useExecutionDashboardFieldVisitScheduledListener({
         executionDataId: executionData?.id,
@@ -480,5 +522,5 @@ const {
         setShowHeirsNotificationModal: followupOrchestrator.setShowHeirsNotificationModal,
     });
 
-    return { debtorSummonsProfileBundle, debtorOccupation, isDebtorGovernmentEmployee, isDebtorFreelancer, isDebtorRetired, debtorSummonsProfile, followupDebtorSummonsProfile, followupIsDebtorGovernmentEmployee, followupIsDebtorRetired, showSalaryCaptureForEmployee, subsequentNoticeFlow, earnerForcedActionUnlocked, followupEarnerForcedActionUnlocked, baseSubsequentNoticeUnlocked, evictionSubsequentNoticeUnlocked, subsequentNoticeUnlocked, anyExecutorDecisionResolvedForMemoBadge, primaryDebtorTaklifActive, primaryMemoNoticeBadge, primaryDebtorNoticeYmdResolved, showDebtorUnservedMemoBadge, primaryDebtorAbsenceBadge, showDebtorSummonsAttendanceBadge, noticeKindGoalStrictBinding, employeeAssignmentTabEnabled, resolvedEmployeeSummonsAssignment, showEmployeeAssignmentCoerciveBlock, employeeFinancialSalaryOnlyCoercive, monetaryCoerciveLimitedOnly, followupEmployeeFinancialSalaryOnlyCoercive, followupMonetaryCoerciveLimitedOnly, followupGarnishmentAmountPreview, saveExecutionData, executorApprovalActions, pushSeizureAuctionCalendarAppointment, pendingExecutorOpeners, tryOpenPendingBreakInventoryLedger, tryOpenPendingCustodianDetails, persistExecutionMergeBinding, persistExecutionMerge, trashAndPinsHandlers, timelineEditDraft, setTimelineEditDraft, moveTimelineEventToTrash, toggleTimelineEventPin, requestEditTimelineEvent, restoreTimelineEventFromTrash, permanentlyDeleteTimelineEvent, moveCaseNoteToTrash, moveCaseTaskToTrash, toggleCaseNotePin, toggleCaseTaskPin, saveTimelineEditDraft, restoreCaseNoteFromTrash, permanentlyDeleteCaseNote, restoreCaseTaskFromTrash, permanentlyDeleteCaseTask, partyEditWorkflow, editPartyTarget, setEditPartyTarget, partyEditDraft, setPartyEditDraft, partyEditHeirDeleteConfirmIdx, setPartyEditHeirDeleteConfirmIdx, heirsQuickView, setHeirsQuickView, openEditParty, buildPartyHeirsRows, openHeirsQuickView, savePartyEditDraft, removeHeirFromPartyEditDraftAtIndex, togglePartyEditHeirClient };
+    return { debtorSummonsProfileBundle, debtorOccupation, isDebtorGovernmentEmployee, isDebtorFreelancer, isDebtorRetired, debtorSummonsProfile, followupDebtorSummonsProfile, followupIsDebtorGovernmentEmployee, followupIsDebtorRetired, showSalaryCaptureForEmployee, subsequentNoticeFlow, earnerForcedActionUnlocked, followupEarnerForcedActionUnlocked, baseSubsequentNoticeUnlocked, evictionSubsequentNoticeUnlocked, subsequentNoticeUnlocked, anyExecutorDecisionResolvedForMemoBadge, primaryDebtorTaklifActive, primaryMemoNoticeBadge, primaryDebtorNoticeYmdResolved, showDebtorUnservedMemoBadge, primaryDebtorAbsenceBadge, showDebtorSummonsAttendanceBadge, noticeKindGoalStrictBinding, employeeAssignmentTabEnabled, resolvedEmployeeSummonsAssignment, showEmployeeAssignmentCoerciveBlock, employeeFinancialSalaryOnlyCoercive, monetaryCoerciveLimitedOnly, followupEmployeeFinancialSalaryOnlyCoercive, followupMonetaryCoerciveLimitedOnly, followupGarnishmentAmountPreview, saveExecutionData, executorApprovalActions, pushSeizureAuctionCalendarAppointment, pendingExecutorOpeners, tryOpenPendingBreakInventoryLedger, tryOpenPendingCustodianDetails, saveJudicialCustodianEntry, persistExecutionMergeBinding, persistExecutionMerge, trashAndPinsHandlers, timelineEditDraft, setTimelineEditDraft, moveTimelineEventToTrash, toggleTimelineEventPin, requestEditTimelineEvent, restoreTimelineEventFromTrash, permanentlyDeleteTimelineEvent, moveCaseNoteToTrash, moveCaseTaskToTrash, toggleCaseNotePin, toggleCaseTaskPin, saveTimelineEditDraft, restoreCaseNoteFromTrash, permanentlyDeleteCaseNote, restoreCaseTaskFromTrash, permanentlyDeleteCaseTask, partyEditWorkflow, editPartyTarget, setEditPartyTarget, partyEditDraft, setPartyEditDraft, partyEditHeirDeleteConfirmIdx, setPartyEditHeirDeleteConfirmIdx, heirsQuickView, setHeirsQuickView, openEditParty, buildPartyHeirsRows, openHeirsQuickView, savePartyEditDraft, removeHeirFromPartyEditDraftAtIndex, togglePartyEditHeirClient };
 }

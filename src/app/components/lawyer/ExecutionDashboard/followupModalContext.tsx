@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
+import type { FollowupModalSnapshot } from './followupSnapshotFieldKeys';
 
-/** Snapshot passed from ExecutionDashboard while محضر المتابعة is open. */
-export type FollowupModalSnapshot = Record<string, any>;
+export type { FollowupModalSnapshot } from './followupSnapshotFieldKeys';
 
 const FollowupModalStoreContext = createContext<FollowupModalSnapshot | null>(null);
 

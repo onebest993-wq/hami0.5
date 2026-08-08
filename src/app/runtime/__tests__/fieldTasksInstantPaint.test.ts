@@ -1,22 +1,27 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
+    clearFieldTasksCloseSuppress,
     clearFieldTasksForceVisible,
     clearFieldTasksInstantPaint,
     concealFieldTasksWarmSheet,
+    isFieldTasksCloseSuppressed,
     isFieldTasksForceVisible,
     isFieldTasksInstantPaintActive,
     paintFieldTasksInstantSheet,
     revealFieldTasksWarmSheet,
+    suppressFieldTasksClose,
 } from '@/app/runtime/fieldTasksInstantPaint';
 
 describe('fieldTasksInstantPaint', () => {
     beforeEach(() => {
+        clearFieldTasksCloseSuppress();
         clearFieldTasksForceVisible();
         clearFieldTasksInstantPaint();
         document.body.innerHTML = '';
     });
 
     afterEach(() => {
+        clearFieldTasksCloseSuppress();
         clearFieldTasksForceVisible();
         clearFieldTasksInstantPaint();
     });
@@ -36,7 +41,10 @@ describe('fieldTasksInstantPaint', () => {
         expect(isFieldTasksForceVisible()).toBe(true);
         expect(layer.style.opacity).toBe('1');
         expect(layer.style.visibility).toBe('visible');
+        expect(layer.style.pointerEvents).toBe('none');
         expect(layer.getAttribute('data-open')).toBe('true');
+        expect(sheet.classList.contains('translate-y-0')).toBe(true);
+        expect(sheet.classList.contains('hami-field-tasks-sheet--snap')).toBe(true);
         expect(isFieldTasksInstantPaintActive()).toBe(false);
     });
 
@@ -60,5 +68,10 @@ describe('fieldTasksInstantPaint', () => {
         expect(isFieldTasksForceVisible()).toBe(false);
         expect(layer.style.opacity).toBe('0');
         expect(layer.style.visibility).toBe('hidden');
+    });
+
+    it('suppressFieldTasksClose يمنع الإغلاق الفوري', () => {
+        suppressFieldTasksClose(200);
+        expect(isFieldTasksCloseSuppressed()).toBe(true);
     });
 });

@@ -20,7 +20,7 @@ const LawyerBootShellLazy = lazy(() =>
 
 /** نفس خلفية الغلاف المجمّد — بلا نص/شعار حتى يكتمل chunk */
 const lawyerBootShellFallback = createElement('div', {
-    className: 'min-h-screen w-full bg-[#0a0f1c]',
+    className: 'min-h-screen w-full hami-board-canvas-bg',
     'data-testid': 'lawyer-boot-shell-loading',
     'aria-busy': true,
     'aria-label': 'تهيئة حامي',
@@ -90,6 +90,7 @@ export function useLawyerDashboardCore({
         return patchLawyerDashboardHeaderOverlayOpen(stableReady, {
             showSettings: orchestration.dashboardSettings.showSettings,
             showGlobalSearch: orchestration.overlays.showGlobalSearch,
+            searchHostMounted: orchestration.overlays.searchHostMounted,
             showCommunity: orchestration.dashboardCommunity.showCommunity,
             showNotifications: orchestration.notifications.showNotifications,
             notificationsUnreadCount: orchestration.notifications.notificationsUnreadCount,

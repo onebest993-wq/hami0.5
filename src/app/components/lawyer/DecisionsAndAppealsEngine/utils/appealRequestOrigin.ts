@@ -1,7 +1,7 @@
 import type { Decision } from '../types';
 import type { AppealUiPerspective } from '../appealUiLabels';
 import { parseDecisionPayloadJson } from './decisionGraphUtils';
-import { DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE } from '@/app/utils/otherPartyManualTrackDecisionSync';
+import { DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE } from '@/app/utils/otherPartyManualTrackDecisionSource';
 
 export const EXECUTOR_QUEUE_REQUEST_KINDS: NonNullable<Decision['requestKind']>[] = [
     'seizure',

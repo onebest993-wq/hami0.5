@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SeizedAsset } from '@/app/types/execution';
 import {
+    buildSeizureAssetRowReleasePatch,
     mapSeizedAssetReleased,
     mapSeizedAssetReleaseUndone,
     resolveCoerciveActionsAfterRelease,
@@ -42,5 +43,27 @@ describe('executionDashboardSeizureRowPatch', () => {
 
     it('resolveCoerciveActionsAfterReleaseUndo re-adds salary key', () => {
         expect(resolveCoerciveActionsAfterReleaseUndo(['travel'], salaryAsset)).toEqual(['travel', 'salary']);
+    });
+
+    it('buildSeizureAssetRowReleasePatch returns next assets and timeline event', () => {
+        const patch = buildSeizureAssetRowReleasePatch(
+            [salaryAsset],
+            salaryAsset,
+            ['salary', 'travel'],
+            '2026-06-26',
+            () => 'timeline-1',
+        );
+        expect(patch).not.toBeNull();
+        expect(patch?.nextAssets[0].status).toBe('released');
+        expect(patch?.nextActiveCoerciveActions).toEqual(['travel']);
+        expect(patch?.timelineEvent.id).toBe('timeline-1');
+        expect(patch?.timelineEvent.title).toContain('فك حجز');
+    });
+
+    it('buildSeizureAssetRowReleasePatch returns null when row is locked', () => {
+        const locked = { ...salaryAsset, seizure_record_locked: true } as SeizedAsset;
+        expect(
+            buildSeizureAssetRowReleasePatch([locked], locked, [], '2026-06-26', () => 't1'),
+        ).toBeNull();
     });
 });

@@ -1,12 +1,12 @@
 import type { Session, SupabaseClient } from '@supabase/supabase-js';
-import { projectId } from '@/utils/supabase/info';
+import { resolveClientSupabaseConfig } from '@/utils/supabase/clientEnv';
 import { purgeClientAuthResidue } from '@/app/utils/authStorage';
 
 let clientPromise: Promise<SupabaseClient> | null = null;
 
 function ensureSupabasePreconnect(): void {
     if (typeof document === 'undefined') return;
-    const href = `https://${projectId}.supabase.co`;
+    const href = resolveClientSupabaseConfig().url;
     if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
     const link = document.createElement('link');
     link.rel = 'preconnect';
@@ -65,7 +65,7 @@ export async function attachSupabaseAuthListener(handlers: {
     }
     handlers.onReady?.();
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
         handlers.onSession(session);
     });
 

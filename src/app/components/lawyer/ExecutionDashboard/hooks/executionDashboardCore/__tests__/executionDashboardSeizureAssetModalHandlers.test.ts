@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useExecutionDashboardSeizureAssetModalHandlers } from '../useExecutionDashboardSeizureAssetModalHandlers';
+import { SEIZURE_CLOSE_UNIFIED_LOG_EVENT } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
 
 describe('useExecutionDashboardSeizureAssetModalHandlers', () => {
     const baseParams = () => ({
@@ -80,6 +81,7 @@ describe('useExecutionDashboardSeizureAssetModalHandlers', () => {
     it('focusSeizurePropertyInlineCompletion opens unified modal and tab', () => {
         const setShowUnifiedExecutionModal = vi.fn();
         const openTab = vi.fn();
+        const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
         const { result } = renderHook(() =>
             useExecutionDashboardSeizureAssetModalHandlers({
                 ...baseParams(),
@@ -94,6 +96,14 @@ describe('useExecutionDashboardSeizureAssetModalHandlers', () => {
 
         expect(setShowUnifiedExecutionModal).toHaveBeenCalledWith(true);
         expect(openTab).toHaveBeenCalled();
+        expect(
+            dispatchSpy.mock.calls.some(
+                (call) =>
+                    call[0] instanceof CustomEvent &&
+                    (call[0] as CustomEvent).type === SEIZURE_CLOSE_UNIFIED_LOG_EVENT,
+            ),
+        ).toBe(true);
+        dispatchSpy.mockRestore();
     });
 
     it('openSeizureMarkModal for movable dispatches inline focus event', () => {

@@ -7,7 +7,7 @@ import { isEphemeralLawsuitTaskId } from '@/app/services/calendarAuthenticity';
 import { collectStageLegalCalendarSpecs } from '@/app/services/lawsuitTimelineCalendarMirror';
 import type { DossierSyncStats, SyncScope } from './types';
 import { shouldExcludeLawsuitFromCalendar } from './exclusions';
-import { clientNameFromPartiesList, isRecord, readEntityId, readStr } from './shared';
+import { clientNameFromPartiesList, isRecord, readDossierCaseNo, readEntityId, readStr } from './shared';
 import { syncLawsuitTaskDue, syncLawsuitTimelineAppointment } from './incrementalSync';
 
 export function syncOneLawsuitFile(
@@ -16,11 +16,12 @@ export function syncOneLawsuitFile(
     stats: DossierSyncStats,
     scope: SyncScope = {},
 ): void {
-    const includeTasks = scope.includeTasks !== false;
+    const whitelistOnly = scope.whitelistOnly === true;
+    const includeTasks = scope.includeTasks !== false && !whitelistOnly;
     const fileId = readEntityId(file);
     if (fileId === null) return;
     if (shouldExcludeLawsuitFromCalendar(file)) return;
-    const caseNo = readStr(file, 'caseNo');
+    const caseNo = readDossierCaseNo(file);
     const court = readStr(file, 'court');
     const parties = file.parties;
     const clientName = clientNameFromPartiesList(parties);
@@ -54,26 +55,28 @@ export function syncOneLawsuitFile(
             if (!ev.isDeleted && normalizeDateToYmd(readStr(ev, 'date'))) stats.lawsuitAppointments++;
         }
 
-        // مُهل/تواريخ قانونية مخزّنة صراحةً (لا حساب آلي من المحرك)
-        for (const spec of collectStageLegalCalendarSpecs(stage, si)) {
-            syncLawsuitTimelineAppointment({
-                userId,
-                fileId,
-                event: {
-                    id: spec.id,
-                    date: spec.date || undefined,
-                    title: spec.title,
-                    details: spec.details,
-                    isDeleted: !spec.date,
-                },
-                caseNo,
-                court,
-                parties,
-                clientName,
-            });
-            if (spec.date) {
-                stats.lawsuitDeadlines++;
-                stats.lawsuitAppointments++;
+        if (!whitelistOnly) {
+            // مُهل/تواريخ قانونية مخزّنة صراحةً (لا حساب آلي من المحرك)
+            for (const spec of collectStageLegalCalendarSpecs(stage, si)) {
+                syncLawsuitTimelineAppointment({
+                    userId,
+                    fileId,
+                    event: {
+                        id: spec.id,
+                        date: spec.date || undefined,
+                        title: spec.title,
+                        details: spec.details,
+                        isDeleted: !spec.date,
+                    },
+                    caseNo,
+                    court,
+                    parties,
+                    clientName,
+                });
+                if (spec.date) {
+                    stats.lawsuitDeadlines++;
+                    stats.lawsuitAppointments++;
+                }
             }
         }
 
@@ -114,66 +117,68 @@ export function syncOneLawsuitFile(
         CalendarBridge.remove('lawsuit', fileIdStr, `appeal_${stageId}`, userId);
     }
 
-    // تواريخ ملف صريحة
-    const firstHearingDate = normalizeDateToYmd(readStr(file, 'firstHearingDate'));
-    const nextDate =
-        normalizeDateToYmd(readStr(file, 'nextDate')) || firstHearingDate;
-    const nextDateTitle =
-        firstHearingDate && nextDate === firstHearingDate ? 'أول مرافعة' : 'الموعد القادم';
-    syncLawsuitTimelineAppointment({
-        userId,
-        fileId,
-        event: {
-            id: 'file_next_date',
-            date: nextDate || undefined,
-            title: nextDateTitle,
-            isDeleted: !nextDate,
-        },
-        caseNo,
-        court,
-        parties,
-        clientName,
-    });
-    if (nextDate) stats.lawsuitAppointments++;
-
-    const stayReview = normalizeDateToYmd(readStr(file, 'stayReviewDate'));
-    syncLawsuitTimelineAppointment({
-        userId,
-        fileId,
-        event: {
-            id: 'stay_review_date',
-            date: stayReview || undefined,
-            title: 'مراجعة وقف التنفيذ',
-            isDeleted: !stayReview,
-        },
-        caseNo,
-        court,
-        parties,
-        clientName,
-    });
-    if (stayReview) stats.lawsuitAppointments++;
-
-    const embeddedNotes = Array.isArray(file.notes) ? file.notes : [];
-    for (const n of embeddedNotes) {
-        if (!isRecord(n)) continue;
-        const nid = String(n.id ?? '').trim();
-        if (!nid) continue;
-        const appt = normalizeDateToYmd(readStr(n, 'apptDate'));
+    if (!whitelistOnly) {
+        // تواريخ ملف صريحة
+        const firstHearingDate = normalizeDateToYmd(readStr(file, 'firstHearingDate'));
+        const nextDate =
+            normalizeDateToYmd(readStr(file, 'nextDate')) || firstHearingDate;
+        const nextDateTitle =
+            firstHearingDate && nextDate === firstHearingDate ? 'أول مرافعة' : 'الموعد القادم';
         syncLawsuitTimelineAppointment({
             userId,
             fileId,
             event: {
-                id: `note_${nid}`,
-                date: appt || undefined,
-                title: readStr(n, 'title') || readStr(n, 'body')?.slice(0, 60) || 'ملاحظة ملف',
-                isDeleted: !appt,
+                id: 'file_next_date',
+                date: nextDate || undefined,
+                title: nextDateTitle,
+                isDeleted: !nextDate,
             },
             caseNo,
             court,
             parties,
             clientName,
         });
-        if (appt) stats.lawsuitAppointments++;
+        if (nextDate) stats.lawsuitAppointments++;
+
+        const stayReview = normalizeDateToYmd(readStr(file, 'stayReviewDate'));
+        syncLawsuitTimelineAppointment({
+            userId,
+            fileId,
+            event: {
+                id: 'stay_review_date',
+                date: stayReview || undefined,
+                title: 'مراجعة وقف التنفيذ',
+                isDeleted: !stayReview,
+            },
+            caseNo,
+            court,
+            parties,
+            clientName,
+        });
+        if (stayReview) stats.lawsuitAppointments++;
+
+        const embeddedNotes = Array.isArray(file.notes) ? file.notes : [];
+        for (const n of embeddedNotes) {
+            if (!isRecord(n)) continue;
+            const nid = String(n.id ?? '').trim();
+            if (!nid) continue;
+            const appt = normalizeDateToYmd(readStr(n, 'apptDate'));
+            syncLawsuitTimelineAppointment({
+                userId,
+                fileId,
+                event: {
+                    id: `note_${nid}`,
+                    date: appt || undefined,
+                    title: readStr(n, 'title') || readStr(n, 'body')?.slice(0, 60) || 'ملاحظة ملف',
+                    isDeleted: !appt,
+                },
+                caseNo,
+                court,
+                parties,
+                clientName,
+            });
+            if (appt) stats.lawsuitAppointments++;
+        }
     }
 
     if (includeTasks && stages.length === 0) {

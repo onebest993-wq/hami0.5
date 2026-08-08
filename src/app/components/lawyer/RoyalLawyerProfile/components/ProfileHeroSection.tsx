@@ -1,5 +1,5 @@
-import React, { memo, useRef } from 'react';
-import { Camera, Phone, Shield } from 'lucide-react';
+import React, { memo, useEffect, useRef } from 'react';
+import { Camera, Phone, Shield } from '@/app/components/ui/lucideIcons';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { LawyerProfileHeader } from '@/app/services/lawyer-cloud';
@@ -54,6 +54,8 @@ export type ProfileHeroSectionProps = {
     profileViewAllowed?: boolean;
     startEdit: () => void;
     openSettings: () => void;
+    /** تبويب الملف من اللوحة — سياق العرض (شريط الرجوع؛ أدوات المالك تبقى ظاهرة) */
+    isScreenMode?: boolean;
 };
 
 export const ProfileHeroSection = memo(function ProfileHeroSection({
@@ -77,6 +79,7 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
     profileViewAllowed = true,
     startEdit,
     openSettings,
+    isScreenMode = false,
 }: ProfileHeroSectionProps) {
     const editPointer = useArmedPointerAction(startEdit);
     const studioPointer = useArmedPointerAction(() => {
@@ -90,7 +93,19 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
             forumFollow &&
             (forumFollow.postCount !== undefined || forumFollow.followerCount !== undefined),
     );
-    const showToolsPanel = !readOnly || Boolean(showForumSocial && forumFollow);
+    const showToolsPanel =
+        !readOnly || (!isScreenMode && Boolean(showForumSocial && forumFollow));
+
+    useEffect(() => {
+        if (!isEditing || readOnly) return;
+        const frame = requestAnimationFrame(() => {
+            const input = document.getElementById('lawyer-profile-name-input') as HTMLInputElement | null;
+            if (!input) return;
+            input.focus({ preventScroll: true });
+            input.scrollIntoView({ block: 'center', behavior: 'auto' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [isEditing, readOnly]);
 
     return (
         <div className="hami-profile-hero-wrap px-4">
@@ -139,15 +154,14 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
                     patternOpacity={0.09}
                     clip={false}
                 >
-                    <div
-                        className={`absolute top-0 inset-x-10 h-px z-[2] ${PROFILE_THEME.identityLine}`}
-                        aria-hidden
-                    />
-
-                    <div className="text-center w-full">
+                    <div className="hami-profile-identity-zone">
                         {isEditing && draft ? (
-                            <div className="space-y-2 text-right">
+                            <div className="hami-profile-identity hami-profile-identity--edit">
+                                <label className="hami-profile-identity__label" htmlFor="lawyer-profile-name-input">
+                                    الاسم المعروض
+                                </label>
                                 <input
+                                    id="lawyer-profile-name-input"
                                     data-testid="lawyer-profile-name-input"
                                     value={draft.header.name}
                                     maxLength={80}
@@ -159,20 +173,34 @@ export const ProfileHeroSection = memo(function ProfileHeroSection({
                                                 : prev,
                                         );
                                     }}
-                                    className={PROFILE_THEME.input}
+                                    className={`hami-profile-identity__input ${PROFILE_THEME.input}`}
                                     placeholder="الاسم الكامل"
                                 />
                             </div>
                         ) : (
-                            <>
-                                <h1 className="hami-profile-hero-name px-1">{displayNamePublic}</h1>
-                                {showSyndicate ? (
-                                    <div className={`hami-profile-hero-badge border ${PROFILE_THEME.accentChip}`}>
-                                        <Shield size={12} />
-                                        نقابة المحامين · {syndicateIdPublic}
+                            <div className="hami-profile-identity">
+                                <div className="hami-profile-identity__ambient" aria-hidden />
+                                <div className="hami-profile-identity__content">
+                                    <h1 className="hami-profile-identity__name" dir="auto">
+                                        <span className="hami-profile-identity__name-text">
+                                            {displayNamePublic}
+                                        </span>
+                                    </h1>
+                                    <div className="hami-profile-identity__rule" aria-hidden>
+                                        <span className="hami-profile-identity__rule-line" />
+                                        <span className="hami-profile-identity__rule-mark" />
+                                        <span className="hami-profile-identity__rule-line" />
                                     </div>
-                                ) : null}
-                            </>
+                                    {showSyndicate ? (
+                                        <div
+                                            className={`hami-profile-identity__badge border ${PROFILE_THEME.accentChip}`}
+                                        >
+                                            <Shield size={12} strokeWidth={2.2} aria-hidden />
+                                            <span>نقابة المحامين · {syndicateIdPublic}</span>
+                                        </div>
+                                    ) : null}
+                                </div>
+                            </div>
                         )}
                     </div>
 

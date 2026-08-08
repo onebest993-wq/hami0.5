@@ -194,9 +194,30 @@ function normTimelineText(s: string): string {
     return s.replace(TIMELINE_TITLE_EMOJI_RE, '').replace(/\s+/g, ' ').trim();
 }
 
+const DOSSIER_NOTE_STAMP_HTML_RE = /<p[^>]*data-dossier-note-stamp[^>]*>[\s\S]*?<\/p>/gi;
+
+/** يزيل HTML الملاحظات السريعة (طابع الوقت) قبل عرض السجل الزمني */
+export function stripTimelineHtmlForDisplay(raw: string): string {
+    let text = String(raw ?? '');
+    if (!text.includes('<')) return text.trim();
+
+    text = text.replace(DOSSIER_NOTE_STAMP_HTML_RE, '');
+    text = text.replace(/<br\s*\/?>/gi, '\n');
+    text = text.replace(/<\/p>/gi, '\n');
+    text = text.replace(/<[^>]+>/g, '');
+    text = text
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\n{3,}/g, '\n\n');
+
+    return text.trim();
+}
+
 /** وصف العرض — يزيل تكرار العنوان ويُبقي التفاصيل الفعلية */
 export function timelineDescriptionForDisplay(event: TimelineEvent): string {
-    const raw = String(event.description ?? event.details ?? '').trim();
+    const raw = stripTimelineHtmlForDisplay(String(event.description ?? event.details ?? ''));
     if (!raw) return '';
     const title = normTimelineText(cleanTimelineCardTitle(event));
 

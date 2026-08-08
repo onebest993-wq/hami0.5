@@ -45,6 +45,19 @@ test.describe('إقلاع التطبيق', () => {
         await expect(bootShell).toBeHidden();
     });
 
+    test('مسار الإقلاع — كلمة حامي ثم إزالة الطبقة عند الجاهزية', async ({ page }) => {
+        await page.goto('/', { waitUntil: 'commit' });
+
+        const staticBoot = page.locator('#hami-static-boot[data-testid="hami-static-boot"]');
+        await expect(staticBoot).toBeAttached({ timeout: 10_000 });
+        await expect(page.getByTestId('hami-boot-wordmark')).toHaveText('حامي');
+
+        await bootToLawyerHome(page);
+
+        await expect(page.getByTestId('home-main-grid')).toBeVisible();
+        await expect(staticBoot).toHaveCount(0, { timeout: 8_000 });
+    });
+
     test('تظهر حاويات الرئيسية بعد الإقلاع', async ({ page }) => {
         await page.goto('/');
         await bootToLawyerHome(page);

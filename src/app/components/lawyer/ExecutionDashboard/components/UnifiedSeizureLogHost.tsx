@@ -23,7 +23,7 @@ export type UnifiedSeizureLogHostProps = {
 };
 
 export function UnifiedSeizureLogHost(props: UnifiedSeizureLogHostProps) {
-    const open = props.showModal && props.hasContent && !props.isRepresentingDebtor;
+    const open = props.showModal && !props.isRepresentingDebtor;
     const sanitizedCounts = {
         property: Number.isFinite(props.counts.property) ? props.counts.property : 0,
         salary: Number.isFinite(props.counts.salary) ? props.counts.salary : 0,

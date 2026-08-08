@@ -32,12 +32,14 @@ export function sanitizeProfileCanvasColor(raw: string | undefined): string | un
 const DATA_IMAGE_BASE64_RE =
     /^data:image\/(jpeg|jpg|png|webp|gif);base64,([A-Za-z0-9+/]+=*?)$/i;
 const MAX_DATA_IMAGE_LEN = 512_000;
+/** خلفيات لوحة الكتابة في الملف — دقة أعلى عند التخزين المحلي */
+export const MAX_CANVAS_DATA_IMAGE_LEN = 2_500_000;
 const MIN_DATA_IMAGE_PAYLOAD = 48;
 /** روابط HTTPS الموقّعة قد تتجاوز 2048 — لا تُقصّ (القص يكسر التوقيع ويُظهر صورة فارغة) */
 const MAX_HTTP_MEDIA_URL_LEN = 8192;
 
-function isValidDataImageUrl(raw: string): boolean {
-    if (raw.length > MAX_DATA_IMAGE_LEN) return false;
+function isValidDataImageUrl(raw: string, maxLen = MAX_DATA_IMAGE_LEN): boolean {
+    if (raw.length > maxLen) return false;
     if (/[<>'"`\s]/.test(raw)) return false;
     /** روابط data:image كانت تُقصّ عند 2048 حرفاً — تُرفض لتجنّب ERR_INVALID_URL */
     if (raw.length >= 2047 && raw.length <= 2049) return false;
@@ -70,6 +72,14 @@ export function sanitizeProfileMediaUrl(raw: string | undefined): string | undef
     } catch {
         return undefined;
     }
+}
+
+/** خلفية لوحة الكتابة — حد أعلى للـ data URL المحلي */
+export function sanitizeProfileCanvasMediaUrl(raw: string | undefined): string | undefined {
+    if (!raw || typeof raw !== 'string') return undefined;
+    const trimmed = raw.trim();
+    if (!trimmed.startsWith('data:image/')) return sanitizeProfileMediaUrl(trimmed);
+    return isValidDataImageUrl(trimmed, MAX_CANVAS_DATA_IMAGE_LEN) ? trimmed : undefined;
 }
 
 /** مسار تخزين آمن لإعادة توقيع الروابط — لا يُعرض للزائر */

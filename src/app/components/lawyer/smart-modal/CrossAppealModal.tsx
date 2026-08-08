@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-import { X, AlertCircle } from 'lucide-react';
+import { X, AlertCircle } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HUB_TOPMOST_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 

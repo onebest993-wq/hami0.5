@@ -1,0 +1,109 @@
+/* قفل الجلسة — حرج: لا يعتمد على deferred Tailwind */
+
+html[data-hami-app-locked='1'] body {
+    overflow: hidden;
+}
+
+.hami-app-lock-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 100250;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #05060d;
+    padding:
+        env(safe-area-inset-top, 0px)
+        1.5rem
+        env(safe-area-inset-bottom, 0px);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+.hami-app-lock-overlay__panel {
+    width: 100%;
+    max-width: 24rem;
+    text-align: center;
+}
+
+.hami-app-lock-overlay__icon-box {
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto 1.5rem;
+    border-radius: 1.5rem;
+    border: 1px solid color-mix(in srgb, var(--hami-primary, #e6c673) 30%, transparent);
+    background: color-mix(in srgb, var(--hami-primary, #e6c673) 10%, transparent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--hami-primary, #e6c673);
+}
+
+.hami-app-lock-overlay__title {
+    margin: 0 0 0.5rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: #fff;
+}
+
+.hami-app-lock-overlay__desc {
+    margin: 0 0 2rem;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.hami-app-lock-overlay__btn-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    min-height: 3rem;
+    height: 3rem;
+    border: 0;
+    border-radius: 1rem;
+    background: var(--hami-primary, #e6c673);
+    color: #0a0f1c;
+    font-size: 0.875rem;
+    font-weight: 700;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hami-app-lock-overlay__btn-primary:disabled {
+    opacity: 0.6;
+}
+
+.hami-app-lock-overlay__btn-logout {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    min-height: 2.75rem;
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.75rem;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.hami-app-lock-overlay__btn-logout:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+html[data-hami-native='1'] .hami-app-lock-overlay,
+html.hami-native-shell .hami-app-lock-overlay {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .hami-app-lock-overlay {
+        transition: none !important;
+        animation: none !important;
+    }
+}

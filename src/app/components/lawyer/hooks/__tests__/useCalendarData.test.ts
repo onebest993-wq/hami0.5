@@ -1,13 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useCalendarData, buildEventsByDateIndex } from '@/app/components/lawyer/hooks/useCalendarData';
+import { useCalendarData, buildEventsByDateIndex, calendarEventSetsEqual } from '@/app/components/lawyer/hooks/useCalendarData';
 import { CALENDAR_LOCAL_STORAGE_KEY } from '@/app/services/calendar/calendarLocalSnapshot';
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
 
 const USER = 'lawyer-cal-1';
 
-vi.mock('@/app/services/calendar/calendarCloudLoader', () => ({
+vi.mock('@/app/services/calendar/calendarCloudRuntime', () => ({
     fetchCalendarEvents: vi.fn(),
     saveCalendarEvent: vi.fn(),
     updateCalendarEvent: vi.fn(),
@@ -31,7 +31,11 @@ vi.mock('@/app/services/calendar/bridgePersistence/propagate', () => ({
     propagateBridgedCalendarRemoval: vi.fn(),
 }));
 
-import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudLoader';
+vi.mock('@/app/hooks/lawyerDashboard/scheduleIntentWarm', () => ({
+    awaitCalendarWarmIfInflight: vi.fn(() => Promise.resolve()),
+}));
+
+import { fetchCalendarEvents } from '@/app/services/calendar/calendarCloudRuntime';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { setCachedCalendarEvents, resetCalendarEventsCacheForTests } from '@/app/services/calendar/calendarEventsCache';
 
@@ -122,9 +126,16 @@ describe('useCalendarData — SWR', () => {
         const { result } = renderHook(() => useCalendarData(USER));
 
         expect(result.current.syncing).toBe(false);
-        expect(result.current.backgroundSyncing).toBe(true);
         expect(result.current.loading).toBe(false);
         expect(result.current.allEvents.some((e) => e.title === 'موعد محلي')).toBe(true);
+
+        await waitFor(() => {
+            expect(result.current.backgroundSyncing).toBe(true);
+        });
+
+        await waitFor(() => {
+            expect(fetchCalendarEvents).toHaveBeenCalled();
+        });
 
         await act(async () => {
             resolveFetch([
@@ -138,11 +149,12 @@ describe('useCalendarData — SWR', () => {
                     updatedAt: '2026-01-02T00:00:00.000Z',
                 },
             ]);
-            await Promise.resolve();
         });
 
+        await waitFor(() => {
+            expect(result.current.backgroundSyncing).toBe(false);
+        });
         expect(result.current.syncing).toBe(false);
-        expect(result.current.backgroundSyncing).toBe(false);
         expect(result.current.allEvents.some((e) => e.title === 'موعد سحابي')).toBe(true);
     });
 
@@ -209,6 +221,31 @@ describe('useCalendarData — SWR', () => {
         }
     });
 
+    it('لا يعيد بناء القائمة عند جلب خلفي بلا تغيّر في الأحداث', async () => {
+        const events: CalendarEvent[] = [
+            {
+                id: 'evt-1',
+                userId: USER,
+                title: 'موعد',
+                date: '2026-06-15',
+                type: 'custom',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        ];
+        setCachedCalendarEvents(USER, events);
+        vi.mocked(fetchCalendarEvents).mockResolvedValue(events);
+
+        const { result } = renderHook(() => useCalendarData(USER));
+        const before = result.current.allEvents;
+
+        await waitFor(() => {
+            expect(fetchCalendarEvents).toHaveBeenCalled();
+        });
+
+        expect(result.current.allEvents).toBe(before);
+    });
+
     it('لا يستدعي fetchCalendarEvents عند غياب معرّف المستخدم', async () => {
         vi.mocked(fetchCalendarEvents).mockResolvedValue([]);
         vi.mocked(resolveCalendarUserId).mockReturnValue('');
@@ -222,6 +259,25 @@ describe('useCalendarData — SWR', () => {
         expect(fetchCalendarEvents).not.toHaveBeenCalled();
         expect(result.current.error).toContain('تسجيل الدخول');
         expect(result.current.allEvents).toHaveLength(0);
+    });
+});
+
+describe('calendarEventSetsEqual', () => {
+    it('يعتبر القوائم متطابقة عند تطابق id و updatedAt', () => {
+        const a: CalendarEvent[] = [
+            {
+                id: '1',
+                userId: USER,
+                title: 'أ',
+                date: '2026-06-01',
+                type: 'custom',
+                createdAt: 'x',
+                updatedAt: 'v1',
+            },
+        ];
+        const b: CalendarEvent[] = [{ ...a[0], title: 'ب' }];
+        expect(calendarEventSetsEqual(a, b)).toBe(true);
+        expect(calendarEventSetsEqual(a, [{ ...a[0], updatedAt: 'v2' }])).toBe(false);
     });
 });
 

@@ -21,25 +21,25 @@ function alertWithDueInHours(hours: number, id: string): SecretaryAlert {
 }
 
 describe('classifySecretaryAlertsByHorizon', () => {
-    it('يقسم إلى عاجل وقريبة وقادمة', () => {
+    it('يقسم إلى عاجل (اليوم+غدا) وقادم (ما بعد غد)', () => {
         const now = new Date();
         const classified = classifySecretaryAlertsByHorizon(
             [
                 alertWithDueInHours(6, 'u'),
                 alertWithDueInHours(48, 'n'),
-                alertWithDueInHours(120, 'up'),
+                alertWithDueInHours(72, 'up'),
                 alertWithDueInHours(200, 'far'),
             ],
             now,
         );
         expect(classified.urgentAlerts.map((a) => a.id)).toEqual(['u']);
-        expect(classified.nearAlerts.map((a) => a.id)).toEqual(['n']);
-        expect(classified.upcomingAlerts.map((a) => a.id)).toEqual(['up']);
-        expect(horizonCounts(classified)).toEqual({ urgent: 1, near: 1, upcoming: 1 });
+        expect(classified.nearAlerts).toEqual([]);
+        expect(classified.upcomingAlerts.map((a) => a.id)).toEqual(['n', 'up']);
+        expect(horizonCounts(classified)).toEqual({ urgent: 1, near: 0, upcoming: 2 });
     });
 
-    it('يختار التبويب الافتراضي الأول غير الفارغ', () => {
-        expect(pickDefaultHorizonFilter({ urgent: 0, near: 2, upcoming: 0 })).toBe('near');
+    it('يختار التبويب الافتراضي: عاجل ثم قادم', () => {
+        expect(pickDefaultHorizonFilter({ urgent: 2, near: 0, upcoming: 0 })).toBe('urgent');
         expect(pickDefaultHorizonFilter({ urgent: 0, near: 0, upcoming: 3 })).toBe('upcoming');
     });
 

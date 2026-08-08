@@ -2,7 +2,7 @@
 /** Phase C Slice 30 — dossier boot: store, execution data, modals, lifecycle */
 import { useState, useMemo, useRef } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
-import type { DebtorsSectionHandle } from '../components/DebtorsSection';
+import type { DebtorsSectionHandle } from '../../components/DebtorsSection';
 import type { ExecutionDashboardProps } from '../../types';
 import { storageCache } from '@/app/utils/storageCache';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
@@ -24,6 +24,7 @@ import {
 import { useExecutionDashboardModalControls } from '../useExecutionDashboardModalControls';
 import { useExecutionDossierTabOrchestrator } from '../../orchestrators/useExecutionDossierTabOrchestrator';
 import { useExecutionPartiesOrchestrator } from '../../orchestrators/useExecutionPartiesOrchestrator';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 
 export function useExecutionDashboardCoreBootPipeline({
     file,
@@ -77,7 +78,7 @@ export function useExecutionDashboardCoreBootPipeline({
     );
 
     useExecutionDashboardUrlDelegationSync(
-        urlDelegationParentId,
+        urlDelegationParentId ?? undefined,
         delegationParentFileId,
         setDelegationParentFileId,
     );
@@ -119,7 +120,7 @@ export function useExecutionDashboardCoreBootPipeline({
 
     const unifiedTabExecutionData = useExecutionData(
         null,
-        unifiedTabFileRow,
+        unifiedTabFileRow ?? undefined,
         unifiedTabId || undefined,
         executionStorageTick,
     );
@@ -157,10 +158,23 @@ export function useExecutionDashboardCoreBootPipeline({
     const partyBadgesExecutionId = String(executionData?.id ?? executionId ?? file?.id ?? 'unknown');
 
     const decisionsStorageExecutionId = useMemo(() => {
-        const parent = String(parentDossierId || executionId || file?.id || '').trim();
-        if (parent && parent !== 'default' && parent !== 'undefined') return parent;
-        return String(executionData?.id ?? 'default');
-    }, [parentDossierId, executionId, file?.id, executionData?.id]);
+        const seed = String(executionId || file?.id || executionData?.id || '').trim();
+        const data = executionData as Record<string, unknown> | null | undefined;
+        const mergedData = data
+            ? {
+                  ...data,
+                  parentDossierId: data.parentDossierId || parentDossierId || undefined,
+                  parentFileId: data.parentFileId || parentDossierId || undefined,
+              }
+            : parentDossierId
+              ? {
+                    id: seed,
+                    parentDossierId,
+                    parentFileId: parentDossierId,
+                }
+              : null;
+        return resolveDecisionsStorageExecutionId(seed || undefined, mergedData);
+    }, [parentDossierId, executionId, file?.id, executionData]);
     const executionAppealBanner = useExecutionAppealBannerState(
         decisionsStorageExecutionId !== 'default' ? decisionsStorageExecutionId : undefined,
     );
@@ -204,7 +218,7 @@ export function useExecutionDashboardCoreBootPipeline({
     >(() => (executionData ? (executionData.debtor_summons_marker ?? null) : null));
 
     const fileForStoreSync = useStableExecutionFileForStore(
-        isUnifiedTabActive ? unifiedTabFileRow : (file as ExecutionFile | null | undefined),
+        (isUnifiedTabActive ? unifiedTabFileRow : file) as ExecutionFile | null | undefined,
     );
 
     useExecutionDashboardStoreFileSync({

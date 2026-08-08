@@ -1,0 +1,161 @@
+{
+  "generatedAt": "2026-08-01T15:16:24.853Z",
+  "scenarios": {
+    "desktop": {
+      "device": "desktop",
+      "throttle": "none",
+      "budget": {
+        "ttfiMs": 350,
+        "firstTabOpenMs": 350,
+        "overlayRemovedMs": 700,
+        "wallClockMs": 2200,
+        "fcpMs": 800
+      },
+      "advisory": false,
+      "summary": {
+        "ttfiMs": {
+          "min": 74,
+          "median": 77,
+          "p95": 220,
+          "max": 220
+        },
+        "firstTabOpenMs": {
+          "min": 509,
+          "median": 791,
+          "p95": 1118,
+          "max": 1118
+        },
+        "wallClockMs": {
+          "min": 4704,
+          "median": 10117,
+          "p95": 19383,
+          "max": 19383
+        },
+        "fcpMs": {
+          "min": 556,
+          "median": 684,
+          "p95": 720,
+          "max": 720
+        }
+      },
+      "failures": [
+        {
+          "metric": "firstTabOpenMs",
+          "limit": 350,
+          "observed": 1118,
+          "reason": "over_budget"
+        },
+        {
+          "metric": "wallClockMs",
+          "limit": 2200,
+          "observed": 19383,
+          "reason": "over_budget"
+        }
+      ]
+    },
+    "mobile": {
+      "device": "mobile",
+      "throttle": "none",
+      "budget": {
+        "ttfiMs": 380,
+        "firstTabOpenMs": 380,
+        "overlayRemovedMs": 780,
+        "wallClockMs": 2600,
+        "fcpMs": 700
+      },
+      "advisory": false,
+      "summary": {
+        "ttfiMs": {
+          "min": 71,
+          "median": 77,
+          "p95": 86,
+          "max": 86
+        },
+        "firstTabOpenMs": {
+          "min": 279,
+          "median": 292,
+          "p95": 293,
+          "max": 293
+        },
+        "wallClockMs": {
+          "min": 4844,
+          "median": 4990,
+          "p95": 7700,
+          "max": 7700
+        },
+        "fcpMs": {
+          "min": 536,
+          "median": 696,
+          "p95": 720,
+          "max": 720
+        }
+      },
+      "failures": [
+        {
+          "metric": "wallClockMs",
+          "limit": 2600,
+          "observed": 7700,
+          "reason": "over_budget"
+        },
+        {
+          "metric": "fcpMs",
+          "limit": 700,
+          "observed": 720,
+          "reason": "over_budget"
+        }
+      ]
+    },
+    "slow-mobile": {
+      "device": "mobile",
+      "throttle": "slow-mobile",
+      "budget": {
+        "ttfiMs": 6500,
+        "firstTabOpenMs": 7500,
+        "overlayRemovedMs": 6500,
+        "wallClockMs": 10000,
+        "fcpMs": 2000
+      },
+      "advisory": true,
+      "summary": {
+        "ttfiMs": {
+          "min": 1553,
+          "median": 1553,
+          "p95": 1578,
+          "max": 1578
+        },
+        "firstTabOpenMs": {
+          "min": 7585,
+          "median": 7585,
+          "p95": 7585,
+          "max": 7585
+        },
+        "wallClockMs": {
+          "min": 14250,
+          "median": 14250,
+          "p95": 18935,
+          "max": 18935
+        },
+        "fcpMs": {
+          "min": 952,
+          "median": 952,
+          "p95": 1068,
+          "max": 1068
+        }
+      },
+      "failures": [
+        {
+          "metric": "firstTabOpenMs",
+          "limit": 7500,
+          "observed": 7585,
+          "reason": "over_budget"
+        },
+        {
+          "metric": "wallClockMs",
+          "limit": 10000,
+          "observed": 18935,
+          "reason": "over_budget"
+        }
+      ]
+    }
+  }
+}

@@ -10,6 +10,7 @@ import {
     prefetchLawReferencePanel,
 } from './executionDashboardLazyShell';
 import {
+    prefetchCustodyRemovalWardsModule,
     prefetchExecutionDecisionsModalContainer,
     prefetchExecutionFinancialHubPortal,
     prefetchUnifiedSeizureLogHost,
@@ -86,7 +87,11 @@ export function prefetchExecutionFollowupOverlay(): void {
     prefetchExecutionDashboardShellOverlays();
     prefetchExecutionFollowupModalPortal();
     prefetchExecutionFollowupDefaultTab();
+    prefetchExecutionFollowupTab('coercive');
     prefetchExecutionFollowupTab('other_party');
+    prefetchExecutionFollowupTab('personal');
+    prefetchExecutionCoreHandlers('coercive-eviction');
+    prefetchCustodyRemovalWardsModule();
     prefetchExecutionCoreHandlers('seizure-requests');
 }
 
@@ -119,7 +124,6 @@ export function prefetchExecutionActionGridTile(tileKey: string): void {
     switch (tileKey) {
         case 'appt':
         case 'notes':
-            prefetchExecutionCoreHandlers('light');
             prefetchExecutionNotesOverlay();
             break;
         case 'documents':

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import {
     EXEC_MODAL_CLOSE_BTN_CLASS,

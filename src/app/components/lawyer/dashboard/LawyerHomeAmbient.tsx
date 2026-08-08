@@ -4,16 +4,16 @@ type LawyerHomeAmbientProps = {
     wallpaperActive?: boolean;
 };
 
-/** طبقة خلفية ثابتة — بدون حركة أو grain (أداء أفضل عند التمرير) */
+/** طبقة خلفية اختيارية عند وجود خلفية مخصّصة فقط — الزخرفة على البطاقات */
 export function LawyerHomeAmbient({ wallpaperActive = false }: LawyerHomeAmbientProps) {
+    if (!wallpaperActive) return null;
+
     return (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden" aria-hidden>
             <div
                 className="absolute inset-0"
                 style={{
-                    background: wallpaperActive
-                        ? 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 40%)'
-                        : 'linear-gradient(to bottom, color-mix(in srgb, var(--hami-surface-bg, #0B1021) 55%, transparent) 0%, transparent 55%)',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 40%)',
                 }}
             />
         </div>

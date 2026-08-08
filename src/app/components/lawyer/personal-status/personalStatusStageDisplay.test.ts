@@ -2,9 +2,74 @@ import { describe, expect, it } from 'vitest';
 import type { CaseStage } from '@/app/components/lawyer/LawyerShared';
 import {
     buildPersonalStatusChromeStageStripItems,
+    filterPersonalStatusAppealMethods,
+    hasCivilLawsuitStageHistory,
+    isPersonalStatusAppealContext,
+    isPersonalStatusStageName,
+    isPersonalStatusNoAppealMethod,
+    normalizePersonalStatusAppealMethod,
     shouldShowPersonalStatusCassationOutcomePanel,
     shouldShowPersonalStatusCoreStageInChrome,
 } from './personalStatusStageDisplay';
+import { resolveAllowedOpponentAppealMethods } from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
+
+describe('isPersonalStatusAppealContext', () => {
+    const civilStages = [
+        { stageName: 'بداءة بدرجة أولى' },
+        { stageName: 'الاعتراض على الحكم الغيابي' },
+    ];
+
+    it('treats civil objection stage as civil when بداءة exists in history', () => {
+        expect(hasCivilLawsuitStageHistory(civilStages)).toBe(true);
+        expect(
+            isPersonalStatusAppealContext('الاعتراض على الحكم الغيابي', civilStages),
+        ).toBe(false);
+    });
+
+    it('treats civil objection stage as civil when dossier file is civil lawsuit', () => {
+        expect(
+            isPersonalStatusAppealContext('الاعتراض على الحكم الغيابي', [], {
+                type: 'lawsuit',
+                selectedType: 'civil',
+            }),
+        ).toBe(false);
+        expect(isPersonalStatusStageName('الاعتراض على الحكم الغيابي')).toBe(false);
+    });
+
+    it('keeps personal-status dossier on cassation-only appeal rules', () => {
+        expect(
+            isPersonalStatusAppealContext('اعتراض على الحكم الغيابي', [], {
+                lawsuitJurisdiction: 'personal',
+            }),
+        ).toBe(true);
+    });
+
+    it('blocks all appeal-method variants containing استئناف', () => {
+        expect(isPersonalStatusNoAppealMethod('استئناف')).toBe(true);
+        expect(isPersonalStatusNoAppealMethod('استئناف متقابل')).toBe(true);
+        expect(filterPersonalStatusAppealMethods(['اعتراض غيابي', 'استئناف', 'تمييز'])).toEqual([
+            'اعتراض غيابي',
+            'تمييز',
+        ]);
+        expect(
+            normalizePersonalStatusAppealMethod('استئناف', {
+                stageName: 'أحوال شخصية',
+                file: { lawsuitJurisdiction: 'personal' },
+            }),
+        ).toBe('تمييز');
+    });
+
+    it('resolveAllowedOpponentAppealMethods never returns استئناف for personal dossier', () => {
+        const methods = resolveAllowedOpponentAppealMethods({
+            judgmentForm: 'حضوري',
+            stageName: 'أحوال شخصية',
+            stages: [{ stageName: 'أحوال شخصية' }],
+            file: { lawsuitJurisdiction: 'personal' },
+        });
+        expect(methods).not.toContain('استئناف');
+        expect(methods).toContain('تمييز');
+    });
+});
 
 describe('shouldShowPersonalStatusCassationOutcomePanel', () => {
     it('shows on active تمييز stage before outcome', () => {

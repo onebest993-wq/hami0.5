@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+    applySettingsOpaqueChrome,
     armSettingsOverlayInteraction,
     clearSettingsForceVisible,
     clearSettingsReopenSuppress,
@@ -31,6 +32,19 @@ describe('settingsInstantPaint', () => {
         removeSettingsInstantBridge();
         document.documentElement.removeAttribute('data-settings-close-guard');
         vi.useRealTimers();
+    });
+
+    it('applySettingsOpaqueChrome masks dashboard theme before host reveal', () => {
+        const dash = document.createElement('div');
+        dash.setAttribute('data-hami-lawyer-dashboard', '');
+        dash.style.backgroundColor = 'rgb(26, 20, 12)';
+        document.body.appendChild(dash);
+
+        applySettingsOpaqueChrome();
+
+        expect(document.documentElement.style.backgroundColor).toBe('rgb(11, 16, 33)');
+        expect(document.body.style.backgroundColor).toBe('rgb(11, 16, 33)');
+        expect(dash.style.backgroundColor).toBe('rgb(11, 16, 33)');
     });
 
     it('reveals portal host with opaque visibility and pointer events', () => {

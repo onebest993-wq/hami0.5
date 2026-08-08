@@ -30,6 +30,11 @@ export function snapProfileShellClose(): void {
     document.documentElement.removeAttribute(ATTR);
 }
 
+/** مزامنة React فورية على مسار الإغلاق — بلا انتظار إطار */
+export function runProfileShellReactSyncNow(run: () => void): void {
+    run();
+}
+
 /**
  * بعد أول رسم للـ snap — مزامنة React دون مسح العلم على html.
  * لا يزيد الجيل — حتى لا تلغي جدولة finally/فتح لاحق لنفس الدورة.

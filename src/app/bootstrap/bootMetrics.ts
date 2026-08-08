@@ -27,7 +27,9 @@ export type BootPhase =
     | 'shell-visible'
     | 'dashboard-chunk-loaded'
     | 'dashboard-interactive'
-    | 'first-tab-open';
+    | 'first-tab-open'
+    | 'home-destination-reveal'
+    | 'dashboard-main-view';
 
 export type BootTimelineRow = { phase: BootPhase; ms: number | null };
 
@@ -52,6 +54,7 @@ export function getBootTimeline(origin: 'start' | 'navigation' = 'start'): BootT
         'dashboard-chunk-loaded',
         'dashboard-interactive',
         'first-tab-open',
+        'home-destination-reveal',
     ];
 
     let originMs = 0;

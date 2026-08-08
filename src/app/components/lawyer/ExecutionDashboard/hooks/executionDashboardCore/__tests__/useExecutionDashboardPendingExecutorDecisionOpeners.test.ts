@@ -53,7 +53,7 @@ describe('useExecutionDashboardPendingExecutorDecisionOpeners', () => {
         );
 
         expect(result.current.tryOpenPendingBreakInventoryLedger()).toBe(true);
-        expect(findApprovedBreakInventoryNeedingLedger).toHaveBeenCalledWith('primary-execution');
+        expect(findApprovedBreakInventoryNeedingLedger).toHaveBeenCalledWith('primary-execution', null);
         expect(setShowDecisionsModal).toHaveBeenCalledWith(false);
         expect(openBreakInventoryCompletion).toHaveBeenCalledWith(
             'decision-1',
@@ -86,8 +86,8 @@ describe('useExecutionDashboardPendingExecutorDecisionOpeners', () => {
         );
 
         expect(result.current.tryOpenPendingCustodianDetails()).toBe(true);
-        expect(findApprovedCustodianNeedingDetails).toHaveBeenNthCalledWith(1, 'primary-execution');
-        expect(findApprovedCustodianNeedingDetails).toHaveBeenNthCalledWith(2, 'fallback-execution');
+        expect(findApprovedCustodianNeedingDetails).toHaveBeenNthCalledWith(1, 'primary-execution', null);
+        expect(findApprovedCustodianNeedingDetails).toHaveBeenNthCalledWith(2, 'fallback-execution', null);
         expect(setShowDecisionsModal).toHaveBeenCalledWith(false);
         expect(openJudicialCustodianCompletion).toHaveBeenCalledWith(
             'decision-2',

@@ -22,34 +22,25 @@ const PHASE6_CLOSED_ENTRIES: Array<{ id: string; paths: string[] }> = [
     },
     {
         id: 'Modal_Unified_Summons_Hub',
-        paths: [
-            'src/app/components/lawyer/Modal_Unified_Summons_Hub.tsx',
-            'src/app/components/lawyer/Modal_Unified_Summons_Hub/useUnifiedSummonsHubController.ts',
-            'src/app/components/lawyer/Modal_Unified_Summons_Hub/UnifiedSummonsHubView.tsx',
-            'src/app/components/lawyer/Modal_Unified_Summons_Hub/components/SummonsHubTablighTab.tsx',
-        ],
+        paths: ['src/app/components/lawyer/Modal_Unified_Summons_Hub.tsx'],
     },
     {
         id: 'EvictionFieldProceduresPanel',
-        paths: [
-            'src/app/components/lawyer/execution/EvictionFieldProceduresPanel.tsx',
-            'src/app/components/lawyer/execution/EvictionFieldProcedures/useEvictionFieldProceduresPanel.tsx',
-            'src/app/components/lawyer/execution/EvictionFieldProcedures/EvictionFieldProceduresPanelView.tsx',
-        ],
+        paths: ['src/app/components/lawyer/execution/EvictionFieldProceduresPanel.tsx'],
     },
     {
         id: 'ExecutionPartyInteractiveBadges',
-        paths: [
-            'src/app/components/lawyer/execution/ExecutionPartyInteractiveBadges.tsx',
-            'src/app/components/lawyer/execution/partyInteractiveBadgeDefinitions.ts',
-        ],
+        paths: ['src/app/components/lawyer/execution/ExecutionPartyInteractiveBadges.tsx'],
     },
     {
         id: 'contentEntryModals',
         paths: [
             'src/app/components/lawyer/smart-modal/modals/contentEntryModals.tsx',
-            'src/app/components/lawyer/smart-modal/modals/content-entry/AddDocumentModal.tsx',
-            'src/app/components/lawyer/smart-modal/modals/content-entry/contentEntryLightModals.tsx',
+            'src/app/components/lawyer/smart-modal/modals/contentEntry/AddDocumentModal.tsx',
+            'src/app/components/lawyer/smart-modal/modals/contentEntry/shared.tsx',
+            'src/app/components/lawyer/smart-modal/modals/contentEntry/AddTaskModal.tsx',
+            'src/app/components/lawyer/smart-modal/modals/contentEntry/AddNoteModal.tsx',
+            'src/app/components/lawyer/smart-modal/modals/contentEntry/AddAppointmentModal.tsx',
         ],
     },
     {
@@ -116,12 +107,9 @@ const PHASE6_CLOSED_ENTRIES: Array<{ id: string; paths: string[] }> = [
     },
     {
         id: 'executionTypes',
-        paths: [
-            'src/app/types/execution.ts',
-            'src/app/types/execution/executionShared.ts',
-            'src/app/types/execution/executionFile.ts',
-            'src/app/types/execution/formAndUi.ts',
-        ],
+        // حُذف executionFile.ts وformAndUi.ts: لم يكن يستوردهما أحد لا في الإنتاج
+        // ولا في اختبار، فسقطت معهما ميزانية أسطرٍ لملفّين غير موجودين.
+        paths: ['src/app/types/execution.ts', 'src/app/types/execution/executionShared.ts'],
     },
     {
         id: 'criminalStorePersistMigrate',

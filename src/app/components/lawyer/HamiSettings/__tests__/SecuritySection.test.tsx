@@ -30,7 +30,7 @@ describe('SecuritySection', () => {
     it('يعرض التoggles المربوطة', () => {
         render(<SecuritySection />);
         expect(screen.getByTestId('settings-section-security')).toBeInTheDocument();
-        expect(screen.getByTestId('settings-toggle-security-privacyBlur')).toHaveAttribute('aria-checked', 'true');
+        expect(screen.queryByTestId('settings-toggle-security-privacyBlur')).not.toBeInTheDocument();
         expect(screen.getByTestId('settings-toggle-security-localOnlyMode')).toHaveAttribute('aria-checked', 'false');
     });
 
@@ -38,11 +38,5 @@ describe('SecuritySection', () => {
         render(<SecuritySection />);
         fireEvent.click(screen.getByTestId('settings-toggle-security-localOnlyMode'));
         expect(toggleLocalOnly).toHaveBeenCalledWith(true);
-    });
-
-    it('يستدعي patchSecurity عند تغيير تمويه الخروج', () => {
-        render(<SecuritySection />);
-        fireEvent.click(screen.getByTestId('settings-toggle-security-privacyBlur'));
-        expect(patchSecurity).toHaveBeenCalledWith({ privacyBlur: false });
     });
 });

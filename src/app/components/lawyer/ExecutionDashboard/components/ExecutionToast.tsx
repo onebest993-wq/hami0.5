@@ -12,7 +12,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { createPortal } from 'react-dom';
-import { X, CheckCircle, AlertCircle } from 'lucide-react';
+import { X, CheckCircle, AlertCircle } from '@/app/components/ui/lucideIcons';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES

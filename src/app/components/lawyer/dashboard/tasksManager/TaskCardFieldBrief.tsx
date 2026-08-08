@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPinned } from 'lucide-react';
+import { MapPinned } from '@/app/components/ui/lucideIcons';
 import type { LegalSubTask } from '@/app/types/TaskEngine';
 import { TaskRingToggle } from './TaskRingToggle';
 import { TaskListOrdinalBadge } from './TaskListOrdinalBadge';
@@ -18,11 +18,11 @@ export function TaskCardFieldBrief({ fieldActions, readOnly, onToggleSubComplete
 
     return (
         <div
-            className="rounded-lg border border-[#A67C52]/12 bg-gradient-to-l from-[#0c0c0e]/20 to-transparent px-2 py-1.5"
+            className={`rounded-lg border border-[#E6C673]/18 bg-gradient-to-l from-[#E6C673]/12 to-transparent px-2 py-1.5`}
             data-testid="tasks-task-field-brief"
         >
             {showItemOrdinals ? (
-                <p className="text-[10px] font-bold text-[#A67C52]/55 text-right mb-1 px-0.5">
+                <p className="text-[10px] font-bold text-[#E6C673]/55 text-right mb-1 px-0.5">
                     {fieldActions.length} إجراءات ميدانية
                 </p>
             ) : null}
@@ -54,14 +54,14 @@ export function TaskCardFieldBrief({ fieldActions, readOnly, onToggleSubComplete
                             <span
                                 className={`block text-[12px] font-bold leading-snug break-words ${
                                     st.isCompleted
-                                        ? 'text-[#6BC4A8]/60 line-through decoration-[#6BC4A8]/40'
-                                        : 'text-[#E8F5F0]/92'
+                                        ? 'text-[#34D399]/60 line-through decoration-[#34D399]/40'
+                                        : 'text-[#F4F4F5]/92'
                                 }`}
                             >
                                 {st.title}
                             </span>
                             {st.location ? (
-                                <p className="mt-0.5 text-[10px] text-[#6BC4A8]/75 flex flex-row-reverse items-center gap-0.5 justify-end truncate">
+                                <p className="mt-0.5 text-[10px] text-[#34D399]/75 flex flex-row-reverse items-center gap-0.5 justify-end truncate">
                                     <MapPinned className="size-2.5 shrink-0 opacity-70" aria-hidden />
                                     {st.location}
                                 </p>

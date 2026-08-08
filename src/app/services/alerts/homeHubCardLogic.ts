@@ -1,28 +1,67 @@
 /** بطاقة التنبيهات الكبيرة في الرئيسية — منطق موحّد قابل للاختبار */
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
-import type { CalendarRadarEvent } from '@/app/workspace/types';
+import type { CalendarRadarEvent, WorkspacePinnedItem } from '@/app/workspace/types';
 import { parseWorkspaceRoute } from '@/app/workspace/workspaceRoutes';
 
-export const HOME_HUB_CARD_FEATURE = 'التنبيهات والتثبيت';
+export const HOME_HUB_CARD_FEATURE = 'البطاقة الذكية';
 
-export type HomeHubPanel = 'alerts' | 'pins';
+/** عدد عناصر المعاينة في تبويبي عاجل/قادم قبل زر «البقية» — ثابت لئلا تتمدد البطاقة */
+export const HOME_HUB_ALERTS_TAB_PREVIEW_LIMIT = 2;
 
-export function resolveNextHomeHubPanel(panel: HomeHubPanel): HomeHubPanel {
-    return panel === 'alerts' ? 'pins' : 'alerts';
+/** معاينة قسم الرادار المنفصل (ليس تبويب عاجل/قادم) */
+export const HOME_HUB_RADAR_PREVIEW_LIMIT = 3;
+
+/** عدد دبابيس الإضبارات للشارة — بلا تجميع عنقودي */
+export function countHomeHubDossierPins(pinnedItems: WorkspacePinnedItem[]): number {
+    let count = 0;
+    for (const item of pinnedItems) {
+        if (item.type !== 'hub') count += 1;
+    }
+    return count;
 }
 
-export function resolveDefaultHomeHubPanel(alertsTabCount: number, pinsCount: number): HomeHubPanel {
-    return alertsTabCount === 0 && pinsCount > 0 ? 'pins' : 'alerts';
+export type HomeHubPanel = 'alerts' | 'secretary' | 'pins';
+
+const HOME_HUB_PANEL_ORDER: HomeHubPanel[] = ['alerts', 'secretary', 'pins'];
+
+export function resolveNextHomeHubPanel(panel: HomeHubPanel): HomeHubPanel {
+    const idx = HOME_HUB_PANEL_ORDER.indexOf(panel);
+    if (idx < 0) return 'alerts';
+    return HOME_HUB_PANEL_ORDER[(idx + 1) % HOME_HUB_PANEL_ORDER.length];
+}
+
+export function resolveDefaultHomeHubPanel(
+    alertsTabCount: number,
+    secretaryTabCount: number,
+    pinsCount: number,
+): HomeHubPanel {
+    if (alertsTabCount > 0) return 'alerts';
+    if (secretaryTabCount > 0) return 'secretary';
+    if (pinsCount > 0) return 'pins';
+    return 'alerts';
 }
 
 export function computeHomeHubAlertsTabCount(
-    carouselTotal: number,
-    hasCarouselAlerts: boolean,
-    radarEventCount: number,
+    upcomingCount: number,
+    secretaryUrgentAlerts: SecretaryAlert[],
+    radarEvents: CalendarRadarEvent[],
 ): number {
-    const carouselPart = hasCarouselAlerts ? carouselTotal : 0;
-    const radarPart = radarEventCount > 0 ? radarEventCount : 0;
-    return carouselPart + radarPart;
+    return countUniqueHomeHubUrgentItems(secretaryUrgentAlerts, radarEvents) + upcomingCount;
+}
+
+/**
+ * شارة تبويب التنبيهات خارج اللوحة — عاجل السكرتير المؤكد فقط.
+ * لا رادار كاش ولا upcoming خام (كانا يُنتجان شارة كاذبة تختفي عند الفتح).
+ */
+export function computeHomeHubAlertsTabBadgeOffPanel(
+    secretaryUrgentAlerts: SecretaryAlert[],
+): number {
+    if (secretaryUrgentAlerts.length === 0) return 0;
+    return countUniqueHomeHubUrgentItems(secretaryUrgentAlerts, []);
+}
+
+export function computeHomeHubSecretaryTabCount(insightCount: number): number {
+    return Math.max(0, Math.min(9, insightCount));
 }
 
 export function buildCalendarAlertIdSet(secretaryAlerts: SecretaryAlert[]): Set<string> {
@@ -31,6 +70,20 @@ export function buildCalendarAlertIdSet(secretaryAlerts: SecretaryAlert[]): Set<
             .filter((a) => a.id.startsWith('calendar:'))
             .map((a) => a.id.replace('calendar:', '')),
     );
+}
+
+/** كيانات مهام ميدانية مُحقونة — لا نُكرّرها في رادار 48 ساعة */
+export function buildFieldTaskEntityIdSet(secretaryAlerts: SecretaryAlert[]): Set<string> {
+    const ids = new Set<string>();
+    for (const alert of secretaryAlerts) {
+        if (alert.id.startsWith('field-task:') && alert.entityId) {
+            ids.add(String(alert.entityId));
+        }
+        if (alert.fieldTaskInjected && alert.entityId) {
+            ids.add(String(alert.entityId));
+        }
+    }
+    return ids;
 }
 
 export function filterRadarEventsExcludingCalendarAlerts<T extends { id: string }>(
@@ -47,18 +100,85 @@ export function filterRadarEventsExcludingCalendarAlerts<T extends { id: string 
     });
 }
 
+type HomeHubRadarRow = {
+    id: string;
+    sourceEntityId?: string;
+};
+
+/** يزيل تكرار الرادار مع كاروسيل التنبيهات (تقويم + مهام ميدانية) */
+export function filterHomeHubRadarEvents<T extends HomeHubRadarRow>(
+    radarEvents: T[],
+    secretaryAlerts: SecretaryAlert[],
+): T[] {
+    const calendarIds = buildCalendarAlertIdSet(secretaryAlerts);
+    const fieldEntities = buildFieldTaskEntityIdSet(secretaryAlerts);
+    return filterRadarEventsExcludingCalendarAlerts(radarEvents, calendarIds).filter((ev) => {
+        const entityId = String(ev.sourceEntityId ?? '').trim();
+        if (entityId && fieldEntities.has(entityId)) return false;
+        return true;
+    });
+}
+
+/**
+ * رادار تبويب «عاجل» — يُبقي مواعيد التقويم (اليوم/غدا) حتى لو لم تُعرض في كاروسيل السكرتير.
+ * يُزيل فقط تكرار مهام الميدان المُحقونة.
+ */
+export function filterHomeHubUrgentRadarEvents<T extends HomeHubRadarRow>(
+    radarEvents: T[],
+    secretaryAlerts: SecretaryAlert[],
+): T[] {
+    const fieldEntities = buildFieldTaskEntityIdSet(secretaryAlerts);
+    return radarEvents.filter((ev) => {
+        const eventId = String(ev.id ?? '').trim();
+        if (!eventId) return false;
+        if (eventId.includes('appt_judgment_')) return false;
+        const entityId = String(ev.sourceEntityId ?? '').trim();
+        if (entityId && fieldEntities.has(entityId)) return false;
+        return true;
+    });
+}
+
+/**
+ * عدد عناصر تبويب «عاجل» دون تكرار موعد التقويم (سكرتير calendar:* + رادار لنفس ev.id).
+ */
+export function countUniqueHomeHubUrgentItems(
+    secretaryUrgentAlerts: SecretaryAlert[],
+    radarEvents: CalendarRadarEvent[],
+): number {
+    const calendarIds = buildCalendarAlertIdSet(secretaryUrgentAlerts);
+    const radarOnlyCount = radarEvents.filter((ev) => {
+        const eventId = String(ev.id ?? '').trim();
+        return eventId && !calendarIds.has(eventId);
+    }).length;
+    return secretaryUrgentAlerts.length + radarOnlyCount;
+}
+
+export function computeHomeHubHorizonTabCounts(
+    horizonCounts: Record<'urgent' | 'near' | 'upcoming', number>,
+    secretaryUrgentAlerts: SecretaryAlert[],
+    radarEvents: CalendarRadarEvent[],
+): Record<'urgent' | 'near' | 'upcoming', number> {
+    return {
+        urgent: countUniqueHomeHubUrgentItems(secretaryUrgentAlerts, radarEvents),
+        near: 0,
+        upcoming: horizonCounts.upcoming,
+    };
+}
+
 export type HomeHubAlertsEmptyState = 'error' | 'loading' | 'content' | 'empty-filter' | 'empty';
 
 export function resolveHomeHubAlertsEmptyState(input: {
     alertsError: string | null;
     showInitialLoad: boolean;
+    hubInitialPending?: boolean;
     hasAlerts: boolean;
     hasCarouselAlerts: boolean;
     hasRadar: boolean;
     radarLoading?: boolean;
 }): HomeHubAlertsEmptyState {
     if (input.alertsError) return 'error';
-    if (input.showInitialLoad) return 'loading';
+    if (input.hasRadar) return 'content';
+    if (input.hubInitialPending || input.showInitialLoad) return 'loading';
     if (
         input.radarLoading &&
         !input.hasAlerts &&
@@ -87,6 +207,7 @@ export const HOME_HUB_FULLY_EMPTY_COPY = 'لا يوجد تنبيه أو تثبي
 
 export function isHomeHubFullyEmpty(input: {
     alertsTabCount: number;
+    secretaryTabCount?: number;
     pinsCount: number;
     alertsError: string | null;
     showInitialLoad: boolean;
@@ -96,7 +217,8 @@ export function isHomeHubFullyEmpty(input: {
     if (input.alertsError) return false;
     if (input.showInitialLoad) return false;
     if (input.hubInitialPending) return false;
-    return input.alertsTabCount === 0 && input.pinsCount === 0;
+    const secretary = input.secretaryTabCount ?? 0;
+    return input.alertsTabCount === 0 && secretary === 0 && input.pinsCount === 0;
 }
 
 export type OpenHomeHubCardInteractionInput = {
@@ -115,7 +237,10 @@ export function openHomeHubCardInteraction(input: OpenHomeHubCardInteractionInpu
 }
 
 /** مسارات تنقّل خاصة مسموحة من البطاقة/الدوك وليست أنواع تثبيت */
-export const HOME_HUB_SPECIAL_NAV_ROUTES = ['workspace:schedule:calendar'] as const;
+export const HOME_HUB_SPECIAL_NAV_ROUTES = [
+    'workspace:schedule:calendar',
+    'repository:session',
+] as const;
 
 /** يتحقق أن مسار workspace آمن قبل التنقل من البطاقة */
 export function isSafeHomeHubNavigateRoute(routePath: string): boolean {
@@ -150,17 +275,36 @@ export function shouldShowHomeHubTabBadge(count: number): boolean {
 }
 
 export function resolveHomeHubTabAriaLabel(panel: HomeHubPanel, count: number): string {
-    const base = panel === 'alerts' ? 'التنبيهات' : 'التثبيت';
+    const base =
+        panel === 'alerts' ? 'التنبيهات' : panel === 'secretary' ? 'السكرتير' : 'التثبيت';
     if (!shouldShowHomeHubTabBadge(count)) return base;
     return `${base}، ${formatHomeHubTabBadgeCount(count)}`;
 }
 
+export const HOME_HUB_SECRETARY_EMPTY_COPY = 'لا توصيات ذكية حالياً — السكرتير يراقب إضابيرك تلقائياً.';
+
 export function resolveHomeHubRadarItemAriaLabel(
-    event: Pick<CalendarRadarEvent, 'title' | 'whenLabel'>,
+    event: Pick<
+        CalendarRadarEvent,
+        | 'title'
+        | 'whenLabel'
+        | 'sourceHint'
+        | 'dateLabel'
+        | 'timeLabel'
+        | 'sourceModuleLabel'
+        | 'sourcePlace'
+        | 'caseNo'
+    >,
 ): string {
     const title = String(event.title ?? '').trim() || 'موعد';
-    const whenLabel = String(event.whenLabel ?? '').trim();
-    return whenLabel ? `${title}، ${whenLabel}` : title;
+    const moduleLabel = String(event.sourceModuleLabel ?? '').trim();
+    const caseNo = String(event.caseNo ?? '').trim();
+    const court = String(event.sourcePlace ?? '').trim();
+    const dossierRef = caseNo || court;
+    const dateLabel = String(event.dateLabel ?? '').trim();
+    const schedule = [dateLabel, moduleLabel, dossierRef].filter(Boolean).join(' · ');
+    const parts = [title, schedule].filter(Boolean);
+    return parts.join('، ');
 }
 
 export function resolveHomeHubRadarDismissAriaLabel(
@@ -186,6 +330,14 @@ export function resolveHomeHubPinNavigateAriaLabel(input: {
     ].filter(Boolean);
 
     return [headline, ...details.filter((detail) => detail !== headline)].join('، ');
+}
+
+/** عدد عربي لعنوان حاوية الرادار الموسّعة */
+export function formatHomeHubRadarOverflowLabel(count: number): string {
+    if (count <= 0) return '';
+    if (count === 1) return 'تنبيه إضافي واحد';
+    if (count === 2) return 'تنبيهاان إضافيان';
+    return `${count} تنبيهات إضافية`;
 }
 
 export function resolveHomeHubPinUnpinAriaLabel(headline: string): string {

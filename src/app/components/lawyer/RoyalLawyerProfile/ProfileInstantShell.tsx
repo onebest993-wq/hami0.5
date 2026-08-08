@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { HomeArrowRightIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import './profileChrome.css';
@@ -7,6 +7,8 @@ type ProfileInstantShellProps = {
     onBack?: () => void;
     /** داخل تبويب يملك التمرير — لا قفل جسم إضافي */
     embedded?: boolean;
+    /** علامة تحميل chunk — يحافظ على testid للـ e2e */
+    chunkLoading?: boolean;
 };
 
 /**
@@ -16,15 +18,28 @@ type ProfileInstantShellProps = {
 export function ProfileInstantShell({
     onBack,
     embedded = false,
+    chunkLoading = false,
 }: ProfileInstantShellProps): React.ReactElement {
     useBodyScrollLock(Boolean(onBack) && !embedded);
+
+    useEffect(() => {
+        if (!onBack) return;
+        const onKey = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            onBack();
+        };
+        window.addEventListener('keydown', onKey, true);
+        return () => window.removeEventListener('keydown', onKey, true);
+    }, [onBack]);
 
     return (
         <div
             className="hami-profile-instant-shell"
             dir="rtl"
-            data-testid="profile-instant-shell"
+            data-testid={chunkLoading ? 'lawyer-profile-tab-loading' : 'profile-instant-shell'}
             data-profile-instant-shell="1"
+            data-profile-chunk-loading={chunkLoading ? '1' : undefined}
             role="dialog"
             aria-modal={!embedded}
             aria-label="الملف المهني"

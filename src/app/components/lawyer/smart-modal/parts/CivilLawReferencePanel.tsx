@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Search } from '@/app/components/ui/lucideIcons';
 import {
     CIVIL_LAW_CANONICAL_NAMES,
     type CivilLawCodeType,

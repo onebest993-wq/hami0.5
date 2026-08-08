@@ -1,4 +1,4 @@
-import { prefetchProfileHubModule, resetProfileHubModuleCacheForTests } from '@/app/runtime/profileHubLoader';
+import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
 
 /** shell تبويب الملف — يحمّل hub التبويب + الواجهة */
 export function prefetchLawyerDashboardProfileTabShell(): void {
@@ -6,5 +6,5 @@ export function prefetchLawyerDashboardProfileTabShell(): void {
 }
 
 export function resetLawyerDashboardProfileTabShellForTests(): void {
-    resetProfileHubModuleCacheForTests();
+    void import('@/app/runtime/profileHubLoader').then((m) => m.resetProfileHubModuleCacheForTests());
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical } from '@/app/components/ui/lucideIcons';
 import { GuarantorAnchoredPopover } from './guarantorAnchoredPopover';
 
 export type GuarantorMenuItem = {

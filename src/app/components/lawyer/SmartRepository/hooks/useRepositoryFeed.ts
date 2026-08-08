@@ -23,6 +23,7 @@ import {
     getRepositoryFeedContainerClass,
     getRepositoryFeedItemClass,
     loadRepositoryFeedLayout,
+    normalizeRepositoryFeedLayout,
     persistRepositoryFeedLayout,
     type RepositoryFeedLayoutId,
 } from '../repositoryFeedLayout';
@@ -81,13 +82,20 @@ export function useRepositoryFeed({
     const feedItemLayoutClass = getRepositoryFeedItemClass(feedLayout);
 
     const handleFeedLayoutChange = useCallback((next: RepositoryFeedLayoutId) => {
-        setFeedLayout(next);
-        persistRepositoryFeedLayout(next);
+        const normalized = normalizeRepositoryFeedLayout(next);
+        setFeedLayout(normalized);
+        persistRepositoryFeedLayout(normalized);
     }, []);
 
     useEffect(() => {
-        invalidateRepositoryFeedCache();
-        setFeedEpoch((n) => n + 1);
+        let raf = 0;
+        raf = requestAnimationFrame(() => {
+            invalidateRepositoryFeedCache();
+            setFeedEpoch((n) => n + 1);
+        });
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+        };
     }, [notes, vaultDocs]);
 
     const feedItems = useMemo(() => {

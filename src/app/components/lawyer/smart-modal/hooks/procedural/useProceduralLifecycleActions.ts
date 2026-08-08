@@ -1,18 +1,17 @@
-
-
 import { SmartToast } from '@/app/components/ui/SmartToast';
-
-
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
-
-
+import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync';
+import type { TimelineEvent } from '../../../LawyerShared';
 import type { UseSmartFileProceduralActionsOptions } from '../../smartFile/proceduralTypes';
 import {
     stageTimeline,
     ymdPlusDays,
 } from '../../smartFile/proceduralTypes';
-
-
+import {
+    ABANDONMENT_REVIEW_DAYS,
+    resolveAbandonmentReviewDeadline,
+} from '../../smartFile/caseFlowStatusDisplay';
+import { buildLawsuitCalendarContext } from './lawsuitCalendarContext';
 import {
     isPetitionVoidRevivalExpired,
     PETITION_VOID_APPEAL_DAYS,
@@ -49,6 +48,7 @@ export function useProceduralLifecycleActions(options: UseSmartFileProceduralAct
         setShowPauseModal,
         setShowInterruptionModal,
         setShowResumeInterruptionModal,
+        setShowAbandonmentRenewalModal,
         setShowExtraordinaryAppealModal,
         setShowProvisionalOrderModal,
         setShowInterlocutoryModal,
@@ -61,12 +61,15 @@ export function useProceduralLifecycleActions(options: UseSmartFileProceduralAct
         setAppealOutcomeTask,
     } = options;
 
+    const lawsuitCalendarContext = () => buildLawsuitCalendarContext(parentData, calendarUserId);
+
 const handleAbandonment = () => {
     const updatedStages = [...stages];
     const currentCount = currentStage.abandonmentCount || 0;
+    const today = getLocalTodayYmd();
     
     if (currentCount === 0) {
-        // First time allowed
+        const reviewDeadline = resolveAbandonmentReviewDeadline(today);
         updatedStages[activeStageIndex] = {
             ...currentStage,
             abandonmentDate: new Date().toISOString(),
@@ -74,20 +77,20 @@ const handleAbandonment = () => {
             status: 'active',
         };
         
-        // Add timeline event
         updatedStages[activeStageIndex].timeline = [{
             id: `abandon_${Date.now()}`,
             type: 'decision',
-            date: getLocalTodayYmd(),
-            title: '⏸️ ترك الدعوى للمراجعة (للمرة الأولى)',
-            details: 'تم ترك الدعوى للمراجعة. يجب تجديدها خلال 10 أيام وإلا تبطل عريضتها.',
+            date: today,
+            title: 'ترك الدعوى للمراجعة (للمرة الأولى)',
+            details: `تم ترك الدعوى للمراجعة. يجب تجديدها خلال ${ABANDONMENT_REVIEW_DAYS} أيام من اليوم التالي. آخر مهلة للتجديد: ${reviewDeadline}`,
             isNew: true
         }, ...(stageTimeline(currentStage) || [])];
         
         setStatus('متروكة للمراجعة');
-        SmartToast.warning("تم ترك الدعوى للمراجعة - انتبه للمهلة القانونية (10 أيام)!");
+        SmartToast.warning(
+            `تم ترك الدعوى للمراجعة — مهلة التجديد ${ABANDONMENT_REVIEW_DAYS} أيام (حتى ${reviewDeadline})`,
+        );
     } else {
-        // Second time! Fatal legal consequence.
         updatedStages[activeStageIndex] = {
             ...currentStage,
             isVoided: true,
@@ -97,12 +100,11 @@ const handleAbandonment = () => {
             finalDecision: 'مبطلة — ترك للمراجعة للمرة الثانية',
         };
         
-        // Add timeline event
         updatedStages[activeStageIndex].timeline = [{
             id: `void_${Date.now()}`,
             type: 'decision',
-            date: getLocalTodayYmd(),
-            title: '❌ إبطال عريضة الدعوى',
+            date: today,
+            title: 'إبطال عريضة الدعوى',
             details: 'تم إبطال عريضة الدعوى قانوناً لتركها للمراجعة للمرة الثانية.',
             isNew: true
         }, ...(stageTimeline(currentStage) || [])];
@@ -115,29 +117,67 @@ const handleAbandonment = () => {
     saveToCloud(updatedStages);
 };
 
-const handleResumeAbandonment = () => {
+const handleResumeAbandonment = (data?: { nextHearingDate?: string }) => {
     const updatedStages = [...stages];
+    const nextHearingDate = String(data?.nextHearingDate ?? '').trim().slice(0, 10);
+    const today = getLocalTodayYmd();
+    const timelineEvents: TimelineEvent[] = [];
+
     updatedStages[activeStageIndex] = {
         ...currentStage,
         abandonmentDate: undefined,
-        status: 'active'
-        // NOTE: We do NOT reset abandonmentCount. It remains 1.
+        isPleadingsClosed: false,
+        status: 'active',
     };
 
-     // Add timeline event
-    updatedStages[activeStageIndex].timeline = [{
+    if (nextHearingDate) {
+        timelineEvents.push({
+            id: `resume_abandon_hearing_${Date.now()}`,
+            type: 'appointment',
+            date: nextHearingDate,
+            title: 'موعد المرافعة بعد فتح باب المراجعة',
+            details: 'موعد المرافعة القادم بعد تجديد الدعوى.',
+            isNew: true,
+        });
+        const ctx = lawsuitCalendarContext();
+        if (ctx.fileId) {
+            syncLawsuitTimelineAppointment({
+                userId: ctx.userId,
+                fileId: ctx.fileId,
+                event: {
+                    id: `appt_resume_abandon_${nextHearingDate}`,
+                    date: nextHearingDate,
+                    title: 'مرافعة بعد تجديد الدعوى',
+                },
+                caseNo: ctx.caseNo,
+                court: ctx.court,
+                parties: ctx.parties,
+                clientName: ctx.clientName,
+            });
+        }
+    }
+
+    timelineEvents.push({
         id: `resume_abandon_${Date.now()}`,
         type: 'decision',
-        date: getLocalTodayYmd(),
-        title: '🔄 تجديد الدعوى',
-        details: 'تم تجديد الدعوى بعد تركها للمراجعة.',
+        date: today,
+        title: 'تجديد الدعوى بعد الترك للمراجعة',
+        details: nextHearingDate
+            ? `تم تجديد الدعوى وفتح باب المرافعة. موعد المرافعة القادم: ${nextHearingDate}`
+            : 'تم تجديد الدعوى بعد تركها للمراجعة.',
         isNew: true
-    }, ...(stageTimeline(currentStage) || [])];
+    });
+
+    updatedStages[activeStageIndex].timeline = [
+        ...timelineEvents,
+        ...(stageTimeline(currentStage) || []),
+    ];
     
     setStatus('نشطة');
     setStages(updatedStages);
     saveToCloud(updatedStages);
-    SmartToast.success("تم تجديد الدعوى بنجاح");
+    setShowAbandonmentRenewalModal?.(false);
+    SmartToast.success('تم تجديد الدعوى وفتح باب المرافعة');
 };
 
 const handleRegisterPetitionVoid = () => {

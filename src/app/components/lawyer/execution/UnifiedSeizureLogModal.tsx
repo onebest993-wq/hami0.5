@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Car, Home, Wallet, X } from 'lucide-react';
+import { Briefcase, Car, Home, Wallet, X } from '@/app/components/ui/lucideIcons';
 import { EXEC_MODAL_BACKDROP_STRONG, EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { UNIFIED_SEIZURE_TAB_ORDER } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogHelpers';
 
@@ -100,6 +100,7 @@ export function UnifiedSeizureLogModal(props: {
         >
             <div
                 className="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-3xl border border-[#E6C673]/30 bg-[#0B1120] shadow-2xl shadow-black/60"
+                data-testid="unified-seizure-log"
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >

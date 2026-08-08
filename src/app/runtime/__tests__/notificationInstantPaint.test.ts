@@ -28,6 +28,7 @@ describe('notificationInstantPaint', () => {
         expect(isNotificationForceVisible()).toBe(true);
         expect(layer.style.visibility).toBe('visible');
         expect(layer.style.pointerEvents).toBe('auto');
+        expect(document.documentElement.getAttribute('data-hami-notifications-open')).toBe('1');
     });
 
     it('conceals the warm panel', () => {
@@ -39,6 +40,7 @@ describe('notificationInstantPaint', () => {
 
         expect(isNotificationForceVisible()).toBe(false);
         expect(layer.style.visibility).toBe('hidden');
+        expect(document.documentElement.hasAttribute('data-hami-notifications-open')).toBe(false);
     });
 
     it('arms interact class after grace', () => {

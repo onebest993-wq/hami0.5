@@ -9,6 +9,14 @@ import { calendarEventToTimestamp } from '@/app/utils/calendarDateTime';
 import { addBaghdadDays, baghdadDayRange, todayBaghdadYmd } from '@/app/utils/baghdadTime';
 import { peekHomeHubRadarCache } from '@/app/services/alerts/homeHubRadarWarmCache';
 import { isUserAuthoredBridgedCalendarEvent } from '@/app/services/calendarAuthenticity';
+import {
+    formatRadarDeadlineLabel,
+    formatRadarDateLabel,
+    formatRadarTimeLabel,
+    resolveRadarModuleLabel,
+    resolveRadarPlaceHint,
+    resolveRadarSourceHint,
+} from './calendarRadarDisplay';
 
 const BRIDGED_ROUTE_MODULES: WorkspacePinType[] = [
     'lawsuit',
@@ -23,14 +31,6 @@ const RADAR_MS = 48 * 60 * 60 * 1000;
 
 function parseEventMs(ev: CalendarEvent): number | null {
     return calendarEventToTimestamp(ev.date, ev.time, 'end');
-}
-
-function whenLabel(ts: number, nowMs: number): string {
-    const diffH = (ts - nowMs) / (1000 * 60 * 60);
-    if (diffH < 0) return 'متأخر';
-    if (diffH < 1) return 'خلال ساعة';
-    if (diffH < 24) return `باقي ${Math.round(diffH)} ساعة`;
-    return `باقي ${Math.round(diffH / 24)} يوم`;
 }
 
 function resolveRadarRoute(ev: CalendarEvent): string {
@@ -49,13 +49,22 @@ function mapRadarEvent(ev: CalendarEvent, nowMs: number): CalendarRadarEvent | n
     const ts = parseEventMs(ev);
     if (ts === null) return null;
     const route = resolveRadarRoute(ev);
+    const sourceEntityId = String(ev.sourceEntityId ?? ev.caseId ?? '').trim();
+    const sourceHint = resolveRadarSourceHint(ev);
+    const sourcePlace = resolveRadarPlaceHint(ev);
     return {
         id: ev.id,
         title: ev.title,
-        whenLabel: whenLabel(ts, nowMs),
+        whenLabel: formatRadarDeadlineLabel(ts, nowMs),
+        dateLabel: formatRadarDateLabel(ts, nowMs),
+        timeLabel: formatRadarTimeLabel(ts),
+        sourceModuleLabel: resolveRadarModuleLabel(ev),
+        ...(sourcePlace ? { sourcePlace } : {}),
+        ...(sourceHint ? { sourceHint } : {}),
         clientName: ev.clientName,
         caseNo: ev.caseNo,
         routePath: route,
+        ...(sourceEntityId ? { sourceEntityId } : {}),
     };
 }
 
@@ -117,19 +126,8 @@ export function useCalendarRadar48h(lawyerId: string | null): {
         return () => window.removeEventListener(CALENDAR_UPDATED_EVENT, onUpdate);
     }, [lawyerId, fetchEvents]);
 
-    // ticker كل دقيقة — يُحدِّث whenLabel ("باقي X ساعة") وفلتر النافذة
-    // دون انتظار CALENDAR_UPDATED_EVENT. متوقف عند عدم وجود lawyerId.
-    const [tick, setTick] = useState(0);
-    useEffect(() => {
-        if (!lawyerId) return undefined;
-        const id = window.setInterval(() => setTick((n) => n + 1), 60_000);
-        return () => window.clearInterval(id);
-    }, [lawyerId]);
-
     const events = useMemo(() => {
         const now = Date.now();
-        // قراءة tick هنا لربط الـ useMemo بتحديثاته دون استخدامه فعلياً
-        void tick;
         const end = now + RADAR_MS;
         // حساب "بداية اليوم" و"نهاية الغد" بتوقيت Asia/Baghdad
         const todayYmd = todayBaghdadYmd();
@@ -156,7 +154,7 @@ export function useCalendarRadar48h(lawyerId: string | null): {
             .filter((x): x is { ts: number; mapped: CalendarRadarEvent } => x !== null)
             .sort((a, b) => a.ts - b.ts)
             .map((x) => x.mapped);
-    }, [raw, tick]);
+    }, [raw]);
 
     return { events, loading };
 }

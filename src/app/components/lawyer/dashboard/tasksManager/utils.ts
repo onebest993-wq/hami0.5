@@ -79,20 +79,26 @@ export function purgeExpiredCompletedTasks(tasks: LegalTask[], now = new Date())
 }
 
 export function releaseExpiredFieldCurtainPins(tasks: LegalTask[], now = new Date()): LegalTask[] {
-    const today = startOfLocalDay(now).getTime();
     return tasks.map((t) => {
         if (!t.pinnedToFieldCurtain) return t;
         if (isTaskMarkedDone(t)) {
             return { ...t, pinnedToFieldCurtain: false, fieldCurtainPinnedAt: null };
         }
-        const pinDay = t.fieldCurtainPinnedAt
-            ? startOfLocalDay(t.fieldCurtainPinnedAt).getTime()
-            : today;
-        if (pinDay < today) {
-            return { ...t, pinnedToFieldCurtain: false, fieldCurtainPinnedAt: null };
-        }
         return t;
     });
+}
+
+/** ترحيل مهمة إلى يوم — داخل الأسبوع الحالي أو المؤجلة لأسبوع لاحق */
+export function buildPostponeTaskPatch(
+    targetDate: Date,
+    now = new Date(),
+): Pick<LegalTask, 'parsedDate' | 'reminderAt'> {
+    const day = startOfLocalDay(targetDate);
+    const weekStart = getSaturdayOfWeekContaining(now);
+    if (isDateInWorkWeek(day, weekStart)) {
+        return { parsedDate: day, reminderAt: null };
+    }
+    return { parsedDate: null, reminderAt: day };
 }
 
 export function prepareAgendaTasks(
@@ -247,16 +253,15 @@ export function isAgendaDayPast(dayDate: Date, now = new Date()): boolean {
     return startOfLocalDay(dayDate).getTime() < startOfLocalDay(now).getTime();
 }
 
-/** هل يُعرض عمود اليوم في الأجندة الأسبوعية؟ الأيام المنتهية الفارغة تُخفى */
+/** هل يُعرض عمود اليوم في الأجندة الأسبوعية؟ الأسبوع كامل يبقى ظاهراً */
 export function isWeeklyAgendaDayVisible(
-    dayDate: Date,
-    taskCount: number,
-    now = new Date(),
+    _dayDate: Date,
+    _taskCount: number,
+    _now = new Date(),
     weekAddDayKey?: string | null,
     dayKey?: string,
 ): boolean {
     if (weekAddDayKey && dayKey === weekAddDayKey) return true;
-    if (isAgendaDayPast(dayDate, now) && taskCount === 0) return false;
     return true;
 }
 

@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Send } from 'lucide-react';
+import { Send } from '@/app/components/ui/lucideIcons';
 import { useColleagueConsultation } from './ColleagueConsultationContext';
 
 const DEFAULT_CLASS =

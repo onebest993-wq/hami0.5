@@ -22,6 +22,7 @@ import { useRepositoryRooms } from './hooks/useRepositoryRooms';
 import { confirmRepositoryRoomDelete, prefetchRepositoryDialogs } from './repositoryDialog';
 import { prefetchVaultBlobStore } from '@/app/services/vaultBlobStore';
 import { prefetchVoiceRecorderModal } from '@/app/utils/lazyComponentsIntent';
+import { SparkRepositoryInsight } from '@/app/spark/ui/SparkRepositoryInsight';
 
 export type SmartRepositoryUnifiedFeedProps = {
     currentUserId?: string;
@@ -61,6 +62,8 @@ export function SmartRepositoryUnifiedFeed({
 }: SmartRepositoryUnifiedFeedProps) {
     const feedScrollRef = useRef<HTMLDivElement>(null);
     const [modalRoot, setModalRoot] = useState<HTMLDivElement | null>(null);
+    const [sparkFocusNoteId, setSparkFocusNoteId] = useState<string | undefined>();
+    const effectiveFocusNoteId = sparkFocusNoteId ?? focusNoteId;
     const effectiveInitialFilter: RepositoryFeedFilter = initialFilter ?? 'all';
     const roomsApi = useRepositoryRooms(currentUserId);
     const activeRoomIdRef = useRef(roomsApi.activeRoomId);
@@ -81,7 +84,7 @@ export function SmartRepositoryUnifiedFeed({
         vaultSearchQuery: vault.searchQuery,
         roomFilter: roomsApi.selectedRoomId,
         initialFilter: effectiveInitialFilter,
-        focusNoteId,
+        focusNoteId: effectiveFocusNoteId,
         feedScrollRef,
         vault,
     });
@@ -110,8 +113,10 @@ export function SmartRepositoryUnifiedFeed({
     }, []);
 
     const handleAfterComposeSave = useCallback(
-        (_kind: 'note' | 'media') => undefined,
-        [],
+        (kind: 'note' | 'media') => {
+            feed.selectMainFilter(kind === 'media' ? 'media' : 'all');
+        },
+        [feed],
     );
 
     const { feedLoading } = useRepositoryLifecycle(
@@ -120,6 +125,7 @@ export function SmartRepositoryUnifiedFeed({
         vault.docs.length,
         notes.length,
         notesBootSettled,
+        escapeEnabled,
     );
 
     const compose = useRepositoryCompose({
@@ -216,11 +222,49 @@ export function SmartRepositoryUnifiedFeed({
         pendingUploadSaving: vault.isSavingMeta,
         onResetComposer: compose.resetComposer,
         onCloseScanner: () => compose.setScannerOpen(false),
+        onCloseVoice: () => compose.setShowVoiceRecorder(false),
         onCloseFileViewer: vault.closeFileViewer,
         onCloseEditDoc: vault.closeEditDoc,
         onCancelPendingUpload: vault.cancelPendingUpload,
         onCloseModal: onRequestClose,
     });
+
+    const handleRepositorySparkFollow = useCallback(
+        (actionId: string, meta?: { targetFileId?: string }) => {
+            if (actionId === 'focus_unbound_filter') {
+                feed.selectMainFilter('media');
+                feedScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+            if (actionId === 'focus_upload_meta') {
+                feed.selectMainFilter('media');
+                feedScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                return;
+            }
+            if (actionId === 'open_repository_note') {
+                const noteId = String(meta?.targetFileId ?? '').trim();
+                if (!noteId) return;
+                feed.selectMainFilter('all');
+                setSparkFocusNoteId(noteId);
+                window.setTimeout(() => {
+                    const el = feedScrollRef.current?.querySelector(`[data-note-id="${noteId}"]`);
+                    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 120);
+                return;
+            }
+            if (actionId === 'open_vault_doc') {
+                const docId = String(meta?.targetFileId ?? '').trim();
+                if (!docId) return;
+                const doc = vault.docs.find((item) => item.id === docId);
+                if (doc) {
+                    void vault.handleViewFile(doc);
+                    return;
+                }
+                SmartToast.error('تعذر العثور على المرفق — حدّث الخزنة وحاول مجدداً');
+            }
+        },
+        [feed, vault],
+    );
 
     return (
         <VaultModalRootContext.Provider value={modalRoot}>
@@ -266,6 +310,18 @@ export function SmartRepositoryUnifiedFeed({
                     onOpenScanner={() => compose.setScannerOpen(true)}
                     onOpenVoice={compose.openVoiceRecorder}
                 />
+
+                {!compose.composing ? (
+                    <SparkRepositoryInsight
+                        unboundVaultDocs={feed.unboundVaultDocs}
+                        vaultDocsForScan={vault.docs}
+                        notesForScan={notes}
+                        lawsuitFiles={lawsuitFiles}
+                        executionFiles={executionFiles}
+                        pendingUpload={Boolean(vault.pendingUpload)}
+                        onFollow={handleRepositorySparkFollow}
+                    />
+                ) : null}
 
                 <div ref={feedScrollRef} className={REPO_BODY}>
                     {compose.composing ? (

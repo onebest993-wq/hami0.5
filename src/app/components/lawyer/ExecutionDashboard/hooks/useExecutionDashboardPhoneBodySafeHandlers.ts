@@ -14,6 +14,7 @@ import {
     prefetchExecutionFinanceOverlay,
     prefetchExecutionNotesOverlay,
 } from '../executionDashboardOverlayPrefetch';
+import { runDebtorEmploymentToggle } from './executionDashboardCore/executionDashboardDebtorEmploymentToggle';
 import {
     LazyExecutionFinancialHubPortal,
     LazyFinancialOperationsCenter,
@@ -130,13 +131,40 @@ export function useExecutionDashboardPhoneBodySafeHandlers(
     );
     const safeHandleDebtorEmploymentToggle = React.useCallback(
         (payload: { debtorKey: string; isPrimary: boolean }) => {
-            if (typeof handleDebtorEmploymentToggle === 'function') {
-                handleDebtorEmploymentToggle(payload);
+            const latest = readLatestPhoneBodyScope();
+            const fromScope = latest?.handleDebtorEmploymentToggle;
+            const candidates = [fromScope, handleDebtorEmploymentToggle];
+            for (const candidate of candidates) {
+                if (typeof candidate !== 'function') continue;
+                if (isExecutionHandlerStubLeaf(candidate)) continue;
+                candidate(payload);
                 return;
             }
-            showToast('تعذر تبديل صفة المدين لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');
+            runDebtorEmploymentToggle({
+                base: (latest?.executionData ?? latest?.viewExecutionData) as
+                    | import('@/app/types/execution').ExecutionFile
+                    | null
+                    | undefined,
+                debtorWorkspaceEntries: Array.isArray(latest?.debtorWorkspaceEntries)
+                    ? latest.debtorWorkspaceEntries
+                    : [],
+                ctx: payload,
+                nextTimelineId:
+                    typeof latest?.nextTimelineId === 'function'
+                        ? latest.nextTimelineId
+                        : () => `timeline-${Date.now()}`,
+                persistExecutionMerge:
+                    typeof latest?.persistExecutionMerge === 'function'
+                        ? latest.persistExecutionMerge
+                        : () => false,
+                showToast,
+                setTimelineEvents:
+                    typeof latest?.setTimelineEvents === 'function'
+                        ? latest.setTimelineEvents
+                        : undefined,
+            });
         },
-        [handleDebtorEmploymentToggle, showToast],
+        [handleDebtorEmploymentToggle, readLatestPhoneBodyScope, showToast],
     );
     const directHandleMemoFollowupClick = React.useCallback(() => {
         const latest = readLatestPhoneBodyScope();
@@ -368,7 +396,7 @@ export function useExecutionDashboardPhoneBodySafeHandlers(
     ]);
     const toggleFinancialCenterExpanded = React.useCallback(() => {
         if (typeof setIsFinancialCenterExpanded === 'function') {
-            setIsFinancialCenterExpanded((prev) => !prev);
+            setIsFinancialCenterExpanded((prev: boolean) => !prev);
             return;
         }
         showToast('تعذر فتح المركز المالي لأن الربط الحقيقي لم يصل إلى الواجهة بعد.', 'error');

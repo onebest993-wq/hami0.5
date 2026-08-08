@@ -5,16 +5,22 @@ import { LAWYER_SETTINGS_V2_DEFAULTS } from './defaults';
 import { normalizeBackgroundPreset } from './backgroundPresets';
 
 import {
-
-    normalizeBackgroundPatternBlur,
     normalizeBackgroundPatternOpacity,
     normalizeGlassOpacity,
 } from './surfaceAppearance';
+
+import {
+    collapseLegacyThemeApplyTarget,
+    normalizeAppearanceLanguage,
+    normalizeAppearancePatternBlur,
+} from './appearanceNormalize';
 
 import type { AppSettingsState } from './types';
 import { SETTINGS_SCHEMA_VERSION } from './types';
 import { normalizeHomeLayout } from './homeLayout';
 import { normalizeLitePerformanceMode } from '@/app/runtime/devicePerformanceTier';
+import { normalizeFontPreset, normalizeFontSizePx } from './nav';
+import { normalizeNotificationSettings } from './notificationSettings';
 
 
 
@@ -115,31 +121,26 @@ function deepMerge<T>(base: T, patch: Partial<T>): T {
 
 
 function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
+    const themeTargets = collapseLegacyThemeApplyTarget(merged.appearance);
 
     return {
-
         version: SETTINGS_SCHEMA_VERSION,
-
         appearance: {
-
             ...merged.appearance,
-
             themeMode: normalizeThemeMode(merged.appearance.themeMode),
-
+            language: normalizeAppearanceLanguage(merged.appearance.language),
             backgroundPreset: normalizeBackgroundPreset(merged.appearance.backgroundPreset),
-
             backgroundPatternOpacity: normalizeBackgroundPatternOpacity(merged.appearance.backgroundPatternOpacity),
-
-            backgroundPatternBlur: normalizeBackgroundPatternBlur(merged.appearance.backgroundPatternBlur),
-
+            backgroundPatternBlur: normalizeAppearancePatternBlur(merged.appearance.backgroundPatternBlur),
             glassOpacity: normalizeGlassOpacity(merged.appearance.glassOpacity),
-
             homeContainerBorder: merged.appearance.homeContainerBorder !== false,
-
-            wallpaper: undefined,
-
+            themeApplyTarget: themeTargets.themeApplyTarget,
+            patternApplyTarget: 'blocks',
+            cardTheme: themeTargets.cardTheme,
+            patternTheme: themeTargets.patternTheme,
             wallpaperStamp: merged.appearance.wallpaperStamp,
-
+            fontSize: normalizeFontSizePx(merged.appearance.fontSize),
+            fontPreset: normalizeFontPreset(merged.appearance.fontPreset, merged.appearance.fontSize),
         },
 
         security: {
@@ -158,6 +159,8 @@ function normalizeAppSettings(merged: AppSettingsState): AppSettingsState {
         },
 
         homeLayout: normalizeHomeLayout(merged.homeLayout),
+
+        notifications: normalizeNotificationSettings(merged.notifications),
 
     };
 
@@ -189,6 +192,14 @@ export function migrateLawyerSettings(
 
         }
 
+        if (obj.version === 2 && obj.appearance) {
+
+            const merged = deepMerge(LAWYER_SETTINGS_V2_DEFAULTS, obj as unknown as Partial<AppSettingsState>);
+
+            return normalizeAppSettings(merged);
+
+        }
+
 
 
         const migrated: Partial<AppSettingsState> = {
@@ -205,12 +216,12 @@ export function migrateLawyerSettings(
 
                 language: obj.language ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.language,
 
-                fontSize:
-                    typeof obj.fontSize === 'number'
-                        ? obj.fontSize > 18
-                            ? 18
-                            : obj.fontSize
-                        : LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
+                fontSize: normalizeFontSizePx(obj.fontSize ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize),
+                fontPreset: normalizeFontPreset(
+                    (obj.appearance as AppSettingsState['appearance'] | undefined)?.fontPreset ??
+                        LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontPreset,
+                    obj.fontSize ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.fontSize,
+                ),
 
                 glassOpacity: normalizeGlassOpacity(obj.glassOpacity ?? LAWYER_SETTINGS_V2_DEFAULTS.appearance.glassOpacity),
 

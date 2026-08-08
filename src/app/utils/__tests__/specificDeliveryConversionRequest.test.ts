@@ -21,6 +21,7 @@ vi.mock('@/app/utils/executorSeizureDecisionQueue', async (importOriginal) => {
     return {
         ...actual,
         patchExecutorDecisionRow: vi.fn(() => true),
+        patchExecutorDecisionRowReliable: vi.fn(() => ({ ok: true, storageExecutionId: 'ex-1' })),
         dispatchDecisionsReload: vi.fn(),
     };
 });
@@ -55,14 +56,14 @@ describe('specificDeliveryConversionRequest', () => {
     });
 
     it('completes conversion approval without cash value (expert determines value)', async () => {
-        const { patchExecutorDecisionRow } = await import('@/app/utils/executorSeizureDecisionQueue');
+        const { patchExecutorDecisionRowReliable } = await import('@/app/utils/executorSeizureDecisionQueue');
         const result = completeSpecificDeliveryConversionApproval({
             executionId: 'ex-1',
             decisionId: 'dec-1',
             itemName: 'سيارة',
         });
         expect(result.ok).toBe(true);
-        expect(patchExecutorDecisionRow).toHaveBeenCalledWith(
+        expect(patchExecutorDecisionRowReliable).toHaveBeenCalledWith(
             'ex-1',
             'dec-1',
             expect.objectContaining({
@@ -73,7 +74,7 @@ describe('specificDeliveryConversionRequest', () => {
     });
 
     it('finalizes conversion with cash value', async () => {
-        const { patchExecutorDecisionRow } = await import('@/app/utils/executorSeizureDecisionQueue');
+        const { patchExecutorDecisionRowReliable } = await import('@/app/utils/executorSeizureDecisionQueue');
         const result = finalizeSpecificDeliveryConversionRequest({
             executionId: 'ex-1',
             decisionId: 'dec-1',
@@ -82,7 +83,7 @@ describe('specificDeliveryConversionRequest', () => {
         });
         expect(result.ok).toBe(true);
         expect(result.amount).toBe(1_500_000);
-        expect(patchExecutorDecisionRow).toHaveBeenCalledWith(
+        expect(patchExecutorDecisionRowReliable).toHaveBeenCalledWith(
             'ex-1',
             'dec-1',
             expect.objectContaining({

@@ -1,5 +1,6 @@
 import React, { memo } from 'react';
-import { Clock } from 'lucide-react';
+import { flushSync } from 'react-dom';
+import { Clock } from '@/app/components/ui/lucideIcons';
 import type { ArchivePortalProps } from '@/app/types/common';
 import ExecutionSmartCard from './ExecutionSmartCard';
 import { ArchiveVirtualGrid } from './ArchiveVirtualGrid';
@@ -129,12 +130,18 @@ function ExecutionArchiveFileGridImpl({
                     onPreview={() => setExecutionPreviewFile(file as LooseArchiveFile)}
                     onRequestMoveToTrash={
                         executionVariant === 'active' && onMoveExecutionToTrash
-                            ? () => setTrashConfirmTarget(file as LooseArchiveFile)
+                            ? () =>
+                                  flushSync(() =>
+                                      setTrashConfirmTarget(file as LooseArchiveFile),
+                                  )
                             : undefined
                     }
                     onRequestArchive={
                         executionVariant === 'active' && onArchiveExecution
-                            ? () => setArchiveConfirmTarget(file as LooseArchiveFile)
+                            ? () =>
+                                  flushSync(() =>
+                                      setArchiveConfirmTarget(file as LooseArchiveFile),
+                                  )
                             : undefined
                     }
                     onRestoreFromTrash={

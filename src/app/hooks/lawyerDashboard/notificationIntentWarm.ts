@@ -4,6 +4,7 @@ import {
 } from '@/app/runtime/notificationPanelLoader';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { shouldAllowIntentWarmFromDom } from '@/app/services/settings/intentWarmGate';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 
 /** عند hover/لمس أيقونة الإشعارات: تحميل مسبق للوحة. */
 export function warmNotificationsOnHover(): void {
@@ -23,11 +24,7 @@ export function warmNotificationsOnOpen(userId: string | null | undefined): void
     }
     const uid = userId?.trim();
     if (!uid) return;
-    void import('@/app/stores/notificationStore')
-        .then((m) => {
-            m.useNotificationStore.getState().hydrateFromLocalPeek(uid);
-        })
-        .catch(() => undefined);
+    useNotificationStore.getState().hydrateFromLocalPeek(uid);
     void loadNotificationPanelModule().catch(() => undefined);
     if (typeof document !== 'undefined' && document.hidden) return;
     void import('@/app/services/notifications/notificationBackgroundSync')

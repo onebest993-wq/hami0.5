@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Eye, Loader2, Pin, Trash2 } from 'lucide-react';
+import { Eye, Loader2, Pin, Trash2 } from '@/app/components/ui/lucideIcons';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { isVoiceNote } from '@/app/components/lawyer/dashboard/notepadNoteUtils';
 import { VoiceNoteAudio } from '@/app/components/lawyer/dashboard/VoiceNoteAudio';
@@ -10,7 +10,7 @@ import {
 import { RepositoryEntryContentLayout } from '../RepositoryEntryContentLayout';
 import { RepositoryCardFrame } from '../RepositoryCardFrame';
 import { VaultDossierLinkButton } from '../VaultDossierLinkButton';
-import { REPO_BADGE_GOLD, REPO_CARD_ICON_BTN } from '../smartRepositoryTheme';
+import { REPO_BADGE_GOLD, REPO_CARD_ACTIONS, REPO_CARD_EDIT_LINK, REPO_CARD_ICON_BTN, REPO_CARD_ICON_BTN_ACTIVE, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
 import type { RepositoryCardInnerLayout } from '../repositoryFeedLayout';
 import { EntryCardInlineEditor } from './EntryCardInlineEditor';
 import { useUniversalEntryCardEdit } from './useUniversalEntryCardEdit';
@@ -77,32 +77,32 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
     }, [note, onSaveGlobal]);
 
     const headerNode = (
-        <>
-            <span className="text-[11px] text-white/45 block">{timestamp}</span>
+        <div className="space-y-1">
+            <span className={`${REPO_CARD_TIMESTAMP} block`}>{timestamp}</span>
             <div className="flex flex-wrap items-center gap-1.5">
-                {note.isPinned ? <Pin size={12} className="text-[#E6C673]" /> : null}
+                {note.isPinned ? <Pin size={12} className="text-[#E6C673]" aria-hidden /> : null}
                 {attachment ? <span className={REPO_BADGE_GOLD}>📎 {attachment.title}</span> : null}
             </div>
-        </>
+        </div>
     );
 
     const footerNode = (
-        <div className="flex flex-wrap items-center justify-between gap-2 w-full">
-            <div className="flex items-center gap-2">
+        <div className={REPO_CARD_ACTIONS}>
+            <div className="flex flex-wrap items-center gap-1 min-w-0">
                 {!voice ? (
-                    <button type="button" onClick={edit.startEdit} className="inline-flex items-center min-h-[44px] text-xs font-bold text-[#E6C673] touch-manipulation">
+                    <button type="button" onClick={edit.startEdit} className={REPO_CARD_EDIT_LINK}>
                         تعديل
                     </button>
                 ) : null}
                 <button
                     type="button"
                     onClick={toggleGlobalPin}
-                    className={`${REPO_CARD_ICON_BTN} border ${note.isPinned ? 'border-[#E6C673]/35 text-[#E6C673]' : 'border-white/10 text-white/45'}`}
+                    className={note.isPinned ? REPO_CARD_ICON_BTN_ACTIVE : REPO_CARD_ICON_BTN}
                     aria-label={note.isPinned ? 'إلغاء التثبيت' : 'تثبيت'}
                     aria-pressed={note.isPinned}
                     data-testid={`repository-note-pin-${note.id}`}
                 >
-                    <Pin size={13} className={note.isPinned ? 'fill-current' : undefined} />
+                    <Pin size={14} className={note.isPinned ? 'fill-current' : undefined} />
                 </button>
                 <VaultDossierLinkButton
                     dossiers={dossiers}
@@ -138,7 +138,7 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                     const ok = await SmartDialog.confirm('حذف هذه البطاقة؟');
                     if (ok) onDeleteGlobal(note.id);
                 }}
-                className={`${REPO_CARD_ICON_BTN} text-white/40 hover:text-red-400`}
+                className={`${REPO_CARD_ICON_BTN} text-white/40 hover:text-red-400 hover:border-red-400/25`}
                 aria-label="حذف"
             >
                 <Trash2 size={14} />
@@ -155,7 +155,7 @@ export const GlobalEntryCard = React.memo(function GlobalEntryCard({
                 data-note-id={String(note.id)}
                 data-repository-editing="true"
             >
-                <div className="space-y-3">
+                <div className="space-y-2.5">
                     {headerNode}
                     <EntryCardInlineEditor
                         title={edit.title}

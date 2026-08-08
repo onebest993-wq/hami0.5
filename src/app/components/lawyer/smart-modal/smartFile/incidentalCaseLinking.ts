@@ -9,11 +9,26 @@ import {
     partitionPartiesForHeader,
 } from './partyRoleClassification';
 
+export type IncidentalSpawnStageOverride = {
+    stageIndex: number;
+    stageName: string;
+    court: string;
+    judge: string;
+    docType: string;
+    retrialTargetStage?: string;
+    parties: Party[];
+};
+
 export type IncidentalSpawnContext = {
     parentFileId: number;
     parentCaseNo: string;
     incidentalId: string;
     type: 'joined' | 'counter';
+    /** لقطة المرحلة المعروضة حالياً في الإضبارة — أدق من قراءة files العامة */
+    stageOverride?: IncidentalSpawnStageOverride;
+    /** مقدّم الدعوى عند التعدد (معرّف الطرف في الإضبارة الأم) */
+    filingPartyId?: string;
+    filingPartyName?: string;
 };
 
 type FileWithStages = FileData & {
@@ -70,14 +85,19 @@ export function patchIncidentalLinkedFile(
     incidentalId: string,
     linkedFileId: number,
     linkedCaseNo: string,
+    partyName?: string,
 ): FileWithStages {
+    const patch: Partial<IncidentalCase> = { linkedFileId, linkedCaseNo };
+    const resolvedPartyName = String(partyName ?? '').trim();
+    if (resolvedPartyName) patch.partyName = resolvedPartyName;
+
     const stages = Array.isArray(file.stages) ? [...file.stages] : [];
     const stageIdx = typeof file.activeStageIndex === 'number' ? file.activeStageIndex : 0;
 
     if (stages.length > 0) {
         return {
             ...file,
-            stages: patchIncidentalInStages(stages, stageIdx, incidentalId, { linkedFileId, linkedCaseNo }),
+            stages: patchIncidentalInStages(stages, stageIdx, incidentalId, patch),
         };
     }
 
@@ -85,7 +105,7 @@ export function patchIncidentalLinkedFile(
     return {
         ...file,
         incidentalCases: rootCases.map((c) =>
-            c.id === incidentalId ? { ...c, linkedFileId, linkedCaseNo } : c,
+            c.id === incidentalId ? { ...c, ...patch } : c,
         ),
     };
 }

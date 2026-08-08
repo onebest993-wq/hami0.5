@@ -23,7 +23,7 @@ function writeKeysFile(path, exportName, keys, comment) {
     const body = keys.map((k) => `    '${k}',`).join('\n');
     fs.writeFileSync(
         path,
-        `/** ${comment} — مُولَّد من scripts/generate-shell-overlay-infra.mjs */\nexport const ${exportName} = [\n${body}\n] as const;\n\nexport type ${exportName.replace(/KEYS$/, 'Key')} = (typeof ${exportName})[number];\n`,
+        `/** ${comment} — مُولَّد من scripts/generate-shell-overlay-infra.mjs */\nexport const ${exportName} = [\n${body}\n] as const;\n\nexport type ${exportName.replace(/KEYS$/, 'Key')} = (typeof ${exportName})[number];\n\n/** Snapshot محضر المتابعة — حقول معرّفة في القائمة المُولَّدة */\nexport type FollowupModalSnapshot = Partial<Record<${exportName.replace(/KEYS$/, 'Key')}, unknown>>;\n`,
     );
 }
 
@@ -35,7 +35,7 @@ writeKeysFile(
 );
 
 writeKeysFile(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionFollowupModalSnapshotFieldKeys.ts',
+    'src/app/components/lawyer/ExecutionDashboard/followupSnapshotFieldKeys.ts',
     'EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS',
     followup,
     'حقول snapshot محضر المتابعة',

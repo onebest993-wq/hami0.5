@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState } from 'react';
 import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
-import { X, Plus, Lock, TrendingUp, CheckCircle, Gavel, DollarSign, Car, Home, CreditCard, Package } from 'lucide-react';
+import { X, Plus, Lock, TrendingUp, CheckCircle, Gavel, DollarSign, Car, Home, CreditCard, Package } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,

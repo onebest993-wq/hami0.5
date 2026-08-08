@@ -16,9 +16,11 @@ export type PersonalStatusDossierDerivedInput = {
     displayStage?: CaseStage | null;
     viewingStageIndex: number;
     activeStageIndex: number;
+    representedParty?: string | null;
     /** من useSmartFileMainPanelLayout — يُمرَّر عند التوفر لتفادي ازدواج منطق petition void */
     showAbsentJudgmentFooterFromLayout?: boolean;
     showPetitionVoidFooterFromLayout?: boolean;
+    showOpponentAppealBtnEffectiveFromLayout?: boolean;
 };
 
 export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDerivedInput) {
@@ -28,8 +30,10 @@ export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDer
         displayStage,
         viewingStageIndex,
         activeStageIndex,
+        representedParty,
         showAbsentJudgmentFooterFromLayout,
         showPetitionVoidFooterFromLayout,
+        showOpponentAppealBtnEffectiveFromLayout,
     } = input;
 
     const isCassationStage = isCassationStageName(displayStage?.stageName);
@@ -43,23 +47,29 @@ export function derivePersonalStatusDossierFlags(input: PersonalStatusDossierDer
     const showPersonalOpponentAppeal =
         !isViewingArchived &&
         viewingStageIndex === activeStageIndex &&
-        Boolean(displayStage?.isPleadingsClosed) &&
-        isPersonalStatusCoreStage(displayStage?.stageName) &&
-        !showAbsentJudgmentFooter &&
         (
-            shouldShowOpponentAppealRegisterButton(
-                {
-                    finalDecision: displayStage?.finalDecision,
-                    isPleadingsClosed: displayStage?.isPleadingsClosed,
-                    appealDeadline: displayStage?.appealDeadline,
-                    wasReopened: displayStage?.wasReopened,
-                    awaitingOpponentAppeal: displayStage?.awaitingOpponentAppeal,
-                    stageName: displayStage?.stageName,
-                    status: displayStage?.status,
-                },
-                status,
+            showOpponentAppealBtnEffectiveFromLayout
+            || (
+                Boolean(displayStage?.isPleadingsClosed)
+                && isPersonalStatusCoreStage(displayStage?.stageName)
+                && !showAbsentJudgmentFooter
+                && (
+                    shouldShowOpponentAppealRegisterButton(
+                        {
+                            finalDecision: displayStage?.finalDecision,
+                            isPleadingsClosed: displayStage?.isPleadingsClosed,
+                            appealDeadline: displayStage?.appealDeadline,
+                            wasReopened: displayStage?.wasReopened,
+                            awaitingOpponentAppeal: displayStage?.awaitingOpponentAppeal,
+                            stageName: displayStage?.stageName,
+                            status: displayStage?.status,
+                        },
+                        status,
+                        representedParty,
+                    )
+                    || (String(status).includes('بانتظار') && Boolean(displayStage?.finalDecision))
+                )
             )
-            || (String(status).includes('بانتظار') && Boolean(displayStage?.finalDecision))
         );
 
     const showWorkSections =

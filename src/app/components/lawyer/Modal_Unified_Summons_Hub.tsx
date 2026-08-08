@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, Bell, Calendar, CheckCircle, Newspaper, Pencil, PauseCircle } from 'lucide-react';
+import { X, Bell, Calendar, CheckCircle, Newspaper, Pencil, PauseCircle } from '@/app/components/ui/lucideIcons';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,

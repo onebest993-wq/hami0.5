@@ -42,4 +42,10 @@ describe('useExecutionDashboardLazyChunkSetup', () => {
         const open = computeExecutionPhoneBodyFingerprint({ executionId: '1', showExecutionFinancialHub: true });
         expect(closed).not.toBe(open);
     });
+
+    it('computeExecutionPhoneBodyFingerprint includes storage tick and handler cluster epoch', () => {
+        const a = computeExecutionPhoneBodyFingerprint({ executionId: '1', executionStorageTick: 0, handlerClusterEpoch: 0 });
+        const b = computeExecutionPhoneBodyFingerprint({ executionId: '1', executionStorageTick: 3, handlerClusterEpoch: 2 });
+        expect(a).not.toBe(b);
+    });
 });

@@ -1,4 +1,5 @@
 import type { ExecutionFile } from '@/app/types/execution';
+import { readExecutionDossierByIdFromCache } from '@/app/infrastructure/execution/ExecutionDossierRepository';
 import {
     hasAnyMaritalFurnitureDeliveryRecorded,
     readMaritalFurnitureItems,
@@ -10,23 +11,67 @@ import {
     readExecutionDossierBlobScanningScopes,
 } from '@/app/utils/executionDossierBlobPersistence';
 
+function parseUpdatedAt(file: { updatedAt?: unknown; createdAt?: unknown } | null | undefined): number {
+    if (!file) return 0;
+    const raw = file.updatedAt ?? file.createdAt;
+    const parsed = raw ? Date.parse(String(raw)) : 0;
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function readDiskExecutionFile(id: string): ExecutionFile | null {
+    try {
+        const blob =
+            readExecutionDossierBlob(id) ?? readExecutionDossierBlobScanningScopes(id);
+        if (blob && typeof blob === 'object') return blob as unknown as ExecutionFile;
+    } catch {
+        /* ignore */
+    }
+    return null;
+}
+
+function pickRicherMaritalFurnitureExecutionFile(
+    cached: ExecutionFile | null,
+    disk: ExecutionFile | null,
+): ExecutionFile | null {
+    if (!cached && !disk) return null;
+    if (!cached) return disk;
+    if (!disk) return cached;
+
+    const cachedPrincipal = resolveMaritalFurnitureFinancialPrincipal(cached);
+    const diskPrincipal = resolveMaritalFurnitureFinancialPrincipal(disk);
+    if (cachedPrincipal > diskPrincipal) return cached;
+    if (diskPrincipal > cachedPrincipal) return disk;
+
+    const cachedLocked = hasAnyMaritalFurnitureDeliveryRecorded(readMaritalFurnitureItems(cached));
+    const diskLocked = hasAnyMaritalFurnitureDeliveryRecorded(readMaritalFurnitureItems(disk));
+    if (cachedLocked && !diskLocked) return cached;
+    if (diskLocked && !cachedLocked) return disk;
+
+    const cachedTs = parseUpdatedAt(cached);
+    const diskTs = parseUpdatedAt(disk);
+    return cachedTs >= diskTs ? cached : disk;
+}
+
 function readStoredExecutionFile(
     ...candidateIds: Array<string | undefined>
 ): ExecutionFile | null {
     const seen = new Set<string>();
+    let best: ExecutionFile | null = null;
     for (const rawId of candidateIds) {
         const id = String(rawId ?? '').trim();
         if (!id || id === 'undefined' || id === 'default' || seen.has(id)) continue;
         seen.add(id);
-        try {
-            const blob =
-                readExecutionDossierBlob(id) ?? readExecutionDossierBlobScanningScopes(id);
-            if (blob && typeof blob === 'object') return blob as unknown as ExecutionFile;
-        } catch {
-            /* ignore */
+        const cached = readExecutionDossierByIdFromCache(id);
+        const disk = readDiskExecutionFile(id);
+        const candidate = pickRicherMaritalFurnitureExecutionFile(cached, disk);
+        if (!candidate) continue;
+        if (!best) {
+            best = candidate;
+            continue;
         }
+        best = pickRicherMaritalFurnitureExecutionFile(best, candidate) ?? best;
     }
-    return null;
+    return best;
 }
 
 function mergeMaritalFurnitureFields(

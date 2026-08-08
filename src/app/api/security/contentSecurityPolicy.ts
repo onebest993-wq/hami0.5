@@ -10,11 +10,14 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
 
   const connectSrc = [
     "'self'",
+    'blob:',
+    'data:',
     'https://*.supabase.co',
     'wss://*.supabase.co',
     'https://sentry.io',
     'https://*.ingest.sentry.io',
     'https://*.ingest.us.sentry.io',
+    'https://cdn.jsdelivr.net',
   ];
   if (isDev) {
     connectSrc.push('http://localhost:*', 'http://127.0.0.1:*', 'ws://localhost:*', 'ws://127.0.0.1:*');
@@ -37,7 +40,7 @@ export function buildContentSecurityPolicy(mode: CspMode): string {
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "worker-src 'self' blob:",
+    "worker-src 'self' blob: https://cdn.jsdelivr.net",
     ...(isDev ? [] : ['upgrade-insecure-requests']),
   ].join('; ');
 }

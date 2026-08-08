@@ -1,8 +1,16 @@
 import {
     FIRST_HEARING_TIMELINE_APPT_ID,
 } from '@/app/domain/lawsuit/lawsuitFileFactory';
+import type { CaseStage } from '@/app/components/lawyer/LawyerShared';
 import type { TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import { computeNextSessionNumber } from '@/app/components/lawyer/smart-modal/smartFile/sessionRecordEngine';
+import {
+    isCassationCorrectionStageName,
+    isDossierFinalized,
+} from '@/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway';
+import {
+    isCassationStageName,
+} from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -148,6 +156,47 @@ function resolveLawsuitSessionNumber(
     return computeNextSessionNumber(events);
 }
 
+function resolveActiveStageRecord(file: Record<string, unknown>): Record<string, unknown> | null {
+    const stages = Array.isArray(file.stages) ? file.stages : [];
+    if (!stages.length) return null;
+    const idx =
+        typeof file.activeStageIndex === 'number' && file.activeStageIndex >= 0
+            ? file.activeStageIndex
+            : stages.length - 1;
+    const stage = stages[idx];
+    return stage && typeof stage === 'object' ? (stage as Record<string, unknown>) : null;
+}
+
+/**
+ * بطاقة الأرشيف تعرض موعد المرافعة فقط أثناء سير المرافعة الفعلي —
+ * لا بعد انتهاء الدعوى، ولا عند الحجز للقرار، ولا في مراحل الطعون الشكلية.
+ */
+export function shouldShowLawsuitArchiveHearing(file: Record<string, unknown>): boolean {
+    const status = String(file.status ?? '').trim();
+    const stages = (Array.isArray(file.stages) ? file.stages : []) as CaseStage[];
+
+    if (status === 'مبطلة' || status === 'منتهية') return false;
+    if (isDossierFinalized(status, stages)) return false;
+
+    const active = resolveActiveStageRecord(file);
+    if (!active) return true;
+
+    const fd = String(active.finalDecision ?? '').trim();
+    const stageName = String(active.stageName ?? active.name ?? '').trim();
+    const stageStatus = String(active.status ?? '').trim();
+
+    if (active.isVoided === true || stageStatus === 'voided') return false;
+    if (fd.includes('مبطلة') || fd.includes('مكتسبة الدرجة القطعية')) return false;
+
+    if (isCassationCorrectionStageName(stageName)) return false;
+    if (isCassationStageName(stageName)) return false;
+
+    if (active.isPleadingsClosed === true && active.wasReopened !== true) return false;
+    if (stageStatus === 'locked' || stageStatus === 'completed') return false;
+
+    return true;
+}
+
 /**
  * يُحدّد تاريخ المرافعة المعروض على بطاقة الأرشيف ومزامنته مع nextDate
  * وأحداث الخط الزمني (بما فيها تأجيل أول مرافعة).
@@ -155,6 +204,8 @@ function resolveLawsuitSessionNumber(
 export function resolveLawsuitArchiveHearingDisplay(
     file: Record<string, unknown>,
 ): LawsuitArchiveHearingDisplay | null {
+    if (!shouldShowLawsuitArchiveHearing(file)) return null;
+
     const firstHearingDate = normalizeLawsuitArchiveYmd(file.firstHearingDate);
     const fileNextDate = normalizeLawsuitArchiveYmd(file.nextDate);
     const firstHearingPostponedTo = readFirstHearingEventNext(file);
@@ -177,10 +228,13 @@ export function resolveLawsuitArchiveHearingDisplay(
         const todayMs = ymdToMs(todayYmd);
         const sorted = [...new Set(candidates)].sort((a, b) => ymdToMs(a) - ymdToMs(b));
         const future = sorted.filter((ymd) => ymdToMs(ymd) >= todayMs);
-        upcoming = future[0] ?? sorted[sorted.length - 1];
+        upcoming = future[0] ?? null;
     }
 
     if (!upcoming) return null;
+
+    const todayYmd = new Date().toISOString().slice(0, 10);
+    if (ymdToMs(upcoming) < ymdToMs(todayYmd)) return null;
 
     const label: LawsuitArchiveHearingDisplay['label'] =
         firstHearingDate && upcoming === firstHearingDate && !firstHearingPostponedTo

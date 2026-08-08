@@ -4,6 +4,9 @@ import { LAWYER_SETTINGS_V2_DEFAULTS } from './defaults';
 import type { AppSettingsState } from './types';
 import { SETTINGS_SCHEMA_VERSION } from './types';
 import { normalizeLitePerformanceMode } from '@/app/runtime/devicePerformanceTier';
+import { normalizeHomeLayout } from './homeLayout';
+import { normalizeNotificationSettings } from './notificationSettings';
+import { normalizeGlassOpacity } from './surfaceAppearance';
 
 let cached: AppSettingsState | null = null;
 let cacheAt = 0;
@@ -42,8 +45,7 @@ export function publishLawyerSettingsLive(next: AppSettingsState): void {
 }
 
 function clampGlassOpacity(value: unknown): number {
-    const n = typeof value === 'number' && Number.isFinite(value) ? value : 0.92;
-    return Math.min(1, Math.max(0.4, n));
+    return normalizeGlassOpacity(value);
 }
 
 function clamp01(value: unknown, fallback: number): number {
@@ -96,7 +98,8 @@ export function hydrateLawyerSettingsFast(
                     ...obj.performance,
                     litePerformance: normalizeLitePerformanceMode(obj.performance?.litePerformance),
                 },
-                homeLayout: obj.homeLayout ?? LAWYER_SETTINGS_V2_DEFAULTS.homeLayout,
+                homeLayout: normalizeHomeLayout(obj.homeLayout ?? LAWYER_SETTINGS_V2_DEFAULTS.homeLayout),
+            notifications: normalizeNotificationSettings(obj.notifications),
             };
         }
     }

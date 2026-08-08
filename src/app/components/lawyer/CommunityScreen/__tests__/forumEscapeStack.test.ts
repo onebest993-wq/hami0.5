@@ -9,6 +9,9 @@ const base: ForumEscapeSnapshot = {
     profileView: false,
     pendingDeletePostId: null,
     editingPostId: null,
+    repositoryDeleteOpen: false,
+    repositoryPreviewOpen: false,
+    repositoryUploadOpen: false,
     isCreateGroupOpen: false,
     commentingPostId: null,
     isAddQuestionOpen: false,
@@ -51,6 +54,36 @@ describe('resolveForumEscapeAction', () => {
 
     it('يخرج من جدار المجموعة قبل الخروج من المنتدى', () => {
         expect(resolveForumEscapeAction({ ...base, activeGroupId: 'g1' })).toBe('leave-group-feed');
+    });
+
+    it('يغلق تأكيد حذف المستند قبل رفع مستند', () => {
+        expect(
+            resolveForumEscapeAction({
+                ...base,
+                repositoryDeleteOpen: true,
+                repositoryUploadOpen: true,
+            }),
+        ).toBe('close-repository-delete');
+    });
+
+    it('يغلق معاينة المستند قبل نموذج الرفع', () => {
+        expect(
+            resolveForumEscapeAction({
+                ...base,
+                repositoryPreviewOpen: true,
+                repositoryUploadOpen: true,
+            }),
+        ).toBe('close-repository-preview');
+    });
+
+    it('يغلق نموذج رفع المستند قبل إنشاء مجموعة', () => {
+        expect(
+            resolveForumEscapeAction({
+                ...base,
+                repositoryUploadOpen: true,
+                isCreateGroupOpen: true,
+            }),
+        ).toBe('close-repository-upload');
     });
 
     it('يخرج من المنتدى عند عدم وجود طبقات', () => {

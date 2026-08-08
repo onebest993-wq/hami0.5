@@ -6,3 +6,13 @@ export function prefetchSettingsDialogs(): void {
         dialogChunkPrefetch = import('@/app/components/ui/SmartDialogContainer');
     }
 }
+
+/** ينتظر جاهزية المستمع قبل SmartDialog.confirm — يمنع تعليق المفاتيح */
+export async function ensureSettingsDialogsReady(): Promise<void> {
+    prefetchSettingsDialogs();
+    try {
+        await dialogChunkPrefetch;
+    } catch {
+        /* ignore */
+    }
+}

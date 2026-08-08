@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { persistNotificationsSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { revealNotificationWarmPanel } from '@/app/runtime/notificationInstantPaint';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
     loadNotificationBootHydrator,
     loadNotificationIntentWarm,
@@ -39,25 +40,26 @@ export function commitNotificationShellOpen({
     clearNotificationOpenPerfMarks();
     showNotificationsRef.current = true;
 
+    const uid = userId?.trim();
+
     void loadNotificationIntentWarm()
         .then((m) => m.warmNotificationsOnOpen(userId))
         .catch(() => undefined);
 
-    const revealed = revealNotificationWarmPanel();
+    revealNotificationWarmPanel();
 
-    const commitOpen = () => {
+    flushSync(() => {
         setNotificationHostMounted(true);
         setShowNotifications(true);
-    };
-
-    if (revealed) {
-        requestAnimationFrame(commitOpen);
-    } else {
-        flushSync(commitOpen);
-    }
+    });
 
     persistNotificationsSessionOpen(true);
-    queueMicrotask(() => dismissTransientOverlays('notifications'));
+    queueMicrotask(() => {
+        if (uid) {
+            useNotificationStore.getState().hydrateFromLocalPeek(uid);
+        }
+        dismissTransientOverlays('notifications');
+    });
 
     void loadNotificationBootHydrator()
         .then((m) => m.hydrateNotificationShellForInstantOpen(true))

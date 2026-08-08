@@ -2,12 +2,15 @@ import React from 'react';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
     isEvictionProcedureRowWorkflowComplete,
-    patchExecutorDecisionRow,
+    patchExecutorDecisionRowReliable,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import SecureStoreService from '@/app/services/SecureStoreService';
+import { executionFieldVisitAppointmentStorageKey } from '@/app/utils/executionStorageKeysLite';
 import { PoliceAssistanceInlineForm } from '@/app/components/lawyer/execution/PoliceAssistanceInlineForm';
 import { BreakInventoryFurnitureInlineForm } from '@/app/components/lawyer/execution/BreakInventoryFurnitureInlineForm';
 import { MaritalFurnitureDeliveryInventoryForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryInventoryForm';
 import { MaritalFurnitureDeliveryAfterApproveForm } from '@/app/components/lawyer/execution/MaritalFurnitureDeliveryAfterApproveForm';
+import { JudicialCustodianInlineForm } from '@/app/components/lawyer/execution/JudicialCustodianInlineForm';
 import type { BreakInventoryFurnitureSavePayload } from '@/app/utils/executorApprovalWorkflow';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 
@@ -35,6 +38,12 @@ export type EvictionAfterApproveDeps = {
         payload: BreakInventoryFurnitureSavePayload;
     }) => void;
     finalizeBreakInventoryRequest?: (args: { decisionId: string }) => void;
+    saveJudicialCustodianDetails?: (args: {
+        decisionId: string;
+        name: string;
+        salary: string;
+    }) => void;
+    existingJudicialCustodians?: Array<{ fullName: string; salary?: string; decisionId?: string }>;
 };
 
 function buildArabicDateLabel(ymd: string) {
@@ -61,12 +70,41 @@ export function saveEvictionFieldVisitSchedule(
         return;
     }
     const displayAr = buildArabicDateLabel(dateOnly);
-    const ok = patchExecutorDecisionRow(d.decisionsStorageExecutionId, decisionId, {
+    const eventIso = `${dateOnly}T12:00:00`;
+    const storageId = String(d.decisionsStorageExecutionId || '').trim();
+    const { ok, storageExecutionId } = patchExecutorDecisionRowReliable(storageId, decisionId, {
         executorScheduleLabel: `مجدول: ${displayAr}`,
     });
     if (!ok) {
-        d.showToast('تعذر حفظ الموعد', 'error');
+        d.showToast('تعذر حفظ الموعد — تحقق من قرار المنفذ.', 'error');
         return;
+    }
+    const resolvedId = String(storageExecutionId || storageId).trim();
+    try {
+        if (resolvedId) {
+            SecureStoreService.setItemSync(
+                executionFieldVisitAppointmentStorageKey(resolvedId),
+                eventIso,
+            );
+        }
+    } catch {
+        /* ignore */
+    }
+    try {
+        window.dispatchEvent(
+            new CustomEvent('hami-eviction-field-visit-scheduled', {
+                detail: {
+                    executionId: resolvedId,
+                    decisionId,
+                    eventIso,
+                    purpose: 'موعد الخروج الميداني',
+                    displayAr,
+                    linkToAppointments: true,
+                },
+            }),
+        );
+    } catch {
+        /* ignore */
     }
     d.dispatchDecisionsReload();
     d.setFieldVisitDateDraft('');
@@ -162,6 +200,27 @@ export function buildEvictionAfterApproveContent(
                 showToast={d.showToast}
                 saveMaritalFurnitureDeliveryInventory={d.saveMaritalFurnitureDeliveryInventory}
                 finalizeBreakInventoryRequest={d.finalizeBreakInventoryRequest}
+            />
+        );
+    }
+
+    if (branch === 'Judicial Custodian') {
+        const decisionId = String(row.id || '').trim();
+        const dossierCustodian = (d.existingJudicialCustodians || []).find(
+            (c) => String(c.decisionId || '').trim() === decisionId && String(c.fullName || '').trim(),
+        );
+        if (String(row.judicialCustodianDetailsSavedAt || '').trim() || dossierCustodian) return null;
+        if (!d.saveJudicialCustodianDetails) return null;
+        return (
+            <JudicialCustodianInlineForm
+                embedded
+                existingCustodians={d.existingJudicialCustodians || []}
+                initialName={String(row.judicialCustodianName || '')}
+                initialSalary={String(row.judicialCustodianSalary || '')}
+                disabled={d.executionCoerciveButtonDisabled}
+                onSave={({ name, salary }) =>
+                    d.saveJudicialCustodianDetails!({ decisionId, name, salary })
+                }
             />
         );
     }

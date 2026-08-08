@@ -97,23 +97,20 @@ async function saveLocalCalendarEvents(
 ): Promise<void> {
     const mode = options?.mode ?? 'normal';
     const silent = options?.silent ?? false;
+    const snapshot = await loadCalendarLocalSnapshot();
 
     if (events.length === 0) {
         if (mode !== 'replace') return;
-        void loadCalendarLocalSnapshot()
-            .then((m) => m.clearCalendarEventsLocalStorageMirror())
-            .catch(() => undefined);
+        snapshot.clearCalendarEventsLocalStorageMirror();
         if (!silent) notifyCalendarUpdated();
-        void SecureStoreService.deleteItem(CALENDAR_LOCAL_KEY).catch(() => undefined);
+        await SecureStoreService.deleteItem(CALENDAR_LOCAL_KEY).catch(() => undefined);
         return;
     }
 
     const payload = JSON.stringify(events);
-    void loadCalendarLocalSnapshot()
-        .then((m) => m.mirrorCalendarEventsToLocalStorage(payload))
-        .catch(() => undefined);
+    snapshot.mirrorCalendarEventsToLocalStorage(payload);
     if (!silent) notifyCalendarUpdated();
-    void persistCalendarEventsToSecureStore(payload);
+    await persistCalendarEventsToSecureStore(payload);
 }
 
 function mergeCalendarEvents(local: CalendarEvent[], remote: CalendarEvent[]): CalendarEvent[] {

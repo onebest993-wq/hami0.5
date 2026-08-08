@@ -9,7 +9,7 @@ import {
 } from '@/app/utils/executionDossierHeaderFields';
 import {
     Link,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 
 interface StatuteStatus {
     daysRemaining: number;
@@ -542,6 +542,18 @@ export const DashboardHeaderSection = memo(function DashboardHeaderSection({
                                                         }
                                                         className="col-span-2"
                                                     />
+                                                    {!expanded.headerFields
+                                                        .specificDeliveryItemNatureDisplay ? (
+                                                        <p
+                                                            className="col-span-2 rounded-lg border border-amber-500/25 bg-amber-950/20 px-2 py-1.5 text-[10px] leading-relaxed text-amber-200/90"
+                                                        >
+                                                            إجراءات التسليم في{' '}
+                                                            <span className="font-bold">محضر المتابعة</span>
+                                                            {' → '}
+                                                            <span className="font-bold">الإجراءات الجبرية</span>
+                                                            {' — حدّد طبيعة الشيء (منقول / غير منقول) لتفعيلها.'}
+                                                        </p>
+                                                    ) : null}
                                                     {expanded.headerFields.specificDeliveryItemName ? (
                                                         <DetailCell
                                                             label="الأشياء المراد تسليمها"

@@ -1,19 +1,20 @@
-// @ts-nocheck
 /** Phase C — تجميع تبويبات محضر المتابعة + تخصص الإضبارة */
-import { useCallback, useMemo, useState, type MutableRefObject } from 'react';
+import { useCallback, useMemo, useState, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
-import {
-    applyDebtorDeathFollowupOverlay,
-} from '@/app/utils/partyDeathClaimPolicy';
+import { applyDebtorDeathFollowupOverlay } from '@/app/utils/partyDeathFollowupOverlay';
 import {
     resolveExecutionDomainContext,
 } from '@/app/utils/executionDomainIsolation';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
+import type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationVisibility';
+import { requireDecisionsStorageExecutionId } from '../../utils/requireDecisionsStorageExecutionId';
 import { useFollowupModalPersistNavigation } from '../useFollowupModalPersistNavigation';
+import type { EmployeeAssignmentCoercivePhase } from './executionDashboardEmployeeAssignmentSync';
 import {
     useExecutionDashboardEmployeeCompulsoryBannerReset,
     useExecutionDashboardEmployeePersonalTabUnlockHydrate,
 } from './useExecutionDashboardRuntimeSyncEffects';
+import { buildFollowupModalTabsFromFlags, buildFollowupSectionTabOrderFromFlags } from './buildFollowupModalTabsFromFlags';
 
 export type FollowupModalTabId =
     | 'personal'
@@ -35,27 +36,26 @@ export type UseExecutionDashboardFollowupTabAssemblyParams = {
     activeDebtorIsEmployee: boolean;
     followupModalDebtorIsEmployee: boolean;
     followupModalDebtorIsDeceased: boolean;
-    followupModalSpecializationEffective: {
-        hidePersonalCoerciveFollowupTab?: boolean;
-        hideFollowupCoerciveTab?: boolean;
-        hideFollowupSeizureRequestsTab?: boolean;
-    };
+    followupModalSpecializationEffective: Pick<
+        FollowupSpecializationVisibility,
+        'hidePersonalCoerciveFollowupTab' | 'hideFollowupCoerciveTab' | 'hideFollowupSeizureRequestsTab'
+    >;
     modalShowEmployeeAssignmentCoerciveBlock: boolean;
     followupAssignmentWorkspaceCtx: { activeDebtorKey?: string | null };
     primaryDebtorWorkspaceKey: string | undefined;
-    employeeAssignmentPhaseForCoercive: string | undefined;
+    employeeAssignmentPhaseForCoercive: EmployeeAssignmentCoercivePhase;
     employeeCompulsoryBannerDismissed: boolean;
     setEmployeeCompulsoryBannerDismissed: (dismissed: boolean) => void;
     showUnifiedExecutionModal: boolean;
-    unifiedModalTab: string;
-    setUnifiedModalTab: (tab: string) => void;
+    unifiedModalTab: FollowupUnifiedModalTab;
+    setUnifiedModalTab: Dispatch<SetStateAction<FollowupUnifiedModalTab>>;
     dossierFileKey: string;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     followupModalBodyScrollRef: MutableRefObject<HTMLDivElement | null>;
     followupModalSectionTabsRef: MutableRefObject<HTMLDivElement | null>;
     followupModalOpenGenerationRef: MutableRefObject<number>;
-    seizureMatrixRef: MutableRefObject<unknown>;
-    openSeizureRequestsTabRef: MutableRefObject<(() => void) | null>;
+    seizureMatrixRef: MutableRefObject<{ hideSeizureTab: boolean }>;
+    openSeizureRequestsTabRef: MutableRefObject<() => void>;
     hideCoerciveTabsForDebtorAgent: boolean;
 };
 
@@ -93,7 +93,11 @@ export function useExecutionDashboardFollowupTabAssembly({
         () =>
             resolveExecutionDomainContext(
                 executionData as Record<string, unknown> | null | undefined,
-                decisionsStorageExecutionId ?? executionId,
+                requireDecisionsStorageExecutionId({
+                    decisionsStorageExecutionId,
+                    executionId,
+                    executionData: executionData as Record<string, unknown> | null,
+                }),
             ),
         [executionData, decisionsStorageExecutionId, executionId],
     );
@@ -132,7 +136,11 @@ export function useExecutionDashboardFollowupTabAssembly({
     const [personalTabUnlockByDebtor, setPersonalTabUnlockByDebtor] = useState<Record<string, boolean>>({});
 
     const employeePersonalTabUnlockStorageKey = useMemo(() => {
-        const ex = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+        const ex = requireDecisionsStorageExecutionId({
+            decisionsStorageExecutionId,
+            executionId,
+            executionData: executionData as Record<string, unknown> | null,
+        });
         return ex ? `hami:employee_personal_unlock:${ex}` : '';
     }, [decisionsStorageExecutionId, executionData?.id, executionId]);
 
@@ -173,22 +181,15 @@ export function useExecutionDashboardFollowupTabAssembly({
 
     const followupSectionTabOrder = useMemo(
         () =>
-            [
-                ...(showPersonalCoerciveFollowupTab && !followupTabsRestricted
-                    ? (['personal'] as const)
-                    : []),
-                ...(followupSpecialization.hideFollowupCoerciveTab || followupTabsRestricted
-                    ? []
-                    : (['coercive'] as const)),
-                ...(followupTabsRestricted ? [] : (['seizure_requests'] as const)),
-                'correspondences',
-                'admin',
-                'dossier_controls',
-                'other_party',
-            ] as const,
+            buildFollowupSectionTabOrderFromFlags({
+                showPersonalCoerciveFollowupTab,
+                specialization: followupSpecializationEffective,
+                followupTabsRestricted,
+            }),
         [
             showPersonalCoerciveFollowupTab,
-            followupSpecialization.hideFollowupCoerciveTab,
+            followupSpecializationEffective.hideFollowupCoerciveTab,
+            followupSpecializationEffective.hideFollowupSeizureRequestsTab,
             followupTabsRestricted,
         ],
     );
@@ -212,37 +213,22 @@ export function useExecutionDashboardFollowupTabAssembly({
         openSeizureRequestsTabRef,
     });
 
-    const followupModalTabs = useMemo(() => {
-        const tabs: Array<{ id: FollowupModalTabId; label: string }> = [];
-        if (modalShowPersonalCoerciveFollowupTab && !followupTabsRestricted) {
-            tabs.push({
-                id: 'personal',
-                label: modalPersonalTabLockedForEmployee
-                    ? '🔒 التنفيذ الجبري الشخصي'
-                    : 'التنفيذ الجبري الشخصي',
-            });
-        }
-        if (!followupModalSpecializationEffective.hideFollowupCoerciveTab && !followupTabsRestricted) {
-            tabs.push({ id: 'coercive', label: 'الإجراءات الجبرية' });
-        }
-        if (!followupTabsRestricted && !followupModalSpecializationEffective.hideFollowupSeizureRequestsTab) {
-            tabs.push({ id: 'seizure_requests', label: 'طلبات الحجز المالية' });
-        }
-        tabs.push(
-            { id: 'correspondences', label: 'المخاطبات' },
-            { id: 'admin', label: 'نماذج الطلبات' },
-            { id: 'dossier_controls', label: 'التحكم في الإضبارة' },
-            { id: 'other_party', label: 'تحركات الطرف الآخر' },
-        );
-        return tabs;
-    }, [
-        modalShowPersonalCoerciveFollowupTab,
-        modalPersonalTabLockedForEmployee,
-        modalShowEmployeeAssignmentCoerciveBlock,
-        followupModalSpecializationEffective.hideFollowupCoerciveTab,
-        followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
-        followupTabsRestricted,
-    ]);
+    const followupModalTabs = useMemo(
+        () =>
+            buildFollowupModalTabsFromFlags({
+                specialization: followupModalSpecializationEffective,
+                showPersonalCoerciveFollowupTab: modalShowPersonalCoerciveFollowupTab,
+                personalTabLockedForEmployee: modalPersonalTabLockedForEmployee,
+                followupTabsRestricted,
+            }),
+        [
+            modalShowPersonalCoerciveFollowupTab,
+            modalPersonalTabLockedForEmployee,
+            followupModalSpecializationEffective.hideFollowupCoerciveTab,
+            followupModalSpecializationEffective.hideFollowupSeizureRequestsTab,
+            followupTabsRestricted,
+        ],
+    );
 
     const isFollowupTabActive = useCallback(
         (tabId: FollowupModalTabId) => {

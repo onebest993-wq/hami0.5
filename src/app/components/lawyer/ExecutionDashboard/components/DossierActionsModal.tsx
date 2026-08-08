@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,
@@ -10,7 +10,7 @@ import {
     DossierActionFormFooter,
     useDossierActionForm,
 } from './DossierActionForm';
-import { Forward, Shuffle, FileText, RefreshCw, MessageSquare } from 'lucide-react';
+import { Forward, Shuffle, FileText, RefreshCw, MessageSquare } from '@/app/components/ui/lucideIcons';
 
 export type DossierActionType = 'delegation' | 'unify' | 'transfer' | 'renew' | 'inaba_correspondence';
 

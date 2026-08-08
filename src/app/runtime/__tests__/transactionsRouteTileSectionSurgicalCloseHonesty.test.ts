@@ -134,7 +134,7 @@ describe('transactions RouteTile section surgical close honesty', () => {
             ),
             'utf8',
         );
-        expect(tiles).not.toContain("from 'lucide-react'");
+        expect(tiles).not.toContain("from '@/app/components/ui/lucideIcons'");
         expect(tiles).toContain('HomeArrowLeftIcon');
         const home = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),

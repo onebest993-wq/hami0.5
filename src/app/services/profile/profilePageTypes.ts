@@ -1,4 +1,4 @@
-export type ProfileAppearanceColor = 'navy' | 'gold' | 'emerald' | 'wine' | 'ice' | 'bronze';
+﻿export type ProfileAppearanceColor = 'navy' | 'gold' | 'emerald' | 'wine' | 'ice' | 'bronze';
 
 export type ProfileAppearanceMaterial = 'glass' | 'fabric' | 'metallic' | 'gilded' | 'ornate' | 'matte';
 
@@ -21,11 +21,11 @@ export type ProfileMediaTemplate =
     | 'cinema'
     | 'vault';
 
-/** من يمكنه زيارة الصفحة الشخصية — مرتبط بمتابعة المنتدى عند followers */
+/** ┘à┘ ┘è┘à┘â┘┘ç ╪▓┘è╪د╪▒╪ر ╪د┘╪╡┘╪ص╪ر ╪د┘╪┤╪«╪╡┘è╪ر ظ¤ ┘à╪▒╪ز╪ذ╪╖ ╪ذ┘à╪ز╪د╪ذ╪╣╪ر ╪د┘┘à┘╪ز╪»┘ë ╪╣┘╪» followers */
 export type ProfilePageAccess = 'public' | 'followers' | 'private';
 
 export interface ProfilePrivacySettings {
-    /** افتراضي public — للتوافق مع ملفات قديمة */
+    /** ╪د┘╪ز╪▒╪د╪╢┘è public ظ¤ ┘┘╪ز┘ê╪د┘┘é ┘à╪╣ ┘à┘┘╪د╪ز ┘é╪»┘è┘à╪ر */
     pageAccess?: ProfilePageAccess;
     showPhoneMeta: boolean;
     showCityMeta: boolean;
@@ -33,13 +33,13 @@ export interface ProfilePrivacySettings {
     showContactChannels: boolean;
     showGallery: boolean;
     showCustomBlocks: boolean;
-    /** قنوات مخفية عن الزوار فقط */
+    /** ┘é┘┘ê╪د╪ز ┘à╪«┘┘è╪ر ╪╣┘ ╪د┘╪▓┘ê╪د╪▒ ┘┘é╪╖ */
     hiddenContactIds: string[];
 }
 
 export type ProfilePortraitFrameId = 'classic' | 'ornate' | 'minimal' | 'circle' | 'arch';
 
-/** @deprecated استخدم ProfilePortraitFrameId للقيمة المخزّنة؛ والخيار المعروض هو ProfilePortraitFrameOption */
+/** @deprecated ╪د╪│╪ز╪«╪»┘à ProfilePortraitFrameId ┘┘┘é┘è┘à╪ر ╪د┘┘à╪«╪▓┘ّ┘╪ر╪ؤ ┘ê╪د┘╪«┘è╪د╪▒ ╪د┘┘à╪╣╪▒┘ê╪╢ ┘ç┘ê ProfilePortraitFrameOption */
 export type ProfilePortraitFrame = ProfilePortraitFrameId;
 
 export type ProfilePortraitFrameOption = {
@@ -78,7 +78,7 @@ export interface ProfileBlockTextStyle {
     letterSpacing?: number;
 }
 
-/** تنسيق مقطع/كلمة داخل سطر */
+/** ╪ز┘╪│┘è┘é ┘à┘é╪╖╪╣/┘â┘┘à╪ر ╪»╪د╪«┘ ╪│╪╖╪▒ */
 export interface ProfileTextSpanStyle {
     id: string;
     lineIndex: number;
@@ -113,11 +113,11 @@ export interface ProfileImageFrameStyle {
 }
 
 export interface ProfileBlockCanvasStyle {
-    /** تفعيل لوحة الكتابة — إن false يبقى النص حراً بدون إطار */
+    /** ╪ز┘╪╣┘è┘ ┘┘ê╪ص╪ر ╪د┘┘â╪ز╪د╪ذ╪ر ظ¤ ╪ح┘ false ┘è╪ذ┘é┘ë ╪د┘┘╪╡ ╪ص╪▒╪د┘ï ╪ذ╪»┘ê┘ ╪ح╪╖╪د╪▒ */
     enabled?: boolean;
     backgroundColor?: string;
     backgroundImage?: string;
-    /** مسار تخزين سحابي لخلفية اللوحة (إن وُجد) */
+    /** ┘à╪│╪د╪▒ ╪ز╪«╪▓┘è┘ ╪│╪ص╪د╪ذ┘è ┘╪«┘┘┘è╪ر ╪د┘┘┘ê╪ص╪ر (╪ح┘ ┘ê┘╪ش╪») */
     backgroundStoragePath?: string;
     material?: ProfileCanvasMaterial;
     frameShape?: ProfileCanvasFrameShape;
@@ -132,45 +132,45 @@ export interface ProfileBlockCanvasStyle {
 
 export interface ProfileCustomBlock {
     id: string;
-    /** نص حر = خواطر/قصيدة بدون إطار — صورة = قوالب قص بدون حواف */
+    /** ┘╪╡ ╪ص╪▒ = ╪«┘ê╪د╪╖╪▒/┘é╪╡┘è╪»╪ر ╪ذ╪»┘ê┘ ╪ح╪╖╪د╪▒ ظ¤ ╪╡┘ê╪▒╪ر = ┘é┘ê╪د┘╪ذ ┘é╪╡ ╪ذ╪»┘ê┘ ╪ص┘ê╪د┘ */
     kind: ProfileBlockKind;
     title: string;
     shape: ProfileBlockShape;
     width: 'full' | 'half';
     minHeightPx: number;
     imageUrl?: string;
-    /** مسار تخزين سحابي لصورة الكتلة — يُستخدم لإعادة التوقيع دون فقد الكتلة */
+    /** ┘à╪│╪د╪▒ ╪ز╪«╪▓┘è┘ ╪│╪ص╪د╪ذ┘è ┘╪╡┘ê╪▒╪ر ╪د┘┘â╪ز┘╪ر ظ¤ ┘è┘╪│╪ز╪«╪»┘à ┘╪ح╪╣╪د╪»╪ر ╪د┘╪ز┘ê┘é┘è╪╣ ╪»┘ê┘ ┘┘é╪» ╪د┘┘â╪ز┘╪ر */
     imageStoragePath?: string;
     mediaTemplate?: ProfileMediaTemplate;
-    /** النص الحر متعدد الأسطر */
+    /** ╪د┘┘╪╡ ╪د┘╪ص╪▒ ┘à╪ز╪╣╪»╪» ╪د┘╪ث╪│╪╖╪▒ */
     body?: string;
-    /** تنسيق افتراضي لكل الأسطر */
+    /** ╪ز┘╪│┘è┘é ╪د┘╪ز╪▒╪د╪╢┘è ┘┘â┘ ╪د┘╪ث╪│╪╖╪▒ */
     bodyStyle?: ProfileBlockTextStyle;
-    /** تنسيق مخصص لكل سطر (اختياري) */
+    /** ╪ز┘╪│┘è┘é ┘à╪«╪╡╪╡ ┘┘â┘ ╪│╪╖╪▒ (╪د╪«╪ز┘è╪د╪▒┘è) */
     lineStyles?: ProfileBlockTextStyle[];
-    /** تنسيق مقاطع/كلمات داخل الأسطر */
+    /** ╪ز┘╪│┘è┘é ┘à┘é╪د╪╖╪╣/┘â┘┘à╪د╪ز ╪»╪د╪«┘ ╪د┘╪ث╪│╪╖╪▒ */
     textSpans?: ProfileTextSpanStyle[];
-    /** لوحة الكتابة — خامة، إطار، تفاعل */
+    /** ┘┘ê╪ص╪ر ╪د┘┘â╪ز╪د╪ذ╪ر ظ¤ ╪«╪د┘à╪ر╪î ╪ح╪╖╪د╪▒╪î ╪ز┘╪د╪╣┘ */
     canvasStyle?: ProfileBlockCanvasStyle;
     order?: number;
     posX?: number;
-    /** موضع عمودي من الأعلى كنسبة 0–100 */
+    /** ┘à┘ê╪╢╪╣ ╪╣┘à┘ê╪»┘è ┘à┘ ╪د┘╪ث╪╣┘┘ë ┘â┘╪│╪ذ╪ر 0ظô100 */
     posY?: number;
-    /** عرض الحاوية كنسبة من مساحة اللوحة */
+    /** ╪╣╪▒╪╢ ╪د┘╪ص╪د┘ê┘è╪ر ┘â┘╪│╪ذ╪ر ┘à┘ ┘à╪│╪د╪ص╪ر ╪د┘┘┘ê╪ص╪ر */
     blockWidthPct?: number;
-    /** @deprecated استُبدل بـ posX/posY */
+    /** @deprecated ╪د╪│╪ز┘╪ذ╪»┘ ╪ذ┘ posX/posY */
     offsetX?: number;
-    /** @deprecated استُبدل بـ posX/posY */
+    /** @deprecated ╪د╪│╪ز┘╪ذ╪»┘ ╪ذ┘ posX/posY */
     offsetY?: number;
     imageHeightPx?: number;
-    /** موضع أفقي للصورة داخل الإطار (0–100) */
+    /** ┘à┘ê╪╢╪╣ ╪ث┘┘é┘è ┘┘╪╡┘ê╪▒╪ر ╪»╪د╪«┘ ╪د┘╪ح╪╖╪د╪▒ (0ظô100) */
     imageFocusX?: number;
-    /** موضع عمودي للصورة داخل الإطار (0–100) */
+    /** ┘à┘ê╪╢╪╣ ╪╣┘à┘ê╪»┘è ┘┘╪╡┘ê╪▒╪ر ╪»╪د╪«┘ ╪د┘╪ح╪╖╪د╪▒ (0ظô100) */
     imageFocusY?: number;
-    /** تكبير الصورة داخل الإطار (100–220) */
+    /** ╪ز┘â╪ذ┘è╪▒ ╪د┘╪╡┘ê╪▒╪ر ╪»╪د╪«┘ ╪د┘╪ح╪╖╪د╪▒ (100ظô220) */
     imageZoom?: number;
     imageFrameStyle?: ProfileImageFrameStyle;
-    /** @deprecated استُبدل بـ bodyStyle */
+    /** @deprecated ╪د╪│╪ز┘╪ذ╪»┘ ╪ذ┘ bodyStyle */
     titleStyle?: ProfileBlockTextStyle;
 }
 

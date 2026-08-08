@@ -1,4 +1,4 @@
-import { useCallback, type MutableRefObject } from 'react';
+﻿import { useCallback, type MutableRefObject } from 'react';
 import {
     clearActiveSalarySeizurePathStorage,
     clearSettlementFromLedgerStorage,
@@ -39,7 +39,7 @@ export function useExecutionDashboardCoerciveActionBridge(
             !guardCreditorAgentMutation({
                 isRepresentingDebtor,
                 showToast,
-                actionLabel: 'إلغاء التسوية من السجل',
+                actionLabel: '╪ح┘╪║╪د╪ة ╪د┘╪ز╪│┘ê┘è╪ر ┘à┘ ╪د┘╪│╪ش┘',
             })
         ) {
             return;
@@ -62,7 +62,7 @@ export function useExecutionDashboardCoerciveActionBridge(
             !guardCreditorAgentMutation({
                 isRepresentingDebtor,
                 showToast,
-                actionLabel: 'إلغاء مسار حجز الراتب',
+                actionLabel: '╪ح┘╪║╪د╪ة ┘à╪│╪د╪▒ ╪ص╪ش╪▓ ╪د┘╪▒╪د╪ز╪ذ',
             })
         ) {
             return;
@@ -75,7 +75,7 @@ export function useExecutionDashboardCoerciveActionBridge(
             persistExecutionMerge,
             setUnifiedLedgerRevision,
         });
-        showToast('تم إلغاء مسار حجز الراتب — يُتابَع التسوية فقط.', 'info');
+        showToast('╪ز┘à ╪ح┘╪║╪د╪ة ┘à╪│╪د╪▒ ╪ص╪ش╪▓ ╪د┘╪▒╪د╪ز╪ذ ظ¤ ┘è┘╪ز╪د╪ذ┘╪╣ ╪د┘╪ز╪│┘ê┘è╪ر ┘┘é╪╖.', 'info');
     }, [
         decisionsStorageExecutionId,
         executionId,
@@ -108,7 +108,7 @@ export function useExecutionDashboardCoerciveActionBridge(
                 !guardCreditorAgentMutation({
                     isRepresentingDebtor,
                     showToast,
-                    actionLabel: 'إجراءات الحجز/الإكراه',
+                    actionLabel: '╪ح╪ش╪▒╪د╪ة╪د╪ز ╪د┘╪ص╪ش╪▓/╪د┘╪ح┘â╪▒╪د┘ç',
                 })
             ) {
                 return;

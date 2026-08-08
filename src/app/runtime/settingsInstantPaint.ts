@@ -2,6 +2,7 @@
 
 const HOST_SELECTOR = '[data-testid="hami-settings-overlay-host"]';
 const ROOT_SELECTOR = '[data-settings-root]';
+const DASHBOARD_SELECTOR = '[data-hami-lawyer-dashboard]';
 const BRIDGE_ID = 'hami-settings-instant-bridge';
 const CHROME = '#0B1021';
 const INTERACT_CLASS = 'hami-settings-overlay-layer--interact';
@@ -17,6 +18,7 @@ let forceVisible = false;
 /** ساعة كشف الطبقة في الـ DOM — قبل التزام React بـ open=true */
 let revealedAtMs: number | null = null;
 let prevThemeColor: string | null = null;
+let prevDashBg: string | null = null;
 let interactArmCleanup: (() => void) | null = null;
 /** يمنع إعادة فتح الإعدادات بنقرة إغلاق الشبحية (pointerdown يغلق → click يصيب الترس). */
 let reopenSuppressedUntil = 0;
@@ -130,6 +132,23 @@ function resolveLayer(): HTMLElement | null {
     return root instanceof HTMLElement ? root : null;
 }
 
+function applyDashboardMask(active: boolean): void {
+    if (typeof document === 'undefined') return;
+    const dash = document.querySelector<HTMLElement>(DASHBOARD_SELECTOR);
+    if (!dash) return;
+    if (active) {
+        if (prevDashBg === null) {
+            prevDashBg = dash.style.backgroundColor;
+        }
+        dash.style.backgroundColor = CHROME;
+        return;
+    }
+    if (prevDashBg !== null) {
+        dash.style.backgroundColor = prevDashBg;
+        prevDashBg = null;
+    }
+}
+
 function applyThemeChrome(active: boolean): void {
     if (typeof document === 'undefined') return;
     let meta = document.querySelector('meta[name="theme-color"]');
@@ -145,6 +164,7 @@ function applyThemeChrome(active: boolean): void {
         meta.setAttribute('content', CHROME);
         document.documentElement.style.backgroundColor = CHROME;
         document.body.style.backgroundColor = CHROME;
+        applyDashboardMask(true);
         return;
     }
     if (meta && prevThemeColor != null) {
@@ -153,6 +173,15 @@ function applyThemeChrome(active: boolean): void {
     prevThemeColor = null;
     document.documentElement.style.backgroundColor = '';
     document.body.style.backgroundColor = '';
+    applyDashboardMask(false);
+}
+
+/**
+ * يخفّي ثيم اللوحة فوراً (html/body/meta/dashboard) — قبل commit React.
+ * يُستدعى عند الفتح حتى لو لم يُركَّب Host بعد.
+ */
+export function applySettingsOpaqueChrome(): void {
+    applyThemeChrome(true);
 }
 
 function clearInteractArmSchedule(): void {

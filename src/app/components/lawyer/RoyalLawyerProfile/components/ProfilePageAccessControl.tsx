@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useState } from 'react';
-import { Globe, Lock, Users } from 'lucide-react';
+import { Globe, Lock, Users } from '@/app/components/ui/lucideIcons';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import { getProfilePageAccessMeta } from '@/app/services/profile/profilePageAccess';
 
@@ -43,12 +43,28 @@ export const ProfilePageAccessControl = memo(function ProfilePageAccessControl({
             >
                 <span className="hami-profile-sigil-halo" aria-hidden />
                 <span className="hami-profile-sigil-orbit" aria-hidden />
-                <span key={`${pageAccess}-${pulseKey}`} className="hami-profile-sigil-glyph" aria-hidden>
+                <span
+                    key={`${pageAccess}-${pulseKey}`}
+                    className="hami-profile-sigil-glyph"
+                    aria-hidden
+                >
                     <Icon size={18} strokeWidth={2.15} />
                 </span>
-                <span key={`ripple-${pulseKey}`} className="hami-profile-sigil-ripple" aria-hidden />
+                {pulseKey > 0 ? (
+                    <span key={`ripple-${pulseKey}`} className="hami-profile-sigil-ripple" aria-hidden />
+                ) : null}
             </button>
-            <span className="hami-profile-sigil-micro">خصوصية</span>
+            <span className="hami-profile-sigil-micro hami-profile-sigil-micro--privacy" aria-live="polite">
+                <span className="hami-profile-sigil-micro-privacy-eyebrow">خصوصية</span>
+                <span className="hami-profile-sigil-micro-privacy-state">
+                    <span
+                        className="hami-profile-sigil-legend-dot"
+                        data-page-access={pageAccess}
+                        aria-hidden
+                    />
+                    <span>{meta.shortLabel}</span>
+                </span>
+            </span>
         </div>
     );
 });

@@ -1,6 +1,6 @@
 import {
     ArrowUp, MessageCircle, Link2, Bookmark,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { canUpvotePost } from '../communityPermissions';
 import {

@@ -10,6 +10,7 @@ import {
 } from '@/app/services/notifications/notificationShellNavigation';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import {
     clearNotificationForceVisible,
     concealNotificationWarmPanel,
@@ -92,11 +93,17 @@ export function useLawyerDashboardNotifications(
     });
 
     const closeNotifications = useCallback(() => {
-        concealNotificationWarmPanel();
-        clearNotificationForceVisible();
-        showNotificationsRef.current = false;
-        setShowNotifications(false);
-        persistNotificationsSessionOpen(false);
+        executeOverlaySnapClose({
+            conceal: () => {
+                concealNotificationWarmPanel();
+                clearNotificationForceVisible();
+            },
+            commit: () => {
+                showNotificationsRef.current = false;
+                setShowNotifications(false);
+                persistNotificationsSessionOpen(false);
+            },
+        });
     }, []);
 
     const primeNotificationPanelMount = useCallback(() => {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, Forward, Shuffle, FileText, RefreshCw, MessageSquare } from 'lucide-react';
+import { ChevronDown, Forward, Shuffle, FileText, RefreshCw, MessageSquare } from '@/app/components/ui/lucideIcons';
 import type { DossierActionPayload, DossierActionType } from './DossierActionsModal';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import {
@@ -8,12 +8,60 @@ import {
     useDossierActionForm,
 } from './DossierActionForm';
 import { DossierExecutorDecisionStrip } from './DossierExecutorDecisionStrip';
-import { shouldShowDossierControlExecutorStrip } from '../utils/dossierControlDecisions';
+import {
+    findDossierControlDecisionRow,
+    resolveDossierControlWorkflowLabels,
+    resolveDossierControlWorkflowPhase,
+    shouldShowDossierControlExecutorStrip,
+} from '../utils/dossierControlDecisions';
 import type { InabaCorrespondenceLogEntry } from '../utils/inabaCorrespondenceLog';
 import { useExecutorDecisions } from '../hooks/useExecutorDecisions';
 
 const DOSSIER_BTN_BASE =
     'w-full text-right rounded-2xl px-4 py-3.5 transition-all border backdrop-blur-xl bg-[#0A1122]/70 border-white/5 hover:border-[#E6C673]/35 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] relative z-10 cursor-pointer active:scale-[0.99]';
+
+function DossierWorkflowStepStrip(props: {
+    phase: ReturnType<typeof resolveDossierControlWorkflowPhase>;
+}) {
+    const labels = resolveDossierControlWorkflowLabels(props.phase);
+    const sentDone =
+        props.phase === 'pending_executor' ||
+        props.phase === 'approved_pending_apply' ||
+        props.phase === 'rejected' ||
+        props.phase === 'completed';
+    const executorDone = props.phase === 'approved_pending_apply' || props.phase === 'completed';
+    const executorActive = props.phase === 'pending_executor';
+    const appliedDone = props.phase === 'completed';
+    const appliedActive = props.phase === 'approved_pending_apply';
+    const rejected = props.phase === 'rejected';
+
+    const stepClass = (done: boolean, active: boolean, isRejected?: boolean) => {
+        if (isRejected) return 'border-rose-400/40 bg-rose-500/10 text-rose-200';
+        if (done) return 'border-emerald-400/35 bg-emerald-500/10 text-emerald-200';
+        if (active) return 'border-amber-400/40 bg-amber-500/10 text-amber-100';
+        return 'border-white/10 bg-white/[0.03] text-slate-400';
+    };
+
+    return (
+        <div className="flex flex-row-reverse items-stretch gap-1.5 px-4 pb-2 pt-1" dir="rtl">
+            <div
+                className={`flex-1 rounded-xl border px-2 py-1.5 text-center text-[9px] font-bold leading-tight ${stepClass(sentDone, false)}`}
+            >
+                {labels.sent}
+            </div>
+            <div
+                className={`flex-1 rounded-xl border px-2 py-1.5 text-center text-[9px] font-bold leading-tight ${stepClass(executorDone, executorActive, rejected)}`}
+            >
+                {labels.executor}
+            </div>
+            <div
+                className={`flex-1 rounded-xl border px-2 py-1.5 text-center text-[9px] font-bold leading-tight ${stepClass(appliedDone, appliedActive)}`}
+            >
+                {labels.applied}
+            </div>
+        </div>
+    );
+}
 
 type DossierControlItem = {
     id: DossierActionType;
@@ -112,6 +160,23 @@ function DossierControlAccordionRow(props: {
             parentFileId,
         ]
     );
+    const activeRow = useMemo(
+        () =>
+            findDossierControlDecisionRow(decisions, item.id, {
+                parentExecutionId: parentFileId,
+                appealPerspective,
+            }),
+        [appealPerspective, decisions, item.id, parentFileId]
+    );
+    const workflowPhase = useMemo(
+        () =>
+            resolveDossierControlWorkflowPhase(activeRow, {
+                parentExecutionId: parentFileId,
+                allDecisions: decisions,
+                appealPerspective,
+            }),
+        [activeRow, appealPerspective, decisions, parentFileId]
+    );
     const showSubmitForm = expanded && !executorStripVisible;
     const form = useDossierActionForm(item.id, showSubmitForm, parentFileId, inabaTargets);
     const handleConfirm = async () => {
@@ -137,6 +202,11 @@ function DossierControlAccordionRow(props: {
                         {item.icon}
                     </span>
                     <p className="min-w-0 flex-1 text-sm font-bold text-white">{item.label}</p>
+                    {executorStripVisible ? (
+                        <span className="shrink-0 rounded-lg border border-amber-400/30 bg-amber-500/10 px-2 py-0.5 text-[9px] font-bold text-amber-100">
+                            إجراء قائم
+                        </span>
+                    ) : null}
                     {!executorStripVisible ? (
                         <ChevronDown
                             size={18}
@@ -146,6 +216,10 @@ function DossierControlAccordionRow(props: {
                     ) : null}
                 </div>
             </button>
+
+            {executorStripVisible ? (
+                <DossierWorkflowStepStrip phase={workflowPhase} />
+            ) : null}
 
             <DossierExecutorDecisionStrip
                 executionId={decisionsStorageExecutionId}
@@ -212,7 +286,7 @@ export const DossierControlsTab: React.FC<DossierControlsTabProps> = ({
                     saving={saving}
                     onSubmit={async (payload) => {
                         const sent = await onSubmit(payload);
-                        if (sent) setExpandedId(null);
+                        if (sent) setExpandedId(item.id);
                         return sent;
                     }}
                 />

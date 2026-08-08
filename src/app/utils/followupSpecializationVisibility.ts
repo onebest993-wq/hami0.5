@@ -248,7 +248,30 @@ export function resolveFollowupSpecializationVisibility(
             next = applyPersonalStatusCourtCoerciveBan(flags, isEmployee);
         }
         if (isLegalEntityDebtorKind(debtorEntityKind)) {
+            const preLegalEntityBan = next;
             next = applyLegalEntityDebtorFollowupBan(next);
+            if (
+                isSpecificDeliveryClaim(c) ||
+                isEvictionClaim(c) ||
+                isEncroachmentRemovalClaim(c)
+            ) {
+                next = {
+                    ...next,
+                    hideFollowupCoerciveTab: preLegalEntityBan.hideFollowupCoerciveTab,
+                    showSpecificDeliveryFieldProcedures:
+                        preLegalEntityBan.showSpecificDeliveryFieldProcedures,
+                    showSpecificDeliverySurveyorCard:
+                        preLegalEntityBan.showSpecificDeliverySurveyorCard,
+                    showSpecificDeliveryConversionCard:
+                        preLegalEntityBan.showSpecificDeliveryConversionCard,
+                    showEncroachmentRemovalRequestCards:
+                        preLegalEntityBan.showEncroachmentRemovalRequestCards,
+                    hideEncroachmentEvictionProcedureItems:
+                        preLegalEntityBan.hideEncroachmentEvictionProcedureItems,
+                    hideEvictionCustodianProcedure:
+                        preLegalEntityBan.hideEvictionCustodianProcedure,
+                };
+            }
         }
         return next;
     };
@@ -264,20 +287,22 @@ export function resolveFollowupSpecializationVisibility(
         return finalize(mapSpecificDeliveryPhaseToFollowupFlags(phase, isEmployee));
     }
 
-    /** تخلية / تسليم عقار — لا تبويب تنفيذ جبري شخصي (موظف أو كاسب) */
+    /** تخلية / تسليم عقار — الإجراءات الميدانية في «الإجراءات الجبرية»؛ التنفيذ الجبري الشخصي في تبويبه */
     if (isEvictionClaim(c)) {
         const flags = {
             ...defaultFollowupSpecialization(),
-            hidePersonalCoerciveFollowupTab: true,
+            hidePersonalCoerciveFollowupTab: false,
         };
         return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
     }
 
-    /** إزالة / رفع تجاوز — إجراءات ميدانية فقط دون مسار شخصي أو حجز مالي */
+    /** إزالة / رفع تجاوز — إجراءات ميدانية (بطاقات إزالة التجاوز) دون مسار شخصي أو حجز مالي */
     if (isEncroachmentRemovalClaim(c)) {
         const flags = {
             ...defaultFollowupSpecialization(),
             hidePersonalCoerciveFollowupTab: true,
+            hideFollowupSeizureRequestsTab: true,
+            hideDossierFinancialTools: true,
             hideCoerciveGraceNoticeBanner: true,
             hideCoerciveFinancialBanners: true,
             hideCoerciveSeizureSalaryAndProperty: true,
@@ -287,11 +312,12 @@ export function resolveFollowupSpecializationVisibility(
         return finalize(isEmployee ? applyEmployeeDebtorAmountGuarantorBan(flags) : flags);
     }
 
-    /** مشاهدة / استصحاب / مبيت — لا مركز مالي ولا حجز ولا كفيل ولا عرض على قاضي البداءة */
+    /** مشاهدة / استصحاب / مبيت — لا مركز مالي ولا حجز؛ تبويب الجبري الشخصي للمسارات غير المالية */
     if (isVisitationClaim(c)) {
         const flags = {
             ...defaultFollowupSpecialization(),
-            hidePersonalJudgePresentation: true,
+            hidePersonalCoerciveFollowupTab: false,
+            hidePersonalJudgePresentation: false,
             hidePersonalForcedBringActivation: true,
             hideAllGuarantorPresence: true,
             hideGuarantorSeizureSubTab: true,

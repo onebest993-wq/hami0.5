@@ -30,4 +30,22 @@ describe('resolveEarnerFinancialPersonalCoerciveFlags', () => {
         expect(flags.hideExecutiveDetentionJudgeCard).toBe(true);
         expect(flags.earnerPersonalCoerciveFinancialThresholdMet).toBe(false);
     });
+
+    it('shows judge detention card for explicit financial debt collection below 500k', () => {
+        const flags = resolveEarnerFinancialPersonalCoerciveFlags({
+            isEmployee: false,
+            financialCenterTotalIqd: 300_000,
+            isFinancialDebtCollection: true,
+        });
+        expect(flags.hideExecutiveDetentionJudgeCard).toBe(false);
+    });
+
+    it('keeps judge detention hidden for employees on financial debt collection', () => {
+        const flags = resolveEarnerFinancialPersonalCoerciveFlags({
+            isEmployee: true,
+            financialCenterTotalIqd: 300_000,
+            isFinancialDebtCollection: true,
+        });
+        expect(flags.hideExecutiveDetentionJudgeCard).toBe(true);
+    });
 });

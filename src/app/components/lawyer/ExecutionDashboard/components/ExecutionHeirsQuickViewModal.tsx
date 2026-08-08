@@ -1,6 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import type { ElementType } from 'react';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_EDIT_SHELL_MAX,
+} from '../executionModalMobileShell';
 
 export type HeirsQuickViewRow = {
     name: string;
@@ -25,12 +30,12 @@ export function ExecutionHeirsQuickViewModal({
 
     return createPortal(
         <div
-            className="fixed inset-0 z-[210] flex items-center justify-center bg-black/70 p-4"
+            className={`fixed inset-0 z-[210] flex items-center justify-center bg-black/70 p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             role="presentation"
             onClick={() => setHeirsQuickView(null)}
         >
             <div
-                className="w-full max-w-md rounded-2xl border border-cyan-400/35 bg-[#0A0F1C] p-3 text-right"
+                className={`w-full max-w-md rounded-2xl border border-cyan-400/35 bg-[#0A0F1C] p-3 text-right ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 dir="rtl"
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
@@ -40,7 +45,7 @@ export function ExecutionHeirsQuickViewModal({
                     <button
                         type="button"
                         onClick={() => setHeirsQuickView(null)}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-white/10"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق عرض الورثة"
                     >
                         <X size={16} />

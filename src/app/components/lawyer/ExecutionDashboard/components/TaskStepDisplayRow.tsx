@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, CheckCircle, XCircle } from 'lucide-react';
+import { Calendar, CheckCircle, XCircle } from '@/app/components/ui/lucideIcons';
 import { formatArTaskDate, ntm } from './notesTasksModalUi';
 
 export type TaskStepView = {

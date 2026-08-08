@@ -25,12 +25,19 @@ describe('settings section surgical close honesty', () => {
     });
 
     it('privacyBlur يتخطى CSS على Capacitor', () => {
+        const runtime = fs.readFileSync(
+            path.join(root, 'src/app/runtime/privacyBlurRuntime.ts'),
+            'utf8',
+        );
+        expect(runtime).toContain('isCapacitorNativePlatform');
+        expect(runtime).toContain('bindWebPrivacyBlur');
+        expect(runtime).toContain('bindNativePrivacyBlur');
         const provider = fs.readFileSync(
             path.join(root, 'src/app/context/lawyerSettings/LawyerSettingsProvider.tsx'),
             'utf8',
         );
-        expect(provider).toContain('isCapacitorNativePlatform');
         expect(provider).toContain('settings.security.privacyBlur');
+        expect(provider).toContain('privacyBlurRuntime');
     });
 
     it('مسار فتح الإعدادات من الهيدر ما زال عبر HeaderSettingsTrigger', () => {

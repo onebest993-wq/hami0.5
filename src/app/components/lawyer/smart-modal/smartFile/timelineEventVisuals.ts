@@ -28,10 +28,12 @@ import {
     Search as SearchIcon,
     ClipboardList,
     HandCoins,
+    Clock,
     type LucideIcon,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '../../LawyerShared';
 import { isSessionTimelineEvent } from './sessionRecordEngine';
+import { isLegalDeadlineTimelineEvent } from './timelineLegalDeadline';
 
 export type TimelineVisual = {
     Icon: LucideIcon;
@@ -462,6 +464,13 @@ export function resolveTimelineVisual(
 
     if (isSessionTimelineEvent(event)) {
         return paletteVisual(ScrollText, PAL.blue);
+    }
+
+    if (isLegalDeadlineTimelineEvent(event)) {
+        if (String(event.id ?? '').startsWith('appt_judgment_')) {
+            return paletteVisual(Gavel, PAL.gold);
+        }
+        return paletteVisual(Clock, PAL.amber);
     }
 
     if (ext.isPause || title.includes('استئخار')) {

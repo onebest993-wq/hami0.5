@@ -15,9 +15,9 @@ describe('mega-close: lawsuit virtualize + InstantShell bridge', () => {
         expect(src).not.toContain('useWindowVirtualizer');
     });
 
-    it('ArchivePortalFileGrid يمرّر الشبكة عبر ArchiveVirtualGrid', () => {
+    it('LawsuitArchiveFileGrid يمرّر الشبكة عبر ArchiveVirtualGrid', () => {
         const src = readFileSync(
-            join(root, 'src/app/components/lawyer/ArchivePortal/components/ArchivePortalFileGrid.tsx'),
+            join(root, 'src/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid.tsx'),
             'utf8',
         );
         expect(src).toContain('ArchiveVirtualGrid');

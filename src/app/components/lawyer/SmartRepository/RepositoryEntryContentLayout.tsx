@@ -63,7 +63,7 @@ export function RepositoryEntryContentLayout({
             <div className={className}>
                 <h3 className={`font-bold text-[#F4F0E8] mb-2 ${titleClassName}`}>{title}</h3>
                 <div
-                    className={`text-sm text-white/65 leading-relaxed mb-3 ${bodyClassName}`}
+                    className={`text-sm text-white/65 leading-relaxed mb-3 line-clamp-3 ${bodyClassName}`}
                     dangerouslySetInnerHTML={{ __html: safeHtml }}
                 />
                 <div className="flex justify-end">
@@ -81,9 +81,9 @@ export function RepositoryEntryContentLayout({
 
     return (
         <div className={className}>
-            <h3 className={`font-bold text-[#F4F0E8] mb-2 ${titleClassName}`}>{title}</h3>
+            <h3 className={`font-bold text-[#F4F0E8] mb-2 line-clamp-2 ${titleClassName}`}>{title}</h3>
             <div
-                className={`text-sm text-white/65 leading-relaxed ${bodyClassName}`}
+                className={`text-sm text-white/65 leading-relaxed line-clamp-3 ${bodyClassName}`}
                 dangerouslySetInnerHTML={{ __html: safeHtml }}
             />
         </div>

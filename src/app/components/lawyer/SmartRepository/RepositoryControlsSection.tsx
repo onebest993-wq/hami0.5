@@ -69,7 +69,7 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
 }: RepositoryControlsSectionProps) {
     return (
         <div className={REPO_CONTROLS_SHELL}>
-            <div className="px-5 pt-3 pb-1 shrink-0 flex items-center gap-2" dir="rtl">
+            <div className="px-5 pt-3 pb-2 shrink-0 flex items-center gap-2" dir="rtl">
                 <div className="flex-1 min-w-0">
                     <VaultSearchFilterHub
                         searchQuery={vault.searchQuery}
@@ -86,8 +86,13 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                         onAddCategory={vault.addVaultCategory}
                         onRemoveCategory={(name) => void vault.removeVaultCategory(name)}
                         docs={unboundVaultDocs}
+                        notes={notes}
                     />
                 </div>
+                <RepositoryViewLayoutPicker
+                    layoutId={feedLayout}
+                    onSelect={onFeedLayoutChange}
+                />
                 <RepositoryAddMenu
                     onCreateNote={onCreateNote}
                     onOpenScanner={onOpenScanner}
@@ -98,30 +103,28 @@ export const RepositoryControlsSection = memo(function RepositoryControlsSection
                     onImageSelect={(e) => void vault.handleImageUploadSelect(e)}
                     onPdfSelect={(e) => void vault.handlePdfUploadSelect(e)}
                 />
-                <RepositoryViewLayoutPicker
-                    layoutId={feedLayout}
-                    onSelect={onFeedLayoutChange}
-                    disabled={actionToolbarDisabled}
-                />
             </div>
 
-            <RepositoryFiltersRail
-                activeFilter={vault.activeFilter}
-                customCategories={vault.customCategories}
-                docs={unboundVaultDocs}
-                notes={notes}
-                rooms={rooms}
-                pinnedRoomIds={pinnedRoomIds}
-                selectedRoomId={selectedRoomId}
-                onSelectRoom={onSelectRoom}
-                onCreateRoom={onCreateRoom}
-                onRemoveRoom={onRemoveRoom}
-                onTogglePinRoom={onTogglePinRoom}
-                onFilterChange={vault.setActiveFilter}
-                onAddCategory={vault.addVaultCategory}
-                onRemoveCategory={(name) => void vault.removeVaultCategory(name)}
-                onMainFilterChange={onMainFilterChange}
-            />
+            <div className="hami-repository-rail hami-repository-rail--filters shrink-0 min-w-0 pe-4" dir="rtl">
+                <RepositoryFiltersRail
+                    activeFilter={vault.activeFilter}
+                    customCategories={vault.customCategories}
+                    docs={unboundVaultDocs}
+                    notes={notes}
+                    rooms={rooms}
+                    pinnedRoomIds={pinnedRoomIds}
+                    selectedRoomId={selectedRoomId}
+                    onSelectRoom={onSelectRoom}
+                    onCreateRoom={onCreateRoom}
+                    onRemoveRoom={onRemoveRoom}
+                    onTogglePinRoom={onTogglePinRoom}
+                    onFilterChange={vault.setActiveFilter}
+                    onAddCategory={vault.addVaultCategory}
+                    onRemoveCategory={(name) => void vault.removeVaultCategory(name)}
+                    onMainFilterChange={onMainFilterChange}
+                    classificationInSearch
+                />
+            </div>
         </div>
     );
 });

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -6,6 +5,10 @@ import {
 import { useExecutionDashboardCoreHandlerClusterCoerciveActionBridge } from './useExecutionDashboardCoreHandlerClusterCoerciveActionBridge';
 import { useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers } from './useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveActionHandlersBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -24,12 +27,19 @@ export function ExecutionDashboardHandlerClusterCoerciveActionHandlersBridge({
         saveCoerciveAction,
     );
 
-    useEffect(() => {
-        onCluster({
-            coerciveActionBridge,
-            coerciveActionHandlers,
-        });
-    }, [coerciveActionBridge, coerciveActionHandlers, onCluster]);
+    const cluster: Record<string, unknown> = {
+        coerciveActionBridge,
+        coerciveActionHandlers,
+    };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
+            ...handlerBagKeyFingerprint(coerciveActionBridge as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(coerciveActionHandlers as Record<string, unknown>),
+        ],
+        onCluster,
+    );
 
     return null;
 }

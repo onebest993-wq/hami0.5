@@ -1,0 +1,26 @@
+{
+  "generatedAt": "2026-08-06T20:01:04.497Z",
+  "allPassed": true,
+  "steps": [
+    {
+      "id": "build",
+      "passed": true
+    },
+    {
+      "id": "size-baseline",
+      "passed": true
+    },
+    {
+      "id": "cold-entry-dist",
+      "passed": true
+    },
+    {
+      "id": "home-hub-gate",
+      "passed": true
+    },
+    {
+      "id": "vitest-critical",
+      "passed": true
+    }
+  ]
+}

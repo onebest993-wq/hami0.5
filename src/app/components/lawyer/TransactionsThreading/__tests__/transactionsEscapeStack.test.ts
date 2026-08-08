@@ -14,6 +14,7 @@ const closedDetails = {
     taskCompleteOpen: false,
     taskEditOpen: false,
     taskDeleteOpen: false,
+    shareProcedureOpen: false,
 };
 
 const listBase: TransactionsEscapeSnapshot = {
@@ -41,6 +42,16 @@ describe('resolveTransactionsEscapeAction', () => {
                 details: { ...closedDetails, taskDeleteOpen: true, taskEditOpen: true },
             }),
         ).toBe('close-task-delete');
+    });
+
+    it('يغلق مشاركة الدليل قبل حذف المهمة', () => {
+        expect(
+            resolveTransactionsEscapeAction({
+                view: 'details',
+                listAddSheetOpen: false,
+                details: { ...closedDetails, shareProcedureOpen: true, taskDeleteOpen: true },
+            }),
+        ).toBe('close-share-procedure');
     });
 
     it('يغلق ورقة إضافة المعاملة قبل الخروج', () => {
@@ -81,6 +92,19 @@ describe('applyTransactionsEscapeAction', () => {
 
         expect(onCloseListAddSheet).toHaveBeenCalledTimes(1);
         expect(onBack).not.toHaveBeenCalled();
+    });
+
+    it('يغلق مشاركة الدليل عبر apply', () => {
+        const onCloseDetailsOverlay = vi.fn();
+
+        applyTransactionsEscapeAction('close-share-procedure', {
+            onBack: vi.fn(),
+            onCloseListAddSheet: vi.fn(),
+            onBackToList: vi.fn(),
+            onCloseDetailsOverlay,
+        });
+
+        expect(onCloseDetailsOverlay).toHaveBeenCalledWith({ shareProcedureOpen: false });
     });
 
     it('يخرج من المركز عند exit-hub', () => {

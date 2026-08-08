@@ -8,6 +8,8 @@ import { ProfileInstantShell } from '@/app/components/lawyer/RoyalLawyerProfile/
 import { resolveProfileAccentHex, resolveProfileAccentInkHex, resolveProfileAccentOnSolidHex, resolveProfilePageBackground } from '@/app/services/profile/profilePageCustomization';
 import { getLiveProfileAppearance } from '@/app/services/profile/profileThemeRuntime';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import { isAndroidNativeShell } from '@/app/runtime/nativePlatform';
 import { useProfilePageHidden } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfilePageHidden';
 import { ensureProfilePageSecondaryFxLoaded } from '@/app/components/lawyer/RoyalLawyerProfile/profilePageFxLoader';
 import '@/app/components/lawyer/RoyalLawyerProfile/profilePageFx.css';
@@ -22,10 +24,15 @@ export type { RoyalLawyerProfileProps } from '@/app/components/lawyer/RoyalLawye
 function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
     const { isScreenMode, onBack, forumFollow, screenActive = true } = props;
     const profile = useRoyalLawyerProfile(props);
-    const reduceMotion = useReduceMotion();
-    const contentReady = Boolean(profile.paintReady && profile.header);
+    const reduceMotion = useReduceMotion() || isAndroidNativeShell();
+    const contentReady = profile.contentReady;
     const pageHidden = useProfilePageHidden(screenActive);
-    const reveal = Boolean(screenActive && contentReady);
+    const hasRenderableProfile = Boolean(profile.header) || contentReady;
+    const reveal = Boolean(screenActive && hasRenderableProfile);
+    const editKeyboardInset = useMobileKeyboardInset(
+        profile.isEditing && !profile.settingsOpen && screenActive && !pageHidden,
+        true,
+    );
 
     useLayoutEffect(() => {
         ensureProfilePageSecondaryFxLoaded();
@@ -49,12 +56,14 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
 
     return (
         <div
-            className="relative z-[1] min-h-full text-white overflow-x-clip pb-[max(8rem,calc(env(safe-area-inset-bottom)+6rem))]"
+            className="relative z-[1] min-h-full text-white overflow-x-clip"
             dir="rtl"
             data-lawyer-profile-root
             data-profile-material={material}
             data-profile-portrait-frame={portraitFrame}
             data-profile-settings-open={profile.settingsOpen ? 'true' : undefined}
+            data-profile-editing={profile.isEditing ? 'true' : undefined}
+            data-profile-keyboard-open={editKeyboardInset > 0 ? 'true' : undefined}
             data-profile-reduce-motion={reduceMotion ? 'true' : undefined}
             data-profile-page-hidden={pageHidden ? 'true' : undefined}
             data-profile-paint-ready={profile.paintReady ? 'true' : undefined}
@@ -65,6 +74,7 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                     '--profile-accent-on-solid': resolveProfileAccentOnSolidHex(accent),
                     '--profile-page-bg': pageBg,
                     backgroundColor: pageBg,
+                    paddingBottom: `max(8rem, calc(env(safe-area-inset-bottom) + 6rem + ${editKeyboardInset}px))`,
                     ...(pageHidden ? { pointerEvents: 'none' as const } : null),
                 } as React.CSSProperties
             }
@@ -74,11 +84,11 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                 <div data-profile-page-texture className="absolute inset-0" />
             </div>
 
-            {isScreenMode && onBack ? (
+            {isScreenMode && onBack && screenActive ? (
                 <ProfileBackBar onBack={() => void profile.handleBack()} />
             ) : null}
 
-            {contentReady ? (
+            {hasRenderableProfile ? (
                 <ProfileContent
                     saving={profile.saving}
                     isEditing={profile.isEditing}
@@ -116,6 +126,7 @@ function RoyalLawyerProfileInner(props: RoyalLawyerProfileProps) {
                     onRegisterCloseGalleryViewer={profile.onRegisterCloseGalleryViewer}
                     screenActive={screenActive}
                     pageHidden={pageHidden}
+                    isScreenMode={isScreenMode}
                 />
             ) : profile.loadError ? (
                 <div

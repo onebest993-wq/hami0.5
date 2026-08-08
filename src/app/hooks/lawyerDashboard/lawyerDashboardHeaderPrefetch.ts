@@ -1,6 +1,7 @@
 import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 
-import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { loadProfileHubModule, prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { loadProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
 import { loadNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import {
     loadGlobalSearchOverlayModule,
@@ -43,9 +44,12 @@ export function createLawyerDashboardHeaderPrefetch(
         primeGlobalSearchShellMount?: () => void;
         primeProfileTabMount?: () => void;
         primeVaultShellMount?: () => void;
+        /** الملف مفتوح — لا تسخين عند الإغلاق */
+        profileIsOpen?: boolean;
     },
 ) {
     const resolvedId = userId?.trim() || null;
+    const profileIsOpen = opts?.profileIsOpen === true;
     const prefetchNotificationsHover = () => {
         void loadNotificationIntentWarm().then((m) => m.warmNotificationsOnHover());
     };
@@ -63,15 +67,19 @@ export function createLawyerDashboardHeaderPrefetch(
         void loadSettingsBootHydrator().then((m) => m.dispatchSettingsPrimeHost());
     };
     const prefetchProfileHover = () => {
+        if (profileIsOpen) return;
         void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(resolvedId));
         opts?.primeProfileTabMount?.();
     };
     const prefetchProfilePress = () => {
+        if (profileIsOpen) return;
         /*
-         * لا warmOnOpen / loadRoyal كامل هنا — ينافس flushSync فتح التبويب على نفس الإطار
-         * (مثل إعدادات/بحث). الفتح يستدعي warmProfileOnOpen بعد التزام التبويب.
+         * تحميل إلزامي للـ shell قبل click — يقلّل فجوة chunk عند أول فتح.
+         * لا warmProfileOnOpen هنا — يُستدعى بعد commit التبويب.
          */
         prefetchProfileHubModule();
+        void loadProfileHubModule().catch(() => undefined);
+        void loadProfileTabModule().catch(() => undefined);
         void loadProfileBootHydrator().then((m) => m.dispatchProfilePrimeHost());
         opts?.primeProfileTabMount?.();
     };

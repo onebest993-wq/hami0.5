@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, UserCheck, X } from 'lucide-react';
+import { Plus, UserCheck, X } from '@/app/components/ui/lucideIcons';
 import type { ThirdParty } from '../LawyerNewCase/types';
 import { buildThirdPartyRoleLabel } from '../LawyerNewCase/clientRepresentation';
 import { PersonalSectionShell } from './PersonalStatusFormPrimitives';

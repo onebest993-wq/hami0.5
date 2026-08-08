@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-const CLOSE_ARM_MS = 320;
-const CLOSE_AFTER_POINTER_UP_MS = 80;
+const CLOSE_ARM_MS = 120;
+const CLOSE_AFTER_POINTER_UP_MS = 32;
 
 /**
  * يمنع إغلاق الطبقة بنقرة فتح الزر نفسها
@@ -57,9 +57,8 @@ export function useOverlayCloseArm(open: boolean): {
         };
     }, [open]);
 
-    const requestClose = useCallback((close: () => void) => {
-        if (!armedRef.current) return;
-        close();
+    const requestClose = useCallback((close: () => void, opts?: { force?: boolean }) => {
+        if (opts?.force || armedRef.current) close();
     }, []);
 
     const isCloseArmed = useCallback(() => armedRef.current, []);

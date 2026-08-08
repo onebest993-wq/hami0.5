@@ -1,19 +1,17 @@
-import React from 'react';
+﻿import React from 'react';
 import { SearchHeader } from '@/app/components/lawyer/GlobalSearchOverlay/components/SearchHeader';
 import { GlobalSearchOverlayResultsRegion } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayResultsRegion';
 import type { GlobalSearchOverlayShellProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 
-export const GLOBAL_SEARCH_DIALOG_CHROME_CLASS =
-    'relative w-full sm:max-w-xl rounded-t-[28px] sm:rounded-3xl overflow-hidden border-t border-x border-[#E6C673]/12 sm:border bg-[#080D18]/98 backdrop-blur-2xl shadow-[0_-12px_60px_rgba(0,0,0,0.65),0_0_48px_rgba(230,198,115,0.05)] pb-[max(12px,env(safe-area-inset-bottom))]';
+export const GLOBAL_SEARCH_DIALOG_CHROME_CLASS = 'hami-gs-sheet';
 
-/** طبقة الغلاف الخارجية للبحث العام — ثابتة بين الغلاف الثابت وغلاف الحركة */
-export const GLOBAL_SEARCH_LAYER_CLASS =
-    'fixed inset-0 z-[280] flex items-end sm:items-center justify-center sm:p-4 pt-[env(safe-area-inset-top)]';
+/** طبقة الغلاف الخارجية للبحث العام — مشتركة بين StaticShell والحركة */
+export const GLOBAL_SEARCH_LAYER_CLASS = 'hami-gs-layer';
 
-/** خلفية الإغلاق — نفس اللون على Instant / Static / Motion (بلا وميض /72→/85) */
-export const GLOBAL_SEARCH_BACKDROP_CLASS = 'absolute inset-0 bg-[#010308]/85';
+/** خلفية الإغلاق — نفس اللون على Instant / Static / Motion */
+export const GLOBAL_SEARCH_BACKDROP_CLASS = 'hami-gs-backdrop';
 
-/** محتوى الحوار الداخلي — مشترك بين الغلاف الثابت وغلاف الحركة */
+/** ┘à╪ص╪ز┘ê┘ë ╪د┘╪ص┘ê╪د╪▒ ╪د┘╪»╪د╪«┘┘è ظ¤ ┘à╪┤╪ز╪▒┘â ╪ذ┘è┘ ╪د┘╪║┘╪د┘ ╪د┘╪س╪د╪ذ╪ز ┘ê╪║┘╪د┘ ╪د┘╪ص╪▒┘â╪ر */
 export function GlobalSearchOverlayDialogChrome({
     open,
     onClose,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Clock, CheckCircle2, FileArchive, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, FileArchive, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { UrgentCase } from '../Component_Urgent_Card';
 import { DashboardSection } from './DashboardSection';
 import type { ViewMode } from './types';

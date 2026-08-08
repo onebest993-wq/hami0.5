@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Send } from 'lucide-react';
+import { AlertTriangle, Send } from '@/app/components/ui/lucideIcons';
 import type { InlineActionGateKey } from '../types';
 
 export type InlineActionGateMode = 'initial' | 'resubmit_warning';
@@ -88,6 +88,11 @@ export const InlineActionGate = React.memo(function InlineActionGate({
                         {warningMessage ||
                             'سبق واتخاذ هذا الإجراء سابقاً. هل تريد تقديم طلب جديد؟'}
                     </p>
+                    {children ? (
+                        <div className="w-full text-right" onClick={(e) => e.stopPropagation()}>
+                            {children}
+                        </div>
+                    ) : null}
                     <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2 w-full">
                         {confirmButton}
                         {cancelButton}
@@ -109,6 +114,28 @@ export const InlineActionGate = React.memo(function InlineActionGate({
                 <div className="mt-3 flex flex-row-reverse flex-wrap items-center justify-center gap-2">
                     {confirmButton}
                     {cancelButton}
+                </div>
+            </div>
+        );
+    }
+
+    if (!children) {
+        return (
+            <div
+                className="border-t border-amber-500/20 bg-slate-950/90 px-4 py-4 backdrop-blur-xl z-20"
+                dir="rtl"
+                role="presentation"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="mx-auto flex w-full max-w-md flex-col items-center gap-3 text-center">
+                    <Send size={22} className="text-amber-300/90 shrink-0" aria-hidden />
+                    <p className="text-[11px] font-bold leading-relaxed text-amber-50/95 px-1">
+                        تأكيد إرسال الطلب إلى منفذ العدل للبتّ
+                    </p>
+                    <div className="flex flex-row-reverse flex-wrap items-center justify-center gap-2 w-full">
+                        {confirmButton}
+                        {cancelButton}
+                    </div>
                 </div>
             </div>
         );

@@ -11,6 +11,13 @@ import {
     supersedeGuarantorRequestDecisionsForExecution,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { timelineDebtorMetadata } from '@/app/utils/timelineDebtorScope';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
+import { buildSeizureRegistryDraftPatch } from '@/app/components/lawyer/ExecutionDashboard/helpers/seizureRegistryBridge';
+import { submitBasicSeizurePendingRequest } from '@/app/domain/seizure/seizureBasicRequestService';
+import {
+    openFollowupSeizureRequestsModal,
+    type OpenFollowupModalPersistedFn,
+} from '../../utils/followupModalOpen';
 
 export type UseExecutionDashboardGuarantorFollowupHandlersParams = {
     decisionsStorageExecutionId: string | undefined;
@@ -26,6 +33,7 @@ export type UseExecutionDashboardGuarantorFollowupHandlersParams = {
     setTimelineEvents: Dispatch<SetStateAction<TimelineEvent[]>>;
     setShowCoerciveActionForm: Dispatch<SetStateAction<string | null>>;
     setSeizureDetailCompletion: Dispatch<SetStateAction<unknown>>;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     setUnifiedModalTab: Dispatch<SetStateAction<string>>;
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
@@ -48,6 +56,7 @@ export function useExecutionDashboardGuarantorFollowupHandlers({
     setTimelineEvents,
     setShowCoerciveActionForm,
     setSeizureDetailCompletion,
+    openFollowupModalPersisted,
     setShowUnifiedExecutionModal,
     setUnifiedModalTab,
     executionDataRef,
@@ -57,37 +66,41 @@ export function useExecutionDashboardGuarantorFollowupHandlers({
 }: UseExecutionDashboardGuarantorFollowupHandlersParams) {
     const requestFollowupSeizureDecision = useCallback(
         (subtype: 'third_party' | 'notice', title: string, body: string) => {
-            const exId = decisionsStorageExecutionId;
-            if (!exId || exId === 'undefined') return;
-            const rows = readExecutorDecisionsArray(exId) as Array<Record<string, unknown>>;
-            const dup = rows.find(
-                (r) =>
-                    String(r.requestKind || '') === 'seizure' &&
-                    String((r as { seizureSubtype?: string }).seizureSubtype || '') === subtype &&
-                    (String((r as { executorOutcome?: string }).executorOutcome || '') === 'pending' ||
-                        (r as { executorOutcome?: string }).executorOutcome === undefined),
-            );
-            if (dup?.id) {
+            const result = submitBasicSeizurePendingRequest({
+                dossierInput: {
+                    decisionsStorageExecutionId,
+                    executionId,
+                    executionDataId: executionData?.id,
+                    executionData: executionData as Record<string, unknown> | null,
+                },
+                title,
+                body,
+                subtype,
+                decisions: readExecutorDecisionsArray(
+                    decisionsStorageExecutionId || executionId || '',
+                ) as Array<Record<string, unknown>>,
+            });
+            if (result.error === 'invalid_dossier') {
+                showToast('تعذّر ربط الطلب بملف التنفيذ. أعد فتح المحضر.', 'warning');
+                return;
+            }
+            if (!result.ok || !result.decisionId) {
                 showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
                     decisionsLink: true,
-                    decisionId: String((dup as { id?: string }).id),
                     decisionsTab: 'current',
                 });
                 return;
             }
+            const decisionId = result.decisionId;
 
-            const decisionId = appendPendingExecutorSeizureDecision({
-                executionId: exId,
-                requestTitle: `${title} — قيد البت لدى المنفذ`,
-                requestBody: body,
-                seizureSubtype: subtype,
-            });
-            if (!decisionId) {
-                showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', {
-                    decisionsLink: true,
-                    decisionsTab: 'current',
-                });
-                return;
+            const draftPatch = buildSeizureRegistryDraftPatch(
+                executionDataRef.current as Record<string, unknown> | null | undefined,
+                decisionId,
+                subtype,
+                { title },
+            );
+            if (draftPatch) {
+                persistExecutionMergeRef.current?.(draftPatch);
             }
 
             const now = new Date().toISOString();
@@ -111,7 +124,14 @@ export function useExecutionDashboardGuarantorFollowupHandlers({
                 decisionsTab: 'current',
             });
         },
-        [decisionsStorageExecutionId, nextTimelineId, pushTimelineEvent, showToast],
+        [
+            decisionsStorageExecutionId,
+            executionId,
+            executionData,
+            nextTimelineId,
+            pushTimelineEvent,
+            showToast,
+        ],
     );
 
     const handleGuarantorRequestFromFollowup = useCallback(() => {
@@ -253,12 +273,16 @@ export function useExecutionDashboardGuarantorFollowupHandlers({
             if (!inline) {
                 setShowCoerciveActionForm(null);
                 setSeizureDetailCompletion(null);
-                openSeizureRequestsTabRef.current?.();
-                setShowUnifiedExecutionModal(true);
+                openFollowupSeizureRequestsModal(openFollowupModalPersisted, {
+                    setShowUnifiedExecutionModal,
+                    openSeizureRequestsTabRef,
+                });
                 try {
-                    const exId = String(
-                        decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '',
-                    ).trim();
+                    const exId = requireDecisionsStorageExecutionId({
+                        decisionsStorageExecutionId,
+                        executionId,
+                        executionData: executionData as Record<string, unknown> | null,
+                    });
                     window.dispatchEvent(
                         new CustomEvent('hami-focus-guarantor-seizure-inline', {
                             detail: { executionId: exId, decisionId: did, kind: subtype },
@@ -292,6 +316,7 @@ export function useExecutionDashboardGuarantorFollowupHandlers({
             executionId,
             nextTimelineId,
             openSeizureRequestsTabRef,
+            openFollowupModalPersisted,
             pushTimelineEvent,
             setSeizureDetailCompletion,
             setShowCoerciveActionForm,

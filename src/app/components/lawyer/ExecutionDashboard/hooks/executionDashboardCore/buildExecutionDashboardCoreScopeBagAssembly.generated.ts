@@ -211,7 +211,10 @@ export function buildExecutionDashboardCoreScopeBagAssembly(
         evictionFinancialHandlersScopeFragment(sources.evictionFinancialHandlers),
         moduleExpenseHandlersScopeFragment(sources.moduleExpenseHandlers),
         followupSeizureHandlersScopeFragment(sources.followupSeizureHandlers),
-        seizureAssetModalHandlersScopeFragment(sources.seizureAssetModalHandlers),
+        seizureAssetModalHandlersScopeFragment(
+            sources.seizureAssetModalHandlers,
+            sources as Record<string, unknown>,
+        ),
         thirdPartyReceiveHandlersScopeFragment(sources.thirdPartyReceiveHandlers),
         coerciveActionBridgeScopeFragment(sources.coerciveActionBridge),
         coerciveActionHandlersScopeFragment(sources.coerciveActionHandlers),

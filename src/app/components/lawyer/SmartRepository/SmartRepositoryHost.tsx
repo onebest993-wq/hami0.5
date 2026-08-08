@@ -23,7 +23,7 @@ function RepositoryLoadError({ onRetry, onClose }: { onRetry: () => void; onClos
             className="fixed inset-0 z-[120] bg-[#0B1021]/95 flex flex-col items-center justify-center gap-4 px-6 font-['Tajawal','Cairo',sans-serif]"
             role="alert"
         >
-            <p className="text-[#E6C673]/85 text-sm font-bold text-center">تعذّر تحميل المستودع الذكي</p>
+            <p className="text-[#E6C673]/85 text-sm font-bold text-center">تعذّر تحميل المستودع</p>
             <div className="flex flex-wrap items-center justify-center gap-3">
                 <button
                     type="button"

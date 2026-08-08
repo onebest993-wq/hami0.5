@@ -1,5 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_EDIT_SHELL_MAX,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 export type ExecutionTransferFileNumberModalProps = {
     open: boolean;
@@ -37,12 +43,12 @@ export function ExecutionTransferFileNumberModal({
 
     return (
         <div
-            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+            className={`fixed inset-0 z-[110] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             onClick={onClose}
             role="presentation"
         >
             <div
-                className="w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-2xl"
+                className={`w-full max-w-md overflow-hidden rounded-2xl border border-amber-500/20 bg-[#0A0F1C] shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
                 dir="rtl"
             >
@@ -51,7 +57,7 @@ export function ExecutionTransferFileNumberModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg p-1.5 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق"
                     >
                         <X size={16} />
@@ -79,14 +85,14 @@ export function ExecutionTransferFileNumberModal({
                         <button
                             type="button"
                             onClick={onClose}
-                            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition-colors"
+                            className={`rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-[11px] font-bold text-slate-200 hover:bg-white/10 transition-colors ${EXEC_MODAL_TOUCH_TARGET}`}
                         >
                             لاحقاً
                         </button>
                         <button
                             type="button"
                             onClick={handleConfirm}
-                            className="rounded-xl border border-amber-500/25 bg-amber-950/35 px-4 py-2 text-[11px] font-bold text-amber-200 hover:bg-amber-950/55 hover:border-amber-500/45 transition-colors"
+                            className={`rounded-xl border border-amber-500/25 bg-amber-950/35 px-4 py-2 text-[11px] font-bold text-amber-200 hover:bg-amber-950/55 hover:border-amber-500/45 transition-colors ${EXEC_MODAL_TOUCH_TARGET}`}
                         >
                             تأكيد
                         </button>

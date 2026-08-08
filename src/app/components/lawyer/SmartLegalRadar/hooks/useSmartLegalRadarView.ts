@@ -57,6 +57,14 @@ export function useSmartLegalRadarView(initialDate?: string) {
         setShowFullMonth((v) => !v);
     }, []);
 
+    const focusDate = useCallback((dateStr: string) => {
+        const d = new Date(`${dateStr}T12:00:00`);
+        if (Number.isNaN(d.getTime())) return;
+        setViewYear(d.getFullYear());
+        setViewMonth(d.getMonth());
+        setSelectedDate(dateStr);
+    }, []);
+
     return {
         viewYear,
         viewMonth,
@@ -67,5 +75,6 @@ export function useSmartLegalRadarView(initialDate?: string) {
         goToToday,
         handleDateClick,
         toggleFullMonth,
+        focusDate,
     };
 }

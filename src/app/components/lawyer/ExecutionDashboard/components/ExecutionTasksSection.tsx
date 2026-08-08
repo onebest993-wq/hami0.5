@@ -4,7 +4,7 @@ import {
     Plus, Trash2, Pencil, CheckCircle, XCircle,
     Clock, ChevronDown, ChevronUp, Calendar, ListChecks,
     Pin
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { formatArTaskDate, ntm } from './notesTasksModalUi';
 import { TaskStepDisplayRow } from './TaskStepDisplayRow';
 

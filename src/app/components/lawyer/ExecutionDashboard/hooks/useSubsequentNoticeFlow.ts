@@ -9,7 +9,7 @@ import {
     isGracePeriodExpired,
     calculateDaysRemaining,
 } from '@/app/utils/executionStateMachine';
-import { getEmployeeAssignmentForDebtorKey } from '@/app/utils/employeeSummonsAssignment';
+import { buildFollowupDerivedState } from '@/app/application/execution/followup/buildFollowupDerivedState';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 
 export function useSubsequentNoticeFlow(
@@ -178,34 +178,31 @@ export function useSubsequentNoticeFlow(
         evictionSubsequentNoticeUnlocked ||
         Boolean(executionData?.executor_coercive_unlock);
 
-    const anyExecutorDecisionResolvedForMemoBadge = useMemo(() => {
+    const followupDerivedState = useMemo(() => {
         const ex = executionData?.id ?? executionId;
-        if (!ex) return false;
-        return readExecutorDecisionsArray(ex).some((r) => {
-            const o = String((r as { executorOutcome?: string }).executorOutcome || '')
-                .trim()
-                .toLowerCase();
-            return o === 'approved' || o === 'alternative';
+        const executorDecisionRows = ex ? readExecutorDecisionsArray(ex) : [];
+        return buildFollowupDerivedState({
+            executionData: executionData ?? null,
+            primaryDebtorKeyResolved,
+            unifiedSummonsTargetDebtorKey,
+            executorDecisionRows,
         });
-    }, [executionData?.id, executionId, decisionsReloadEpoch]);
-
-    const primaryDebtorTaklifActive = useMemo(() => {
-        if (!executionData) return false;
-        const pk = primaryDebtorKeyResolved;
-        const emp = getEmployeeAssignmentForDebtorKey(executionData, pk, pk);
-        return Boolean(
-            emp &&
-                (emp.phase === 'active' ||
-                    emp.phase === 'absent_declared' ||
-                    emp.phase === 'investigation_pending' ||
-                    emp.phase === 'warrant_ui')
-        );
     }, [
         executionData,
         executionData?.employee_summons_assignments_by_debtor,
         executionData?.employee_summons_assignment,
+        executionId,
+        decisionsReloadEpoch,
         primaryDebtorKeyResolved,
+        unifiedSummonsTargetDebtorKey,
     ]);
+
+    const {
+        anyExecutorDecisionResolvedForMemoBadge,
+        primaryDebtorTaklifActive,
+        resolvedEmployeeSummonsAssignment,
+        showEmployeeAssignmentCoerciveBlock,
+    } = followupDerivedState;
 
     const primaryMemoNoticeBadge = useMemo(() => {
         if (notificationCount !== 1 || subsequentNoticeUnlocked) return null;
@@ -369,31 +366,6 @@ export function useSubsequentNoticeFlow(
             followupDebtorSummonsProfile === 'earner_like');
 
     const employeeAssignmentTabEnabled = notificationCount >= 1 && !activeDebtorIsDeceased;
-
-    const resolvedEmployeeSummonsAssignment = useMemo(() => {
-        if (!executionData) return null;
-        return getEmployeeAssignmentForDebtorKey(
-            executionData,
-            unifiedSummonsTargetDebtorKey,
-            primaryDebtorKeyResolved
-        );
-    }, [
-        unifiedSummonsTargetDebtorKey,
-        executionData,
-        executionData?.employee_summons_assignments_by_debtor,
-        executionData?.employee_summons_assignment,
-        primaryDebtorKeyResolved,
-    ]);
-
-    const showEmployeeAssignmentCoerciveBlock = useMemo(() => {
-        const a = resolvedEmployeeSummonsAssignment;
-        if (!a) return false;
-        return (
-            a.phase === 'absent_declared' ||
-            a.phase === 'investigation_pending' ||
-            a.phase === 'warrant_ui'
-        );
-    }, [resolvedEmployeeSummonsAssignment]);
 
     const employeeFinancialSalaryOnlyCoercive = isEmployeeMonetaryFinancialPath(debtorSummonsProfile as DebtorSummonsProfile);
 

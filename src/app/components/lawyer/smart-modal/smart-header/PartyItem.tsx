@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
     Clock as _Clock, X, Scale as _Scale, Lock as _Lock, PauseCircle as _PauseCircle, Play as _Play, Users as _Users, Shield as _Shield, ShieldCheck, Check as _Check, ChevronLeft as _ChevronLeft, MapPin, Phone, Briefcase, Gavel as _Gavel, ArrowRightLeft as _ArrowRightLeft,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { getLegalRole as _getLegalRole } from '../../LawyerShared';
 import { shouldShowAbsentJudgmentFooter as _shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
 import type { CaseStage as _CaseStage, IncidentalCase as _IncidentalCase, Party as _Party } from '../../LawyerShared';

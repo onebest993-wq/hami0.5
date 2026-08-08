@@ -7,11 +7,13 @@ import {
 } from './legalRichTextEditorUtils';
 import {
     applyLegalHighlight,
+    endHighlightAtCursor,
     getHighlightAtSelection,
     nodeInEditor,
     placeCaretAfterHighlight,
     pruneFormatResetSpans,
     removeLegalHighlight,
+    unwrapElement,
 } from './legalRichTextEditorHighlight';
 
 export type LegalRichTextEditorHandle = {
@@ -204,8 +206,32 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
         if (!editor) return;
         focusEditor();
         highlightModeColorRef.current = null;
-        removeLegalHighlight(editor);
+
+        const sel = window.getSelection();
+        const hasSelection = Boolean(
+            sel && sel.rangeCount > 0 && nodeInEditor(sel.anchorNode, editor) && !sel.getRangeAt(0).collapsed,
+        );
+
+        if (hasSelection) {
+            removeLegalHighlight(editor);
+            document.execCommand('styleWithCSS', false, 'true');
+            document.execCommand('removeFormat', false);
+            document.execCommand('foreColor', false, DEFAULT_TEXT_COLOR);
+            editor.querySelectorAll('mark[data-legal-hl], mark.legal-hl').forEach((node) => {
+                if (editor.contains(node)) unwrapElement(node);
+            });
+        } else {
+            removeLegalHighlight(editor);
+            document.execCommand('styleWithCSS', false, 'true');
+            document.execCommand('removeFormat', false);
+            document.execCommand('foreColor', false, DEFAULT_TEXT_COLOR);
+            insertFormatResetSpan(editor, DEFAULT_TEXT_COLOR);
+        }
+
+        setActiveBold(false);
+        setActiveForeColor(null);
         setActiveHighlightColor(null);
+        pruneFormatResetSpans(editor);
         emitChange();
         requestAnimationFrame(() => focusEditor());
     }, [emitChange, focusEditor]);
@@ -216,7 +242,19 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
             const color = highlightModeColorRef.current;
             const inputType = e.nativeEvent.inputType;
             const data = e.nativeEvent.data;
-            if (!editor || !color || inputType !== 'insertText' || !data) return;
+            if (!editor || inputType !== 'insertText' || !data) return;
+
+            if (color && data === ' ') {
+                e.preventDefault();
+                highlightModeColorRef.current = null;
+                endHighlightAtCursor(editor);
+                document.execCommand('insertText', false, ' ');
+                setActiveHighlightColor(null);
+                emitChange();
+                return;
+            }
+
+            if (!color || inputType !== 'insertText' || !data) return;
 
             e.preventDefault();
             focusEditor();
@@ -235,6 +273,19 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
             setActiveHighlightColor(color);
         },
         [emitChange, focusEditor],
+    );
+
+    const handleKeyDown = useCallback(
+        (e: React.KeyboardEvent<HTMLDivElement>) => {
+            if (e.key !== ' ' || e.ctrlKey || e.metaKey || e.altKey) return;
+            if (!highlightModeColorRef.current) return;
+            const editor = editorRef.current;
+            if (!editor) return;
+            highlightModeColorRef.current = null;
+            endHighlightAtCursor(editor);
+            setActiveHighlightColor(null);
+        },
+        [],
     );
 
     const applyFontSize = useCallback(
@@ -294,6 +345,7 @@ export function useLegalRichTextEditor({ value, onChange, onBlur, ref }: UseLega
         clearHighlight,
         handleInput,
         handleBeforeInput,
+        handleKeyDown,
         handleBlur,
         syncToolbarFromSelection,
     };

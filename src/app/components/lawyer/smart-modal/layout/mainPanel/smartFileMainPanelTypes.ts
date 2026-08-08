@@ -6,6 +6,8 @@ export type SmartFileMainPanelProps = {
     file: Record<string, unknown>;
     status: string;
     isViewingArchived: boolean;
+    /** دعوى مربوطة للاطلاع فقط — ليست الإضبارة الأصلية */
+    isCaseLinkViewOnly?: boolean;
     isPaused: boolean;
     pauseReason: string;
     isInterrupted: boolean;
@@ -23,8 +25,8 @@ export type SmartFileMainPanelProps = {
     onTouchStart: (e: React.TouchEvent) => void;
     onTouchMove: (e: React.TouchEvent) => void;
     onTouchEnd: (e: React.TouchEvent) => void;
-    handleResumeAbandonment: () => void;
-    handleResume: () => void;
+    handleResumeAbandonment: (data?: { nextHearingDate?: string }) => void;
+    handleResume: (data?: { nextHearingDate?: string }) => void;
     handleToggleClient: () => void;
     handleStageSelect: (stageId: string) => void;
     handleInterruptionToggle: () => void;
@@ -38,6 +40,7 @@ export type SmartFileMainPanelProps = {
     handleOpenDefendantCassationAppeal: () => void;
     handleDefaultObjection: () => void;
     handleWaiveObjection: () => void;
+    handleOpponentAppealWaived: () => void;
     handleOtherAppeals: () => void;
     onAbsentJudgmentNotification?: () => void;
     onOpponentAbsentObjection?: () => void;
@@ -53,6 +56,8 @@ export type SmartFileMainPanelProps = {
     handleQuickAction: (action: string) => void;
     setShowPauseModal: (v: boolean) => void;
     setShowResumeInterruptionModal: (v: boolean) => void;
+    setShowAbandonmentRenewalModal: (v: boolean) => void;
+    setShowPauseResumeModal: (v: boolean) => void;
     setShowNotificationModal: (v: boolean) => void;
     setShowPaymentModal: (v: boolean) => void;
     setParentData: Dispatch<SetStateAction<SmartFileParentData>>;
@@ -78,5 +83,7 @@ export type SmartFileMainPanelProps = {
     handleAddCrossAppeal: () => void;
     stepperStages: unknown[];
     currentStageId: string;
-    onOpenLinkedFile?: (fileId: number) => void;
+    onOpenLinkedFile?: (linkedFileId: number, linkedCriminalId?: string) => void;
+    onUnlinkCaseLink?: (peer: { peerFileId?: number; peerCriminalId?: string }) => void;
+    lawsuitFiles?: import('../../../LawyerShared').FileData[];
 };

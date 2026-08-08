@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Send } from 'lucide-react';
+import { Send } from '@/app/components/ui/lucideIcons';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';
 import type { SettlementUxTier } from '../settlementUxMatrix';

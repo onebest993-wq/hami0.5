@@ -15,11 +15,12 @@ describe('lawyerHomeFx-android.css', () => {
     });
 
     it('strips transparent gradients and uses theme-driven solid card fills', () => {
-        expect(css).toContain('background-image: none');
         expect(css).toContain('--hami-android-card-bg');
         expect(css).toContain('--hami-android-card-elev');
         expect(css).toContain('hami-sovereign-glass');
         expect(css).toContain('--hami-surface-bg');
+        expect(css).toContain('transparent');
+        expect(css).toContain('--hami-glass-panel-bg');
         expect(css).not.toContain('#243044');
     });
 
@@ -32,21 +33,41 @@ describe('lawyerHomeFx-android.css', () => {
         expect(css).toContain('--glass-opacity');
     });
 
-    it('uses solid navy chrome for Tasks Agenda on Android', () => {
+    it('uses solid teal chrome for Tasks Agenda on Android', () => {
         expect(css).toContain("data-testid='tasks-manager'");
         expect(css).toContain("data-testid='tasks-manager-overlay'");
         expect(css).toContain('tasks-week-day-');
-        expect(css).toContain('#0a0f1c');
+        expect(css).toContain('#1a4348');
+        expect(css).toContain('#332c25');
         expect(css).toContain('background-image: none');
+    });
+
+    it('ينزّل الهيدر عن شريط الحالة على Android', () => {
+        expect(css).toContain('--hami-lawyer-header-safe-top');
+        expect(css).toContain('--hami-android-status-pad');
+        expect(css).toContain('.hami-lawyer-header');
+        expect(css).toContain("data-testid='transactions-hub'");
+        expect(css).not.toMatch(
+            /--hami-lawyer-header-offset:\s*calc\(\s*var\(--hami-lawyer-header-content-h/s,
+        );
     });
 
     it('disables radar blur/backdrop on Android WebView', () => {
         expect(css).toContain('.hami-radar-bg-orb');
         expect(css).toContain('.hami-radar-glass-panel');
+        expect(css).toContain('.hami-radar-form-panel');
         expect(css).toContain('.hami-forum-publish-fab');
         expect(css).toContain('.hami-forum-surface-enter');
         expect(css).toContain('.hami-forum-feed-card');
         expect(css).toContain('backdrop-filter: none');
-        expect(css).toContain('rgba(20, 8, 14, 0.98)');
+        expect(css).toContain('#0a0f1c');
+    });
+
+    it('يُستورد من critical-shell فقط — لا تكرار في deferred-app', () => {
+        const stylesRoot = resolve(__dirname, '../../../../../styles');
+        const critical = readFileSync(resolve(stylesRoot, 'critical-shell.css'), 'utf8');
+        const deferred = readFileSync(resolve(stylesRoot, 'deferred-app.css'), 'utf8');
+        expect(critical).toMatch(/@import\s+['"].*lawyerHomeFx-android\.css/);
+        expect(deferred).not.toMatch(/@import\s+['"].*lawyerHomeFx-android\.css/);
     });
 });

@@ -6,7 +6,13 @@ import {
     resolveOpenLawsuitFileIdentity,
 } from '../smartFile/caseConsolidationLinking';
 import { normalizeFileId } from '../smartFile/incidentalCaseLinking';
-import { listCaseLinkCandidates } from '../smartFile/caseLinking';
+import {
+    listCaseLinkCandidates,
+    mergeCaseLinkCandidates,
+    readLinkedCriminalIdsFromDossier,
+    type CaseLinkPeerSelection,
+} from '../smartFile/caseLinking';
+import { buildCriminalCaseLinkCandidates } from '../smartFile/caseLinkCriminalPeers';
 import { buildInitialParentDataFromFile } from '../smartFile/parentDataInit';
 import { loadLawsuitFilesRaw } from '@/app/utils/lawsuitFilesStorage';
 import type { SmartFileModalProps } from '../smartFile/smartFileModalTypes';
@@ -53,14 +59,24 @@ export function useSmartFileConsolidationLinking(params: {
 
     const caseLinkCandidates = useMemo(() => {
         if (openFileIdentity.fileId === null) return [];
-        return listCaseLinkCandidates(lawsuitPool, openFileIdentity.fileId);
-    }, [lawsuitPool, openFileIdentity.fileId]);
+        const lawsuitCandidates = listCaseLinkCandidates(lawsuitPool, openFileIdentity.fileId);
+        const linkedCriminalIds = file ? readLinkedCriminalIdsFromDossier(file) : new Set<string>();
+        const criminalCandidates = buildCriminalCaseLinkCandidates(linkedCriminalIds);
+        return mergeCaseLinkCandidates(lawsuitCandidates, criminalCandidates);
+    }, [lawsuitPool, openFileIdentity.fileId, file]);
 
     const handleCaseLinkExisting = useCallback(
-        (data: { secondaryFileId: number; linkDate: string; reason?: string }) => {
+        (data: { peer: CaseLinkPeerSelection; linkDate: string; reason?: string }) => {
             const primaryId = openFileIdentity.fileId;
-            if (primaryId === null) return;
-            onLinkWithExistingCase?.(primaryId, data.secondaryFileId, {
+            if (primaryId === null) {
+                SmartToast.error('تعذّر تحديد الإضبارة الحالية');
+                return;
+            }
+            if (!onLinkWithExistingCase) {
+                SmartToast.error('تعذّر ربط الدعوى — المسار غير متصل');
+                return;
+            }
+            onLinkWithExistingCase(primaryId, data.peer, {
                 linkDate: data.linkDate,
                 reason: data.reason,
             });
@@ -77,7 +93,11 @@ export function useSmartFileConsolidationLinking(params: {
                 return;
             }
             const primaryCaseNo = openFileIdentity.caseNo;
-            onStartConsolidationNewCase?.({
+            if (!onStartConsolidationNewCase) {
+                SmartToast.error('تعذّر فتح نموذج التوحيد — المسار غير متصل');
+                return;
+            }
+            onStartConsolidationNewCase({
                 primaryFileId,
                 primaryCaseNo,
                 consolidationDate: meta.consolidationDate,
@@ -104,7 +124,11 @@ export function useSmartFileConsolidationLinking(params: {
                 SmartToast.error('لا يمكن توحيد الإضبارة مع نفسها');
                 return;
             }
-            onConsolidateWithExisting?.(primaryFileId, data.secondaryFileId, {
+            if (!onConsolidateWithExisting) {
+                SmartToast.error('تعذّر تنفيذ التوحيد — المسار غير متصل');
+                return;
+            }
+            onConsolidateWithExisting(primaryFileId, data.secondaryFileId, {
                 consolidationDate: data.consolidationDate,
                 notes: data.notes,
             });
@@ -122,3 +146,4 @@ export function useSmartFileConsolidationLinking(params: {
         handleConsolidationMergeExisting,
     };
 }
+

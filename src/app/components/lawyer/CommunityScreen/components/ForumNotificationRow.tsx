@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Bell, MessageCircle, Reply, ThumbsUp, UserPlus, Award, FileText, AtSign, X } from 'lucide-react';
+import { Bell, MessageCircle, Reply, ThumbsUp, UserPlus, Award, FileText, AtSign, X } from '@/app/components/ui/lucideIcons';
 import type { ForumNotification, NotificationType } from '@/app/services/lawyer-cloud';
 import { FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 

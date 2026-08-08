@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+﻿import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { TaskNodeCard } from '@/app/components/lawyer/TransactionsThreading/TaskNodeCard';
 import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/transactionsThreading/types';
@@ -6,7 +6,7 @@ import { TransactionTaskStatus, type TransactionTask } from '@/app/modules/trans
 const task: TransactionTask = {
     id: 't1',
     transactionId: 'tx-1',
-    title: 'مراجعة الدائرة',
+    title: '┘à╪▒╪د╪ش╪╣╪ر ╪د┘╪»╪د╪خ╪▒╪ر',
     status: TransactionTaskStatus.InProgress,
     parentTaskId: null,
     notes: null,
@@ -17,8 +17,8 @@ const task: TransactionTask = {
     completedAt: null,
 };
 
-describe('TaskNodeCard — إكمال على البطاقة', () => {
-    it('يعرض زر إكمال ويستدعي onComplete دون فتح حوار', () => {
+describe('TaskNodeCard ظ¤ ╪ح┘â┘à╪د┘ ╪╣┘┘ë ╪د┘╪ذ╪╖╪د┘é╪ر', () => {
+    it('┘è╪╣╪▒╪╢ ╪▓╪▒ ╪ح┘â┘à╪د┘ ┘ê┘è╪│╪ز╪»╪╣┘è onComplete ╪»┘ê┘ ┘╪ز╪ص ╪ص┘ê╪د╪▒', () => {
         const onComplete = vi.fn();
         render(
             <TaskNodeCard
@@ -35,10 +35,10 @@ describe('TaskNodeCard — إكمال على البطاقة', () => {
 
         fireEvent.click(screen.getByTestId('task-complete-t1'));
         expect(onComplete).toHaveBeenCalledWith(task);
-        expect(screen.queryByText('إكمال المهمة')).not.toBeInTheDocument();
+        expect(screen.queryByText('╪ح┘â┘à╪د┘ ╪د┘┘à┘ç┘à╪ر')).not.toBeInTheDocument();
     });
 
-    it('يستبدل زر الإكمال بشارة منجزة عند اكتمال المهمة', () => {
+    it('┘è╪│╪ز╪ذ╪»┘ ╪▓╪▒ ╪د┘╪ح┘â┘à╪د┘ ╪ذ╪┤╪د╪▒╪ر ┘à┘╪ش╪▓╪ر ╪╣┘╪» ╪د┘â╪ز┘à╪د┘ ╪د┘┘à┘ç┘à╪ر', () => {
         render(
             <TaskNodeCard
                 task={{ ...task, status: TransactionTaskStatus.Done }}

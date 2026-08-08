@@ -682,3 +682,87 @@ export function clearDecisionsNamespaceForTests(executionId: string | undefined)
         /* ignore */
     }
 }
+
+function collectExecutorDecisionPersistKeys(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+): string[] {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return [];
+    ensureDecisionsNamespaceMigrated(id, executionData);
+    const keys = new Set<string>();
+    keys.add(executionDecisionsNamespaceIndexKey(id));
+    keys.add(executionDecisionsLegacyArchiveKey(id));
+    keys.add(executionDecisionsStorageKey(id));
+    for (const key of listDecisionsNamespaceStorageKeys(id)) {
+        keys.add(key);
+    }
+    const activeSlug = resolveActiveDecisionsNamespaceSlug(id, executionData);
+    keys.add(executionDecisionsNamespaceStorageKey(id, activeSlug));
+    return [...keys];
+}
+
+/** يدفئ قرارات التنفيذ من IndexedDB إلى الكاش المتزامن قبل القراءة */
+export async function warmExecutorDecisionsStorage(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+): Promise<void> {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return;
+    try {
+        await SecureStoreService.ensurePersistedReady();
+    } catch {
+        /* ignore */
+    }
+    ensureDecisionsNamespaceMigrated(id, executionData);
+    for (const logicalKey of collectExecutorDecisionPersistKeys(id, executionData)) {
+        const base = stripExecutionDeviceStorageUserScope(logicalKey);
+        const scoped = scopeExecutionDeviceStorageKey(base);
+        try {
+            await SecureStoreService.getItem(scoped);
+            if (scoped !== base) await SecureStoreService.getItem(base);
+        } catch {
+            /* ignore per-key */
+        }
+    }
+}
+
+/** يفرض كتابة فورية لمفاتيح قرارات التنفيذ (بدون انتظار) */
+export function flushExecutorDecisionsStorageImmediate(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+): void {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return;
+    try {
+        SecureStoreService.flushHeavyPersistPending();
+    } catch {
+        /* ignore */
+    }
+    for (const logicalKey of collectExecutorDecisionPersistKeys(id, executionData)) {
+        const raw = readDecisionsStoreRaw(logicalKey);
+        if (raw == null) continue;
+        writeDecisionsStoreRaw(logicalKey, raw);
+    }
+}
+
+/** ينتظر اكتمال كتابة قرارات التنفيذ إلى IndexedDB */
+export async function flushExecutorDecisionsStorageAwait(
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
+): Promise<void> {
+    const id = normalizeExecutionStorageId(executionId);
+    if (!id || id === 'default') return;
+    flushExecutorDecisionsStorageImmediate(id, executionData);
+    const writes: Promise<void>[] = [];
+    for (const logicalKey of collectExecutorDecisionPersistKeys(id, executionData)) {
+        const raw = readDecisionsStoreRaw(logicalKey);
+        if (raw == null) continue;
+        const base = stripExecutionDeviceStorageUserScope(logicalKey);
+        const writeKey = scopeExecutionDeviceStorageKey(base);
+        writes.push(
+            SecureStoreService.setItem(writeKey, raw).then(() => undefined).catch(() => undefined),
+        );
+    }
+    await Promise.all(writes);
+}

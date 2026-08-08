@@ -1,7 +1,17 @@
 /** Scope + safe handlers for ExecutionDashboardPhoneBody (orchestrator) */
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
+import type { ExecutionFile, SeizedMovable } from '@/app/types/execution';
 import { useExecutionDashboardPhoneBodyMountStages } from './useExecutionDashboardPhoneBodyMountStages';
 import { useExecutionDashboardJudicialCustodianRemove } from './executionDashboardCore/useExecutionDashboardJudicialCustodianRemove';
 import { useExecutionDashboardPropertyInlineSaveContext } from './executionDashboardCore/useExecutionDashboardPropertyInlineSaveContext';
+import { useExecutionDashboardMovableInlineSaveContext } from './executionDashboardCore/useExecutionDashboardMovableInlineSaveContext';
+import {
+    runSaveSeizedMovableInitForDecision,
+    type SaveSeizedMovableInitInput,
+} from './executionDashboardCore/executionDashboardFollowupSeizureInits';
+import { mergeExecutionFileSeizureLists } from '../utils/executionPhoneBodyExecutionDataMerge';
+import { isExecutionHandlerStubLeaf } from './executionHandlerClusterStubs';
 import { useExecutionDashboardPhoneBodyScopeRead } from './useExecutionDashboardPhoneBodyScopeRead';
 import { useExecutionDashboardPhoneBodyLocalState } from './useExecutionDashboardPhoneBodyLocalState';
 import { useExecutionDashboardPhoneBodySafeHandlers } from './useExecutionDashboardPhoneBodySafeHandlers';
@@ -55,17 +65,136 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         showToast: scope.showToast,
     });
 
+    const executionDataRef = useRef<ExecutionFile | null | undefined>(scope.executionData);
+    const [localExecutionViewTick, setLocalExecutionViewTick] = useState(0);
+    const bumpLocalExecutionView = useCallback(() => {
+        setLocalExecutionViewTick((tick) => tick + 1);
+    }, []);
+
+    const liveExecutionData = useMemo(() => {
+        executionDataRef.current = mergeExecutionFileSeizureLists(
+            scope.executionData,
+            executionDataRef.current,
+        );
+        return executionDataRef.current ?? scope.executionData;
+    }, [scope.executionData, localExecutionViewTick]);
+
+    useEffect(() => {
+        const bump = () => bumpLocalExecutionView();
+        window.addEventListener('hami-seized-movable-inline-updated', bump);
+        window.addEventListener('hami-seized-movable-init-saved', bump);
+        window.addEventListener('hami-seized-property-inline-updated', bump);
+        return () => {
+            window.removeEventListener('hami-seized-movable-inline-updated', bump);
+            window.removeEventListener('hami-seized-movable-init-saved', bump);
+            window.removeEventListener('hami-seized-property-inline-updated', bump);
+        };
+    }, [bumpLocalExecutionView]);
+
+    const persistExecutionMergeLocal = useCallback(
+        (patch: Record<string, unknown>): boolean => {
+            const data = executionDataRef.current;
+            if (!data) {
+                scope.showToast('تعذّر الحفظ — بيانات الإضبارة غير جاهزة', 'error');
+                return false;
+            }
+            const upstream = scope.persistExecutionMerge;
+            if (typeof upstream !== 'function' || isExecutionHandlerStubLeaf(upstream)) {
+                scope.showToast('جاري تجهيز الأدوات — أعد المحاولة بعد لحظة', 'warning');
+                return false;
+            }
+            const result = upstream(patch);
+            if (result === false) {
+                return false;
+            }
+            executionDataRef.current = mergeExecutionFileSeizureLists(
+                { ...data, ...patch } as ExecutionFile,
+                executionDataRef.current,
+            );
+            bumpLocalExecutionView();
+            return true;
+        },
+        [scope.persistExecutionMerge, scope.showToast, bumpLocalExecutionView],
+    );
+
+    const pushTimelineEventLocal = useCallback(
+        (ev: Record<string, unknown>) => {
+            const fn = scope.pushTimelineEvent;
+            if (typeof fn === 'function' && !isExecutionHandlerStubLeaf(fn)) {
+                fn(ev);
+            }
+        },
+        [scope.pushTimelineEvent],
+    );
+
+    const nextTimelineIdLocal = useCallback((): string => {
+        const fn = scope.nextTimelineId;
+        if (typeof fn === 'function' && !isExecutionHandlerStubLeaf(fn)) {
+            return String(fn());
+        }
+        return `timeline_${Date.now()}`;
+    }, [scope.nextTimelineId]);
+
     const propertyInlineSaveCtx = useExecutionDashboardPropertyInlineSaveContext({
         decisionsStorageExecutionId: scope.decisionsStorageExecutionId,
         executionDataId: scope.executionData?.id,
         executionId: scope.executionId,
+        executionData: liveExecutionData as Record<string, unknown> | undefined,
+        executionDataRef: executionDataRef as { current: Record<string, unknown> | null | undefined },
         showToast: scope.showToast,
-        persistExecutionMerge: scope.persistExecutionMerge,
-        pushTimelineEvent: scope.pushTimelineEvent,
-        nextTimelineId: scope.nextTimelineId,
+        persistExecutionMerge: persistExecutionMergeLocal,
+        pushTimelineEvent: pushTimelineEventLocal,
+        nextTimelineId: nextTimelineIdLocal,
         linkSeizureAuctionToAppointments: Boolean(scope.linkSeizureAuctionToAppointments),
         pushSeizureAuctionCalendarAppointment: scope.pushSeizureAuctionCalendarAppointment,
     });
+
+    const movableInlineSaveCtx = useExecutionDashboardMovableInlineSaveContext({
+        decisionsStorageExecutionId: scope.decisionsStorageExecutionId,
+        executionDataId: scope.executionData?.id,
+        executionId: scope.executionId,
+        executionData: liveExecutionData as Record<string, unknown> | undefined,
+        executionDataRef: executionDataRef as { current: Record<string, unknown> | null | undefined },
+        showToast: scope.showToast,
+        persistExecutionMerge: persistExecutionMergeLocal,
+        pushTimelineEvent: pushTimelineEventLocal,
+        nextTimelineId: nextTimelineIdLocal,
+        linkSeizureAuctionToAppointments: Boolean(scope.linkSeizureAuctionToAppointments),
+        pushSeizureAuctionCalendarAppointment: scope.pushSeizureAuctionCalendarAppointment,
+    });
+
+    const saveSeizedMovableInitLocal = useCallback(
+        (input: SaveSeizedMovableInitInput): SeizedMovable | null => {
+            const data = executionDataRef.current;
+            const exId = requireDecisionsStorageExecutionId({
+                decisionsStorageExecutionId: scope.decisionsStorageExecutionId,
+                executionId: scope.executionId,
+                executionData: data as Record<string, unknown> | null,
+            });
+            return runSaveSeizedMovableInitForDecision(input, {
+                exId,
+                executionDataRef,
+                nextTimelineId: nextTimelineIdLocal,
+                persistExecutionMerge: persistExecutionMergeLocal,
+                pushTimelineEvent: pushTimelineEventLocal,
+                showToast: scope.showToast,
+            });
+        },
+        [
+            scope.decisionsStorageExecutionId,
+            scope.executionId,
+            nextTimelineIdLocal,
+            persistExecutionMergeLocal,
+            pushTimelineEventLocal,
+            scope.showToast,
+        ],
+    );
+
+    const saveSeizedMovableInitForDecision =
+        typeof scope.saveSeizedMovableInitForDecision === 'function' &&
+        !isExecutionHandlerStubLeaf(scope.saveSeizedMovableInitForDecision)
+            ? (scope.saveSeizedMovableInitForDecision as (input: SaveSeizedMovableInitInput) => SeizedMovable | null | void)
+            : saveSeizedMovableInitLocal;
 
     const { secondaryStageReady, tertiaryStageReady, quaternaryStageReady } =
         useExecutionDashboardPhoneBodyMountStages({
@@ -74,9 +203,12 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
             showExecutionFinancialHub: scope.showExecutionFinancialHub,
             showUnifiedSeizureLogModal: scope.showUnifiedSeizureLogModal,
             showVisitationCalendarModal: scope.showVisitationCalendarModal,
+            isVisitationClaim: Boolean(scope.isVisitationClaim),
+            isMaritalFurnitureClaim: Boolean(scope.isMaritalFurnitureClaim),
         });
 
     return {
+        scopeRef: scope.scopeRef,
         props: scope.props,
         followupSpec: local.followupSpec,
         safeInabaTargets: local.safeInabaTargets,
@@ -97,6 +229,29 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         localDossierPendingStatus: local.localDossierPendingStatus,
         setLocalDossierPendingStatus: local.setLocalDossierPendingStatus,
         safeApplyDossierLifecycleToFileAndTimeline: local.safeApplyDossierLifecycleToFileAndTimeline,
+        safeHandleDossierLifecyclePick: local.safeHandleDossierLifecyclePick,
+        safeHandleDossierLifecycleConfirmDetails: local.safeHandleDossierLifecycleConfirmDetails,
+        dossierLifecyclePopoverRef:
+            scope.dossierLifecyclePopoverRef ?? local.localDossierLifecyclePopoverRef,
+        dossierLifecyclePanelPortalRef:
+            scope.dossierLifecyclePanelPortalRef ?? local.localDossierLifecyclePanelPortalRef,
+        dossierLifecyclePanelOpen:
+            scope.dossierLifecyclePanelOpen ?? local.localDossierLifecyclePanelOpen,
+        dossierLifecyclePopStyle: scope.dossierLifecyclePopStyle ?? local.safeDossierLifecyclePopStyle,
+        dossierLifecyclePanelPhase:
+            scope.dossierLifecyclePanelPhase ?? local.localDossierLifecyclePanelPhase,
+        dossierStatusDraft: scope.dossierStatusDraft ?? local.localDossierStatusDraft,
+        dossierPendingStatus: scope.dossierPendingStatus ?? local.localDossierPendingStatus,
+        dossierReasonDraft: scope.dossierReasonDraft ?? local.safeDossierReasonDraft,
+        dossierDateDraft: scope.dossierDateDraft ?? local.safeDossierDateDraft,
+        setDossierLifecyclePanelOpen:
+            scope.setDossierLifecyclePanelOpen ?? local.setLocalDossierLifecyclePanelOpen,
+        setDossierLifecyclePanelPhase:
+            scope.setDossierLifecyclePanelPhase ?? local.setLocalDossierLifecyclePanelPhase,
+        setDossierPendingStatus:
+            scope.setDossierPendingStatus ?? local.setLocalDossierPendingStatus,
+        setDossierReasonDraft: scope.setDossierReasonDraft ?? local.safeSetDossierReasonDraft,
+        setDossierDateDraft: scope.setDossierDateDraft ?? local.safeSetDossierDateDraft,
         localDossierReasonSeed: local.localDossierReasonSeed,
         localDossierDateSeed: local.localDossierDateSeed,
         safeSetShowExecutionTrashModal: local.safeSetShowExecutionTrashModal,
@@ -125,6 +280,8 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         safeSetTimelineAccordionExpanded: handlers.safeSetTimelineAccordionExpanded,
         removeJudicialCustodianEntry,
         propertyInlineSaveCtx,
+        movableInlineSaveCtx,
+        saveSeizedMovableInitForDecision,
         secondaryStageReady,
         tertiaryStageReady,
         quaternaryStageReady,
@@ -145,7 +302,7 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         isAlimonyClaim: scope.isAlimonyClaim,
         executionPaused: scope.executionPaused,
         handleResumeExecution: scope.handleResumeExecution,
-        executionData: scope.executionData,
+        executionData: liveExecutionData,
         handleLiftStayOfExecution: scope.handleLiftStayOfExecution,
         isHeaderExpanded: scope.isHeaderExpanded,
         headerFields: scope.headerFields,
@@ -282,5 +439,25 @@ export function useExecutionDashboardPhoneBodyScope(renderFingerprint?: string) 
         primaryDebtorAbsenceBadge: scope.primaryDebtorAbsenceBadge,
         primaryDebtorKeyResolved: scope.primaryDebtorKeyResolved,
         primaryMemoNoticeBadge: scope.primaryMemoNoticeBadge,
+        primaryDebtorWorkspaceKey: scope.primaryDebtorWorkspaceKey,
+        handleMemoFollowupClick: scope.handleMemoFollowupClick,
+        closeUnifiedSeizureLog: scope.closeUnifiedSeizureLog,
+        showUnifiedSeizureLogModal: scope.showUnifiedSeizureLogModal,
+        showVisitationCalendarModal: scope.showVisitationCalendarModal,
+        setShowVisitationCalendarModal: scope.setShowVisitationCalendarModal,
+        showExecutionTrashModal: scope.showExecutionTrashModal,
+        setShowExecutionTrashModal:
+            scope.setShowExecutionTrashModal ?? local.safeSetShowExecutionTrashModal,
+        setMovableSeizureRequestModalOpen: scope.setMovableSeizureRequestModalOpen,
+        setPropertySeizureRequestModalOpen: scope.setPropertySeizureRequestModalOpen,
+        movableSeizureRequestModalOpen: scope.movableSeizureRequestModalOpen,
+        propertySeizureRequestModalOpen: scope.propertySeizureRequestModalOpen,
+        showExecutionFinancialHub: scope.showExecutionFinancialHub,
+        setShowExecutionFinancialHub: scope.setShowExecutionFinancialHub,
+        setShowUnifiedExecutionModal: scope.setShowUnifiedExecutionModal,
+        remainingBalanceForSeizure: scope.remainingBalanceForSeizure,
+        settlementGuarantorGate: scope.settlementGuarantorGate,
+        unifiedLedgerRevision: scope.unifiedLedgerRevision,
+        subFiles: local.safeSubFiles,
     };
 }

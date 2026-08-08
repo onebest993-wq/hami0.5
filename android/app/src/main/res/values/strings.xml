@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Hami Legal</string>
+    <string name="title_activity_main">Hami Legal</string>
+    <string name="package_name">iq.hami.legal</string>
+    <string name="custom_url_scheme">iq.hami.legal</string>
+</resources>

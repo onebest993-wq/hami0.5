@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@/app/components/ui/lucideIcons';
 
 export type TaskRingToggleProps = {
     checked: boolean;
@@ -12,8 +12,8 @@ export type TaskRingToggleProps = {
 
 const TONE_CLASS = {
     emerald: {
-        idle: 'border-[#1A7059]/55 text-transparent hover:border-[#1A7059]/80',
-        done: 'border-[#6BC4A8] bg-[#1A7059]/35 text-[#E8F5F0]',
+        idle: 'border-[#059669]/55 text-transparent hover:border-[#059669]/80',
+        done: 'border-[#34D399] bg-[#059669]/35 text-[#F4F4F5]',
     },
     violet: {
         idle: 'border-violet-400/45 text-transparent hover:border-violet-400/70',

@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'motion/react';
 import type { Dispatch, SetStateAction } from 'react';
-import { CalendarDays, ChevronDown, ListChecks, Pencil, StickyNote, Trash2, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ListChecks, Pencil, StickyNote, Trash2, X } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,
@@ -19,6 +19,8 @@ import { ExecutionTasksSection } from './ExecutionTasksSection';
 import { ntm } from './notesTasksModalUi';
 import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
 import { DossierNotesVault } from '@/app/components/lawyer/dossier-notes/DossierNotesVault';
+import { plainTextFromPossiblyHtml } from '@/app/components/lawyer/SmartRepository/legalRichTextEditorUtils';
+import { isExecutionHandlerStubLeaf } from '../hooks/executionHandlerClusterStubs';
 
 type CaseNoteLogRow = NonNullable<ExecutionFile['caseNotesLog']>[number];
 
@@ -209,16 +211,41 @@ export const ExecutionNotesAndAppointmentModals: React.FC<
         [setEditingNoteId, setEditingTaskId, setIsTask, setNoteBody, setNoteTitle]
     );
 
+    const pendingVaultAfterSaveRef = useRef(false);
+    const notesCountBeforeSaveRef = useRef(0);
+
     const handleCommitNote = useCallback(
-        (payload: { title: string; bodyHtml: string }) => {
-            void commitDossierNote({
+        async (payload: { title: string; bodyHtml: string }) => {
+            const titleTrim = String(payload.title || '').trim();
+            const bodyTrim = plainTextFromPossiblyHtml(payload.bodyHtml);
+            if (!titleTrim || !bodyTrim) return;
+            if (typeof commitDossierNote !== 'function' || isExecutionHandlerStubLeaf(commitDossierNote)) {
+                return;
+            }
+            const isEdit = Boolean(editingNoteId);
+            if (!isEdit) {
+                notesCountBeforeSaveRef.current = savedNotesSplit.notes.length;
+                pendingVaultAfterSaveRef.current = true;
+            }
+            await commitDossierNote({
                 ...payload,
+                title: titleTrim,
                 noteId: editingNoteId ?? undefined,
             });
-            setNotesPane('vault');
+            if (isEdit) {
+                setNotesPane('vault');
+            }
         },
-        [commitDossierNote, editingNoteId],
+        [commitDossierNote, editingNoteId, savedNotesSplit.notes.length],
     );
+
+    useEffect(() => {
+        if (!pendingVaultAfterSaveRef.current) return;
+        if (savedNotesSplit.notes.length > notesCountBeforeSaveRef.current) {
+            pendingVaultAfterSaveRef.current = false;
+            setNotesPane('vault');
+        }
+    }, [savedNotesSplit.notes.length]);
 
     useBodyScrollLock(showNotesModal || showAppointmentModal);
 

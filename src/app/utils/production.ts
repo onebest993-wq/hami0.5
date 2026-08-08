@@ -136,39 +136,34 @@ export const handleProductionError = (error: Error, context?: string): void => {
 // =====================================================
 
 /**
- * التحقق من وجود مفاتيح API الضرورية
+ * التحقق من وجود مفاتيح API الضرورية.
+ * يرفض الـplaceholders أيضاً — قيمة مثل YOUR_PROJECT ليست «موجودة».
  */
-export const validateRequiredAPIs = (): { 
-  valid: boolean; 
-  missing: string[]; 
+export const validateRequiredAPIs = (): {
+  valid: boolean;
+  missing: string[];
   warnings: string[];
 } => {
   const missing: string[] = [];
   const warnings: string[] = [];
 
-  // ✅ مفاتيح مطلوبة
-  const required = {
-    SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-    SUPABASE_ANON_KEY: import.meta.env.VITE_SUPABASE_ANON_KEY,
-  };
+  const url = typeof import.meta.env.VITE_SUPABASE_URL === 'string' ? import.meta.env.VITE_SUPABASE_URL.trim() : '';
+  const anon =
+    typeof import.meta.env.VITE_SUPABASE_ANON_KEY === 'string'
+      ? import.meta.env.VITE_SUPABASE_ANON_KEY.trim()
+      : '';
+  const looksPlaceholder = (v: string) => !v || /YOUR_PROJECT|eyJ\.\.\.|CHANGE_ME|placeholder/i.test(v);
 
-  // ✅ مفاتيح اختيارية (تحذيرات فقط)
+  if (looksPlaceholder(url)) missing.push('VITE_SUPABASE_URL');
+  if (looksPlaceholder(anon) || anon.length <= 20) missing.push('VITE_SUPABASE_ANON_KEY');
+
   const optional = {
-    PINECONE_API_KEY: import.meta.env.VITE_PINECONE_API_KEY,
-    TWILIO_ACCOUNT_SID: import.meta.env.VITE_TWILIO_ACCOUNT_SID,
+    VITE_SENTRY_DSN: import.meta.env.VITE_SENTRY_DSN,
   };
 
-  // ✅ فحص المفاتيح المطلوبة
-  Object.entries(required).forEach(([key, value]) => {
-    if (!value || value === '') {
-      missing.push(key);
-    }
-  });
-
-  // ✅ فحص المفاتيح الاختيارية
   Object.entries(optional).forEach(([key, value]) => {
     if (!value || value === '') {
-      warnings.push(`${key} غير مُفعّل - سيعمل التطبيق في وضع Mock`);
+      warnings.push(`${key} غير مُفعّل — المراقبة الاختيارية متوقفة`);
     }
   });
 
@@ -191,12 +186,14 @@ export const initializeProduction = (): void => {
     disableConsoleInProduction();
     optimizeForProduction();
 
+    // عقد العميل الحقيقي يُفرض عند تحميل lib/supabase عبر clientEnv (fail-closed).
+    // هنا نبقي تحذيراً مبكراً للمفاتيح الاختيارية فقط — لا نسكت على غيابها.
     const apiCheck = validateRequiredAPIs();
-
     if (!apiCheck.valid) {
-      console.error('تحذير: مفاتيح API مفقودة:', apiCheck.missing);
+      // لا نرمي هنا: الإقلاع يكون قد فشل أصلاً إن وصل createClient بلا قيم.
+      // إن وصلنا رغم النقص فذلك يعني مسار DEV/test — نسجّل فقط.
+      console.error('[production] client env incomplete:', apiCheck.missing);
     }
-
     if (apiCheck.warnings.length > 0) {
       apiCheck.warnings.forEach((warning) => console.warn(warning));
     }

@@ -1,12 +1,5 @@
-import {
-    useCallback,
-    useEffect,
-    useLayoutEffect,
-    useRef,
-    useState,
-    type Dispatch,
-    type SetStateAction,
-} from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -14,13 +7,14 @@ import {
     openProfileFromShell,
     PROFILE_SHELL_FEATURE,
 } from '@/app/services/profile/profileShellNavigation';
-import { clearPersistedLawyerProfileTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
+import { resetProfileShellOnColdDashboardBoot } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import {
-    scheduleProfileShellReactSync,
-    snapProfileShellClose,
     isProfileShellSnappedOpen,
-    snapProfileShellOpen,
 } from '@/app/services/profile/profileShellSnap';
+import {
+    concealProfileWarmShell,
+    revealProfileWarmShell,
+} from '@/app/runtime/profileInstantPaint';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
@@ -32,12 +26,20 @@ import {
     prefetchProfileShellChunks,
 } from '@/app/hooks/lawyerDashboard/profile/profileLazyImports';
 import { commitProfileOpen } from '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow';
+import {
+    commitProfileClose,
+    commitProfileOverlayDismiss,
+} from '@/app/hooks/lawyerDashboard/profile/profileShellCloseFlow';
+import { useProfileShellReadiness } from '@/app/hooks/lawyerDashboard/profile/useProfileShellReadiness';
+import { markProfilePerfPhase, getProfilePerfSnapshot } from '@/app/services/profile/profilePerfMetrics';
 
 export type UseLawyerDashboardProfileTabParams = {
     userId: string | null;
     activeTab: LawyerDashboardTab;
     setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
     setShowCommunity: (open: boolean) => void;
+    /** إغلاق مركز الإعدادات — يمنع ظهوره بعد الرجوع من الملف (keep-alive) */
+    closeSettings?: () => void;
 };
 
 export function useLawyerDashboardProfileTab({
@@ -45,6 +47,7 @@ export function useLawyerDashboardProfileTab({
     activeTab,
     setActiveTab,
     setShowCommunity,
+    closeSettings,
 }: UseLawyerDashboardProfileTabParams) {
     const profileInitiallyOpen = activeTab === 'profile';
     const [profileTabSessionKey, setProfileTabSessionKey] = useState(0);
@@ -52,29 +55,53 @@ export function useLawyerDashboardProfileTab({
     const [profileHostMounted, setProfileHostMounted] = useState(() => profileInitiallyOpen);
     const openInFlightRef = useRef(false);
 
+    useLayoutEffect(() => {
+        resetProfileShellOnColdDashboardBoot();
+    }, []);
+
     const armProfileHost = useCallback(() => {
         setProfileHostMounted((prev) => {
             if (prev) return prev;
             return true;
         });
-        queueMicrotask(() => {
-            prefetchProfileShellChunks();
-        });
+        prefetchProfileShellChunks();
     }, []);
 
     const primeProfileTabMount = useCallback(() => {
+        flushSync(() => {
+            armProfileHost();
+        });
         void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
-        armProfileHost();
         void loadProfileBootHydrator().then((m) => m.dispatchProfilePrimeHost());
     }, [armProfileHost, userId]);
 
     const closeProfileTab = useCallback(() => {
-        snapProfileShellClose();
-        clearPersistedLawyerProfileTab();
-        scheduleProfileShellReactSync(() => {
-            setActiveTab('home');
-        });
-    }, [setActiveTab]);
+        commitProfileClose({ closeSettings, setActiveTab });
+    }, [closeSettings, setActiveTab]);
+
+    const { ready: profileShellReady, warming: profileShellWarming } = useProfileShellReadiness({
+        userId,
+        hostMounted: profileHostMounted,
+    });
+
+    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة ملف (مثل التقويم/المعاملات) */
+    useLayoutEffect(() => {
+        const uid = userId?.trim();
+        if (!uid || !isRealSignedIn(uid)) return;
+        armProfileHost();
+        void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(uid));
+        void loadProfileBootHydrator()
+            .then((m) => m.hydrateProfileShellForInstantOpenWithData(uid, true))
+            .catch(() => undefined);
+        void import('@/app/runtime/profileHubLoader')
+            .then((m) => m.loadProfileHubModule())
+            .catch(() => undefined);
+    }, [armProfileHost, userId]);
+
+    useLayoutEffect(() => {
+        if (activeTab !== 'home' || !isProfileShellSnappedOpen()) return;
+        concealProfileWarmShell();
+    }, [activeTab]);
 
     useEffect(() => {
         if (isRealSignedIn(userId)) return;
@@ -84,14 +111,13 @@ export function useLawyerDashboardProfileTab({
 
     useEffect(() => {
         const closeProfile = () => {
-            snapProfileShellClose();
-            setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
+            commitProfileOverlayDismiss({ closeSettings, setActiveTab });
         };
         const unregProfile = registerDashboardOverlayCloser('profile', closeProfile);
         return () => {
             unregProfile();
         };
-    }, [setActiveTab]);
+    }, [closeSettings, setActiveTab]);
 
     useEffect(() => {
         let disposed = false;
@@ -113,23 +139,16 @@ export function useLawyerDashboardProfileTab({
         if (activeTab !== 'profile') return;
         setProfileHostMounted(true);
         if (!isProfileShellSnappedOpen()) {
-            snapProfileShellOpen();
+            revealProfileWarmShell();
         }
-        queueMicrotask(() => {
-            prefetchProfileShellChunks();
-            void loadProfileIntentWarm().then((m) => m.warmProfileOnOpen(userId));
-            void loadProfileBootHydrator()
-                .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, true))
-                .catch(() => undefined);
-        });
-    }, [activeTab, userId]);
+    }, [activeTab]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
         if (!isRealSignedIn(userId)) return;
 
         const scheduleWarm = () => {
-            armProfileHost();
+            /* prefetch فقط — لا تركيب Host هنا (كان يُركّب الملف مخفياً ويظهر أحياناً بعد reload) */
             void loadProfileIntentWarm().then((m) => m.warmProfileOnHover(userId));
             void loadProfileBootHydrator()
                 .then((m) => m.prefetchProfileAfterBootReveal(userId))
@@ -143,7 +162,7 @@ export function useLawyerDashboardProfileTab({
 
         window.addEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
         return () => window.removeEventListener(BOOT_REVEAL_DONE_EVENT, scheduleWarm);
-    }, [armProfileHost, userId]);
+    }, [userId]);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
@@ -172,6 +191,9 @@ export function useLawyerDashboardProfileTab({
                     setActiveTab,
                     setProfileOpenEpoch,
                 });
+                void loadProfileBootHydrator()
+                    .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, true))
+                    .catch(() => undefined);
             },
         });
     }, [setActiveTab, setShowCommunity, userId]);
@@ -191,17 +213,26 @@ export function useLawyerDashboardProfileTab({
             };
         };
         w.__hamiE2eForceOpenProfileTab = () => openProfileTab();
-        w.__hamiE2eProfileTabDebug = () => ({ activeTab, profileHostMounted });
+        w.__hamiE2eProfileTabDebug = () => ({
+            activeTab,
+            profileHostMounted,
+            profileShellReady,
+            profileShellWarming,
+            perf: getProfilePerfSnapshot(),
+        });
+        w.__hamiProfilePerfSnapshot = () => getProfilePerfSnapshot();
         return () => {
             delete w.__hamiE2eForceOpenProfileTab;
             delete w.__hamiE2eProfileTabDebug;
         };
-    }, [activeTab, openProfileTab, profileHostMounted]);
+    }, [activeTab, openProfileTab, profileHostMounted, profileShellReady, profileShellWarming]);
 
     return {
         profileTabSessionKey,
         profileOpenEpoch,
         profileHostMounted,
+        profileShellReady,
+        profileShellWarming,
         primeProfileTabMount,
         resetProfileTabShell,
         openProfileTab,

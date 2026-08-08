@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from 'lucide-react';
+import { Users, ShieldAlert, BarChart3, Search, UserCheck, UserX, AlertTriangle, LogOut, PauseCircle, CheckCircle, XCircle, FileText, Filter, User, Library, Flag, Trash2, MessageSquare, type LucideIcon } from '@/app/components/ui/lucideIcons';
 import { PageWrapper, GlassCard } from './SharedComponents';
 import { cn } from '@/app/components/ui/utils';
 import { SmartToast } from '@/app/components/ui/SmartToast';

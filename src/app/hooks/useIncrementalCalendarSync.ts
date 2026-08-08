@@ -126,14 +126,17 @@ export function useIncrementalCalendarSync(
                 dossierFingerprint,
             );
         };
-        const onCalendarRequest = () => {
+        const onCalendarRequest = (e: Event) => {
             if (!mountedRef.current || !lawyerId) return;
             if (shouldSkipDossierSyncForFingerprint(lawyerId, dossierFingerprint)) return;
-            scheduleIncrementalSync(
-                lawyerId,
-                lastPayloadByLawyer.get(lawyerId) ?? payload,
-                dossierFingerprint,
-            );
+            const latest = lastPayloadByLawyer.get(lawyerId) ?? payload;
+            const immediate =
+                (e as CustomEvent<{ immediate?: boolean }>).detail?.immediate === true;
+            if (immediate) {
+                runIncrementalSync(lawyerId, latest, dossierFingerprint);
+                return;
+            }
+            scheduleIncrementalSync(lawyerId, latest, dossierFingerprint);
         };
         window.addEventListener(QUANTUM_TASKS_CHANGED_EVENT, onQuantumTasks);
         window.addEventListener(CALENDAR_REQUEST_SYNC_EVENT, onCalendarRequest);

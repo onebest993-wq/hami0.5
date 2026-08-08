@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CheckCircle, Send, X, Handshake, Trophy, PencilLine } from 'lucide-react';
+import { CheckCircle, Send, X, Handshake, Trophy, PencilLine } from '@/app/components/ui/lucideIcons';
 import { formatIqdDisplay } from '../utils';
 import { SECTION_GLASS } from '../constants';
 import type { UnifiedLedgerStore, FinancialLedgerEntry } from '../types';

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, MapPin, UserCheck, X } from 'lucide-react';
+import { ChevronDown, MapPin, UserCheck, X } from '@/app/components/ui/lucideIcons';
 import { hasBlockedWord } from '../LawyerNewCase/utils';
 import type { Party } from '../LawyerNewCase/types';
 import { personalFieldClass } from './personalStatusVisualTheme';
@@ -7,7 +7,7 @@ import { personalFieldClass } from './personalStatusVisualTheme';
 export function PersonalStatusPartyCard({
     party,
     index,
-    side,
+    side: _side,
     onUpdate,
     onRemove,
     canRemove,
@@ -37,7 +37,17 @@ export function PersonalStatusPartyCard({
                 </span>
                 <div className="flex-1 min-w-0">
                     {isFirst ? <span className="text-[10px] font-bold text-white/45 block">{party.status}</span> : null}
-                    <span className="text-sm font-bold text-white/90 truncate block">{party.name || '— اسم غير مُدخل —'}</span>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-sm font-bold text-white/90 truncate">
+                            {party.name || '— اسم غير مُدخل —'}
+                        </span>
+                        {party.isClient ? (
+                            <span className="shrink-0 inline-flex items-center gap-0.5 rounded-md border border-[#E6C673]/45 bg-[#E6C673]/12 px-1.5 py-px text-[9px] font-extrabold text-[#E6C673]">
+                                <UserCheck size={10} aria-hidden />
+                                موكل
+                            </span>
+                        ) : null}
+                    </span>
                 </div>
                 <span className={`text-white/40 transition-transform ${expanded ? 'rotate-180' : ''}`}>
                     <ChevronDown size={16} />
@@ -46,7 +56,7 @@ export function PersonalStatusPartyCard({
 
             {expanded ? (
                 <div className="px-4 pb-4 pt-1 space-y-3 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                         <button
                             type="button"
                             onClick={() => onUpdate('isClient', !party.isClient)}
@@ -56,7 +66,7 @@ export function PersonalStatusPartyCard({
                                     : 'border-white/12 bg-white/[0.03] text-white/45'
                             }`}
                         >
-                            <UserCheck size={11} /> موكل
+                            <UserCheck size={11} /> {party.isClient ? 'موكل' : 'تعيين كموكل'}
                         </button>
                         {canRemove ? (
                             <button

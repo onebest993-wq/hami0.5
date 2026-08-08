@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Forward, Folder } from 'lucide-react';
+import { Forward, Folder } from '@/app/components/ui/lucideIcons';
 import {
     useExecutionDashboardStore,
     INABA_SUB_FILE_ID,

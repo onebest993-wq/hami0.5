@@ -4,6 +4,7 @@ import type { MutableRefObject } from 'react';
 import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { persistGlobalSearchSessionOpen } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { revealGlobalSearchWarmShell } from '@/app/runtime/globalSearchInstantPaint';
+import { snapGlobalSearchShellOpen } from '@/app/services/search/globalSearchShellSnap';
 import { takeGlobalSearchDraftQuery } from '@/app/runtime/globalSearchDraftQuery';
 import {
     isGlobalSearchOverlayModuleResolved,
@@ -44,12 +45,16 @@ export function commitGlobalSearchShellOpen({
     const resolvedSeed =
         (typeof querySeed === 'string' && querySeed.trim()) || takeGlobalSearchDraftQuery() || '';
 
-    revealGlobalSearchWarmShell();
+    /* علم html + ستارة فورية قبل commit — بلا فجوة خلفية عارية */
+    snapGlobalSearchShellOpen();
+
     flushSync(() => {
         setSearchHostMounted(true);
         setGlobalSearchInitialQuery(resolvedSeed);
         setShowGlobalSearch(true);
     });
+
+    revealGlobalSearchWarmShell();
     persistGlobalSearchSessionOpen(true);
 
     if (isGlobalSearchOverlayModuleResolved()) {

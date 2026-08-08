@@ -1,10 +1,11 @@
 import React, { useEffect, useState, memo, lazy, Suspense } from 'react';
 import { createPortal } from 'react-dom';
-import { BookOpen, ChevronDown, X } from 'lucide-react';
+import { BookOpen, ChevronDown, X } from '@/app/components/ui/lucideIcons';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { prefetchCivilLawArticles } from '@/app/utils/civilLawRemoteCache';
 import { SMART_FILE_FULLSCREEN_PANEL_OVERLAY_CLASS } from '../smartFile/smartFileOverlayZ';
 import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
+import { COMPACT_HUB_TRIGGER_SKY } from '../smartFile/compactHubTrigger';
 
 const LazyCivilLawReferencePanel = lazy(() =>
     import('./CivilLawReferencePanel').then((m) => ({ default: m.CivilLawReferencePanel })),
@@ -21,9 +22,14 @@ const GLASS_HEADER =
 
 export interface CivilLawReferenceHubProps {
     readOnly?: boolean;
+    /** صف أدوات مضغوط بجانب محضر الدعوى */
+    compact?: boolean;
 }
 
-export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({ readOnly = false }: CivilLawReferenceHubProps) {
+export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({
+    readOnly = false,
+    compact = false,
+}: CivilLawReferenceHubProps) {
     const [panelOpen, setPanelOpen] = useState(false);
 
     useEffect(() => {
@@ -104,27 +110,27 @@ export const CivilLawReferenceHub = memo(function CivilLawReferenceHub({ readOnl
             : null;
 
     if (readOnly) {
-        return (
-            <div className="mb-4 print:hidden" dir="rtl">
-                <div className="min-h-[72px] rounded-xl border border-dashed border-white/10 bg-white/[0.02] mb-2" />
+        return compact ? null : (
+            <div className="mb-2 print:hidden" dir="rtl">
+                <div className="min-h-[44px] rounded-xl border border-dashed border-white/10 bg-white/[0.02]" />
             </div>
         );
     }
 
     return (
-        <div className="mb-4 print:hidden" dir="rtl">
+        <div className={`${compact ? 'mb-0' : 'mb-2'} print:hidden`} dir="rtl">
             {panel}
             <button
                 type="button"
                 data-testid={CIVIL_LAWSUIT_TEST_IDS.civilLawReferenceOpen}
                 onClick={() => setPanelOpen(true)}
-                className={`${GLASS_TRIGGER} mb-2`}
+                className={compact ? COMPACT_HUB_TRIGGER_SKY : `${GLASS_TRIGGER} mb-2`}
             >
-                <div className="flex items-center gap-1.5">
-                    <BookOpen size={14} className="text-sky-300" aria-hidden />
-                    <span className="font-bold text-sky-200 text-[11px]">المرجع القانوني</span>
-                    <ChevronDown size={12} className="text-sky-300/50" aria-hidden />
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <BookOpen size={14} className="text-sky-300 shrink-0" aria-hidden />
+                    <span className="font-bold text-sky-200 text-[11px] truncate">المرجع القانوني</span>
                 </div>
+                <ChevronDown size={14} className="text-sky-300/50 shrink-0" aria-hidden />
             </button>
         </div>
     );

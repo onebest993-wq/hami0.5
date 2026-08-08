@@ -1,6 +1,5 @@
-// @ts-nocheck
 /** Phase C Slice 19 — ذمة المدينين + نطاق الإخطار + الجدول الزمني الم scoped */
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
     buildDebtorLiabilityGroups,
@@ -27,13 +26,15 @@ export type UseExecutionDashboardDebtorWorkspaceContextParams = {
     creditors: ExecutionFile['creditors'] | undefined;
     debtors: ExecutionFile['debtors'] | undefined;
     executionDebtorTabIndex: number;
-    setExecutionDebtorTabIndex: (index: number) => void;
+    setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
     followupSolidaryDebtorIndex: number;
-    setFollowupSolidaryDebtorIndex: (index: number) => void;
+    setFollowupSolidaryDebtorIndex: Dispatch<SetStateAction<number>>;
     mergedTimelineEvents: TimelineEvent[];
     summonsContextDebtorKey: string | null | undefined;
-    setNotificationCount: React.Dispatch<React.SetStateAction<number>>;
-    setDebtorSummonsMarkerLocal: React.Dispatch<React.SetStateAction<unknown>>;
+    setNotificationCount: Dispatch<SetStateAction<number>>;
+    setDebtorSummonsMarkerLocal: Dispatch<
+        SetStateAction<ExecutionFile['debtor_summons_marker'] | null | undefined>
+    >;
 };
 
 export function useExecutionDashboardDebtorWorkspaceContext({
@@ -218,7 +219,7 @@ export function useExecutionDashboardDebtorWorkspaceContext({
 
     useExecutionDashboardFollowupSolidaryIndexReset(
         executionDebtorTabIndex,
-        activeLiabilityGroupId,
+        activeLiabilityGroupId ?? undefined,
         setFollowupSolidaryDebtorIndex,
     );
 
@@ -230,7 +231,7 @@ export function useExecutionDashboardDebtorWorkspaceContext({
             const keys = new Set(activeGroupEntries.map((ent) => ent.key));
             return mergedTimelineEvents.filter((e) => {
                 for (const ak of keys) {
-                    if (timelineEventBelongsToDebtorWorkspace(e as any, ak, primaryDebtorWorkspaceKey)) {
+                    if (timelineEventBelongsToDebtorWorkspace(e, ak, primaryDebtorWorkspaceKey)) {
                         return true;
                     }
                 }
@@ -242,7 +243,7 @@ export function useExecutionDashboardDebtorWorkspaceContext({
         }
         const ak = activeWorkspaceDebtorForFollowup.key;
         return mergedTimelineEvents.filter((e) =>
-            timelineEventBelongsToDebtorWorkspace(e as any, ak, primaryDebtorWorkspaceKey),
+            timelineEventBelongsToDebtorWorkspace(e, ak, primaryDebtorWorkspaceKey),
         );
     }, [
         debtorBrowserTabsMode,
@@ -255,7 +256,7 @@ export function useExecutionDashboardDebtorWorkspaceContext({
 
     const mergedTimelineRadarPreviewLimit = useMemo(() => {
         const base = debtorBrowserTabsMode ? mergedTimelineEventsDebtorScoped : mergedTimelineEvents;
-        return base.some((e) => Boolean((e as any).isPinned)) ? 5 : 3;
+        return base.some((e) => Boolean(e.isPinned)) ? 5 : 3;
     }, [debtorBrowserTabsMode, mergedTimelineEventsDebtorScoped, mergedTimelineEvents]);
 
     const assignmentWorkspaceCtx = useMemo(

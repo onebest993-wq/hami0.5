@@ -9,6 +9,14 @@ const scheduleIdleWork = vi.fn((fn: () => void) => {
 vi.mock('@/app/runtime/deferredFeatureStyles', () => ({
     scheduleDeferredFeatureStyles: vi.fn(),
     ensureDeferredFeatureStylesLoaded: vi.fn(() => Promise.resolve()),
+    prefetchDeferredFeatureStyles: vi.fn(),
+}));
+
+const scheduleHeavyDashboardSectionWarm = vi.fn(() => () => undefined);
+
+vi.mock('@/app/runtime/heavyDashboardSectionWarm', () => ({
+    scheduleHeavyDashboardSectionWarm: (...args: unknown[]) => scheduleHeavyDashboardSectionWarm(...args),
+    resetHeavyDashboardSectionWarmForTests: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/deferredShellPrefetch', () => ({
@@ -68,6 +76,7 @@ describe('dashboardPostInteractiveWarm', () => {
         });
         expect(hydrateLawyerDashboardHeaderShellChunks).toHaveBeenCalledWith('lawyer-1');
         expect(scheduleIdleWork).toHaveBeenCalledTimes(1);
+        expect(scheduleHeavyDashboardSectionWarm).toHaveBeenCalledTimes(1);
         expect(scheduleLawyerShellPrefetch).toHaveBeenCalledTimes(1);
     });
 

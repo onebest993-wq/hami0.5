@@ -10,7 +10,7 @@ import { useSmartFileModalCaseStatus } from './useSmartFileModalCaseStatus';
 import { useSmartFileModalFileSync } from './useSmartFileModalFileSync';
 import { useSmartFileSearchFocusScroll } from './useSmartFileSearchFocusScroll';
 import { useSmartFileModalDomainActions } from './useSmartFileModalDomainActions';
-import { assembleSmartFileModalLayout } from '../smartFile/assembleSmartFileModalLayout';
+import { buildSmartFileOrchestratorLayout } from '../smartFile/buildSmartFileOrchestratorLayout';
 import { isPetitionVoidRevivalExpired } from '../smartFile/petitionVoidFlow';
 import { type SmartFileModalProps } from '../smartFile/smartFileModalTypes';
 
@@ -38,50 +38,19 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
 
     const [parentData, setParentData] = useState(() => buildInitialParentDataFromFile(file));
 
-    const {
-        stages,
-        setStages,
-        activeStageIndex,
-        setActiveStageIndex,
-        viewingStageIndex,
-        setViewingStageIndex,
-        currentStage,
-        viewedStage,
-        isViewingArchived,
-        displayStage,
-        displayTimeline,
-        deletedEvents,
-        stepperStages,
-        currentStageId,
-        onTouchStart,
-        onTouchMove,
-        onTouchEnd,
-    } = useSmartFileStageNavigation(file, initialStagesRef.current);
+    const navigation = useSmartFileStageNavigation(file, initialStagesRef.current);
 
     const [isEditingStageName, setIsEditingStageName] = useState(false);
     const [tempStageName, setTempStageName] = useState('');
 
-    const {
-        status,
-        setStatus,
-        isPaused,
-        setIsPaused,
-        pauseReason,
-        setPauseReason,
-        linkedCaseNo,
-        setLinkedCaseNo,
-        isInterrupted,
-        setIsInterrupted,
-        interruptionData,
-        setInterruptionData,
-    } = useSmartFileModalCaseStatus(file);
+    const caseStatus = useSmartFileModalCaseStatus(file);
 
     const modalFlags = useSmartFileModalFlags();
 
     const { saveToCloud } = useSmartFilePersist({
         parentData,
-        activeStageIndex,
-        status,
+        activeStageIndex: navigation.activeStageIndex,
+        status: caseStatus.status,
         onUpdate,
     });
 
@@ -89,12 +58,12 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         file,
         parentData,
         setParentData,
-        stages,
-        setStages,
-        activeStageIndex,
-        viewingStageIndex,
-        setActiveStageIndex,
-        setViewingStageIndex,
+        stages: navigation.stages,
+        setStages: navigation.setStages,
+        activeStageIndex: navigation.activeStageIndex,
+        viewingStageIndex: navigation.viewingStageIndex,
+        setActiveStageIndex: navigation.setActiveStageIndex,
+        setViewingStageIndex: navigation.setViewingStageIndex,
         saveToCloud,
         calendarUserId: user?.id,
     });
@@ -108,26 +77,26 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
         onConsolidateWithExisting,
         parentData,
         setParentData,
-        stages,
-        setStages,
-        activeStageIndex,
-        setActiveStageIndex,
-        viewingStageIndex,
-        setViewingStageIndex,
-        currentStage,
-        displayStage,
-        status,
-        setStatus,
-        isPaused,
-        setIsPaused,
-        pauseReason,
-        setPauseReason,
-        linkedCaseNo,
-        setLinkedCaseNo,
-        isInterrupted,
-        setIsInterrupted,
-        interruptionData,
-        setInterruptionData,
+        stages: navigation.stages,
+        setStages: navigation.setStages,
+        activeStageIndex: navigation.activeStageIndex,
+        setActiveStageIndex: navigation.setActiveStageIndex,
+        viewingStageIndex: navigation.viewingStageIndex,
+        setViewingStageIndex: navigation.setViewingStageIndex,
+        currentStage: navigation.currentStage,
+        displayStage: navigation.displayStage,
+        status: caseStatus.status,
+        setStatus: caseStatus.setStatus,
+        isPaused: caseStatus.isPaused,
+        setIsPaused: caseStatus.setIsPaused,
+        pauseReason: caseStatus.pauseReason,
+        setPauseReason: caseStatus.setPauseReason,
+        linkedCaseNo: caseStatus.linkedCaseNo,
+        setLinkedCaseNo: caseStatus.setLinkedCaseNo,
+        isInterrupted: caseStatus.isInterrupted,
+        setIsInterrupted: caseStatus.setIsInterrupted,
+        interruptionData: caseStatus.interruptionData,
+        setInterruptionData: caseStatus.setInterruptionData,
         isEditingStageName,
         setIsEditingStageName,
         tempStageName,
@@ -139,96 +108,40 @@ export function useSmartFileModalOrchestrator(props: SmartFileModalProps) {
     });
 
     useEffect(() => {
-        if (isPetitionVoidRevivalExpired(currentStage?.petitionVoidFlow)) {
+        if (isPetitionVoidRevivalExpired(navigation.currentStage?.petitionVoidFlow)) {
             actions.handlePetitionVoidWaiver();
         }
-    }, [currentStage?.petitionVoidFlow, actions.handlePetitionVoidWaiver]);
+    }, [navigation.currentStage?.petitionVoidFlow, actions.handlePetitionVoidWaiver]);
 
     useEffect(() => {
         if (!file?.id) return;
         void import('../SmartFileModals');
     }, [file?.id]);
 
-    if (!file || !currentStage) {
+    if (!file || !navigation.currentStage) {
         return { layout: null, consolidationNavActive, caseLinkNavActive };
     }
 
-    const layout = assembleSmartFileModalLayout({
+    const layout = buildSmartFileOrchestratorLayout({
         onClose,
         file,
-        status,
-        isViewingArchived,
-        isPaused,
-        pauseReason,
-        isInterrupted,
-        interruptionData,
-        linkedCaseNo,
+        onOpenLinkedFile,
+        lawsuitFiles,
         parentData,
-        displayStage,
-        displayTimeline,
-        currentStage,
-        stages,
-        activeStageIndex,
-        viewingStageIndex,
+        setParentData,
+        navigation,
+        caseStatus,
+        modalFlags,
+        actions,
         isEditingStageName,
         setIsEditingStageName,
         tempStageName,
         setTempStageName,
-        onSaveStageName: actions.handleSaveStageName,
-        onShare: actions.handleShare,
-        onStageSelect: actions.handleStageSelect,
-        onTouchStart,
-        onTouchMove,
-        onTouchEnd,
-        stepperStages,
-        currentStageId,
-        deletedEvents,
-        modalHandlers: actions.modalHandlers,
-        onOpenLinkedFile,
-        openFileIdentity: actions.openFileIdentity,
-        consolidationCandidates: actions.consolidationCandidates,
-        onConsolidationCreateNew: actions.handleConsolidationCreateNew,
-        onConsolidationMergeExisting: actions.handleConsolidationMergeExisting,
-        onConsolidationExternalRef: actions.handleConsolidationExternalRef,
-        caseLinkCandidates: actions.caseLinkCandidates,
-        onCaseLinkExisting: actions.handleCaseLinkExisting,
-        onCaseLinkExternal: actions.handleCaseLinkExternal,
-        handleCorrespondenceResponse: actions.handleCorrespondenceResponse,
-        handleResumeAbandonment: actions.handleResumeAbandonment,
-        handleResume: actions.handleResume,
-        handleToggleClient: actions.handleToggleClient,
-        handleInterruptionToggle: actions.handleInterruptionToggle,
-        handleOpenPauseModal: actions.handleOpenPauseModal,
-        handleAbandonment: actions.handleAbandonment,
-        handleRegisterPetitionVoid: actions.handleRegisterPetitionVoid,
-        handlePetitionVoidAppeal: actions.handlePetitionVoidAppeal,
-        handlePetitionVoidOutcome: actions.handlePetitionVoidOutcome,
-        handlePetitionVoidWaiver: actions.handlePetitionVoidWaiver,
-        handleToggleNotification: actions.handleToggleNotification,
-        handleCassationDecision: actions.handleCassationDecision,
-        handleClosePleadings: actions.handleClosePleadings,
-        handleReopenPleadings: actions.handleReopenPleadings,
-        handleOpenDefendantCassationAppeal: actions.handleOpenDefendantCassationAppeal,
-        handleDefaultObjection: actions.handleDefaultObjection,
-        handleWaiveObjection: actions.handleWaiveObjection,
-        handleOtherAppeals: actions.handleOtherAppeals,
-        handleOpenAbsentJudgmentNotification: actions.handleOpenAbsentJudgmentNotification,
-        handleOpenOpponentAbsentObjection: actions.handleOpenOpponentAbsentObjection,
-        handleExportPDF: actions.handleExportPDF,
-        handleResolveIncidentalCase: actions.handleResolveIncidentalCase,
-        handleUpdateIncidentalEntryDecision: actions.handleUpdateIncidentalEntryDecision,
-        handleQuickAction: actions.handleQuickAction,
-        handleToggleTask: actions.handleToggleTask,
-        handleAppealBriefFile: actions.handleAppealBriefFile,
-        handleAppealBriefOutcome: actions.handleAppealBriefOutcome,
-        handleDeleteEvent: actions.handleDeleteEvent,
-        handleEditEvent: actions.handleEditEvent,
-        handleAddAction: actions.handleAddAction,
-        handleSaveFastTrack: actions.handleSaveFastTrack,
-        handleCancelCrossAppeal: actions.handleCancelCrossAppeal,
-        handleAddCrossAppeal: actions.handleAddCrossAppeal,
-        setParentData,
-        modalFlags,
     });
-    return { layout, consolidationNavActive: props.consolidationNavActive, caseLinkNavActive: props.caseLinkNavActive };
+
+    return {
+        layout,
+        consolidationNavActive: props.consolidationNavActive,
+        caseLinkNavActive: props.caseLinkNavActive,
+    };
 }

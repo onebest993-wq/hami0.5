@@ -48,8 +48,21 @@ export type ClusterPinView = {
 export type CalendarRadarEvent = {
     id: string;
     title: string;
+    /** للوصولية — تاريخ + وقت */
     whenLabel: string;
+    /** اليوم / غداً / تاريخ / انتهى */
+    dateLabel: string;
+    /** وقت بغداد */
+    timeLabel: string;
+    /** شارة القسم: تقويم، دعوى، مهمة… */
+    sourceModuleLabel: string;
+    /** محكمة أو مكان */
+    sourcePlace?: string;
+    /** مصدر + مكان — للوصولية */
+    sourceHint?: string;
     clientName?: string;
     caseNo?: string;
     routePath: string;
+    /** للإزالة من الرادار عند وجود تنبيه مهمة ميدانية مُحقونة */
+    sourceEntityId?: string;
 };

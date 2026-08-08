@@ -31,11 +31,29 @@ describe('home hub card section surgical close honesty', () => {
             'utf8',
         );
         expect(hook).toContain('createHomeHubGuardedActions');
-        const card = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LawyerHomeHubCard.tsx'),
+        const panelBody = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/LawyerHomeHubCard/components/HomeHubPanelBody.tsx',
+            ),
             'utf8',
         );
-        expect(card).toContain('onDismissRadar={vm.guardedDismissRadar}');
+        expect(panelBody).toContain('onDismissRadar={vm.guardedDismissRadar}');
+        expect(panelBody).toContain('hidden={panelHidden');
+        for (const panelFile of [
+            'HomeHubAlertsPanel.tsx',
+            'HomeHubSecretaryPanel.tsx',
+            'HomeHubPinsPanel.tsx',
+        ]) {
+            const panelSrc = fs.readFileSync(
+                path.join(
+                    root,
+                    `src/app/components/lawyer/LawyerHomeHubCard/components/${panelFile}`,
+                ),
+                'utf8',
+            );
+            expect(panelSrc).not.toMatch(/style=\{\{\s*display:/);
+        }
     });
 
     it('تنقّل اللوحة يستخدم isRealSignedIn(userId) لا null', () => {
@@ -100,14 +118,9 @@ describe('home hub card section surgical close honesty', () => {
         );
         expect(live).not.toMatch(/from '@\/app\/stores\/workspaceStore'/);
         expect(live).not.toMatch(/from '@\/app\/services\/settings\/apply'/);
-        expect(live).toContain('LazyHomeLayoutEditChrome');
-        expect(live).not.toMatch(/from 'lucide-react'/);
-        const editUi = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/dashboard/homeLayoutEdit/homeLayoutEditUi.tsx'),
-            'utf8',
-        );
-        expect(editUi).not.toMatch(/from 'lucide-react'/);
-        expect(editUi).toContain('PaletteIcon');
+        expect(live).toContain('HomeLayoutScrollRoot');
+        expect(live).not.toMatch(/from ['"]lucide-react['"]/);
+        expect(live).toContain('LawyerHomeHubCard');
         const boundary = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/HomeHubErrorBoundary.tsx'),
             'utf8',
@@ -162,7 +175,13 @@ describe('home hub card section surgical close honesty', () => {
             'utf8',
         );
         expect(card).toContain('home-hub-card');
-        expect(card).toContain('التنبيهات والتثبيت');
+        expect(card).toContain('data-hub-active-panel');
+        expect(card).toContain('HomeHubPanelBody');
+        const shell = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/HomeHubCardShellFallback.tsx'),
+            'utf8',
+        );
+        expect(shell).toContain('البطاقة الذكية');
         const tabs = fs.readFileSync(
             path.join(
                 root,

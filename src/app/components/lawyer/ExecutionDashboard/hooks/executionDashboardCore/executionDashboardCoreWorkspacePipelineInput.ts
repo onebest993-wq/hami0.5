@@ -1,5 +1,5 @@
-// @ts-nocheck
 import type { ExecutionFile } from '@/app/types/execution';
+import type { ModalStates } from '@/app/stores/executionDashboardStore';
 import type { ExecutionDashboardProps } from '../../types';
 
 /** Phase C Slice 31 — typed input for workspace pipeline */
@@ -16,7 +16,7 @@ export type ExecutionDashboardCoreWorkspacePipelineInput = {
     executionId: string | undefined;
     decisionsStorageExecutionId: string;
     executionStorageTick: number;
-    setExecutionModal: (key: string, show: boolean) => void;
+    setExecutionModal: (key: keyof ModalStates, show: boolean) => void;
     showDecisionsModal: boolean;
     setShowDecisionsModal: (show: boolean) => void;
     setShowNotesModal: (show: boolean) => void;

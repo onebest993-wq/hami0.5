@@ -1,6 +1,6 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Wallet } from 'lucide-react';
+import { X, Wallet } from '@/app/components/ui/lucideIcons';
 import { publishFinancialCenterTimelineNote } from '@/app/utils/financialCenterTimeline';
 import { buildGhuramaaCreditorRows } from '@/app/utils/creditorPaymentProRata';
 import { buildDebtorAgentSeizedItems } from '@/app/slices/financial/specialtyPublic';
@@ -281,6 +281,13 @@ export const ExecutionFinancialHubPortal: React.FC<ExecutionFinancialHubPortalPr
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('hami-unified-ledger-updated'));
         }
+    }, [showExecutionFinancialHub]);
+
+    useEffect(() => {
+        if (!showExecutionFinancialHub) return;
+        const bump = () => setHubStorageRevision((n) => n + 1);
+        window.addEventListener('hami-unified-ledger-updated', bump);
+        return () => window.removeEventListener('hami-unified-ledger-updated', bump);
     }, [showExecutionFinancialHub]);
 
     const hubPrincipalAmount = useMemo(

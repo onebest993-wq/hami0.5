@@ -1,5 +1,5 @@
 import React from 'react';
-import { CreditCard, ChevronDown, ChevronUp, History, HeartHandshake } from 'lucide-react';
+import { CreditCard, ChevronDown, ChevronUp, History, HeartHandshake } from '@/app/components/ui/lucideIcons';
 import { formatIqdDisplay } from '../utils';
 
 export interface FocFundsCardHeaderProps {

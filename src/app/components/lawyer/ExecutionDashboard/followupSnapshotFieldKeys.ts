@@ -192,6 +192,7 @@ export const EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS = [
     'totalOwed',
     'tryOpenPendingBreakInventoryLedger',
     'tryOpenPendingCustodianDetails',
+    'saveJudicialCustodianEntry',
     'unifiedModalTab',
     'viewExecutionData',
     'voluntaryAttendanceCount',
@@ -199,3 +200,6 @@ export const EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS = [
 ] as const;
 
 export type ExecutionFollowupSnapshotFieldKey = (typeof EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS)[number];
+
+/** Snapshot محضر المتابعة — حقول معرّفة في القائمة المُولَّدة (مرحلة تحصين 1) */
+export type FollowupModalSnapshot = Partial<Record<ExecutionFollowupSnapshotFieldKey, unknown>>;

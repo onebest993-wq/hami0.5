@@ -1,10 +1,10 @@
 // @ts-nocheck
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
     X, Plus, Trash2, FileText,
     AlertTriangle, Calendar, Zap,
     ChevronDown, Scale
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { motion } from 'motion/react';
@@ -24,7 +24,6 @@ import {
     normalizeDebtorEntityKind,
 } from '@/app/utils/debtorEntityKindUtils';
 import type { ExecutionArchiveFile, ModalProps } from '@/app/types/common';
-import { PartiesSection } from './ExecutionCreationView/components/PartiesSection';
 import ExecutionOptionSheet from './ExecutionCreationView/components/ExecutionOptionSheet';
 import { ecg } from './ExecutionCreationView/components/executionCreationGlassUi';
 import { SmartAlimonyCalculator } from './ExecutionCreationView/components/SmartAlimonyCalculator';
@@ -50,7 +49,14 @@ import {
     type SpecificDeliveryItem,
 } from '@/app/utils/specificDeliveryItemsUtils';
 import { ExecutionSaveButton } from './ExecutionCreationView/components/ExecutionSaveButton';
-import { LawyerFeesToggleCard } from './ExecutionCreationView/components/LawyerFeesToggleCard';
+import { buildExecutionCreationSparkContext, EXECUTION_CREATION_DOSSIER_KEY } from '@/app/spark/context/executionCreationSparkContext';
+import { buildExecutionCreationShellReviewPayload } from '@/app/spark/shell/shellReviewPayloadBuilders';
+import { triggerSparkDocumentAudit } from '@/app/spark/audit/triggerSparkDocumentAudit';
+import {
+    ExecutionCreationLawyerFeesIsland,
+    type ExecutionCreationLawyerFeesIslandHandle,
+    type ExecutionCreationLawyerFeesSnapshot,
+} from './ExecutionCreationView/components/ExecutionCreationLawyerFeesIsland';
 import {
     capManualIndependentDebtRaw,
     capManualIndependentLawyerFeesRaw,
@@ -74,8 +80,6 @@ import {
 } from './ExecutionCreationView/hooks/executionFormUtils';
 import {
     useExecutionCreationFormOptions,
-    EXECUTION_DOC_TYPE_OPTIONS,
-    EXECUTION_DOC_TYPE_COMING_SOON,
 } from './ExecutionCreationView/hooks/useExecutionCreationFormOptions';
 import { useLegalWarnings } from './ExecutionCreationView/hooks/useLegalWarnings';
 import { useAlimonyCalculator } from './ExecutionCreationView/hooks/useAlimonyCalculator';
@@ -184,7 +188,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     >(() => createEmptyVisitationScheduleDraft());
     /** أسماء المحضونين — حصراً عند «نزع حضانة» (قيمة الخيار الداخلية: تسليم ولد) */
     const [custodyWardNames, setCustodyWardNames] = useState<string[]>(['']);
-    const [docTypeSheetOpen, setDocTypeSheetOpen] = useState(false);
     const [claimTypeSheetOpen, setClaimTypeSheetOpen] = useState(false);
     const [linkedClaimDraft, setLinkedClaimDraft] = useState<string[]>([]);
     
@@ -232,10 +235,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     // === MASTER PHASE: SHARIA DEED DETAILS (Will & Takharuj only) ===
     const [shariaDeedDetails, setShariaDeedDetails] = useState(''); // تفاصيل الحجة
     
-    // === LAWYER FEES TOGGLE (أتعاب المحاماة) ===
-    const [includeLawyerFees, setIncludeLawyerFees] = useState(false);
-    const [lawyerFeesAmount, setLawyerFeesAmount] = useState('');
-    
+    const lawyerFeesSnapshotRef = useRef<ExecutionCreationLawyerFeesSnapshot>({
+        includeLawyerFees: false,
+        lawyerFeesAmount: '',
+    });
+    const lawyerFeesIslandRef = useRef<ExecutionCreationLawyerFeesIslandHandle | null>(null);
+
     // === CLIENT FEES (أتعاب من الموكل) ===
     const [clientFeesAmount, setClientFeesAmount] = useState('');
     
@@ -323,7 +328,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
     useEffect(() => {
         if (!isOpen) {
-            setDocTypeSheetOpen(false);
             setClaimTypeSheetOpen(false);
             setAdditionalCreditors([]);
             setAdditionalDebtorsForm([]);
@@ -621,6 +625,15 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
     );
 
     // === PHASE 25: AUTO-SELECT SINGLE OPTIONS ===
+    useEffect(() => {
+        if (
+            isDirectorateSectionComplete(directorate, fileNumber) &&
+            !docType
+        ) {
+            setDocType('قرارات وأحكام المحاكم');
+        }
+    }, [directorate, fileNumber, docType]);
+
     useEffect(() => {
         if (docType) {
             const classOpts = getClassificationOptions();
@@ -932,7 +945,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             if (slotIndex < 0 || debtorSolidaryFlags[slotIndex]) return;
 
             const capped = capManualIndependentLawyerFeesRaw(
-                parseMoneyInput(lawyerFeesAmount),
+                parseMoneyInput(lawyerFeesSnapshotRef.current.lawyerFeesAmount),
                 debtorSolidaryFlags,
                 manualBySlot,
                 slotIndex,
@@ -944,7 +957,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             debtors,
             additionalDebtorsForm,
             debtorLawyerFeesClaims,
-            lawyerFeesAmount,
         ],
     );
 
@@ -1061,8 +1073,8 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                 setClaimType('استحصال دين مالي');
                 setTotalAmount('5000000');
                 setClientFeesAmount('500000');
-                setIncludeLawyerFees(true);
-                setLawyerFeesAmount('150000');
+                lawyerFeesIslandRef.current?.setIncludeLawyerFees(true);
+                lawyerFeesIslandRef.current?.setLawyerFeesAmount('150000');
                 SmartToast.success('✅ سيناريو: قرار محكمة مدني - دين مالي');
             }
         ];
@@ -1071,6 +1083,87 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         const randomIndex = Math.floor(Math.random() * mockScenarios.length);
         mockScenarios[randomIndex]();
     };
+
+    const executionCreationSparkDraft = useMemo(
+        () => ({
+            directorate,
+            fileNumber,
+            docType,
+            docNumber,
+            judgmentDate,
+            classification,
+            claimType,
+            activeClaimTypes,
+            claimAmountsByType,
+            totalAmount,
+            debtors: debtors.map((d) => ({
+                name: d.name,
+                address: d.address,
+                isClient: d.isClient,
+            })),
+            creditors: creditors.map((c) => ({
+                name: c.name,
+                address: c.address,
+                isClient: c.isClient,
+            })),
+            isDocumentBlocked,
+            submissionDate: getLocalTodayYmd(),
+            alimony:
+                activeClaimTypes.some(
+                    (t) => t === 'نفقة' || t === 'حجة نفقة اتفاقية' || t === 'نفقة ماضية',
+                ) ||
+                claimType === 'نفقة' ||
+                claimType === 'حجة نفقة اتفاقية'
+                    ? {
+                          beneficiary: alimonyBeneficiary,
+                          lawsuitDate: alimonyLawsuitDate,
+                          executionDate: alimonyExecutionDate,
+                          wifeMonthly: alimonyWifeMonthly,
+                          childrenMonthly: alimonyChildrenMonthly,
+                          childrenCount: alimonyChildrenCount,
+                          includesPastCalc: alimonyIncludesPastCalc,
+                          pastStartDate: alimonyPastStartDate,
+                          judgmentDate,
+                          submissionDate: getLocalTodayYmd(),
+                          calculated: calculatedAlimonyNew
+                              ? {
+                                    baseAccumulation: calculatedAlimonyNew.baseAccumulation,
+                                    pastAccumulation: calculatedAlimonyNew.pastAccumulation,
+                                    monthlyOngoing: calculatedAlimonyNew.monthlyOngoing,
+                                    totalAccumulated: calculatedAlimonyNew.totalAccumulated,
+                                    legalCapApplied: calculatedAlimonyNew.legalCapApplied,
+                                    pastYearCapApplied: calculatedAlimonyNew.pastYearCapApplied,
+                                    explanation: calculatedAlimonyNew.explanation,
+                                }
+                              : null,
+                      }
+                    : null,
+        }),
+        [
+            activeClaimTypes,
+            claimAmountsByType,
+            claimType,
+            classification,
+            creditors,
+            debtors,
+            directorate,
+            docType,
+            docNumber,
+            fileNumber,
+            isDocumentBlocked,
+            totalAmount,
+            alimonyBeneficiary,
+            alimonyLawsuitDate,
+            alimonyExecutionDate,
+            alimonyWifeMonthly,
+            alimonyChildrenMonthly,
+            alimonyChildrenCount,
+            alimonyIncludesPastCalc,
+            alimonyPastStartDate,
+            judgmentDate,
+            calculatedAlimonyNew,
+        ],
+    );
 
     // === SUBMIT HANDLER WITH ENCRYPTION ===
     const handleSubmit = async () => {
@@ -1247,6 +1340,25 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             }
         }
 
+        if (claimType === 'تسليم ولد' || pendingClaimTypes.includes('تسليم ولد')) {
+            const trimmedWards = custodyWardNames.map((n) => n.trim()).filter(Boolean);
+            if (trimmedWards.length === 0) {
+                SmartToast.error('⚠️ يرجى إدخال اسم محضون واحد على الأقل (نزع حضانة)');
+                return;
+            }
+            for (let i = 0; i < custodyWardNames.length; i++) {
+                if (!String(custodyWardNames[i] || '').trim()) {
+                    SmartToast.error(`⚠️ يرجى إكمال اسم المحضون ${i + 1}`);
+                    return;
+                }
+            }
+        }
+
+        const confirmed = window.confirm(
+            'هل كل المعلومات المدخلة صحيحة؟\n\nتنبيه: بعض البيانات (نوع السند والمطالبة) لا يمكن تعديلها بعد فتح الإضبارة.',
+        );
+        if (!confirmed) return;
+
         // Parse file number and year
         const fileParts = fileNumber.split('/');
         let extractedNumber = fileParts[0] || fileNumber;
@@ -1382,6 +1494,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
         // @ts-expect-error - dynamic runtime property
         executionData.salaryCoversAlimony =
             firstDebtorOcc === 'موظف' && (executionData as any).isAlimony ? true : false;
+        const { includeLawyerFees, lawyerFeesAmount } = lawyerFeesSnapshotRef.current;
         executionData.debtors = debtors.map((d, i) => {
             const emp = d.occupation === 'موظف';
             const debtorKey = String(d.id);
@@ -1793,6 +1906,18 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
             }
             
             onSave(executionData);
+            const reviewPayload = buildExecutionCreationShellReviewPayload(
+                buildExecutionCreationSparkContext(executionCreationSparkDraft),
+            );
+            if (reviewPayload) {
+                triggerSparkDocumentAudit({
+                    dossierKey: EXECUTION_CREATION_DOSSIER_KEY,
+                    fieldType: reviewPayload.fieldType,
+                    text: reviewPayload.text,
+                    caseNo: reviewPayload.caseNo,
+                    court: reviewPayload.court,
+                });
+            }
             SmartToast.success('✅ تم فتح الإضبارة التنفيذية بنجاح');
         } catch (error) {
             logger.error('❌ [ExecutionCreation] Save failed:', error);
@@ -1835,24 +1960,21 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 {/* ✅ تصحيح 1: تغيير الاسم من "نوع السند" إلى "قرارات المحاكم" عند اختيار أحكام المحاكم */}
                                 <div>
                                     <label className={ecg.labelGold}>نوع السند المنفذ</label>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            setClaimTypeSheetOpen(false);
-                                            setDocTypeSheetOpen(true);
-                                        }}
-                                        className={ecg.pickerBtn}
+                                    <p className="px-1 pb-1.5 text-[10px] font-bold text-slate-500">
+                                        جاري العمل على السندات التنفيذية الأخرى — المتاح حالياً:
+                                    </p>
+                                    <div
+                                        className={`${ecg.optionBtn} ${ecg.optionBtnActive} cursor-default select-none`}
+                                        aria-disabled="true"
+                                        title="نوع السند مقفل — قرارات المحاكم فقط متاح حالياً"
                                     >
-                                        <ChevronDown size={18} className="text-gray-400 shrink-0" />
-                                        <span className="flex-1 truncate font-medium">
-                                            {currentDocTypeLabel || '-- اختر نوع السند المنفذ --'}
-                                        </span>
-                                    </button>
+                                        {currentDocTypeLabel || 'قرارات المحاكم'}
+                                    </div>
                                 </div>
 
                                 {/* ✅ تصحيح 1: رقم الحكم وتاريخ الحكم - يظهر فقط للأحكام القضائية */}
                                 {docType === 'قرارات وأحكام المحاكم' && (
-                                    <div className={`${ecg.card} !p-4`}>
+                                    <div className={`${ecg.card} !p-4`} data-spark-focus="judgment">
                                         <div className="grid grid-cols-2 gap-3">
                                             <div>
                                                 <label className={ecg.labelGold}>رقم الحكم</label>
@@ -2048,6 +2170,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         claimTypeOptionsList.find((o) => o.value === ct)?.label ?? ct;
                                     if (ct === 'نفقة') {
                                         return (
+                                            <div key={ct} data-spark-focus="alimony">
                                             <SmartAlimonyCalculator
                                                 key={ct}
                                                 alimonyBeneficiary={alimonyBeneficiary}
@@ -2057,6 +2180,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 alimonyChildrenMonthly={alimonyChildrenMonthly}
                                                 alimonyChildrenCount={alimonyChildrenCount}
                                                 calculatedAlimonyNew={calculatedAlimonyNew}
+                                                judgmentDate={judgmentDate}
+                                                docType={docType}
+                                                claimType={claimType}
+                                                activeClaimTypes={activeClaimTypes}
+                                                includesPastCalc={alimonyIncludesPastCalc}
+                                                alimonyPastStartDate={alimonyPastStartDate}
                                                 onBeneficiaryChange={setAlimonyBeneficiary}
                                                 onLawsuitDateChange={setAlimonyLawsuitDate}
                                                 onExecutionDateChange={setAlimonyExecutionDate}
@@ -2064,12 +2193,13 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                                 onChildrenMonthlyChange={setAlimonyChildrenMonthly}
                                                 onChildrenCountChange={setAlimonyChildrenCount}
                                             />
+                                            </div>
                                         );
                                     }
                                     if (ct === 'نفقة ماضية') {
                                         const pastCalc = calculatedAlimonyNew;
                                         return (
-                                            <div key={ct} className={`${claimSectionCardClass} space-y-4`}>
+                                            <div key={ct} className={`${claimSectionCardClass} space-y-4`} data-spark-focus="past-alimony">
                                                 <div className={ecg.cardHeader}>
                                                     <h4 className={ecg.cardTitle}>
                                                         {ctLabel}
@@ -2099,7 +2229,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                     }
                                     if (claimUsesMonetaryAmountField(ct)) {
                                         return (
-                                            <div key={ct} className={claimSectionCardClass}>
+                                            <div key={ct} className={claimSectionCardClass} data-spark-focus="claim-amount">
                                                 <label className={ecg.labelGold}>
                                                     {ctLabel} — المبلغ المطلوب (دينار) *
                                                 </label>
@@ -2183,6 +2313,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                 ) : null}
                                 
                                 {claimType === 'حجة نفقة اتفاقية' && (
+                                    <div data-spark-focus="alimony">
                                     <SmartAlimonyCalculator
                                         alimonyBeneficiary={alimonyBeneficiary}
                                         alimonyLawsuitDate={alimonyLawsuitDate}
@@ -2191,6 +2322,12 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         alimonyChildrenMonthly={alimonyChildrenMonthly}
                                         alimonyChildrenCount={alimonyChildrenCount}
                                         calculatedAlimonyNew={calculatedAlimonyNew}
+                                        judgmentDate={judgmentDate}
+                                        docType={docType}
+                                        claimType={claimType}
+                                        activeClaimTypes={activeClaimTypes}
+                                        includesPastCalc={alimonyIncludesPastCalc}
+                                        alimonyPastStartDate={alimonyPastStartDate}
                                         onBeneficiaryChange={setAlimonyBeneficiary}
                                         onLawsuitDateChange={setAlimonyLawsuitDate}
                                         onExecutionDateChange={setAlimonyExecutionDate}
@@ -2198,6 +2335,7 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                                         onChildrenMonthlyChange={setAlimonyChildrenMonthly}
                                         onChildrenCountChange={setAlimonyChildrenCount}
                                     />
+                                    </div>
                                 )}
                                 
                                 {/* ✅ IRAQI LAW: Deferred Dowry Reason — مخفي لمسار أحكام المحاكم + مهر مؤجل (الطلب حصراً من مسار الحجج الشرعية) */}
@@ -2448,48 +2586,40 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
                         </ExecutionCreationSection>
                         ) : null}
 
-                        {showLawyerFeesBetweenSections ? (
-                            <LawyerFeesToggleCard
-                                includeLawyerFees={includeLawyerFees}
-                                onIncludeLawyerFeesChange={setIncludeLawyerFees}
-                                lawyerFeesAmount={lawyerFeesAmount}
-                                formatCurrency={formatCurrency}
-                                handleAmountChange={handleAmountChange}
-                                onLawyerFeesAmountChange={setLawyerFeesAmount}
-                            />
-                        ) : null}
-
-                        {showPartiesSection ? (
-                        <PartiesSection
-                            creditors={creditors}
-                            additionalCreditors={additionalCreditors}
-                            debtors={debtors}
-                            additionalDebtorsForm={additionalDebtorsForm}
-                            allowMultipleDebtors={allowMultipleDebtors}
-                            showDebtorSolidarySplit={showDebtorSolidarySplit}
-                            classification={classification}
-                            claimType={claimType}
-                            effectiveClaimTypes={effectiveClaimTypes}
-                            globalClaimTotal={globalClaimTotalForSplit}
-                            includeLawyerFees={includeLawyerFees}
-                            lockedEntityKind={lockedDebtorEntityKind}
-                            debtorManualDebtClaims={debtorManualDebtClaims}
-                            debtorLawyerFeesClaims={debtorLawyerFeesClaims}
-                            formatCurrency={formatCurrency}
-                            onDebtorManualDebtChange={handleDebtorManualDebtChange}
-                            onDebtorLawyerFeesChange={handleDebtorLawyerFeesChange}
-                            onAddCreditor={addCreditor}
-                            onRemoveAdditionalCreditor={removeAdditionalCreditor}
-                            onUpdateAdditionalCreditor={updateAdditionalCreditor}
-                            onUpdateCreditor={updateCreditor}
-                            onAddIndependentDebtor={addIndependentDebtor}
-                            onAddSolidaryDebtor={addSolidaryDebtor}
-                            onAddAnotherDebtor={addAnotherDebtor}
-                            onRemoveAdditionalDebtor={removeAdditionalDebtor}
-                            onUpdateAdditionalDebtor={updateAdditionalDebtor}
-                            onUpdateDebtor={updateDebtor}
+                        <ExecutionCreationLawyerFeesIsland
+                            showLawyerFeesToggle={showLawyerFeesBetweenSections}
+                            showPartiesSection={showPartiesSection}
+                            stateRef={lawyerFeesSnapshotRef}
+                            imperativeRef={lawyerFeesIslandRef}
+                            partiesSectionProps={{
+                                creditors,
+                                additionalCreditors,
+                                debtors,
+                                additionalDebtorsForm,
+                                allowMultipleDebtors,
+                                showDebtorSolidarySplit,
+                                classification,
+                                claimType,
+                                effectiveClaimTypes,
+                                globalClaimTotal: globalClaimTotalForSplit,
+                                lockedEntityKind: lockedDebtorEntityKind,
+                                debtorManualDebtClaims,
+                                debtorLawyerFeesClaims,
+                                formatCurrency,
+                                onDebtorManualDebtChange: handleDebtorManualDebtChange,
+                                onDebtorLawyerFeesChange: handleDebtorLawyerFeesChange,
+                                onAddCreditor: addCreditor,
+                                onRemoveAdditionalCreditor: removeAdditionalCreditor,
+                                onUpdateAdditionalCreditor: updateAdditionalCreditor,
+                                onUpdateCreditor: updateCreditor,
+                                onAddIndependentDebtor: addIndependentDebtor,
+                                onAddSolidaryDebtor: addSolidaryDebtor,
+                                onAddAnotherDebtor: addAnotherDebtor,
+                                onRemoveAdditionalDebtor: removeAdditionalDebtor,
+                                onUpdateAdditionalDebtor: updateAdditionalDebtor,
+                                onUpdateDebtor: updateDebtor,
+                            }}
                         />
-                        ) : null}
 
                         {/* ✅ DELETED: دليل التنفيذ القانوني - All tracking, calculations, and legal warnings belong exclusively to the Active Dashboard, NOT the creation form */}
 
@@ -2551,19 +2681,24 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                                 {claimType === 'تسليم ولد' && (
                                     <div className={`${ecg.subCard} space-y-3`}>
-                                        <p className={ecg.subCardTitle}>أسماء المحضونين (نزع حضانة)</p>
+                                        <p className={ecg.subCardTitle}>
+                                            أسماء المحضونين (نزع حضانة)
+                                            <span className="text-rose-400 ms-1" aria-hidden="true">*</span>
+                                        </p>
                                         {custodyWardNames.map((wardName, idx) => (
                                             <div key={idx} className="flex gap-2 items-center flex-row-reverse">
                                                 <input
                                                     type="text"
                                                     value={wardName}
+                                                    required
+                                                    aria-required="true"
                                                     onChange={(e) => {
                                                         const v = e.target.value;
                                                         setCustodyWardNames((prev) =>
                                                             prev.map((n, i) => (i === idx ? v : n))
                                                         );
                                                     }}
-                                                    placeholder={`اسم المحضون ${idx + 1}`}
+                                                    placeholder={`اسم المحضون ${idx + 1} (مطلوب)`}
                                                     className={`${ecg.field} flex-1 text-sm`}
                                                 />
                                                 {custodyWardNames.length > 1 && (
@@ -2603,15 +2738,6 @@ export const ExecutionCreationView: React.FC<ExecutionCreationViewProps> = ({ is
 
                 <ExecutionSaveButton onSubmit={handleSubmit} />
 
-                <ExecutionOptionSheet
-                    open={docTypeSheetOpen}
-                    onClose={() => setDocTypeSheetOpen(false)}
-                    title="نوع السند المنفذ"
-                    options={EXECUTION_DOC_TYPE_OPTIONS}
-                    comingSoonOptions={EXECUTION_DOC_TYPE_COMING_SOON}
-                    selectedValue={docType}
-                    onSelect={(v) => handleDocTypeChange(v)}
-                />
                 <ExecutionOptionSheet
                     open={claimTypeSheetOpen}
                     onClose={() => setClaimTypeSheetOpen(false)}

@@ -1,4 +1,4 @@
-export const REPOSITORY_SHELL_FEATURE = 'المستودع الذكي';
+export const REPOSITORY_SHELL_FEATURE = 'المستودع';
 
 export type OpenRepositoryFromShellParams = {
     signedIn: boolean;

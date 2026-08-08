@@ -70,7 +70,21 @@ describe('fieldTaskAlerts', () => {
         expect(alerts.some((a) => a.id === 'field-task:sn')).toBe(true);
     });
 
-    it('يوزّع 3 أيام في قريبة و5 أيام في قادمة', () => {
+    it('يصنّف مهمة ميدانية متأخرة غير منجزة ضمن العاجل', () => {
+        const past = new Date(now);
+        past.setDate(past.getDate() - 1);
+        const alerts = buildFieldTaskAlerts(
+            [pendingTask({ id: 'od', title: 'متأخرة', parsedDate: past })],
+            now,
+            registry,
+        );
+        expect(alerts.some((a) => a.id === 'field-task:od')).toBe(true);
+        const classified = classifySecretaryAlertsByHorizon(alerts, now);
+        expect(classified.urgentAlerts.some((a) => a.id === 'field-task:od')).toBe(true);
+        expect(classified.upcomingAlerts.some((a) => a.id === 'field-task:od')).toBe(false);
+    });
+
+    it('يوزّع 3 أيام في قادم ويستبعد ما بعد 4 أيام', () => {
         const in3 = new Date(now);
         in3.setDate(in3.getDate() + 3);
         const in5 = new Date(now);
@@ -79,14 +93,14 @@ describe('fieldTaskAlerts', () => {
         const alerts = buildFieldTaskAlerts(
             [
                 pendingTask({ id: 'n', title: 'قريبة', parsedDate: in3 }),
-                pendingTask({ id: 'u', title: 'قادمة', parsedDate: in5 }),
+                pendingTask({ id: 'u', title: 'بعيدة', parsedDate: in5 }),
             ],
             now,
             registry,
         );
         const classified = classifySecretaryAlertsByHorizon(alerts, now);
-        expect(classified.nearAlerts.some((a) => a.id === 'field-task:n')).toBe(true);
-        expect(classified.upcomingAlerts.some((a) => a.id === 'field-task:u')).toBe(true);
+        expect(classified.upcomingAlerts.some((a) => a.id === 'field-task:n')).toBe(true);
+        expect(classified.upcomingAlerts.some((a) => a.id === 'field-task:u')).toBe(false);
     });
 
     it('يزيل تكرار تقويم المهمة عند الحقن', () => {

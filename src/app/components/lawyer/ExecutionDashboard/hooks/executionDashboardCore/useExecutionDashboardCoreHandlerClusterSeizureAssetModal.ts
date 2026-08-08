@@ -108,6 +108,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureAssetModal(
         setUnifiedLedgerRevision,
         setShowCoerciveActionForm,
         setSeizureDetailCompletion,
+        openFollowupModalPersisted: resolved.openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         seizureMarkModalEntityId,
         seizureMarkModalEntityKind,

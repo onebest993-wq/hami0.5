@@ -50,9 +50,9 @@ describe('calendarDossierSync', () => {
         ]);
 
         const stats = await reconcileAllDossierDates('lawyer-test');
-        // 🛡️ WHITELIST: فقط appointments تُسجَّل، الـ tasks مُستبعدة
+        // reconcile الشامل: مواعيد + مهام استحقاق (المسار الحيّ whitelistOnly يختلف)
         expect(stats.lawsuitAppointments).toBe(2);
-        expect(stats.lawsuitTasks).toBe(0);
+        expect(stats.lawsuitTasks).toBe(1);
         expect(CalendarDB.saveEventsBatch).toHaveBeenCalled();
     });
 });

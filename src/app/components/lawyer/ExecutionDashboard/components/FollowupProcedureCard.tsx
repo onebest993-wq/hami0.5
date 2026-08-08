@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import { RequestLifecycleBadgeSlot, RequestLifecyclePanel } from './RequestLifecycleBadge';
 import type { InlineActionGateKey } from '../types';

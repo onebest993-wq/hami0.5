@@ -6,11 +6,11 @@ import {
     prefetchSmartVaultDocs,
     setVaultDocsWarmCache,
 } from '@/app/services/vault/vaultDocsWarmCache';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 
 const mockListDocs = vi.fn();
 
-vi.mock('@/app/services/lawyer-cloud', () => ({
+vi.mock('@/app/services/vault/smartVaultRuntime', () => ({
     SmartVaultDB: {
         listDocs: (...args: unknown[]) => mockListDocs(...args),
     },

@@ -118,7 +118,9 @@ interface UnifiedSummonsModalContainerProps {
     handleEmployeeAssignmentRequestForcedBring: () => void;
     forcedBringDecisionState: { pending: boolean; rejected: boolean };
     employeeForcedBringAwaitingPersonalOutcome: boolean;
-    handleEmployeeAssignmentResolveForcedBringOutcome: (outcome: 'brought' | 'absconded') => void;
+    handleEmployeeAssignmentResolveForcedBringOutcome: (
+        outcome: 'brought' | 'absconded' | 'dismissed',
+    ) => void;
     handleEmployeeWarrantOutcome: (outcome: 'brought' | 'terminate') => void;
     getPublicationNoticeForDebtorKey: (
         executionData: ExecutionFile,

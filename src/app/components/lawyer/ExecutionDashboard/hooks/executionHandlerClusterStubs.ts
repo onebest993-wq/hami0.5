@@ -35,10 +35,15 @@ function notifyStubInvocation(path: string): void {
     }
 }
 
+function stubCallResult(path: string): unknown {
+    if (/Submit/i.test(path)) return { ok: false };
+    return undefined;
+}
+
 function handlerLeaf(path: string): unknown {
     const fn = (..._args: unknown[]) => {
         notifyStubInvocation(path);
-        return undefined;
+        return stubCallResult(path);
     };
     return new Proxy(fn, {
         get(_target, prop) {
@@ -51,7 +56,7 @@ function handlerLeaf(path: string): unknown {
         },
         apply(_target, _thisArg, _args) {
             notifyStubInvocation(path);
-            return undefined;
+            return stubCallResult(path);
         },
     });
 }
@@ -63,10 +68,10 @@ const HANDLER_STUB = handlerLeaf('cluster');
  * تسطيح scope bag يتخطى قيم الـ stubs (functions)، فتصل المفاتيح المسطّحة undefined —
  * هذا البديل يستدعي إشعار «جاري تجهيز الأدوات» بدل انهيار "X is not a function".
  */
-export function executionHandlerNotReadyFallback(path: string): (...args: unknown[]) => undefined {
+export function executionHandlerNotReadyFallback(path: string): (...args: unknown[]) => unknown {
     return (..._args: unknown[]) => {
         notifyStubInvocation(path);
-        return undefined;
+        return stubCallResult(path);
     };
 }
 
@@ -117,6 +122,23 @@ const ASSEMBLY_HANDLER_KEYS = [
     'evictionProceduresHandlers',
 ] as const;
 
+/** مفاتيح dossierFollowupHandlers — يجب أن تكون object stub وليس function proxy لـ scopeBagPick */
+const DOSSIER_FOLLOWUP_HANDLER_STUB_LEAF_KEYS = [
+    'handleDossierAction',
+    'runSpecialFollowupSubmit',
+    'creditorOtherPartyTrackHandlers',
+    'otherPartyTabSubmitHandler',
+    'openOtherPartyAppealsModal',
+] as const;
+
+function buildHandlerGroupStub(prefix: string, keys: readonly string[]): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const key of keys) {
+        out[key] = handlerLeaf(`${prefix}.${key}`);
+    }
+    return out;
+}
+
 function buildStubCluster(): Record<string, unknown> {
     const out: Record<string, unknown> = {
         pushTimelineEvent: (..._args: unknown[]) => {
@@ -126,6 +148,10 @@ function buildStubCluster(): Record<string, unknown> {
         ...REST_EXTRA_DEFAULTS,
     };
     for (const key of ASSEMBLY_HANDLER_KEYS) {
+        if (key === 'dossierFollowupHandlers') {
+            out[key] = buildHandlerGroupStub('dossierFollowupHandlers', DOSSIER_FOLLOWUP_HANDLER_STUB_LEAF_KEYS);
+            continue;
+        }
         out[key] = handlerLeaf(key);
     }
     return out;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     findDossierControlDecisionRow,
     isDossierControlDecisionSettled,
+    resolveDossierControlWorkflowPhase,
     resolveSpecialFollowupStatusLabel,
     shouldShowDossierControlExecutorStrip,
     shouldShowSpecialFollowupExecutorStrip,
@@ -18,7 +19,7 @@ describe('dossierControlDecisions settlement', () => {
         ).toBe(true);
     });
 
-    it('treats approved row without appliedAt as settled when no appeal followup', () => {
+    it('treats approved row without appliedAt as not settled when no appeal followup', () => {
         const row = {
             id: 'sf_deleg_1',
             requestKind: 'special_followup',
@@ -29,7 +30,40 @@ describe('dossierControlDecisions settlement', () => {
             isDossierControlDecisionSettled(row, {
                 allDecisions: [row],
             })
-        ).toBe(true);
+        ).toBe(false);
+    });
+
+    it('resolveDossierControlWorkflowPhase tracks pending and completed cycles', () => {
+        const pending = {
+            id: 'sf_1',
+            requestKind: 'special_followup',
+            title: 'طلب نقل الإضبارة',
+            executorOutcome: 'pending',
+        };
+        const approvedPendingApply = {
+            id: 'sf_2',
+            requestKind: 'special_followup',
+            title: 'طلب نقل الإضبارة',
+            executorOutcome: 'approved',
+        };
+        const completed = {
+            id: 'sf_3',
+            requestKind: 'special_followup',
+            title: 'طلب نقل الإضبارة',
+            executorOutcome: 'approved',
+            specialFollowupAppliedAt: '2026-06-04T12:00:00.000Z',
+        };
+        expect(resolveDossierControlWorkflowPhase(pending, { allDecisions: [pending] })).toBe(
+            'pending_executor'
+        );
+        expect(
+            resolveDossierControlWorkflowPhase(approvedPendingApply, {
+                allDecisions: [approvedPendingApply],
+            })
+        ).toBe('approved_pending_apply');
+        expect(resolveDossierControlWorkflowPhase(completed, { allDecisions: [completed] })).toBe(
+            'completed'
+        );
     });
 
     it('findDossierControlDecisionRow ignores settled approved cycles', () => {
@@ -48,7 +82,7 @@ describe('dossierControlDecisions settlement', () => {
         expect(row).toBeNull();
     });
 
-    it('findDossierControlDecisionRow ignores approved rows without appliedAt', () => {
+    it('findDossierControlDecisionRow returns approved row without appliedAt until settled', () => {
         const approved = {
             id: 'sf_transfer_1',
             requestKind: 'special_followup',
@@ -56,7 +90,7 @@ describe('dossierControlDecisions settlement', () => {
             executorOutcome: 'approved',
         };
         const row = findDossierControlDecisionRow([approved], 'transfer');
-        expect(row).toBeNull();
+        expect(String((row as { id?: string })?.id || '')).toBe('sf_transfer_1');
     });
 
     it('findDossierControlDecisionRow still returns pending row', () => {
@@ -92,6 +126,23 @@ describe('dossierControlDecisions settlement', () => {
                         requestKind: 'special_followup',
                         title: 'طلب الإنابة التنفيذية',
                         executorOutcome: 'pending',
+                    },
+                ],
+            })
+        ).toBe(true);
+    });
+
+    it('shouldShowDossierControlExecutorStrip is true for approved row awaiting apply', () => {
+        expect(
+            shouldShowDossierControlExecutorStrip({
+                executionId: 'exec_1',
+                actionType: 'transfer',
+                decisions: [
+                    {
+                        id: 'sf_transfer_pending_apply',
+                        requestKind: 'special_followup',
+                        title: 'طلب نقل الإضبارة',
+                        executorOutcome: 'approved',
                     },
                 ],
             })

@@ -93,7 +93,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
                     type: 'decision',
                     date: notificationDate,
                     title: '📬 التبليغ بالحكم الغيابي',
-                    details: `تم تسجيل تبليغ الحكم الغيابي بتاريخ ${notificationDate}.\n⏳ تبدأ مهلة الاعتراض (${ABSENT_JUDGMENT_OBJECTION_DAYS} أيام) وتنتهي في ${objectionDeadline}.`,
+                    details: `تم تسجيل تبليغ الحكم الغيابي بتاريخ ${notificationDate}.\nمهلة الاعتراض: ${ABSENT_JUDGMENT_OBJECTION_DAYS} أيام من تاريخ التبليغ — تنتهي في ${objectionDeadline}.`,
                     isSystemLog: true,
                     isNew: true,
                 },
@@ -168,6 +168,33 @@ export function useSmartFileDefaultJudgmentActions(options: {
         ],
     );
 
+    const handleOpponentAppealWaived = useCallback(() => {
+        const today = getLocalTodayYmd();
+        const timeline: TimelineEvent[] = [
+            {
+                id: `opp_waive_${Date.now()}`,
+                type: 'decision',
+                date: today,
+                title: 'سقوط حق الخصم في الاستئناف',
+                details:
+                    'انتهت مهلة الاستئناف (15 يوماً من اليوم التالي لصدور القرار) دون تقديم طعن من الخصم — اكتسب الحكم الدرجة القطعية.',
+                isSystemLog: true,
+                isNew: true,
+            },
+            ...(stageExt.timeline ?? []),
+        ];
+
+        const updated = patchActiveStage(stages, activeStageIndex, {
+            status: 'completed',
+            finalDecision: 'مكتسبة الدرجة القطعية — لم يطعن الخصم بالاستئناف',
+            awaitingOpponentAppeal: false,
+            timeline,
+        });
+        commit(updated);
+        setStatus('مكتسبة الدرجة القطعية');
+        SmartToast.success('تم تثبيت سقوط حق الاستئناف — الحكم مكتسب الدرجة القطعية');
+    }, [stages, activeStageIndex, stageExt.timeline, commit, setStatus]);
+
     const handleWaiveObjection = useCallback(() => {
         const timeline = [
             {
@@ -204,7 +231,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
                     type: 'decision',
                     date: objectionDate,
                     title: '🛡️ تسجيل اعتراض غيابي',
-                    details: `تم تقديم الاعتراض الغيابي وتحديد موعد الجلسة الأولى بتاريخ ${sessionDate}.\nرقم الوصل: ${receiptNumber || 'غير مدخل'}`,
+                    details: `تم تقديم الاعتراض الغيابي وتحديد موعد الجلسة الأولى بتاريخ ${sessionDate}.`,
                     isNew: true,
                 },
                 ...(stageExt.timeline ?? []),
@@ -337,6 +364,7 @@ export function useSmartFileDefaultJudgmentActions(options: {
     return {
         handleDefaultObjection,
         handleWaiveObjection,
+        handleOpponentAppealWaived,
         handleRegisterObjection,
         handleObjectionJudgment,
         handleOtherAppeals,

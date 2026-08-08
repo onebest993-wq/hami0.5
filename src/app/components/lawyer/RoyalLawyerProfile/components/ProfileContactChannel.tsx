@@ -2,10 +2,11 @@ import React from 'react';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import {
     buildProfileContactTarget,
+    openProfileContact,
     resolveLocationMode,
 } from '@/app/services/profile/profileContactNavigation';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { Copy, ChevronLeft, MapPin } from 'lucide-react';
+import { Copy, ChevronLeft, MapPin } from '@/app/components/ui/lucideIcons';
 import { ActionIcon } from './ActionIcon';
 import { withAllowedClipboardAction } from '@/app/runtime/screenshotDeterrentRuntime';
 
@@ -81,6 +82,17 @@ export function ProfileContactChannel({ action }: ProfileContactChannelProps) {
 
     const openControl = !target ? (
         <button type="button" onClick={handleInvalid} className={channelClassName}>
+            {body}
+        </button>
+    ) : action.type === 'location' ? (
+        <button
+            type="button"
+            className={channelClassName}
+            onClick={() => {
+                const result = openProfileContact(action);
+                if (result === 'invalid') handleInvalid();
+            }}
+        >
             {body}
         </button>
     ) : target.startsWith('http://') || target.startsWith('https://') ? (

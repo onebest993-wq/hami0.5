@@ -2,16 +2,14 @@
  * E2E — المسجل الذكي: فتح من المستودع، تسجيل وهمي، Escape، إغلاق، إعادة فتح.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { gotoLawyerHomeE2E } from './helpers/bootFixtures';
 import { dismissBlockingOverlays } from './helpers/notificationFixtures';
-import { openNotepadShellFromHome } from './helpers/notepadFixtures';
+import { prepareProductivityE2E } from './helpers/productivityE2EFixtures';
+import { openRepositoryVoiceRecorder } from './helpers/repositoryFixtures';
 import { grantMicrophonePermission, installVoiceRecorderMocks } from './helpers/voiceRecorderFixtures';
 
 async function openVoiceRecorderFromRepository(page: Page) {
-    const modal = await openNotepadShellFromHome(page);
-    await modal.getByTestId('repository-voice-record').click({ force: true });
-    const recorder = page.getByTestId('voice-recorder-modal');
-    await expect(recorder).toBeVisible({ timeout: 12_000 });
+    const { recorder } = await openRepositoryVoiceRecorder(page);
     return recorder;
 }
 
@@ -19,14 +17,13 @@ test.describe('المسجل الذكي', () => {
     test.describe.configure({ timeout: 90_000 });
 
     test.beforeEach(async ({ page }) => {
-        await seedLawyerFiles(page);
+        await prepareProductivityE2E(page);
         await installVoiceRecorderMocks(page);
         await grantMicrophonePermission(page);
     });
 
     test('يفتح من المستودع ويعرض الحالة الابتدائية', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         const modal = await openVoiceRecorderFromRepository(page);
@@ -36,8 +33,7 @@ test.describe('المسجل الذكي', () => {
     });
 
     test('Escape يغلق المسجل في الحالة الابتدائية', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         await openVoiceRecorderFromRepository(page);
@@ -46,8 +42,7 @@ test.describe('المسجل الذكي', () => {
     });
 
     test('زر الإغلاق يغلق المسجل', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         const modal = await openVoiceRecorderFromRepository(page);
@@ -56,8 +51,7 @@ test.describe('المسجل الذكي', () => {
     });
 
     test('إعادة الفتح تعيد الحالة الابتدائية', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         const modal = await openVoiceRecorderFromRepository(page);
@@ -70,8 +64,7 @@ test.describe('المسجل الذكي', () => {
     });
 
     test('يبدأ التسجيل ويعرض المؤقت ثم يوقف', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         const modal = await openVoiceRecorderFromRepository(page);
@@ -92,8 +85,7 @@ test.describe('المسجل الذكي', () => {
     });
 
     test('Escape أثناء التسجيل يوقف دون إغلاق فوري', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
+        await gotoLawyerHomeE2E(page);
         await dismissBlockingOverlays(page);
 
         const modal = await openVoiceRecorderFromRepository(page);

@@ -32,7 +32,7 @@ export const HeaderToolbarNav = memo(function HeaderToolbarNav({
 }: HeaderToolbarNavProps) {
     return (
         <nav
-            className={`flex items-center gap-2 px-2.5 py-2 rounded-[1.35rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
+            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-[1.25rem] hami-sovereign-glass hami-sovereign-rim hami-home-themed-border border border-white/[0.08] shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${interactive ? 'pointer-events-auto' : 'pointer-events-none'}`}
             aria-label="أدوات اللوحة"
             data-testid="header-toolbar-nav"
         >

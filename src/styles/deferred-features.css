@@ -1,1 +1,3 @@
 @import './tailwind-features.css';
+@import '../app/components/lawyer/SmartLegalRadar/radarTheme.css';
+@import '../app/components/lawyer/ArchivePortal/royalGlassBtn.css';

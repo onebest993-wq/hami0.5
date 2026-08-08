@@ -1,7 +1,7 @@
-// @ts-nocheck
 /** hami-open-decisions-modal — يحافظ على openDecisionsModalWithBoot (موجة 13) */
 import { useEffect } from 'react';
 import { matchesDecisionsModalOpenTarget } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import type { ExecutionDecisionsOrchestratorSlice } from '../../orchestrators/executionDecisionsOrchestratorTypes';
 
 export function useExecutionDashboardOpenDecisionsModalBridge({
     executionDataId,
@@ -30,7 +30,7 @@ export function useExecutionDashboardOpenDecisionsModalBridge({
     setShowAppointmentModal: (show: boolean) => void;
     setShowTimelineModal: (show: boolean) => void;
     setShowNotificationModal: (show: boolean) => void;
-    openDecisionsModalWithBoot: (boot?: { tab?: string; decisionId?: string | null }) => void;
+    openDecisionsModalWithBoot: ExecutionDecisionsOrchestratorSlice['openDecisionsModalWithBoot'];
 }) {
     useEffect(() => {
         const handler = (e: Event) => {

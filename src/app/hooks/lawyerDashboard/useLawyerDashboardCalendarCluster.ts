@@ -7,6 +7,9 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
+import { useVaultDocsForClusterScan } from '@/app/workspace/useVaultDocsForClusterScan';
+import { useCalendarEventsForClusterScan } from '@/app/workspace/useCalendarEventsForClusterScan';
 
 export type UseLawyerDashboardCalendarClusterParams = {
     enabled: boolean;
@@ -33,6 +36,8 @@ export function useLawyerDashboardCalendarCluster({
     onClusterScanSources,
 }: UseLawyerDashboardCalendarClusterParams) {
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
+    const vaultDocs = useVaultDocsForClusterScan(calendarUserId, enabled);
+    const calendarEvents = useCalendarEventsForClusterScan(calendarUserId, enabled);
 
     useIncrementalCalendarSync(
         enabled,
@@ -52,6 +57,8 @@ export function useLawyerDashboardCalendarCluster({
         criminalCases: criminalCasesForCluster,
         notes: globalNotes,
         fieldTasks: quantumTasks,
+        vaultDocs,
+        calendarEvents,
     });
 
     useWorkspacePinMaintenance({ enabled, clusterScanSources });

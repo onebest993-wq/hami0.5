@@ -10,6 +10,7 @@ import {
 export type UseExecutionDashboardPendingExecutorDecisionOpenersParams = {
     executionId: string | undefined;
     decisionsStorageExecutionId: string;
+    executionData?: Record<string, unknown> | null;
     executorApprovalActions: ExecutorApprovalActions;
     setShowDecisionsModal: (show: boolean) => void;
     openBreakInventoryCompletion: (
@@ -30,6 +31,7 @@ export function useExecutionDashboardPendingExecutorDecisionOpeners(
     const {
         executionId,
         decisionsStorageExecutionId,
+        executionData = null,
         executorApprovalActions,
         setShowDecisionsModal,
         openBreakInventoryCompletion,
@@ -39,10 +41,10 @@ export function useExecutionDashboardPendingExecutorDecisionOpeners(
     const tryOpenPendingBreakInventoryLedger = useCallback((): boolean => {
         const primaryKey = String(decisionsStorageExecutionId || '').trim();
         const altKey = String(executionId ?? '').trim();
-        const primaryHit = findApprovedBreakInventoryNeedingLedger(primaryKey);
+        const primaryHit = findApprovedBreakInventoryNeedingLedger(primaryKey, executionData);
         const altHit =
             !primaryHit && altKey && altKey !== primaryKey
-                ? findApprovedBreakInventoryNeedingLedger(altKey)
+                ? findApprovedBreakInventoryNeedingLedger(altKey, executionData)
                 : null;
         const hit = primaryHit || altHit;
         if (!hit) return false;
@@ -55,6 +57,7 @@ export function useExecutionDashboardPendingExecutorDecisionOpeners(
     }, [
         executionId,
         decisionsStorageExecutionId,
+        executionData,
         executorApprovalActions,
         openBreakInventoryCompletion,
         setShowDecisionsModal,
@@ -63,10 +66,10 @@ export function useExecutionDashboardPendingExecutorDecisionOpeners(
     const tryOpenPendingCustodianDetails = useCallback((): boolean => {
         const primaryKey = String(decisionsStorageExecutionId || '').trim();
         const altKey = String(executionId ?? '').trim();
-        const primaryHit = findApprovedCustodianNeedingDetails(primaryKey);
+        const primaryHit = findApprovedCustodianNeedingDetails(primaryKey, executionData);
         const altHit =
             !primaryHit && altKey && altKey !== primaryKey
-                ? findApprovedCustodianNeedingDetails(altKey)
+                ? findApprovedCustodianNeedingDetails(altKey, executionData)
                 : null;
         const hit = primaryHit || altHit;
         if (!hit) return false;
@@ -79,6 +82,7 @@ export function useExecutionDashboardPendingExecutorDecisionOpeners(
     }, [
         executionId,
         decisionsStorageExecutionId,
+        executionData,
         executorApprovalActions,
         openJudicialCustodianCompletion,
         setShowDecisionsModal,

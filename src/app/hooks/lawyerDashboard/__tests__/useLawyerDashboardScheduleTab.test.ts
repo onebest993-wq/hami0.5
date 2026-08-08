@@ -36,6 +36,13 @@ vi.mock('@/app/bootstrap/bootReveal', () => ({
     isBootRevealDone: () => false,
 }));
 
+vi.mock('@/app/services/schedule/scheduleShellSnap', () => ({
+    snapScheduleShellOpen: vi.fn(),
+    snapScheduleShellClose: vi.fn(),
+    isScheduleShellSnappedOpen: vi.fn(() => false),
+    scheduleShellReactSync: (fn: () => void) => fn(),
+}));
+
 describe('useLawyerDashboardScheduleTab', () => {
     beforeEach(() => {
         vi.clearAllMocks();

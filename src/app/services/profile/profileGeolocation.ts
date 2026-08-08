@@ -1,4 +1,5 @@
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
 export type GeolocationPickResult = {
     latitude: number;
@@ -9,7 +10,7 @@ export type GeolocationPickResult = {
 function geolocationErrorMessage(code: number): string {
     switch (code) {
         case 1:
-            return 'تم رفض صلاحية الموقع — فعّلها من إعدادات المتصفح أو الجهاز';
+            return 'تم رفض صلاحية الموقع — فعّلها من إعدادات التطبيق';
         case 2:
             return 'الموقع غير متاح حالياً — جرّب مرة أخرى أو أدخل العنوان يدوياً';
         case 3:
@@ -19,46 +20,95 @@ function geolocationErrorMessage(code: number): string {
     }
 }
 
+function formatPick(latitude: number, longitude: number): GeolocationPickResult {
+    return {
+        latitude,
+        longitude,
+        label: `${latitude.toFixed(6)},${longitude.toFixed(6)}`,
+    };
+}
+
+async function ensureCapacitorLocationPermission(): Promise<boolean> {
+    const { Geolocation } = await import('@capacitor/geolocation');
+    const current = await Geolocation.checkPermissions();
+    if (current.location === 'granted' || current.location === 'limited') return true;
+    const requested = await Geolocation.requestPermissions();
+    return requested.location === 'granted' || requested.location === 'limited';
+}
+
+async function requestCapacitorLocationLabel(): Promise<GeolocationPickResult | null> {
+    if (!isCapacitorNativePlatform()) return null;
+    try {
+        const granted = await ensureCapacitorLocationPermission();
+        if (!granted) {
+            throw Object.assign(new Error('denied'), { code: 1 });
+        }
+        const { Geolocation } = await import('@capacitor/geolocation');
+        const pos = await Geolocation.getCurrentPosition({
+            enableHighAccuracy: true,
+            timeout: 10_000,
+            maximumAge: 60_000,
+        });
+        return formatPick(pos.coords.latitude, pos.coords.longitude);
+    } catch (err) {
+        if (typeof err === 'object' && err !== null && 'code' in err) {
+            throw err;
+        }
+        return null;
+    }
+}
+
 export function requestCurrentLocationLabel(): Promise<GeolocationPickResult> {
     return new Promise((resolve, reject) => {
-        if (typeof navigator === 'undefined' || !navigator.geolocation) {
-            reject(new Error('unsupported'));
-            return;
-        }
+        void (async () => {
+            try {
+                const native = await requestCapacitorLocationLabel();
+                if (native) {
+                    resolve(native);
+                    return;
+                }
+            } catch (err) {
+                reject(err);
+                return;
+            }
 
-        if (typeof window !== 'undefined' && !window.isSecureContext) {
-            reject(new Error('insecure'));
-            return;
-        }
+            if (typeof navigator === 'undefined' || !navigator.geolocation) {
+                reject(new Error('unsupported'));
+                return;
+            }
 
-        const onSuccess = (pos: GeolocationPosition) => {
-            const { latitude, longitude } = pos.coords;
-            resolve({
-                latitude,
-                longitude,
-                label: `${latitude.toFixed(6)},${longitude.toFixed(6)}`,
-            });
-        };
+            if (typeof window !== 'undefined' && !window.isSecureContext) {
+                reject(new Error('insecure'));
+                return;
+            }
 
-        const tryGet = (highAccuracy: boolean) => {
-            navigator.geolocation.getCurrentPosition(
-                onSuccess,
-                (err) => {
-                    if (highAccuracy && (err.code === 2 || err.code === 3)) {
-                        tryGet(false);
-                        return;
-                    }
-                    reject(err);
-                },
-                {
-                    enableHighAccuracy: highAccuracy,
-                    timeout: highAccuracy ? 14_000 : 20_000,
-                    maximumAge: 120_000,
-                },
-            );
-        };
+            const onSuccess = (pos: GeolocationPosition) => {
+                resolve(formatPick(pos.coords.latitude, pos.coords.longitude));
+            };
 
-        tryGet(true);
+            const nativeTimeout = isCapacitorNativePlatform() ? 10_000 : 14_000;
+            const fallbackTimeout = isCapacitorNativePlatform() ? 12_000 : 20_000;
+
+            const tryGet = (highAccuracy: boolean) => {
+                navigator.geolocation.getCurrentPosition(
+                    onSuccess,
+                    (err) => {
+                        if (highAccuracy && (err.code === 2 || err.code === 3)) {
+                            tryGet(false);
+                            return;
+                        }
+                        reject(err);
+                    },
+                    {
+                        enableHighAccuracy: highAccuracy,
+                        timeout: highAccuracy ? nativeTimeout : fallbackTimeout,
+                        maximumAge: 120_000,
+                    },
+                );
+            };
+
+            tryGet(true);
+        })();
     });
 }
 

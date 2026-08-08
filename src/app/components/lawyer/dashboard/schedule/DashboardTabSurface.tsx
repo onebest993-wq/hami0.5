@@ -1,5 +1,5 @@
-import React from 'react';
-import { inertProps } from '@/app/utils/inertProps';
+import React, { useLayoutEffect, useRef } from 'react';
+import { blurFocusWithin, inertProps } from '@/app/utils/inertProps';
 import '@/app/components/lawyer/RoyalLawyerProfile/profilePageEnterFx.css';
 
 export type DashboardTabSurfaceProps = {
@@ -29,9 +29,17 @@ export function DashboardTabSurface({
     homeStackCover = false,
     children,
 }: DashboardTabSurfaceProps) {
+    const surfaceRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+        if (active) return;
+        blurFocusWithin(surfaceRef.current);
+    }, [active]);
+
     if (softReveal) {
         return (
             <div
+                ref={surfaceRef}
                 id={testId}
                 data-testid={testId}
                 className={`hami-dashboard-tab-reveal ${active ? 'is-active' : ''} ${className}`.trim()}
@@ -45,10 +53,10 @@ export function DashboardTabSurface({
     if (homeStackCover) {
         return (
             <div
+                ref={surfaceRef}
                 id={testId}
                 data-testid={testId}
                 className={`hami-dashboard-home-stack-cover ${active ? 'is-active' : ''} ${className}`.trim()}
-                aria-hidden={!active}
                 {...inertProps(!active)}
             >
                 {children}
@@ -59,13 +67,13 @@ export function DashboardTabSurface({
     if (preserveLayout) {
         return (
             <div
+                ref={surfaceRef}
                 id={testId}
                 data-testid={testId}
                 data-hami-tab-preserve={active ? 'active' : 'idle'}
                 className={`absolute inset-0 bg-[#020408] hami-dashboard-tab-preserve ${
                     active ? 'hami-dashboard-tab-preserve--active' : ''
                 } ${className}`.trim()}
-                aria-hidden={!active}
                 {...inertProps(!active)}
             >
                 {children}
@@ -75,6 +83,7 @@ export function DashboardTabSurface({
 
     return (
         <div
+            ref={surfaceRef}
             id={testId}
             data-testid={testId}
             className={active ? className : `hidden pointer-events-none ${className}`}

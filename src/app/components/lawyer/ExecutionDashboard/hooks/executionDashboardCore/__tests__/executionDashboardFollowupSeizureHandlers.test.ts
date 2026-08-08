@@ -44,7 +44,7 @@ describe('executionDashboardFollowupSeizureInits', () => {
 
     it('validates movable init required fields', () => {
         const showToast = vi.fn();
-        runSaveSeizedMovableInitForDecision(
+        const result = runSaveSeizedMovableInitForDecision(
             {
                 decisionId: 'd1',
                 movableDescription: '',
@@ -55,12 +55,36 @@ describe('executionDashboardFollowupSeizureInits', () => {
                 exId: 'ex-1',
                 executionDataRef: { current: { seizedMovables: [] } } as never,
                 nextTimelineId: () => 'tl-1',
-                persistExecutionMerge: vi.fn(),
+                persistExecutionMerge: vi.fn(() => true),
                 pushTimelineEvent: vi.fn(),
                 showToast,
             },
         );
+        expect(result).toBeNull();
         expect(showToast).toHaveBeenCalledWith('أدخل وصف المال المنقول.', 'warning');
+    });
+
+    it('returns seized movable row when persist succeeds', () => {
+        const persistExecutionMerge = vi.fn(() => true);
+        const executionDataRef = { current: { seizedMovables: [] } };
+        const result = runSaveSeizedMovableInitForDecision(
+            {
+                decisionId: 'd1',
+                movableDescription: 'سيارة',
+                movableLocation: 'بغداد',
+                judicialCustodianName: 'حارس',
+            },
+            {
+                exId: 'ex-1',
+                executionDataRef: executionDataRef as never,
+                nextTimelineId: () => 'tl-1',
+                persistExecutionMerge,
+                pushTimelineEvent: vi.fn(),
+                showToast: vi.fn(),
+            },
+        );
+        expect(result?.decisionRowId).toBe('d1');
+        expect(persistExecutionMerge).toHaveBeenCalled();
     });
 });
 

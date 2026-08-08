@@ -1,6 +1,6 @@
 import React, { forwardRef, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/app/components/ui/lucideIcons';
 import { ncFieldClass } from '../newCaseGlassTheme';
 
 export type CaseFieldSelectProps = {
@@ -9,11 +9,12 @@ export type CaseFieldSelectProps = {
     options: readonly string[];
     placeholder?: string;
     hasError?: boolean;
+    disabled?: boolean;
     'aria-label'?: string;
 };
 
 export const CaseFieldSelect = forwardRef<HTMLButtonElement, CaseFieldSelectProps>(function CaseFieldSelect(
-    { value, onChange, options, placeholder = 'اختر...', hasError, 'aria-label': ariaLabel },
+    { value, onChange, options, placeholder = 'اختر...', hasError, disabled = false, 'aria-label': ariaLabel },
     ref,
 ) {
     const [open, setOpen] = useState(false);
@@ -122,8 +123,11 @@ export const CaseFieldSelect = forwardRef<HTMLButtonElement, CaseFieldSelectProp
                 aria-label={ariaLabel}
                 aria-haspopup="listbox"
                 aria-expanded={open}
-                onClick={() => setOpen((current) => !current)}
-                className={`${ncFieldClass(hasError)} flex w-full items-center justify-between gap-2 text-right touch-manipulation`}
+                disabled={disabled}
+                onClick={() => {
+                    if (!disabled) setOpen((current) => !current);
+                }}
+                className={`${ncFieldClass(hasError)} flex w-full items-center justify-between gap-2 text-right touch-manipulation disabled:opacity-60 disabled:cursor-not-allowed`}
             >
                 <span className={`truncate ${value ? 'text-white' : 'text-white/30'}`}>{label}</span>
                 <ChevronDown

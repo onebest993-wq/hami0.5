@@ -1,12 +1,29 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { X, Loader2, Save, Trash2 } from 'lucide-react';
+import { X, Loader2, Save, Trash2, Bell, BellRing } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import { resolveGlobalSearchSheetStyle } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayLayout';
 import type { EventFormData } from './utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
-import { RADAR_GLASS_PANEL, RADAR_INPUT, RADAR_LABEL, RADAR_BTN_GOLD, RADAR_FORM_OVERLAY } from './radarTheme';
+import {
+    RADAR_FORM_OVERLAY,
+    RADAR_FORM_PANEL,
+    RADAR_FORM_INPUT,
+    RADAR_FORM_LABEL,
+    RADAR_FORM_ICON_BTN,
+    RADAR_FORM_BTN_DISABLED,
+    RADAR_FORM_BTN_DANGER,
+    RADAR_BTN_GOLD,
+} from './radarTheme';
+import {
+    CALENDAR_REMINDER_OPTIONS_MINUTES,
+    formatCalendarReminderChip,
+} from '@/app/services/calendar/calendarEventReminder';
+import { requestHamiNotificationPermission } from '@/app/services/notifications/HamiNotificationBridge';
+import { primeHamiLegalReminderAudio } from '@/app/services/calendar/calendarReminderAlarmSound';
 
 const FOCUSABLE_SELECTOR =
     'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -17,8 +34,7 @@ interface EventFormProps {
     formData: EventFormData;
     editingEvent: UnifiedEvent | null;
     saving: boolean;
-    onFormChange: (field: keyof EventFormData, value: string) => void;
-    onSave: () => void;
+    onSave: (data: EventFormData) => void;
     onDelete: () => void;
 }
 
@@ -28,10 +44,11 @@ export const EventForm = React.memo(function EventForm({
     formData,
     editingEvent,
     saving,
-    onFormChange,
     onSave,
     onDelete,
 }: EventFormProps) {
+    const [localFormData, setLocalFormData] = useState(formData);
+    const wasOpenRef = useRef(false);
     const titleInputId = 'radar-event-title-input';
     const dateInputId = 'radar-event-date-input';
     const timeInputId = 'radar-event-time-input';
@@ -40,8 +57,22 @@ export const EventForm = React.memo(function EventForm({
     const formTitleId = 'radar-event-form-title';
     const panelRef = useRef<HTMLDivElement>(null);
     const reduceMotion = useReduceMotion();
+    const keyboardInset = useMobileKeyboardInset(show, true);
+    const keyboardResizeGuardUntilRef = useRef(0);
+
+    useEffect(() => {
+        if (show && !wasOpenRef.current) {
+            setLocalFormData(formData);
+        }
+        wasOpenRef.current = show;
+    }, [show, formData, editingEvent?.id]);
 
     useBodyScrollLock(show);
+
+    useEffect(() => {
+        if (!show || keyboardInset <= 0) return;
+        keyboardResizeGuardUntilRef.current = Date.now() + 320;
+    }, [show, keyboardInset]);
 
     const openNativePicker = (target: HTMLInputElement) => {
         if (typeof target.showPicker === 'function') {
@@ -96,6 +127,10 @@ export const EventForm = React.memo(function EventForm({
 
     if (!show) return null;
 
+    const hasTime = Boolean(localFormData.time?.trim());
+    const reminderEnabled =
+        hasTime && localFormData.reminderMinutesBefore !== null && localFormData.reminderMinutesBefore > 0;
+
     const content = (
         <motion.div
             initial={reduceMotion ? false : { opacity: 0 }}
@@ -105,7 +140,8 @@ export const EventForm = React.memo(function EventForm({
             className={RADAR_FORM_OVERLAY}
             data-testid="radar-event-form-overlay"
             onClick={() => {
-                if (!saving) onClose();
+                if (saving || Date.now() < keyboardResizeGuardUntilRef.current) return;
+                onClose();
             }}
         >
             <motion.div
@@ -117,16 +153,17 @@ export const EventForm = React.memo(function EventForm({
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={formTitleId}
-                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto overscroll-contain border-t sm:border border-[#F5EDE0]/12 bg-[#1f1712] sm:bg-[#1f1712] backdrop-blur-none`}
+                className={RADAR_FORM_PANEL}
                 data-testid="radar-event-form"
-                onClick={(e) => e.stopPropagation()}
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
                 onKeyDown={onKeyDownCapture}
-                style={{ willChange: 'transform, opacity' }}
+                style={{
+                    ...(reduceMotion ? undefined : { willChange: 'transform, opacity' }),
+                    ...resolveGlobalSearchSheetStyle(keyboardInset),
+                }}
             >
-                <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#E8DCC8]/40 to-transparent" />
-
-                <div className="flex items-center justify-between mb-5">
-                    <h2 id={formTitleId} className="text-[#F5EDE0] font-bold text-lg">
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-[#E2E8F0]">
+                    <h2 id={formTitleId} className="font-bold text-lg text-[#121212]">
                         {editingEvent ? 'تعديل الموعد' : 'إضافة موعد جديد'}
                     </h2>
                     <button
@@ -136,7 +173,7 @@ export const EventForm = React.memo(function EventForm({
                         onClick={() => {
                             if (!saving) onClose();
                         }}
-                        className="flex h-[44px] w-[44px] items-center justify-center rounded-lg text-[#E8DCC8]/55 transition-colors touch-manipulation hover:bg-[#F5EDE0]/10 hover:text-[#F5EDE0]"
+                        className={RADAR_FORM_ICON_BTN}
                     >
                         <X size={20} />
                     </button>
@@ -144,73 +181,159 @@ export const EventForm = React.memo(function EventForm({
 
                 <div className="space-y-4" dir="rtl">
                     <div>
-                        <label htmlFor={titleInputId} className={RADAR_LABEL}>العنوان *</label>
+                        <label htmlFor={titleInputId} className={RADAR_FORM_LABEL}>العنوان *</label>
                         <input
                             id={titleInputId}
                             data-testid="radar-event-title"
-                            value={formData.title}
+                            value={localFormData.title}
                             maxLength={160}
                             enterKeyHint="next"
-                            onChange={(e) => onFormChange('title', e.target.value)}
-                            placeholder="مثال: جلسة مرافعة - قضية إرث"
-                            className={RADAR_INPUT}
+                            onChange={(e) =>
+                                setLocalFormData((prev) => ({ ...prev, title: e.target.value }))
+                            }
+                            className={RADAR_FORM_INPUT}
                         />
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label htmlFor={dateInputId} className={RADAR_LABEL}>التاريخ *</label>
+                            <label htmlFor={dateInputId} className={RADAR_FORM_LABEL}>التاريخ *</label>
                             <input
                                 id={dateInputId}
                                 type="date"
-                                value={formData.date}
-                                onChange={(e) => onFormChange('date', e.target.value)}
+                                value={localFormData.date}
+                                onChange={(e) =>
+                                    setLocalFormData((prev) => ({ ...prev, date: e.target.value }))
+                                }
                                 onFocus={(e) => openNativePicker(e.currentTarget)}
-                                className={`${RADAR_INPUT} min-h-[44px] touch-manipulation [color-scheme:dark]`}
+                                className={RADAR_FORM_INPUT}
                             />
                         </div>
                         <div>
-                            <label htmlFor={timeInputId} className={RADAR_LABEL}>الوقت</label>
-                            <input
-                                id={timeInputId}
-                                type="time"
-                                value={formData.time}
-                                step={300}
-                                onChange={(e) => onFormChange('time', e.target.value)}
-                                onFocus={(e) => openNativePicker(e.currentTarget)}
-                                className={`${RADAR_INPUT} min-h-[44px] touch-manipulation [color-scheme:dark]`}
-                            />
+                            <label htmlFor={timeInputId} className={RADAR_FORM_LABEL}>الوقت</label>
+                            <div className="flex items-stretch gap-1.5">
+                                <input
+                                    id={timeInputId}
+                                    type="time"
+                                    value={localFormData.time}
+                                    step={300}
+                                    onChange={(e) => {
+                                        const nextTime = e.target.value;
+                                        setLocalFormData((prev) => ({
+                                            ...prev,
+                                            time: nextTime,
+                                            reminderMinutesBefore: nextTime.trim()
+                                                ? prev.reminderMinutesBefore
+                                                : null,
+                                        }));
+                                    }}
+                                    onFocus={(e) => openNativePicker(e.currentTarget)}
+                                    className={`${RADAR_FORM_INPUT} min-w-0 flex-1`}
+                                />
+                                <button
+                                    type="button"
+                                    data-testid="radar-event-reminder-toggle"
+                                    disabled={!hasTime}
+                                    aria-pressed={reminderEnabled}
+                                    aria-label={reminderEnabled ? 'إيقاف التذكير' : 'تفعيل التذكير'}
+                                    title={hasTime ? 'تذكير قبل الموعد' : 'أضف وقتاً لتفعيل التذكير'}
+                                    onClick={() => {
+                                        if (!hasTime) return;
+                                        const willEnable = !(
+                                            localFormData.reminderMinutesBefore &&
+                                            localFormData.reminderMinutesBefore > 0
+                                        );
+                                        if (willEnable) {
+                                            void primeHamiLegalReminderAudio();
+                                            void requestHamiNotificationPermission({
+                                                fromUserGesture: true,
+                                            });
+                                        }
+                                        setLocalFormData((prev) => ({
+                                            ...prev,
+                                            reminderMinutesBefore:
+                                                prev.reminderMinutesBefore && prev.reminderMinutesBefore > 0
+                                                    ? null
+                                                    : 10,
+                                        }));
+                                    }}
+                                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border touch-manipulation transition-colors ${
+                                        !hasTime
+                                            ? 'border-[#CBD5E1]/50 text-[#94A3B8]/40 cursor-not-allowed'
+                                            : reminderEnabled
+                                              ? 'border-[#E6C673]/45 bg-[#E6C673]/12 text-[#A67C52]'
+                                              : 'border-[#CBD5E1] text-[#64748B] hover:border-[#94A3B8]'
+                                    }`}
+                                >
+                                    {reminderEnabled ? <BellRing size={17} /> : <Bell size={17} />}
+                                </button>
+                            </div>
+                            {reminderEnabled ? (
+                                <div
+                                    className="mt-2 flex flex-wrap gap-1.5"
+                                    data-testid="radar-event-reminder-options"
+                                    role="group"
+                                    aria-label="مدة التذكير قبل الموعد"
+                                >
+                                    {CALENDAR_REMINDER_OPTIONS_MINUTES.map((minutes) => {
+                                        const active = localFormData.reminderMinutesBefore === minutes;
+                                        return (
+                                            <button
+                                                key={minutes}
+                                                type="button"
+                                                data-testid={`radar-event-reminder-${minutes}`}
+                                                aria-pressed={active}
+                                                onClick={() =>
+                                                    setLocalFormData((prev) => ({
+                                                        ...prev,
+                                                        reminderMinutesBefore: minutes,
+                                                    }))
+                                                }
+                                                className={`min-h-[32px] rounded-lg border px-2.5 text-[10px] font-bold touch-manipulation transition-colors ${
+                                                    active
+                                                        ? 'border-[#E6C673]/45 bg-[#E6C673]/14 text-[#7A5C32]'
+                                                        : 'border-[#E2E8F0] bg-white text-[#64748B] hover:border-[#CBD5E1]'
+                                                }`}
+                                            >
+                                                {formatCalendarReminderChip(minutes)}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : null}
                         </div>
                     </div>
 
                     <div>
-                        <label htmlFor={locationInputId} className={RADAR_LABEL}>الموقع</label>
+                        <label htmlFor={locationInputId} className={RADAR_FORM_LABEL}>الموقع</label>
                         <input
                             id={locationInputId}
-                            value={formData.location}
+                            value={localFormData.location}
                             maxLength={160}
                             enterKeyHint="next"
-                            onChange={(e) => onFormChange('location', e.target.value)}
-                            placeholder="مثال: محكمة بداءة الكرخ"
-                            className={RADAR_INPUT}
+                            onChange={(e) =>
+                                setLocalFormData((prev) => ({ ...prev, location: e.target.value }))
+                            }
+                            className={RADAR_FORM_INPUT}
                         />
                     </div>
 
                     <div>
-                        <label htmlFor={notesInputId} className={RADAR_LABEL}>ملاحظات</label>
+                        <label htmlFor={notesInputId} className={RADAR_FORM_LABEL}>ملاحظات</label>
                         <textarea
                             id={notesInputId}
-                            value={formData.notes}
+                            value={localFormData.notes}
                             maxLength={600}
-                            onChange={(e) => onFormChange('notes', e.target.value)}
-                            placeholder="ملاحظات إضافية..."
+                            onChange={(e) =>
+                                setLocalFormData((prev) => ({ ...prev, notes: e.target.value }))
+                            }
                             rows={3}
-                            className={`${RADAR_INPUT} resize-none`}
+                            className={`${RADAR_FORM_INPUT} resize-none min-h-[96px]`}
                         />
                     </div>
                 </div>
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-6 pt-4 border-t border-[#E2E8F0]">
                     {editingEvent &&
                         editingEvent.source === 'calendar' &&
                         !editingEvent.bridge?.sourceEventId?.startsWith('field_') && (
@@ -222,7 +345,7 @@ export const EventForm = React.memo(function EventForm({
                             }}
                             disabled={saving}
                             aria-label={editingEvent ? `حذف الموعد ${editingEvent.title}` : 'حذف الموعد'}
-                            className="flex min-h-[44px] items-center gap-2 rounded-xl border border-[#E8DCC8]/30 bg-[#F5EDE0]/[0.08] px-4 py-2.5 text-sm font-bold text-[#E8DCC8] transition-all touch-manipulation hover:bg-[#9AADB0]/18 hover:border-[#B7C5C7]/40 hover:text-[#FAF7F2] disabled:opacity-50"
+                            className={RADAR_FORM_BTN_DANGER}
                         >
                             <Trash2 size={16} />
                             حذف
@@ -231,12 +354,12 @@ export const EventForm = React.memo(function EventForm({
                     <button
                         type="button"
                         data-testid="radar-event-save"
-                        onClick={() => void onSave()}
+                        onClick={() => void onSave(localFormData)}
                         aria-label={editingEvent ? `تحديث الموعد ${editingEvent.title}` : 'إضافة الموعد'}
-                        disabled={saving || !formData.title.trim() || !formData.date}
+                        disabled={saving || !localFormData.title.trim() || !localFormData.date}
                         className={`flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold transition-all touch-manipulation ${
-                            saving || !formData.title.trim() || !formData.date
-                                ? 'bg-[#F5EDE0]/[0.06] text-[#E8DCC8]/35 cursor-not-allowed border border-[#F5EDE0]/10'
+                            saving || !localFormData.title.trim() || !localFormData.date
+                                ? RADAR_FORM_BTN_DISABLED
                                 : `${RADAR_BTN_GOLD} w-full`
                         }`}
                     >

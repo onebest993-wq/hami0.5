@@ -7,7 +7,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { debug } from '@/app/utils/debug';
-import { SecureFetchError } from '@/app/services/SecureAPIClient';
+import { SecureFetchError } from '@/app/services/SecureFetchError';
 
 describe('Debug Utility', () => {
   let consoleSpy: {

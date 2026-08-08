@@ -4,6 +4,7 @@ import React from 'react';
 import { AppearanceSection } from '@/app/components/lawyer/HamiSettings/appearance/AppearanceSection';
 
 const patchAppearance = vi.fn();
+const setBlockCustomizePanelOpen = vi.fn();
 
 vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', () => ({
     useAppearanceSection: () => ({
@@ -27,26 +28,63 @@ vi.mock('@/app/components/lawyer/HamiSettings/appearance/useAppearanceSection', 
         wallpaperRef: { current: null },
         themesExpanded: false,
         setThemesExpanded: vi.fn(),
-        patternsExpanded: false,
-        setPatternsExpanded: vi.fn(),
         wallpaperSrc: undefined,
         hasWallpaper: false,
-        activePreset: 'none',
         activeTheme: 'gold',
+        activeThemeKey: 'gold',
+        activeThemeToken: { name: 'ذهبي', primary: '#E6C673', bg: '#0A0F1C' },
         themeToken: { name: 'ذهبي', primary: '#E6C673', bg: '#0A0F1C' },
-        previewBaseColor: '#0A0F1C',
-        previewAccent: '#E6C673',
-        patternControlsDisabled: true,
         visibleThemeKeys: ['gold'],
         hiddenThemeCount: 19,
-        visiblePresets: [{ id: 'none', label: 'بدون' }],
-        hiddenPatternCount: 0,
         selectTheme: vi.fn(),
-        selectBackgroundPreset: vi.fn(),
-        selectShape: vi.fn(),
-        uploadWallpaper: vi.fn(),
+        blockCustomize: {
+            blocks: ['alerts', 'forum'],
+            blockLabel: (id: string) => id,
+            panelOpen: false,
+            setPanelOpen: setBlockCustomizePanelOpen,
+            selectedIds: [],
+            selectedCount: 0,
+            isAllSelected: false,
+            toggleSelectAll: vi.fn(),
+            toggleBlock: vi.fn(),
+            isSelected: () => false,
+            override: undefined,
+            effective: {
+                cardThemeKey: 'gold',
+                patternThemeKey: 'gold',
+                backgroundPreset: 'none',
+                patternIntensity: 'medium',
+                glassTransparency: 'medium',
+                containerBorder: true,
+                glassOpacity: 0.5,
+                patternOpacity: 0.3,
+                shapeKey: 'rounded',
+            },
+            hasCustomOverride: false,
+            setCardTheme: vi.fn(),
+            setPatternTheme: vi.fn(),
+            setBackgroundPreset: vi.fn(),
+            setPatternIntensity: vi.fn(),
+            setGlassTransparency: vi.fn(),
+            setContainerBorder: vi.fn(),
+            setShape: vi.fn(),
+            resetBlock: vi.fn(),
+            appearance: {
+                theme: 'gold',
+                shape: 'rounded',
+                glassOpacity: 0.5,
+                backgroundPatternOpacity: 0.3,
+                homeContainerBorder: true,
+                backgroundPreset: 'none',
+            },
+        },
+        beginWallpaperEdit: vi.fn(() => true),
+        cancelWallpaperEdit: vi.fn(),
+        applyWallpaperEdit: vi.fn(async () => true),
+        editorDraft: null,
+        editorBusy: false,
         removeWallpaper: vi.fn(),
-        toggleDockVisible: vi.fn(),
+        previewBaseColor: '#0A0F1C',
         patchAppearance,
         patchPerformance: vi.fn(),
     }),
@@ -60,18 +98,21 @@ describe('AppearanceSection', () => {
         expect(screen.getByTestId('settings-section-appearance')).toBeInTheDocument();
     });
 
-    it('يمرّر onEnterHomeLayoutEdit لزر تخصيص الواجهة الرئيسية', () => {
-        const onEnter = vi.fn();
-        render(<AppearanceSection onEnterHomeLayoutEdit={onEnter} />);
-        fireEvent.click(screen.getByTestId('settings-enter-home-layout-edit'));
-        expect(onEnter).toHaveBeenCalledTimes(1);
-    });
-
     it('يعرض مفتاح تقليل الحركة المربوط', () => {
         render(<AppearanceSection />);
         const toggle = screen.getByTestId('settings-toggle-appearance-reduceMotion');
         expect(toggle).toHaveAttribute('aria-checked', 'false');
-        fireEvent.click(toggle);
+        fireEvent.pointerDown(toggle);
         expect(patchAppearance).toHaveBeenCalledWith({ reduceMotion: true });
+    });
+
+    it('يفتح تخصيص القسم فوراً عند pointerDown', () => {
+        render(<AppearanceSection />);
+        const toggle = screen.getByTestId('appearance-block-customize-toggle');
+        fireEvent.pointerDown(toggle);
+        expect(setBlockCustomizePanelOpen).toHaveBeenCalledTimes(1);
+        const arg = setBlockCustomizePanelOpen.mock.calls[0]?.[0];
+        expect(typeof arg).toBe('function');
+        expect(arg(false)).toBe(true);
     });
 });

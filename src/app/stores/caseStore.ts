@@ -1,5 +1,15 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+  CASE_STORE_KEY,
+  CASE_STORE_PERSIST_VERSION,
+  migrateCasePersistState,
+  normalizeCasePersistSlice,
+} from '@/app/infrastructure/persistence/caseStorePersist';
+import {
+  createGuardedJSONStorage,
+  createPersistRehydrateReporter,
+} from '@/app/infrastructure/persistence/zustandPersistFoundation';
 
 export type CaseType = 'lawsuit' | 'transaction' | 'execution';
 
@@ -104,8 +114,10 @@ interface CaseState {
   permanentDeleteItem: (caseId: string, type: 'hearing' | 'document' | 'note' | 'checklist', itemId: string) => void;
 }
 
+type CasePersisted = Pick<CaseState, 'cases' | 'selectedCaseId'>;
+
 export const useCaseStore = create<CaseState>()(
-  persist(
+  persist<CaseState, [], [], CasePersisted>(
     (set, get): CaseState => ({
       cases: [],
       selectedCaseId: null,
@@ -248,7 +260,19 @@ export const useCaseStore = create<CaseState>()(
       })),
     }),
     {
-      name: 'legal-cases-storage',
+      name: CASE_STORE_KEY,
+      version: CASE_STORE_PERSIST_VERSION,
+      storage: createGuardedJSONStorage<CasePersisted>(() => localStorage),
+      migrate: migrateCasePersistState,
+      merge: (persisted, current) => ({
+        ...current,
+        ...normalizeCasePersistSlice(persisted),
+      }),
+      onRehydrateStorage: createPersistRehydrateReporter({
+        area: 'case-store',
+        storageKey: CASE_STORE_KEY,
+        version: CASE_STORE_PERSIST_VERSION,
+      }),
     }
   )
 );

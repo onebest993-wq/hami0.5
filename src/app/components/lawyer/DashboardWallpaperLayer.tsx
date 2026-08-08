@@ -1,4 +1,5 @@
-import React, { useLayoutEffect, useMemo } from 'react';
+import React, { useLayoutEffect } from 'react';
+import { ensureWallpaperDecoded } from '@/app/services/settings/wallpaperPaintReady';
 
 type DashboardWallpaperLayerProps = {
     src?: string | null;
@@ -10,28 +11,38 @@ function cssWallpaperUrl(src: string): string {
 }
 
 /**
- * طبقة خلفية ثابتة + متغيّر CSS للغطاء الرئيسي.
- * غطاء `.hami-dashboard-home-stack-cover` معتم فوق الطبقة الثابتة؛
- * لذلك يجب حقن الصورة في `--hami-wallpaper-image` وإلا لن تظهر أبداً.
+ * يحقن `--hami-wallpaper-image` لغطاء الرئيسية فقط — بلا طبقة fixed مكررة.
  */
 export function DashboardWallpaperLayer({ src, enabled }: DashboardWallpaperLayerProps) {
-    const style = useMemo(() => {
-        if (!src) return undefined;
-        return { backgroundImage: cssWallpaperUrl(src) } as const;
-    }, [src]);
-
     useLayoutEffect(() => {
         if (typeof document === 'undefined') return;
         const root = document.documentElement;
         if (!enabled || !src) {
-            root.style.removeProperty('--hami-wallpaper-image');
+            if (root.dataset.hamiWallpaper !== '1') {
+                root.style.removeProperty('--hami-wallpaper-image');
+            }
+            if (!enabled) root.dataset.hamiWallpaper = '0';
             return;
         }
-        root.style.setProperty('--hami-wallpaper-image', cssWallpaperUrl(src));
-        root.dataset.hamiWallpaper = '1';
+
+        let cancelled = false;
+        void (async () => {
+            await ensureWallpaperDecoded(src);
+            if (cancelled) return;
+            const next = cssWallpaperUrl(src);
+            const current = root.style.getPropertyValue('--hami-wallpaper-image');
+            if (current !== next) {
+                root.style.setProperty('--hami-wallpaper-image', next);
+            }
+            root.dataset.hamiWallpaper = '1';
+        })();
+
+        return () => {
+            cancelled = true;
+            root.style.removeProperty('--hami-wallpaper-image');
+            root.dataset.hamiWallpaper = '0';
+        };
     }, [enabled, src]);
 
-    if (!enabled || !src || !style) return null;
-
-    return <div className="hami-wallpaper-layer" style={style} aria-hidden />;
+    return null;
 }

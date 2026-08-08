@@ -14,6 +14,9 @@ import {
     saveSeizedPropertyStepDetails as runSaveSeizedPropertyStepDetails,
     saveSeizureMarkConfirmation as runSaveSeizureMarkConfirmation,
 } from './executionDashboardSeizedPropertyModals';
+import { openFollowupSeizureRequestsModal, type OpenFollowupModalPersistedFn } from '../../utils/followupModalOpen';
+import { requireDecisionsStorageExecutionId } from '../../utils/requireDecisionsStorageExecutionId';
+import { SEIZURE_CLOSE_UNIFIED_LOG_EVENT } from '../../utils/seizureInlineFocusUtils';
 
 type FocusSeizureInlineHandler = (decisionId: string, subject?: string) => void;
 
@@ -30,16 +33,20 @@ function buildFocusSeizureInlineHandler(
     resolveExecutionId: () => string,
     setShowCoerciveActionForm: Dispatch<SetStateAction<string | null>>,
     setSeizureDetailCompletion: Dispatch<SetStateAction<unknown>>,
-    setShowUnifiedExecutionModal: (show: boolean) => void,
+    openFollowupModalPersisted: OpenFollowupModalPersistedFn | undefined,
     openSeizureRequestsTabRef: MutableRefObject<(() => void) | null>,
+    setShowUnifiedExecutionModal: (show: boolean) => void,
 ): FocusSeizureInlineHandler {
     return (decisionId: string, subject?: string) => {
         const exId = resolveExecutionId();
         if (!exId || !decisionId) return;
         setShowCoerciveActionForm(null);
         setSeizureDetailCompletion(null);
-        setShowUnifiedExecutionModal(true);
-        openSeizureRequestsTabRef.current?.();
+        dispatchSeizureInlineFocus(SEIZURE_CLOSE_UNIFIED_LOG_EVENT, { executionId: exId });
+        openFollowupSeizureRequestsModal(openFollowupModalPersisted, {
+            setShowUnifiedExecutionModal,
+            openSeizureRequestsTabRef,
+        });
         dispatchSeizureInlineFocus(eventName, {
             executionId: exId,
             decisionId,
@@ -64,6 +71,7 @@ export type UseExecutionDashboardSeizureAssetModalHandlersParams = {
     setShowCoerciveActionForm: Dispatch<SetStateAction<string | null>>;
     setSeizureDetailCompletion: Dispatch<SetStateAction<unknown>>;
     setShowUnifiedExecutionModal: (show: boolean) => void;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     seizureMarkModalEntityId: string | null;
     seizureMarkModalEntityKind: 'property' | 'movable';
     seizureMarkLetterNumberDraft: string;
@@ -140,6 +148,7 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
         setUnifiedLedgerRevision,
         setShowCoerciveActionForm,
         setSeizureDetailCompletion,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         seizureMarkModalEntityId,
         seizureMarkModalEntityKind,
@@ -201,9 +210,11 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
 
     const resolveExecutionId = useCallback(
         () =>
-            String(
-                decisionsStorageExecutionId ?? executionDataRef.current?.id ?? executionId ?? '',
-            ).trim(),
+            requireDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionData: executionDataRef.current as Record<string, unknown> | null,
+            }),
         [decisionsStorageExecutionId, executionDataRef, executionId],
     );
 
@@ -211,8 +222,9 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
         resolveExecutionId,
         setShowCoerciveActionForm,
         setSeizureDetailCompletion,
-        setShowUnifiedExecutionModal,
+        openFollowupModalPersisted,
         openSeizureRequestsTabRef,
+        setShowUnifiedExecutionModal,
     ] as const;
 
     const focusSeizurePropertyInlineCompletion = useCallback(
@@ -221,8 +233,9 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
             resolveExecutionId,
             setShowCoerciveActionForm,
             setSeizureDetailCompletion,
-            setShowUnifiedExecutionModal,
+            openFollowupModalPersisted,
             openSeizureRequestsTabRef,
+            setShowUnifiedExecutionModal,
         ),
         focusInlineDeps,
     );
@@ -233,8 +246,9 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
             resolveExecutionId,
             setShowCoerciveActionForm,
             setSeizureDetailCompletion,
-            setShowUnifiedExecutionModal,
+            openFollowupModalPersisted,
             openSeizureRequestsTabRef,
+            setShowUnifiedExecutionModal,
         ),
         focusInlineDeps,
     );
@@ -245,8 +259,9 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
             resolveExecutionId,
             setShowCoerciveActionForm,
             setSeizureDetailCompletion,
-            setShowUnifiedExecutionModal,
+            openFollowupModalPersisted,
             openSeizureRequestsTabRef,
+            setShowUnifiedExecutionModal,
         ),
         focusInlineDeps,
     );
@@ -257,8 +272,9 @@ export function useExecutionDashboardSeizureAssetModalHandlers(
             resolveExecutionId,
             setShowCoerciveActionForm,
             setSeizureDetailCompletion,
-            setShowUnifiedExecutionModal,
+            openFollowupModalPersisted,
             openSeizureRequestsTabRef,
+            setShowUnifiedExecutionModal,
         ),
         focusInlineDeps,
     );

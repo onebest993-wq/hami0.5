@@ -10,7 +10,7 @@
  */
 
 import React from 'react';
-import { X, Trash2, CheckCircle } from 'lucide-react';
+import { X, Trash2, CheckCircle } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { ExecutionFile } from '@/app/types/execution';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';

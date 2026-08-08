@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@/app/components/ui/lucideIcons';
 
 type ProfileBackBarProps = {
     onBack: () => void;
@@ -13,7 +13,7 @@ export function ProfileBackBar({ onBack }: ProfileBackBarProps) {
 
     return (
         <div
-            className="fixed z-[60] left-4 pointer-events-none"
+            className="fixed z-[210] left-4 pointer-events-none"
             style={{ top: 'max(0.75rem, calc(env(safe-area-inset-top) + 0.5rem))' }}
         >
             <button

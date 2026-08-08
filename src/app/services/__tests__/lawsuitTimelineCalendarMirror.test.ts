@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import {
     LAWSUIT_CAL_APPT,
+    collectStageLegalCalendarSpecs,
     mirrorSessionNextHearingToCalendar,
     mirrorStageLegalDatesToCalendar,
 } from '../lawsuitTimelineCalendarMirror';
@@ -98,8 +99,82 @@ describe('lawsuitTimelineCalendarMirror', () => {
         expect(first[0].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.appealDeadline('first'))?.title).toBe(
             'آخر موعد طعن على الحكم البدائي'
         );
-        expect(appeal[1].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.appealDeadline('appeal'))?.title).toBe(
-            'آخر موعد طعن على الحكم الاستئنافي'
+        expect(
+            appeal[1].timeline?.find((e) => e.id === LAWSUIT_CAL_APPT.appealDeadline('appeal')),
+        ).toBeUndefined();
+    });
+
+    it('cassation deadline on appeal stage uses تمييز context — not مرحلة الاستئناف', () => {
+        const specs = collectStageLegalCalendarSpecs(
+            {
+                id: 'appeal-1',
+                stageName: 'الاستئناف',
+                legalTimers: { cassationDeadline: '2026-09-03' },
+            },
+            1,
         );
+        const cassation = specs.find((s) => s.id === LAWSUIT_CAL_APPT.cassationDeadline('appeal-1'));
+        expect(cassation?.title).toBe('مهلة التمييز');
+        expect(cassation?.details).toContain('بعد الحكم الاستئنافي');
+        expect(cassation?.details).not.toContain('مرحلة: الاستئناف');
+    });
+
+    it('skips appeal deadline mirror on appeal stage and correction stage', () => {
+        const appealSpecs = collectStageLegalCalendarSpecs(
+            {
+                id: 'appeal-1',
+                stageName: 'الاستئناف',
+                appealDeadline: '2026-07-31',
+            },
+            1,
+        );
+        expect(
+            appealSpecs.find((s) => s.id === LAWSUIT_CAL_APPT.appealDeadline('appeal-1'))?.date,
+        ).toBeNull();
+
+        const correctionSpecs = collectStageLegalCalendarSpecs(
+            {
+                id: 'corr-1',
+                stageName: 'تصحيح قرار',
+                legalTimers: { cassationDeadline: '2026-09-03' },
+            },
+            2,
+        );
+        expect(
+            correctionSpecs.find((s) => s.id === LAWSUIT_CAL_APPT.cassationDeadline('corr-1'))?.date,
+        ).toBeNull();
+    });
+
+    it('skips first-instance appeal deadline mirror on personal status stage', () => {
+        const specs = collectStageLegalCalendarSpecs(
+            {
+                id: 'ps-1',
+                stageName: 'أحوال شخصية',
+                appealDeadline: '2026-07-31',
+                legalTimers: { cassationDeadline: '2026-09-03' },
+            },
+            0,
+        );
+        expect(
+            specs.find((s) => s.id === LAWSUIT_CAL_APPT.appealDeadline('ps-1'))?.date,
+        ).toBeNull();
+        expect(
+            specs.find((s) => s.id === LAWSUIT_CAL_APPT.cassationDeadline('ps-1'))?.date,
+        ).toBe('2026-09-03');
+    });
+
+    it('uses personal-status judgment labels — not civil بدائي terminology', () => {
+        const specs = collectStageLegalCalendarSpecs(
+            {
+                id: 'ps-j',
+                stageName: 'أحوال شخصية',
+                decisionDate: '2026-06-15',
+                finalDecision: 'إجابة الدعوى',
+            },
+            0,
+        );
+        const judgment = specs.find((s) => s.id === LAWSUIT_CAL_APPT.judgmentDate('ps-j'));
+        expect(judgment?.title).toBe('تاريخ قرار أحوال شخصية');
+        expect(judgment?.title).not.toContain('بدائي');
     });
 });

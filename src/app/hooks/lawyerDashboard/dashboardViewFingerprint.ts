@@ -44,7 +44,6 @@ export function dashboardShellFingerprint(o: Orchestration): string {
     return [
         o.user?.id ?? '',
         overlays.activeTab,
-        overlays.homeLayoutEditMode,
         overlays.showCommunity,
         overlays.showLawsuitsWorkspace,
         overlays.lawsuitsWorkspaceTab,
@@ -76,6 +75,9 @@ export function dashboardShellFingerprint(o: Orchestration): string {
         communityLink,
         clusterSig,
         o.settings.appearance.theme,
+        o.settings.appearance.cardTheme ?? '',
+        o.settings.appearance.patternTheme ?? '',
+        o.settings.appearance.themeApplyTarget ?? 'board',
         o.settings.appearance.backgroundPreset ?? 'none',
         o.settings.appearance.wallpaperStamp ?? 0,
         loadPersistedWallpaper() ? '1' : '0',

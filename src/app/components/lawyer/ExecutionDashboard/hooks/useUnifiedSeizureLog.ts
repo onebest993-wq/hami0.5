@@ -11,6 +11,8 @@ import {
     type UnifiedSeizureLogBuildInput,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogEntries';
 import { resolveFirstUnifiedSeizureTab } from '@/app/components/lawyer/ExecutionDashboard/utils/unifiedSeizureLogHelpers';
+import { SEIZURE_CLOSE_UNIFIED_LOG_EVENT } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureInlineFocusUtils';
+import { prefetchUnifiedSeizureLogHost } from '@/app/components/lawyer/ExecutionDashboard/executionDashboardLazyRegistry';
 
 export type UseUnifiedSeizureLogInput = UnifiedSeizureLogBuildInput & {
     thirdPartySeizuresUi: ThirdPartySeizure[];
@@ -114,6 +116,7 @@ export function useUnifiedSeizureLog(input: UseUnifiedSeizureLogInput) {
 
     const openUnifiedSeizureLog = useCallback(
         (opts?: { tab?: string; emptyMessage?: string }) => {
+            prefetchUnifiedSeizureLogHost();
             if (!hasUnifiedSeizureLogContent) {
                 showToast?.(
                     opts?.emptyMessage ?? 'لا يوجد سجل حجز في هذه الإضبارة بعد.',
@@ -145,7 +148,7 @@ export function useUnifiedSeizureLog(input: UseUnifiedSeizureLogInput) {
 
     useEffect(() => {
         const handler = (e: Event) => {
-            if (!hasUnifiedSeizureLogContent) return;
+            prefetchUnifiedSeizureLogHost();
             const tab = String((e as CustomEvent<{ tab?: string }>).detail?.tab || '').trim();
             if (isSeizureLogTab(tab)) {
                 setUnifiedSeizureLogTab(resolveFirstUnifiedSeizureTab(unifiedSeizureTabCounts, tab));
@@ -153,10 +156,33 @@ export function useUnifiedSeizureLog(input: UseUnifiedSeizureLogInput) {
                 setUnifiedSeizureLogTab(resolveFirstUnifiedSeizureTab(unifiedSeizureTabCounts));
             }
             setShowUnifiedSeizureLogModal(true);
+            if (!hasUnifiedSeizureLogContent) {
+                showToast?.('لا يوجد سجل حجز في هذه الإضبارة بعد.', 'info');
+            }
         };
         window.addEventListener('hami-open-unified-seizure-log', handler as EventListener);
         return () => window.removeEventListener('hami-open-unified-seizure-log', handler as EventListener);
-    }, [hasUnifiedSeizureLogContent, unifiedSeizureTabCounts]);
+    }, [hasUnifiedSeizureLogContent, showToast, unifiedSeizureTabCounts]);
+
+    useEffect(() => {
+        const allowedIds = Array.from(
+            new Set(
+                [
+                    String(decisionsStorageExecutionId ?? '').trim(),
+                    String(executionId ?? '').trim(),
+                    String(viewExecutionData?.id ?? '').trim(),
+                ].filter(Boolean),
+            ),
+        );
+        const handler = (e: Event) => {
+            const ce = e as CustomEvent<{ executionId?: string }>;
+            const evId = String(ce.detail?.executionId ?? '').trim();
+            if (evId && !allowedIds.includes(evId)) return;
+            setShowUnifiedSeizureLogModal(false);
+        };
+        window.addEventListener(SEIZURE_CLOSE_UNIFIED_LOG_EVENT, handler as EventListener);
+        return () => window.removeEventListener(SEIZURE_CLOSE_UNIFIED_LOG_EVENT, handler as EventListener);
+    }, [decisionsStorageExecutionId, executionId, viewExecutionData?.id]);
 
     return {
         showUnifiedSeizureLogModal,

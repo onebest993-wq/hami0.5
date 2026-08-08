@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const getFollowersMock = vi.fn();
 
@@ -28,7 +28,7 @@ describe('forum follow route GET followers privacy', () => {
         getFollowersMock.mockResolvedValue([{ followerId: 'f1', createdAt: '2026-01-01' }]);
     });
 
-    it('يرفض عرض متابعي مستخدم آخر', async () => {
+    it('┘è╪▒┘╪╢ ╪╣╪▒╪╢ ┘à╪ز╪د╪ذ╪╣┘è ┘à╪│╪ز╪«╪»┘à ╪ت╪«╪▒', async () => {
         requireForumAuthMock.mockResolvedValue({
             ok: true,
             userId: 'user-1',
@@ -43,7 +43,7 @@ describe('forum follow route GET followers privacy', () => {
         expect(getFollowersMock).not.toHaveBeenCalled();
     });
 
-    it('يسمح للمستخدم برؤية متابعيه', async () => {
+    it('┘è╪│┘à╪ص ┘┘┘à╪│╪ز╪«╪»┘à ╪ذ╪▒╪ج┘è╪ر ┘à╪ز╪د╪ذ╪╣┘è┘ç', async () => {
         requireForumAuthMock.mockResolvedValue({
             ok: true,
             userId: 'user-1',
@@ -58,7 +58,7 @@ describe('forum follow route GET followers privacy', () => {
         expect(getFollowersMock).toHaveBeenCalledWith('user-1');
     });
 
-    it('يسمح للمشرف برؤية متابعي أي مستخدم', async () => {
+    it('┘è╪│┘à╪ص ┘┘┘à╪┤╪▒┘ ╪ذ╪▒╪ج┘è╪ر ┘à╪ز╪د╪ذ╪╣┘è ╪ث┘è ┘à╪│╪ز╪«╪»┘à', async () => {
         requireForumAuthMock.mockResolvedValue({
             ok: true,
             userId: 'admin-1',

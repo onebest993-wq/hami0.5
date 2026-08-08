@@ -1,6 +1,6 @@
 import type { ComponentProps, ComponentType } from 'react';
 
-type GlobalSearchOverlayModule = typeof import('@/app/components/lawyer/GlobalSearchOverlay');
+type GlobalSearchOverlayModule = typeof import('@/app/components/lawyer/GlobalSearchOverlay/index');
 type GlobalSearchOverlayProps = ComponentProps<GlobalSearchOverlayModule['GlobalSearchOverlay']>;
 export type GlobalSearchOverlayComponent = ComponentType<GlobalSearchOverlayProps>;
 
@@ -33,7 +33,7 @@ export function resetGlobalSearchOverlayModuleCacheForTests(): void {
 
 function ensureOverlayModulePromise(): Promise<GlobalSearchOverlayModule> {
     if (!overlayModulePromise) {
-        overlayModulePromise = import('@/app/components/lawyer/GlobalSearchOverlay')
+        overlayModulePromise = import('@/app/components/lawyer/GlobalSearchOverlay/index')
             .then((mod) => {
                 if (mod?.GlobalSearchOverlay) {
                     cachedGlobalSearchOverlay = mod.GlobalSearchOverlay;

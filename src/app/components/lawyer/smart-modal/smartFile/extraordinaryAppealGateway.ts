@@ -1,9 +1,8 @@
 import type { CaseStage } from '../../LawyerShared';
+import { isCassationStageName } from './judgmentTypes';
 import {
-    isAppealStageName,
-    isCassationStageName,
-    isFirstInstanceStageName,
-} from './judgmentTypes';
+    resolveLastPleadingStageIndex,
+} from './pleadingStageClassification';
 
 export const EXTRAORDINARY_APPEAL_LABELS = {
     retrial: 'إعادة المحاكمة',
@@ -103,30 +102,36 @@ export function canRequestCassationCorrection(
 }
 
 /**
- * مرحلة الحكم التي تُعاد محاكمتها:
- * آخر استئناف → وإلا مرحلة أحوال شخصية → وإلا بداءة → وإلا ما قبل التمييز.
+ * بعد قبول طلب التصحيح — آخر مرحلة مرافعة قبل «تصحيح قرار» (وليس التمييز).
  */
+export function resolveCorrectionAcceptReturnTargetStageIndex(stages: CaseStage[]): number {
+    if (!Array.isArray(stages) || stages.length === 0) return 0;
+
+    let correctionIdx = -1;
+    for (let i = stages.length - 1; i >= 0; i--) {
+        if (isCassationCorrectionStageName(stageNameOf(stages[i]))) {
+            correctionIdx = i;
+            break;
+        }
+    }
+
+    const pleadingIdx = resolveLastPleadingStageIndex(
+        stages,
+        correctionIdx >= 0 ? correctionIdx : stages.length,
+    );
+    if (pleadingIdx >= 0) return pleadingIdx;
+
+    return resolveRetrialTargetStageIndex(stages);
+}
+
 export function resolveRetrialTargetStageIndex(stages: CaseStage[]): number {
     if (!Array.isArray(stages) || stages.length === 0) return 0;
 
-    for (let i = stages.length - 1; i >= 0; i--) {
-        const name = stageNameOf(stages[i]);
-        if (isCassationCorrectionStageName(name) || isCassationStageName(name)) continue;
-        if (isAppealStageName(name)) return i;
-    }
-
-    for (let i = stages.length - 1; i >= 0; i--) {
-        const name = stageNameOf(stages[i]);
-        if (name.includes('أحوال شخصية') || name === 'الأحوال الشخصية') return i;
-    }
-
-    for (let i = stages.length - 1; i >= 0; i--) {
-        const name = stageNameOf(stages[i]);
-        if (isFirstInstanceStageName(name) && !isCassationStageName(name)) return i;
-    }
-
     const cassationIdx = findCassationStageIndex(stages);
-    if (cassationIdx > 0) return cassationIdx - 1;
+    const beforeIdx = cassationIdx >= 0 ? cassationIdx : stages.length;
+    const pleadingIdx = resolveLastPleadingStageIndex(stages, beforeIdx);
+    if (pleadingIdx >= 0) return pleadingIdx;
+
     return Math.max(0, stages.length - 1);
 }
 

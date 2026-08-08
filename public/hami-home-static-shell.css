@@ -1,0 +1,34 @@
+/* إقلاع حامي — شاشة واحدة: كلمة «حامي» على navy (#0a0f1c) */
+
+html.hami-boot-static-active,
+html.hami-boot-static-active body {
+    background: #0a0f1c;
+}
+
+#hami-static-boot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: none !important;
+}
+
+.hami-boot-wordmark {
+    /* خط نظامي واحد — بلا Cairo/Tajawal حتى لا يتغيّر الشكل بعد تحميل Google Fonts */
+    font-family: system-ui, sans-serif;
+    font-size: clamp(2.75rem, 14vw, 4.25rem);
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    color: #e6c673;
+    user-select: none;
+    -webkit-user-select: none;
+    pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #hami-static-boot,
+    .hami-boot-wordmark {
+        transition: none !important;
+        animation: none !important;
+    }
+}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check } from 'lucide-react';
+import { X, Check } from '@/app/components/ui/lucideIcons';
 
 export type PartyEditTarget = {
     type: 'party1' | 'party2';

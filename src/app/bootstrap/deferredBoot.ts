@@ -2,7 +2,11 @@ import { cleanupDevServiceWorkers } from '@/app/utils/devServiceWorkerCleanup';
 import { initWebVitalsLogging } from '@/app/utils/webVitalsObserver';
 import { scheduleDeferredGoogleFonts } from '@/app/runtime/deferredGoogleFonts';
 import { applyCapacitorShellBoot } from '@/app/runtime/capacitorShellBoot';
+import { bootNativeCapacitorShell } from '@/app/runtime/nativeCapacitorBoot';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { reportBootTimeline } from '@/app/bootstrap/bootMetrics';
+import { ensureSentryInitialized } from '@/app/observability/sentryClient';
+import { isSentryEnabledInBuild } from '@/app/observability/sentryBuildPolicy';
 
 function installSubmitGuard(): void {
     const w = window as unknown as { __hamiSubmitGuardInstalled?: boolean };
@@ -101,48 +105,22 @@ function installArabicDatePickersPatch(): void {
     }
 }
 
+/**
+ * التهيئة كلها في sentryClient — تكرارها هنا كان يسمح بتهيئة Sentry مرتين
+ * لأن كل ملف يتتبّع حالته على حدة.
+ */
 function initSentryDeferred(): void {
-    const sentryDsn = import.meta.env.VITE_SENTRY_DSN;
-    if (!sentryDsn || sentryDsn.includes('examplePublicKey')) return;
-
-    void import('@sentry/react')
-        .then((Sentry) => {
-            const isProd = import.meta.env.PROD;
-            let replayAttached = false;
-
-            const attachReplayOnError = () => {
-                if (replayAttached) return;
-                replayAttached = true;
-                Sentry.addIntegration(
-                    Sentry.replayIntegration({
-                        maskAllText: false,
-                        blockAllMedia: false,
-                    }),
-                );
-            };
-
-            Sentry.init({
-                dsn: sentryDsn,
-                integrations: [Sentry.browserTracingIntegration()],
-                tracesSampleRate: isProd ? 0.12 : 1,
-                replaysSessionSampleRate: 0,
-                replaysOnErrorSampleRate: 1,
-                environment: import.meta.env.MODE,
-                beforeSend(event) {
-                    if (event.level === 'warning') return null;
-                    if (event.level === 'error' || event.level === 'fatal') attachReplayOnError();
-                    return event;
-                },
-            });
-        })
-        .catch(() => {
-            /* optional */
-        });
+    if (!isSentryEnabledInBuild()) return;
+    void ensureSentryInitialized();
 }
 
 /** مهام ما بعد أول إطار — لا تُستدعى قبل ReactDOM.render */
 export function runDeferredBootTasks(): void {
-    applyCapacitorShellBoot();
+    if (isCapacitorNativePlatform()) {
+        void bootNativeCapacitorShell();
+    } else {
+        applyCapacitorShellBoot();
+    }
     installSubmitGuard();
 
     const run = () => {

@@ -35,4 +35,7 @@ export type SmartVaultDoc = {
     isProcessing?: boolean;
     boundDossierId?: string | null;
     roomId?: string | null;
+    /** نص مستخرج من PDF/OCR — للبحث وتنبيهات سبارك */
+    extractedText?: string | null;
+    extractedTextAt?: string | null;
 };

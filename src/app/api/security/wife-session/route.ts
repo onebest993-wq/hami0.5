@@ -1,4 +1,9 @@
 import { applyWifeSecurityHeaders } from '../../security/wifeSecurityHeaders.ts';
+import {
+  buildCsrfClearCookie,
+  buildCsrfSetCookie,
+  isSecureRequest,
+} from '../../security/csrfCookie.ts';
 import { invalidateCsrfForSubject, issueCsrfTokenForSubject } from '../../security/csrfServerStore.ts';
 import {
   extractUserTokenFromRequest,
@@ -9,7 +14,6 @@ import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import { extractDeviceIdFromRequest, isValidWifeDeviceId } from '../../security/stolenTokenServer.ts';
 import { invalidateWifeSession, issueWifeSessionForSubject } from '../../security/wifeSessionServerStore.ts';
 
-const CSRF_COOKIE_NAME = 'hami_csrf_token';
 const CSRF_ONLY_BOOTSTRAP_MODE = 'csrf-only';
 
 function isProductionNodeEnv(): boolean {
@@ -35,27 +39,6 @@ function assertSameOriginRequest(request: Request): boolean {
     }
   }
   return !isProductionNodeEnv();
-}
-
-function isSecureRequest(request: Request): boolean {
-  return (
-    request.url.startsWith('https://') ||
-    (request.headers.get('x-forwarded-proto') ?? '').toLowerCase() === 'https'
-  );
-}
-
-function buildCsrfSetCookie(token: string, secure: boolean): string {
-  const flags = [`${CSRF_COOKIE_NAME}=${encodeURIComponent(token)}`, 'Path=/', 'SameSite=Strict', 'Max-Age=86400'];
-  if (secure) flags.push('Secure');
-  flags.push('HttpOnly');
-  return flags.join('; ');
-}
-
-function buildCsrfClearCookie(secure: boolean): string {
-  const flags = [`${CSRF_COOKIE_NAME}=`, 'Path=/', 'SameSite=Strict', 'Max-Age=0'];
-  if (secure) flags.push('Secure');
-  flags.push('HttpOnly');
-  return flags.join('; ');
 }
 
 function isCsrfOnlyBootstrapRequest(request: Request): boolean {

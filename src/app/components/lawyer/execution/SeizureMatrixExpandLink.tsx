@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown, Layers, ShieldAlert } from 'lucide-react';
+import { ChevronDown, Layers, ShieldAlert } from '@/app/components/ui/lucideIcons';
 
 export interface SeizureMatrixExpandLinkProps {
     label: string;

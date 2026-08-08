@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
+import { GLOBAL_SEARCH_RESULTS_MAX_HEIGHT } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayLayout';
 import type {
     GlobalSearchEntry,
     GlobalSearchNavigate,
@@ -14,10 +15,18 @@ export function useGlobalSearchOverlayChrome(
     results: GroupedSearchResults | null,
     onClose: () => void,
     onNavigatePick: (navigate: GlobalSearchNavigate, label: string) => void,
+    options?: {
+        overlayRef?: RefObject<HTMLDivElement | null>;
+        inputRef?: RefObject<HTMLInputElement | null>;
+        keyboardInsetEnabled?: boolean;
+    },
 ) {
-    const keyboardInset = useMobileKeyboardInset();
-    const overlayRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
+    const keyboardInsetEnabled = options?.keyboardInsetEnabled ?? overlayOpen;
+    const keyboardInset = useMobileKeyboardInset(keyboardInsetEnabled, true);
+    const internalOverlayRef = useRef<HTMLDivElement>(null);
+    const internalInputRef = useRef<HTMLInputElement>(null);
+    const overlayRef = options?.overlayRef ?? internalOverlayRef;
+    const inputRef = options?.inputRef ?? internalInputRef;
     const [activeIndex, setActiveIndex] = useState(-1);
 
     const flatResults = useMemo(() => {
@@ -57,10 +66,7 @@ export function useGlobalSearchOverlayChrome(
         pick,
     );
 
-    const resultsMaxHeight =
-        keyboardInset > 0
-            ? `min(calc(62dvh - ${Math.min(keyboardInset, 200)}px), ${560 - Math.min(keyboardInset, 200)}px)`
-            : 'min(62dvh, 560px)';
+    const resultsMaxHeight = GLOBAL_SEARCH_RESULTS_MAX_HEIGHT;
 
     return {
         overlayRef: overlayRef as RefObject<HTMLDivElement>,

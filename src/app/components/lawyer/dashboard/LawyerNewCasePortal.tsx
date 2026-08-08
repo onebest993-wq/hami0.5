@@ -7,6 +7,7 @@ import {
     getCachedLawyerNewCase,
     getPendingLawyerNewCaseJurisdiction,
     loadLawyerNewCaseModule,
+    setPendingIncidentalSpawnContext,
     setPendingLawyerNewCaseJurisdiction,
     subscribeLawyerNewCaseCache,
 } from '@/app/runtime/lawyerNewCaseLoader';
@@ -21,6 +22,7 @@ export function LawyerNewCasePortal({
     isOpen,
     onClose,
     presetSelectedType,
+    incidentalSpawnContext,
     ...rest
 }: LawyerNewCasePortalProps): React.ReactElement | null {
     const Component = useSyncExternalStore(
@@ -36,9 +38,12 @@ export function LawyerNewCasePortal({
             setBootJurisdiction(null);
             return;
         }
+        if (incidentalSpawnContext?.parent) {
+            setPendingIncidentalSpawnContext(incidentalSpawnContext);
+        }
         setBootJurisdiction((prev) => prev ?? consumePendingLawyerNewCaseJurisdiction());
         void loadLawyerNewCaseModule().catch(() => undefined);
-    }, [isOpen]);
+    }, [isOpen, incidentalSpawnContext]);
 
     const handleSelectJurisdiction = useCallback((id: JurisdictionId) => {
         setPendingLawyerNewCaseJurisdiction(id);
@@ -53,8 +58,11 @@ export function LawyerNewCasePortal({
 
     const layer = Component ? (
         <Component
+            key={incidentalSpawnContext?.incidentalId ?? 'new-case'}
+            isOpen={isOpen}
             onClose={onClose}
             presetSelectedType={resolvedPreset ?? presetSelectedType}
+            incidentalSpawnContext={incidentalSpawnContext}
             {...rest}
         />
     ) : (
@@ -62,6 +70,7 @@ export function LawyerNewCasePortal({
             onClose={onClose}
             mode={pendingWhileLoading ? 'loading' : 'picker'}
             onSelectJurisdiction={handleSelectJurisdiction}
+            dossierNewCaseElevated={rest.dossierNewCaseElevated}
         />
     );
 

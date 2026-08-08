@@ -1,14 +1,53 @@
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalSearchOverlayHost } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost';
+import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 
-const MockOverlay = ({ open }: { open?: boolean }) =>
-    open ? (
-        <div data-testid="global-search-overlay" data-open={open ? 'true' : 'false'}>
-            search-ready
-        </div>
-    ) : null;
+const bridgeContent: GlobalSearchOverlayShellContentProps = {
+    onKeyDownCapture: () => undefined,
+    keyboardInset: 0,
+    resultsMaxHeight: 'min(calc(92dvh - 220px), 680px)',
+    query: '',
+    setQuery: () => undefined,
+    showEmptyState: true,
+    headerBusy: false,
+    isEnrichingIndex: false,
+    recentSearches: [],
+    clearRecent: () => undefined,
+    isSearching: false,
+    isLoadingIndex: false,
+    results: null,
+    flatResults: [],
+    pick: () => undefined,
+    pinLookup: {
+        files: [],
+        executionFiles: [],
+        notes: [],
+        tasks: [],
+        urgentCases: [],
+        criminalCases: [],
+        threadingTransactions: [],
+    },
+    scanIndexForPreview: [],
+    activeIndex: -1,
+    setActiveIndex: () => undefined,
+};
+
+const MockOverlay = ({
+    headless,
+    onShellContent,
+}: {
+    open?: boolean;
+    headless?: boolean;
+    onShellContent?: (content: GlobalSearchOverlayShellContentProps) => void;
+}) => {
+    useLayoutEffect(() => {
+        if (!headless || !onShellContent) return;
+        onShellContent(bridgeContent);
+    }, [headless, onShellContent]);
+    return null;
+};
 
 const getCachedGlobalSearchOverlay = vi.fn(() => MockOverlay);
 const loadGlobalSearchOverlayModule = vi.fn(() =>
@@ -18,6 +57,11 @@ const loadGlobalSearchOverlayModule = vi.fn(() =>
 vi.mock('@/app/runtime/globalSearchLoader', () => ({
     getCachedGlobalSearchOverlay: () => getCachedGlobalSearchOverlay(),
     loadGlobalSearchOverlayModule: () => loadGlobalSearchOverlayModule(),
+    isGlobalSearchOverlayModuleResolved: () => false,
+}));
+
+vi.mock('@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchFocusArm', () => ({
+    useGlobalSearchFocusArm: () => true,
 }));
 
 vi.mock('@/app/runtime/globalSearchBootHydrator', () => ({
@@ -47,7 +91,8 @@ describe('GlobalSearchOverlayHost', () => {
             />,
         );
 
-        expect(screen.getByTestId('global-search-overlay')).toHaveTextContent('search-ready');
+        expect(screen.getByTestId('global-search-overlay')).toBeInTheDocument();
+        expect(screen.getByText('البحث الشامل')).toBeInTheDocument();
     });
 
     it('عند الإغلاق بلا keepAlive لا يبقي DOM', () => {
@@ -65,7 +110,7 @@ describe('GlobalSearchOverlayHost', () => {
             />,
         );
 
-        expect(screen.getByTestId('global-search-overlay')).toHaveAttribute('data-open', 'true');
+        expect(screen.getByTestId('global-search-overlay')).toBeInTheDocument();
 
         rerender(
             <GlobalSearchOverlayHost

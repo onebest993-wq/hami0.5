@@ -76,11 +76,27 @@ export function isExecutorRequestAppealCycleSuperseded(
     if (!isDecisionLikeRow(hub)) return false;
     if ((hub as Decision).requestCycleSuperseded === true) return true;
     const hubRow = hubWithInferredAppealOrigin(hub);
+    const pipeEarly = appealPipelineRowForCard(hubRow, all);
+    const workflowEarly = String(pipeEarly.appealWorkflowState ?? hubRow.appealWorkflowState ?? '').trim();
+    if (workflowEarly === 'REVOKED_BY_APPEAL') return true;
+
+    const noAppealEarly = pipeEarly.noAppealChosen === true || hubRow.noAppealChosen === true;
+    const appealFinalEarly = pipeEarly.appealStatus === 'final' || hubRow.appealStatus === 'final';
+    if (
+        noAppealEarly &&
+        appealFinalEarly &&
+        (hubRow.executorOutcome === 'rejected' || pipeEarly.executorOutcome === 'rejected')
+    ) {
+        return true;
+    }
+    const grievanceAcceptedEarly =
+        pipeEarly.appealResult === 'قبول التظلم' || hubRow.appealResult === 'قبول التظلم';
+    if (noAppealEarly && appealFinalEarly && grievanceAcceptedEarly) return true;
+
     const gate = resolveExecutorRequestFollowupGate(hubRow, all, perspective);
     if (gate.kind === 'paused') return false;
     if (gate.kind === 'lifecycle_reset' || gate.kind === 'revoked') return true;
 
-    const pipeEarly = appealPipelineRowForCard(hubRow, all);
     const grievanceFinalEarly = String(pipeEarly.appealResult ?? hubRow.appealResult ?? '').trim();
     if (
         grievanceFinalEarly === 'قبول التظلم' &&
@@ -89,35 +105,18 @@ export function isExecutorRequestAppealCycleSuperseded(
         return true;
     }
 
-    const pipe = appealPipelineRowForCard(hubRow, all);
-    const workflow = String(pipe.appealWorkflowState ?? hubRow.appealWorkflowState ?? '').trim();
-    if (workflow === 'REVOKED_BY_APPEAL') return true;
-
-    const appealResult = String(pipe.appealResult ?? hubRow.appealResult ?? '').trim();
-    const appealStatus = pipe.appealStatus ?? hubRow.appealStatus;
+    const appealResult = String(pipeEarly.appealResult ?? hubRow.appealResult ?? '').trim();
+    const appealStatus = pipeEarly.appealStatus ?? hubRow.appealStatus;
     if (appealStatus === 'final' && appealResult === 'نقض القرار') {
-        if (!isLawyerCassationNaqdResume(pipe, hubRow)) return true;
+        if (!isLawyerCassationNaqdResume(pipeEarly, hubRow)) return true;
     }
     if (appealStatus === 'final' && isCassationAffirmResult(appealResult)) {
-        if (isLawyerCassationRadReset(pipe, hubRow.executorOutcome)) return true;
-    }
-
-    const noAppeal = pipe.noAppealChosen === true || hubRow.noAppealChosen === true;
-    const appealFinal = pipe.appealStatus === 'final' || hubRow.appealStatus === 'final';
-    const grievanceAccepted =
-        pipe.appealResult === 'قبول التظلم' || hubRow.appealResult === 'قبول التظلم';
-    if (noAppeal && appealFinal && grievanceAccepted) return true;
-    if (
-        noAppeal &&
-        appealFinal &&
-        (hubRow.executorOutcome === 'rejected' || pipe.executorOutcome === 'rejected')
-    ) {
-        return true;
+        if (isLawyerCassationRadReset(pipeEarly, hubRow.executorOutcome)) return true;
     }
 
     const logs = [
         ...(Array.isArray(hubRow.appealTimelineLogs) ? hubRow.appealTimelineLogs : []),
-        ...(Array.isArray(pipe.appealTimelineLogs) ? pipe.appealTimelineLogs : []),
+        ...(Array.isArray(pipeEarly.appealTimelineLogs) ? pipeEarly.appealTimelineLogs : []),
     ];
     if (
         logs.some((l) =>
@@ -129,10 +128,10 @@ export function isExecutorRequestAppealCycleSuperseded(
 
     /** طعن نهائي والقرار غير نافذ — أُغلقت دورة الطلب (تمييز/تصديق/رفض نهائي) */
     if (
-        appealFinal &&
+        appealFinalEarly &&
         isCreditorInitiatedExecutorRequest(hubRow)
     ) {
-        const state = resolveCreditorDecisionEnforcementState(hubRow, pipe, {
+        const state = resolveCreditorDecisionEnforcementState(hubRow, pipeEarly, {
             hubTab: 'previous',
             appealLegallyFinal: true,
             needsExecutor: false,

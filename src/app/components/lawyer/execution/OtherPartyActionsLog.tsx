@@ -1,8 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ChevronDown, PenLine } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { ChevronDown, PenLine } from '@/app/components/ui/lucideIcons';
 import { AnimatePresence, motion } from 'motion/react';
 import type { OtherPartyActionLogEntry } from '@/app/types/execution';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
+import {
+    buildOtherPartyActionLogEntry,
+    prependOtherPartyActionLog,
+} from '@/app/application/execution/followup/otherPartyActionLogPersist';
+import {
+    resolveOtherPartyLogDecisionRow,
+    resolveOtherPartyLogEntryOutcome,
+} from '@/app/application/execution/followup/otherPartyActionLogOutcome';
 import {
     DECISIONS_RELOAD_EVENT,
     readExecutorDecisionsArray,
@@ -17,7 +25,10 @@ import {
 type Props = {
     entries: OtherPartyActionLogEntry[];
     onPersist: (next: OtherPartyActionLogEntry[]) => void;
-    onSubmitToDecisions: (input: { date: string; content: string }) => { ok: boolean; decisionId?: string };
+    onSubmitToDecisions: (input: {
+        date: string;
+        content: string;
+    }) => { ok: boolean; decisionId?: string; logEntryId?: string } | undefined | null;
     /** داخل لوحة موحّدة — بطاقة قابلة للطي */
     embedded?: boolean;
     /** وكيل المدين — لا قائمة مكررة؛ السجل في السجل الزمني فقط */
@@ -26,30 +37,140 @@ type Props = {
     appealPerspective?: AppealUiPerspective;
 };
 
-function resolveOtherPartyLogDecisionRow(
-    entry: OtherPartyActionLogEntry,
-    decisions: Record<string, unknown>[]
-): Record<string, unknown> | null {
-    const did = String(entry.decisionRowId || '').trim();
-    if (did) {
-        const linked = decisions.find((r) => String((r as { id?: string }).id || '').trim() === did);
-        if (linked) return linked;
+/** يمنع انهيار «reading ok of undefined» عندما يكون المعالج stub أو لم يُحمَّل بعد */
+function normalizeOtherPartySubmitResult(
+    result: { ok: boolean; decisionId?: string; logEntryId?: string } | undefined | null,
+): { ok: boolean; decisionId?: string; logEntryId?: string } {
+    if (result && typeof result === 'object' && typeof result.ok === 'boolean') {
+        return result;
     }
-    const pending = decisions.filter((r) => {
-        if (String((r as { requestKind?: string }).requestKind || '') !== 'special_followup') {
-            return false;
+    return { ok: false };
+}
+
+function useMergedOtherPartyEntries(entries: OtherPartyActionLogEntry[]) {
+    const [optimisticEntries, setOptimisticEntries] = useState<OtherPartyActionLogEntry[]>([]);
+
+    useEffect(() => {
+        setOptimisticEntries((prev) =>
+            prev.filter((row) => !entries.some((saved) => saved.id === row.id)),
+        );
+    }, [entries]);
+
+    const mergedEntries = useMemo(() => {
+        const merged = new Map<string, OtherPartyActionLogEntry>();
+        const decisionOwner = new Map<string, string>();
+
+        for (const row of [...optimisticEntries, ...entries]) {
+            const decisionId = String(row.decisionRowId || '').trim();
+            if (decisionId) {
+                const existingId = decisionOwner.get(decisionId);
+                if (existingId && existingId !== row.id) {
+                    merged.delete(existingId);
+                }
+                decisionOwner.set(decisionId, row.id);
+            }
+            merged.set(row.id, row);
         }
-        const title = String((r as { title?: string }).title || '').trim();
-        if (!/تحرك الطرف الآخر/i.test(title)) return false;
-        const out = String((r as { executorOutcome?: string }).executorOutcome ?? 'pending');
-        return out === 'pending' || out === '';
+
+        return [...merged.values()];
+    }, [entries, optimisticEntries]);
+
+    return { mergedEntries, setOptimisticEntries };
+}
+
+function isPendingExecutorDecisionRow(row: Record<string, unknown> | null | undefined): boolean {
+    if (!row) return false;
+    const outcome = String((row as { executorOutcome?: string }).executorOutcome ?? 'pending');
+    return outcome === 'pending' || outcome === '';
+}
+
+/** البطاقة العلوية فقط للطلب قيد البت — المُعتمد/المرفوض يبقى في السجل السفلي */
+function resolveActiveOtherPartyRequestCard(
+    sorted: OtherPartyActionLogEntry[],
+    decisions: Record<string, unknown>[],
+    exId: string,
+    appealPerspective: AppealUiPerspective,
+): { entry: OtherPartyActionLogEntry; row: Record<string, unknown> } | null {
+    if (!exId || sorted.length === 0) return null;
+
+    for (const entry of sorted) {
+        const row = resolveOtherPartyLogDecisionRow(entry, decisions);
+        if (!row || !isPendingExecutorDecisionRow(row)) continue;
+        if (
+            !shouldShowSpecialFollowupExecutorStrip(row, {
+                allDecisions: decisions,
+                appealPerspective,
+            })
+        ) {
+            continue;
+        }
+        return { entry, row };
+    }
+
+    const pending = sorted.find((e) => e.outcome === 'pending');
+    if (!pending) return null;
+    const row = resolveOtherPartyLogDecisionRow(pending, decisions);
+    if (!row || !isPendingExecutorDecisionRow(row)) return null;
+    if (
+        !shouldShowSpecialFollowupExecutorStrip(row, {
+            allDecisions: decisions,
+            appealPerspective,
+        })
+    ) {
+        return null;
+    }
+    return { entry: pending, row };
+}
+
+/** يمنع تكرار نفس السجل في البطاقة والقائمة — فقط للطلب النشط قيد البت */
+function excludeActiveCardFromSavedList(
+    sorted: OtherPartyActionLogEntry[],
+    activeCard: { entry: OtherPartyActionLogEntry } | null | undefined,
+): OtherPartyActionLogEntry[] {
+    const activeId = String(activeCard?.entry.id || '').trim();
+    if (!activeId) return sorted;
+    return sorted.filter((row) => row.id !== activeId);
+}
+
+function commitOtherPartySaveResult(args: {
+    submitRes: { ok: boolean; decisionId?: string; logEntryId?: string };
+    date: string;
+    content: string;
+    entries: OtherPartyActionLogEntry[];
+    hideSavedEntries: boolean;
+    onPersist: (next: OtherPartyActionLogEntry[]) => void;
+    setOptimisticEntries: Dispatch<SetStateAction<OtherPartyActionLogEntry[]>>;
+}): void {
+    const { submitRes, date, content, entries, hideSavedEntries, onPersist, setOptimisticEntries } =
+        args;
+    const row = buildOtherPartyActionLogEntry({
+        id: submitRes.logEntryId,
+        date,
+        content,
+        decisionRowId: submitRes.decisionId,
     });
-    if (pending.length === 0) return null;
-    return pending.reduce((acc, cur) => {
-        const a = String((acc as { resolvedAt?: string; date?: string }).resolvedAt ?? (acc as { date?: string }).date ?? '');
-        const b = String((cur as { resolvedAt?: string; date?: string }).resolvedAt ?? (cur as { date?: string }).date ?? '');
-        return b.localeCompare(a, undefined, { numeric: true }) > 0 ? cur : acc;
-    }, pending[0]!);
+
+    if (!hideSavedEntries) {
+        const handlerAlreadyPersisted = Boolean(submitRes.logEntryId);
+        if (!handlerAlreadyPersisted) {
+            onPersist(prependOtherPartyActionLog(entries, row));
+        }
+    }
+
+    if (submitRes.decisionId || submitRes.logEntryId) {
+        setOptimisticEntries((prev) => [row, ...prev.filter((item) => item.id !== row.id)]);
+    }
+
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(DECISIONS_RELOAD_EVENT));
+    }
+}
+
+function resolveSavedEntryOutcome(
+    entry: OtherPartyActionLogEntry,
+    decisions: Record<string, unknown>[],
+): OtherPartyActionLogEntry['outcome'] {
+    return resolveOtherPartyLogEntryOutcome(entry, decisions);
 }
 
 function OtherPartyLatestRequestCard(props: {
@@ -121,14 +242,20 @@ function OtherPartyLatestRequestCard(props: {
     );
 }
 
+
 function SavedEntriesList({
     sorted,
-    excludeId,
+    activeCardEntryId,
+    decisions = [],
 }: {
     sorted: OtherPartyActionLogEntry[];
-    excludeId?: string;
+    activeCardEntryId?: string | null;
+    decisions?: Record<string, unknown>[];
 }) {
-    const filtered = excludeId ? sorted.filter((row) => row.id !== excludeId) : sorted;
+    const filtered = excludeActiveCardFromSavedList(
+        sorted,
+        activeCardEntryId ? { entry: { id: activeCardEntryId } as OtherPartyActionLogEntry } : null,
+    );
     if (filtered.length === 0) {
         return (
             <p className="rounded-lg border border-dashed border-white/10 py-4 text-center text-[10px] text-slate-500">
@@ -139,13 +266,15 @@ function SavedEntriesList({
 
     return (
         <ul className="max-h-[min(36vh,240px)] space-y-2 overflow-y-auto pr-1">
-            {filtered.map((row) => (
+            {filtered.map((row) => {
+                const outcome = resolveSavedEntryOutcome(row, decisions);
+                return (
                 <li
                     key={row.id}
                     className={`rounded-xl border p-3 text-right border-r-4 ${
-                        row.outcome === 'approved'
+                        outcome === 'approved'
                             ? 'border-emerald-400/40 border-r-emerald-400 bg-emerald-950/35 shadow-[0_0_24px_-8px_rgba(52,211,153,0.45)]'
-                            : row.outcome === 'rejected'
+                            : outcome === 'rejected'
                               ? 'border-white/10 border-r-red-500 bg-black/25'
                               : 'border-white/10 border-r-amber-500 bg-black/25'
                     }`}
@@ -154,23 +283,24 @@ function SavedEntriesList({
                         <span className="text-xs text-amber-200/90">{row.date}</span>
                         <span
                             className={`rounded-full px-2 py-0.5 text-[10px] ${
-                                row.outcome === 'approved'
+                                outcome === 'approved'
                                     ? 'bg-emerald-500/25 text-emerald-100'
-                                    : row.outcome === 'rejected'
+                                    : outcome === 'rejected'
                                       ? 'bg-red-500/25 text-red-100'
                                       : 'bg-amber-500/20 text-amber-100'
                             }`}
                         >
-                            {row.outcome === 'approved'
+                            {outcome === 'approved'
                                 ? 'موافقة'
-                                : row.outcome === 'rejected'
+                                : outcome === 'rejected'
                                   ? 'رفض'
                                   : 'قيد النظر'}
                         </span>
                     </div>
                     <p className="whitespace-pre-wrap text-sm leading-relaxed text-amber-50/95">{row.content}</p>
                 </li>
-            ))}
+            );
+            })}
         </ul>
     );
 }
@@ -208,64 +338,50 @@ export function ManualOtherPartyLogBlock({
     const [content, setContent] = useState('');
     const exId = String(executionId || '').trim();
     const decisions = useFollowupDecisions(exId);
+    const { mergedEntries, setOptimisticEntries } = useMergedOtherPartyEntries(entries);
 
     const sorted = useMemo(() => {
-        return [...entries].sort(
+        return [...mergedEntries].sort(
             (a, b) =>
                 String(b.date).localeCompare(String(a.date)) ||
                 String(b.savedAt || '').localeCompare(String(a.savedAt || ''))
         );
-    }, [entries]);
+        }, [mergedEntries]);
 
-    const latestTrackedEntry = useMemo(() => {
-        if (!exId || sorted.length === 0) return null;
-        for (const entry of sorted) {
-            const row = resolveOtherPartyLogDecisionRow(entry, decisions);
-            if (
-                row &&
-                shouldShowSpecialFollowupExecutorStrip(row, {
-                    allDecisions: decisions,
-                    appealPerspective,
-                })
-            ) {
-                return { entry, row };
-            }
-        }
-        const pending = sorted.find((e) => e.outcome === 'pending');
-        if (!pending) return null;
-        return { entry: pending, row: resolveOtherPartyLogDecisionRow(pending, decisions) };
-    }, [appealPerspective, decisions, exId, sorted]);
+    const activePendingCard = useMemo(
+        () => resolveActiveOtherPartyRequestCard(sorted, decisions, exId, appealPerspective),
+        [appealPerspective, decisions, exId, sorted],
+    );
 
     const handleSave = useCallback(() => {
         const trimmed = content.trim();
         if (!trimmed) return;
-        const submitRes = onSubmitToDecisions({
-            date: date || getLocalTodayYmd(),
-            content: trimmed,
-        });
-        if (!submitRes.ok) return;
-        if (!hideSavedEntries) {
-            const id = `opa-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-            const row: OtherPartyActionLogEntry = {
-                id,
+        const submitRes = normalizeOtherPartySubmitResult(
+            onSubmitToDecisions({
                 date: date || getLocalTodayYmd(),
                 content: trimmed,
-                outcome: 'pending',
-                savedAt: new Date().toISOString(),
-                ...(submitRes.decisionId ? { decisionRowId: submitRes.decisionId } : {}),
-            };
-            onPersist([row, ...entries]);
-        }
+            }),
+        );
+        if (!submitRes.ok) return;
+        commitOtherPartySaveResult({
+            submitRes,
+            date: date || getLocalTodayYmd(),
+            content: trimmed,
+            entries,
+            hideSavedEntries,
+            onPersist,
+            setOptimisticEntries,
+        });
         setContent('');
         setExpanded(true);
-    }, [content, date, entries, hideSavedEntries, onPersist, onSubmitToDecisions]);
+    }, [content, date, entries, hideSavedEntries, onPersist, onSubmitToDecisions, setOptimisticEntries]);
 
     return (
         <div className="space-y-3">
-            {latestTrackedEntry && exId ? (
+            {activePendingCard ? (
                 <OtherPartyLatestRequestCard
-                    entry={latestTrackedEntry.entry}
-                    decisionRow={latestTrackedEntry.row}
+                    entry={activePendingCard.entry}
+                    decisionRow={activePendingCard.row}
                     executionId={exId}
                     appealPerspective={appealPerspective}
                     decisions={decisions}
@@ -351,7 +467,8 @@ export function ManualOtherPartyLogBlock({
                                 {!hideSavedEntries ? (
                                     <SavedEntriesList
                                         sorted={sorted}
-                                        excludeId={latestTrackedEntry?.entry.id}
+                                        activeCardEntryId={activePendingCard?.entry.id}
+                                        decisions={decisions}
                                     />
                                 ) : null}
                             </div>
@@ -389,61 +506,49 @@ export function OtherPartyActionsLog({
     const [content, setContent] = useState('');
     const exId = String(executionId || '').trim();
     const decisions = useFollowupDecisions(exId);
+    const { mergedEntries, setOptimisticEntries } = useMergedOtherPartyEntries(entries);
 
     const sorted = useMemo(() => {
-        return [...entries].sort(
+        return [...mergedEntries].sort(
             (a, b) =>
                 String(b.date).localeCompare(String(a.date)) ||
                 String(b.savedAt || '').localeCompare(String(a.savedAt || ''))
         );
-    }, [entries]);
+        }, [mergedEntries]);
 
-    const latestTrackedEntry = useMemo(() => {
-        if (!exId || sorted.length === 0) return null;
-        for (const entry of sorted) {
-            const row = resolveOtherPartyLogDecisionRow(entry, decisions);
-            if (
-                row &&
-                shouldShowSpecialFollowupExecutorStrip(row, {
-                    allDecisions: decisions,
-                    appealPerspective,
-                })
-            ) {
-                return { entry, row };
-            }
-        }
-        const pending = sorted.find((e) => e.outcome === 'pending');
-        if (!pending) return null;
-        return { entry: pending, row: resolveOtherPartyLogDecisionRow(pending, decisions) };
-    }, [appealPerspective, decisions, exId, sorted]);
+    const activePendingCard = useMemo(
+        () => resolveActiveOtherPartyRequestCard(sorted, decisions, exId, appealPerspective),
+        [appealPerspective, decisions, exId, sorted],
+    );
 
     const handleSave = useCallback(() => {
         const trimmed = content.trim();
         if (!trimmed) return;
-        const submitRes = onSubmitToDecisions({
-            date: date || getLocalTodayYmd(),
-            content: trimmed,
-        });
+        const submitRes = normalizeOtherPartySubmitResult(
+            onSubmitToDecisions({
+                date: date || getLocalTodayYmd(),
+                content: trimmed,
+            }),
+        );
         if (!submitRes.ok) return;
-        const id = `opa-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-        const row: OtherPartyActionLogEntry = {
-            id,
+        commitOtherPartySaveResult({
+            submitRes,
             date: date || getLocalTodayYmd(),
             content: trimmed,
-            outcome: 'pending',
-            savedAt: new Date().toISOString(),
-            ...(submitRes.decisionId ? { decisionRowId: submitRes.decisionId } : {}),
-        };
-        onPersist([row, ...entries]);
+            entries,
+            hideSavedEntries: false,
+            onPersist,
+            setOptimisticEntries,
+        });
         setContent('');
-    }, [content, date, entries, onPersist, onSubmitToDecisions]);
+    }, [content, date, entries, onPersist, onSubmitToDecisions, setOptimisticEntries]);
 
     return (
         <div className="space-y-4 text-right" dir="rtl">
-            {latestTrackedEntry && exId ? (
+            {activePendingCard ? (
                 <OtherPartyLatestRequestCard
-                    entry={latestTrackedEntry.entry}
-                    decisionRow={latestTrackedEntry.row}
+                    entry={activePendingCard.entry}
+                    decisionRow={activePendingCard.row}
                     executionId={exId}
                     appealPerspective={appealPerspective}
                     decisions={decisions}
@@ -481,10 +586,16 @@ export function OtherPartyActionsLog({
                 </div>
             </div>
 
-            <div className="space-y-2">
-                <div className="text-xs text-amber-200/70">السجلات المحفوظة ({sorted.length})</div>
-                <SavedEntriesList sorted={sorted} excludeId={latestTrackedEntry?.entry.id} />
-            </div>
+            {!hideSavedEntries ? (
+                <div className="space-y-2">
+                    <div className="text-xs text-amber-200/70">السجلات المحفوظة ({sorted.length})</div>
+                    <SavedEntriesList
+                        sorted={sorted}
+                        activeCardEntryId={activePendingCard?.entry.id}
+                        decisions={decisions}
+                    />
+                </div>
+            ) : null}
         </div>
     );
 }

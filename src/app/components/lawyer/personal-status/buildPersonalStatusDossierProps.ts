@@ -1,5 +1,7 @@
 import type { SmartFileMainPanelProps } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelTypes';
-import type { CaseStage } from '@/app/components/lawyer/LawyerShared';
+import type { SessionAndRequestsHubProps } from '@/app/components/lawyer/smart-modal/parts/SessionAndRequestsHub';
+import type { AttachmentShieldSummary, FastTrackPetitionSummary } from '@/app/components/lawyer/smart-modal/smartFile/requestTypes';
+import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import {
     buildSessionRecordPayload,
     isOpponentProceedingsEvent,
@@ -49,7 +51,7 @@ export function buildPersonalStatusHeaderFormData(input: {
 export function buildPersonalStatusSessionHubProps(
     p: SmartFileMainPanelProps,
     isViewingArchived: boolean,
-) {
+): SessionAndRequestsHubProps {
     const {
         displayTimeline,
         displayStage,
@@ -73,6 +75,7 @@ export function buildPersonalStatusSessionHubProps(
                 ? editingEvent
                 : null,
         onCancelEditSessionRecord: () => setEditingEvent(null),
+        onEditSessionRecord: (event: TimelineEvent) => setEditingEvent(event),
         onSubmitSessionRecord: (data: Parameters<typeof buildSessionRecordPayload>[0] & { id?: string }) => {
             handleAddAction(buildSessionRecordPayload(data, data.id));
         },
@@ -82,8 +85,8 @@ export function buildPersonalStatusSessionHubProps(
             );
             setShowFastTrackModal(true);
         },
-        petitions: displayStage?.fastTrackPetitions ?? [],
-        attachments: displayStage?.attachments ?? [],
+        petitions: (displayStage?.fastTrackPetitions ?? []) as FastTrackPetitionSummary[],
+        attachments: (displayStage?.attachments ?? []) as AttachmentShieldSummary[],
         onEditPetition: (petition: {
             id: string;
             requestType?: string;
@@ -96,8 +99,8 @@ export function buildPersonalStatusSessionHubProps(
             setEditingFastTrack(petition as unknown as Record<string, unknown>);
             setShowFastTrackModal(true);
         },
-        onEditAttachment: (attachment: Record<string, unknown>) => {
-            setEditingAttachment(attachment);
+        onEditAttachment: (attachment: AttachmentShieldSummary) => {
+            setEditingAttachment(attachment as unknown as Record<string, unknown>);
             setShowAttachmentModal(true);
         },
         onResolvePetition: (

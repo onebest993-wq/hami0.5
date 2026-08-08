@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Upload, FileText, Loader2, ImageIcon } from 'lucide-react';
+import { X, Upload, FileText, Loader2, ImageIcon } from '@/app/components/ui/lucideIcons';
 import { formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import type { VaultUploadKind } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';

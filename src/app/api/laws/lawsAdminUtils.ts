@@ -95,11 +95,11 @@ export async function clearIraqiLaws(params: {
   }
 
   const idsToDelete = (rows ?? [])
-    .filter((row) => {
+    .filter((row: { id?: unknown; article_number?: unknown }) => {
       const n = extractArticleSortNumber(String(row.article_number ?? ''));
       return n !== null && n >= articleFrom! && n <= articleTo!;
     })
-    .map((row) => String(row.id));
+    .map((row: { id?: unknown }) => String(row.id));
 
   if (idsToDelete.length === 0) {
     return {

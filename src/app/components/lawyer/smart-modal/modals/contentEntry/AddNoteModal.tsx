@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText } from 'lucide-react';
+import { FileText } from '@/app/components/ui/lucideIcons';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { DossierFastNoteComposer } from '@/app/components/lawyer/dossier-notes/DossierFastNoteComposer';
 import { DossierNotesVault, type DossierVaultNote } from '@/app/components/lawyer/dossier-notes/DossierNotesVault';
@@ -20,6 +20,7 @@ export const AddNoteModal = ({
     voiceUserId,
     savedNotes = [],
     onDeleteNote,
+    browseOnly = false,
 }: AddNoteModalProps) => {
     const T = useSmartFileModalTheme();
     const [title, setTitle] = useState('');
@@ -80,27 +81,40 @@ export const AddNoteModal = ({
             <SmartModalHeader
                 T={T}
                 icon={FileText}
-                title={isEditing ? 'تعديل ملاحظة' : 'ملاحظات الإضبارة'}
+                title={browseOnly ? 'ملاحظات الإضبارة — للاطلاع' : isEditing ? 'تعديل ملاحظة' : 'ملاحظات الإضبارة'}
                 onClose={onClose}
             />
             <div
                 className={
-                    T.useMoroccanCorners
+                    browseOnly
+                        ? 'p-3 sm:p-4'
+                        : T.useMoroccanCorners
                         ? 'grid grid-cols-1 gap-3 p-3 sm:gap-4 sm:p-4 md:grid-cols-2 md:items-start'
                         : T.body
                 }
             >
-                <div className="order-2 max-h-[28vh] overflow-y-auto overscroll-contain rounded-[20px] border border-white/[0.08] bg-black/10 p-2.5 sm:p-3 md:order-1 md:max-h-[min(68dvh,560px)]">
+                <div
+                    className={
+                        browseOnly
+                            ? 'max-h-[min(72dvh,640px)] overflow-y-auto overscroll-contain rounded-[20px] border border-white/[0.08] bg-black/10 p-2.5 sm:p-3'
+                            : 'order-2 max-h-[28vh] overflow-y-auto overscroll-contain rounded-[20px] border border-white/[0.08] bg-black/10 p-2.5 sm:p-3 md:order-1 md:max-h-[min(68dvh,560px)]'
+                    }
+                >
                     <DossierNotesVault
                         notes={savedNotes}
-                        onEdit={handleVaultEdit}
-                        onDelete={onDeleteNote}
+                        onEdit={browseOnly ? undefined : handleVaultEdit}
+                        onDelete={browseOnly ? undefined : onDeleteNote}
                         variant="repo"
                         heading="مخزن الملاحظات"
-                        emptyLabel="لا توجد ملاحظات محفوظة بعد — اكتب ملاحظة جديدة أدناه."
+                        emptyLabel={
+                            browseOnly
+                                ? 'لا توجد ملاحظات في هذه الإضبارة.'
+                                : 'لا توجد ملاحظات محفوظة بعد — اكتب ملاحظة جديدة أدناه.'
+                        }
                         lawContext={noteContext}
                     />
                 </div>
+                {!browseOnly ? (
                 <div className="order-1 min-w-0 border-b border-white/[0.08] pb-3 md:order-2 md:border-b-0 md:border-r md:pb-0 md:pr-4">
                     <p className="mb-2.5 text-xs font-bold text-[#E6C673]/85">
                         {isEditing ? 'تعديل الملاحظة' : 'ملاحظة جديدة'}
@@ -124,6 +138,7 @@ export const AddNoteModal = ({
                         expanded
                     />
                 </div>
+                ) : null}
             </div>
         </MoroccanGlassShell>
     );

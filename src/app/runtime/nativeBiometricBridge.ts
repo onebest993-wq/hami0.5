@@ -1,9 +1,9 @@
+import { callBiometricNative, withReadyBiometricPlugin } from '@/app/runtime/biometricNative';
 import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
-import { loadOptionalCapacitorPlugin } from '@/app/runtime/optionalCapacitorPluginLoad';
+
+const ANDROID_BIOMETRY_WEAK = 0;
 
 const NATIVE_BIOMETRIC_ENROLLED_KEY = 'hami:native-biometric-enrolled';
-
-const BIOMETRIC_MODULE = '@aparajita/capacitor-biometric-auth';
 
 type CheckBiometryResult = {
     isAvailable: boolean;
@@ -24,16 +24,6 @@ type BiometricAuthApi = {
     }): Promise<void>;
 };
 
-type BiometricAuthModule = {
-    BiometricAuth: BiometricAuthApi;
-};
-
-async function loadBiometricPlugin(): Promise<BiometricAuthApi | null> {
-    if (!isCapacitorNativePlatform()) return null;
-    const mod = await loadOptionalCapacitorPlugin<BiometricAuthModule>(BIOMETRIC_MODULE);
-    return mod?.BiometricAuth ?? null;
-}
-
 const AUTH_PROMPT = {
     reason: 'تحقق للمتابعة في حامي',
     cancelTitle: 'إلغاء',
@@ -41,7 +31,42 @@ const AUTH_PROMPT = {
     iosFallbackTitle: 'استخدم رمز المرور',
     androidTitle: 'قفل حامي',
     androidSubtitle: 'تحقق ببصمتك أو Face ID',
+    androidConfirmationRequired: false,
+    androidBiometryStrength: ANDROID_BIOMETRY_WEAK,
 } as const;
+
+function flushUiBeforeBiometricPrompt(): Promise<void> {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => resolve());
+        });
+    });
+}
+
+const BIOMETRIC_AUTH_TIMEOUT_MS = 45_000;
+
+function withBiometricAuthTimeout<T>(promise: Promise<T>, ms = BIOMETRIC_AUTH_TIMEOUT_MS): Promise<T> {
+    return new Promise((resolve, reject) => {
+        const timer = window.setTimeout(() => {
+            reject(Object.assign(new Error('biometric_auth_timeout'), { code: 'timeout' }));
+        }, ms);
+        promise.then(
+            (value) => {
+                window.clearTimeout(timer);
+                resolve(value);
+            },
+            (error) => {
+                window.clearTimeout(timer);
+                reject(error);
+            },
+        );
+    });
+}
+
+export function isBiometryUserCancelError(err: unknown): boolean {
+    const code = String((err as { code?: unknown } | null)?.code ?? '');
+    return code === 'userCancel' || code === 'systemCancel' || code === 'appCancel';
+}
 
 export type NativeBiometricProbe = {
     /** داخل غلاف Capacitor أصلي */
@@ -87,12 +112,11 @@ export async function probeNativeBiometricAvailability(): Promise<NativeBiometri
     if (!nativeShell) {
         return { nativeShell: false, pluginLoaded: false, hardwareAvailable: false };
     }
-    const plugin = await loadBiometricPlugin();
-    if (!plugin) {
-        return { nativeShell: true, pluginLoaded: false, hardwareAvailable: false };
-    }
     try {
-        const result = await plugin.checkBiometry();
+        const result = await callBiometricNative((plugin) => plugin.checkBiometry());
+        if (!result) {
+            return { nativeShell: true, pluginLoaded: false, hardwareAvailable: false };
+        }
         return {
             nativeShell: true,
             pluginLoaded: true,
@@ -103,38 +127,49 @@ export async function probeNativeBiometricAvailability(): Promise<NativeBiometri
     }
 }
 
-/** null = لا plugin — استخدم WebAuthn */
+/** null = لا plugin — استخدم WebAuthn على الويب فقط */
 export async function registerNativeBiometric(): Promise<boolean | null> {
-    const plugin = await loadBiometricPlugin();
-    if (!plugin) return null;
+    if (!isCapacitorNativePlatform()) return null;
 
     try {
-        const { isAvailable } = await plugin.checkBiometry();
-        if (!isAvailable) return false;
-        await plugin.authenticate({
-            ...AUTH_PROMPT,
-            reason: 'تفعيل القفل البيومتري في حامي',
+        const registered = await withReadyBiometricPlugin(async (plugin) => {
+            const { isAvailable } = await plugin.checkBiometry();
+            if (!isAvailable) return false;
+            await flushUiBeforeBiometricPrompt();
+            await withBiometricAuthTimeout(
+                plugin.authenticate({
+                    ...AUTH_PROMPT,
+                    reason: 'تفعيل القفل البيومتري في حامي',
+                }),
+            );
+            return true;
         });
-        markNativeBiometricEnrolled(true);
-        return true;
-    } catch {
+        if (registered === null) return null;
+        if (registered) markNativeBiometricEnrolled(true);
+        return registered;
+    } catch (err) {
+        if (isBiometryUserCancelError(err)) return false;
         return false;
     }
 }
 
 /** null = لا plugin — استخدم WebAuthn */
 export async function verifyNativeBiometricUnlock(): Promise<boolean | null> {
-    const plugin = await loadBiometricPlugin();
-    if (!plugin) return null;
-
+    if (!isCapacitorNativePlatform()) return null;
     if (!hasNativeBiometricEnrollment()) return false;
 
     try {
-        const { isAvailable } = await plugin.checkBiometry();
-        if (!isAvailable) return false;
-        await plugin.authenticate(AUTH_PROMPT);
-        return true;
-    } catch {
+        const verified = await withReadyBiometricPlugin(async (plugin) => {
+            const { isAvailable } = await plugin.checkBiometry();
+            if (!isAvailable) return false;
+            await flushUiBeforeBiometricPrompt();
+            await withBiometricAuthTimeout(plugin.authenticate(AUTH_PROMPT));
+            return true;
+        });
+        if (verified === null) return null;
+        return verified;
+    } catch (err) {
+        if (isBiometryUserCancelError(err)) return false;
         return false;
     }
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, memo } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, memo } from 'react';
 import type { Transaction } from '@/app/modules/transactionsThreading/types';
 import { useTransactionsThreadingStore, ensureTransactionsUserBound } from '@/app/modules/transactionsThreading/store';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
@@ -12,6 +12,7 @@ import { TransactionsListScreen } from './TransactionsListScreen';
 import { TransactionDetailsScreen } from './TransactionDetailsScreen';
 import { TX_OVERLAY } from './transactionsGlassTheme';
 import { useTransactionsEscapeStack } from './hooks/useTransactionsEscapeStack';
+import { useTransactionsOpenInteractionGuard } from './hooks/useTransactionsOpenInteractionGuard';
 import type { TransactionsDetailsEscapeSnapshot } from './transactionsEscapeStack';
 import {
     applyTransactionsEscapeAction,
@@ -22,11 +23,14 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
   onBack,
   userId,
   initialTransactionId,
+  onInitialFocusConsumed,
   open = true,
 }: {
   onBack: () => void;
   userId: string;
   initialTransactionId?: string;
+  /** يُستدعى بعد استهلاك focus مرة واحدة لكل دورة فتح — يمنع إعادة فتح التفاصيل من focus عالق */
+  onInitialFocusConsumed?: () => void;
   open?: boolean;
 }) {
   const refreshTransactions = useTransactionsThreadingStore((s) => s.refreshTransactions);
@@ -38,8 +42,24 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
   const closeDetailsOverlayRef = useRef<(patch: Partial<TransactionsDetailsEscapeSnapshot>) => void>(
     () => undefined,
   );
+  const wasOpenRef = useRef(false);
+  const focusPendingRef = useRef<string | undefined>();
+  const viewRef = useRef<'list' | 'details'>('list');
+  viewRef.current = view;
+
+  const cardsInteractive = useTransactionsOpenInteractionGuard(open);
 
   useBodyScrollLock(open);
+
+  useLayoutEffect(() => {
+    if (open && !wasOpenRef.current) {
+      focusPendingRef.current = initialTransactionId?.trim() || undefined;
+    }
+    if (!open) {
+      focusPendingRef.current = undefined;
+    }
+    wasOpenRef.current = open;
+  }, [open, initialTransactionId]);
 
   useEffect(() => {
     if (open) return;
@@ -78,16 +98,42 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
     if (!open) return;
     ensureTransactionsUserBound(userId);
     let cancelled = false;
+    let hydrated = false;
 
     const applyResolvedView = () => {
       if (cancelled) return;
+
+      const focusId = focusPendingRef.current;
+      if (!focusId) {
+        if (viewRef.current === 'list') {
+          setView('list');
+          setSelectedId(null);
+        }
+        if (consumeOpenTransactionsAddSheet()) {
+          setView('list');
+          setSelectedId(null);
+          setListAddSheetOpen(true);
+        }
+        return;
+      }
+
       const resolved = resolveInitialTransactionsView(
-        initialTransactionId,
+        focusId,
         useTransactionsThreadingStore.getState().transactions,
       );
       if (resolved.missingFocusId) {
-        SmartToast.warning('تعذر فتح المعاملة المطلوبة');
+        if (hydrated) {
+          SmartToast.warning('تعذر فتح المعاملة المطلوبة');
+          focusPendingRef.current = undefined;
+          onInitialFocusConsumed?.();
+          setView('list');
+          setSelectedId(null);
+        }
+        return;
       }
+
+      focusPendingRef.current = undefined;
+      onInitialFocusConsumed?.();
       setView(resolved.view);
       setSelectedId(resolved.selectedId);
       if (consumeOpenTransactionsAddSheet()) {
@@ -112,12 +158,13 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
         /* hydrate may still have seeded the store */
       }
       if (cancelled) return;
+      hydrated = true;
       applyResolvedView();
     })();
     return () => {
       cancelled = true;
     };
-  }, [initialTransactionId, open, refreshTransactions, setUserId, userId]);
+  }, [onInitialFocusConsumed, open, refreshTransactions, setUserId, userId]);
 
   const openDetails = useCallback((tx: Transaction) => {
     setSelectedId(tx.id);
@@ -211,6 +258,7 @@ export const TransactionsThreadingSystem = memo(function TransactionsThreadingSy
           hubOpen={open}
           hubUserId={userId}
           onTransactionCreated={onTransactionCreated}
+          cardsInteractive={cardsInteractive}
         />
       ) : selectedId ? (
         <TransactionDetailsScreen

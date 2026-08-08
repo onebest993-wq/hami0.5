@@ -1,5 +1,5 @@
 import { memo, useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { GLASS_BTN, TX_ICON_BTN, TX_TEXT_MUTED, TX_TEXT_PRIMARY, TxGlassPanel } from '../transactionsGlassTheme';
 import { emptyPathDismissKey } from './taskThreadUtils';
 

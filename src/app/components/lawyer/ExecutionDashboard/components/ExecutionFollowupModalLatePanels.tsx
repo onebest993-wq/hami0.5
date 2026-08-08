@@ -10,7 +10,7 @@ import { EVICTION_TIMELINE_ACTION_IDS, isSpecificDeliveryClaim } from '@/app/uti
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
-import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
+import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
 
 
 export function ExecutionFollowupModalLatePanels({ c }: { c: ExecutionFollowupModalPortalController }) {
@@ -240,6 +240,7 @@ export function ExecutionFollowupModalLatePanels({ c }: { c: ExecutionFollowupMo
                                     >
                                     <TabCommunications
                                         decisionsStorageExecutionId={decisionsStorageExecutionId}
+                                        executionData={viewExecutionData as Record<string, unknown>}
                                         showToast={showToast}
                                         showSoftFieldProcedures={
                                             spec.showCorrespondencesSoftProcedures
@@ -332,7 +333,12 @@ export function ExecutionFollowupModalLatePanels({ c }: { c: ExecutionFollowupMo
                                         className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
                                     >
                                     <TabRequests
-                                        executionId={decisionsStorageExecutionId ?? executionId}
+                                        executionId={requireDecisionsStorageExecutionId({
+                                            decisionsStorageExecutionId,
+                                            executionId,
+                                            executionData: viewExecutionData as Record<string, unknown> | null,
+                                        })}
+                                        executionData={viewExecutionData as Record<string, unknown> | null}
                                         appealPerspective={appealPerspective}
                                         specialRequestTemplatePick={specialRequestTemplatePick}
                                         setSpecialRequestTemplatePick={setSpecialRequestTemplatePick}
@@ -360,6 +366,7 @@ export function ExecutionFollowupModalLatePanels({ c }: { c: ExecutionFollowupMo
                                                 isPersonalStatusExecutionClaim,
                                                 isAlimonyClaim: isAlimonyClaimType,
                                                 activeDebtorIsEmployee,
+                                                personalTabLockedForEmployee,
                                                 showHiddenExecutiveDossierPresentation:
                                                     !hideExecutiveDetentionJudgeCard &&
                                                     !activeDebtorIsEmployee &&

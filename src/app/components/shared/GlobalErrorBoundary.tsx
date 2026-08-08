@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from "react";
 import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
 import { resetArchivePortalPrefetch } from '@/app/runtime/archivePortalPrefetch';
+import { sentryCaptureException } from '@/app/observability/sentryClient';
 import { debug } from "@/app/utils/debug";
 
 interface Props {
@@ -56,12 +57,13 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         /* ignore */
       }
     }
-    
-    // Log to external service (e.g., Sentry) if configured
-    // if (window.Sentry) {
-    //   window.Sentry.captureException(error, { extra: errorInfo });
-    // }
-    
+
+    // شبكة الأمان: إن وُجد VITE_SENTRY_DSN تُخزَّن ثم تُرسل بعد التهيئة
+    void sentryCaptureException(error, {
+      source: 'GlobalErrorBoundary',
+      componentStack: errorInfo?.componentStack ?? '',
+    });
+
     this.setState({ errorInfo });
   }
 

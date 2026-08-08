@@ -42,6 +42,7 @@ export function useTasksManagerController({
         reopenTask,
         toggleTaskFatalDeadline,
         toggleTaskPinnedToFieldCurtain,
+        postponeTask,
         addSubTask,
         toggleSubTaskComplete,
         addDocumentRequirement,
@@ -77,6 +78,8 @@ export function useTasksManagerController({
     const [showCompletedArchive, setShowCompletedArchive] = useState(false);
     const [helpTaskId, setHelpTaskId] = useState<string | null>(null);
     const [helpInboxOpen, setHelpInboxOpen] = useState(false);
+    const [postponeTaskId, setPostponeTaskId] = useState<string | null>(null);
+    const [postponeDateYmd, setPostponeDateYmd] = useState('');
 
     useEffect(() => {
         if (!focusTaskId) return;
@@ -240,6 +243,37 @@ export function useTasksManagerController({
         setHelpTaskId(task.id);
     }, []);
 
+    const openPostpone = useCallback((task: LegalTask) => {
+        setPostponeTaskId(task.id);
+        setPostponeDateYmd(formatLocalYmdInput(now));
+    }, [now]);
+
+    const dismissPostpone = useCallback(() => {
+        setPostponeTaskId(null);
+        setPostponeDateYmd('');
+    }, []);
+
+    const confirmPostpone = useCallback(() => {
+        if (!postponeTaskId) return;
+        const when = dateFromYmdInput(postponeDateYmd);
+        if (!when) {
+            SmartToast.error('اختر تاريخ ترحيل صالح');
+            return;
+        }
+        if (startOfLocalDay(when).getTime() < startOfLocalDay(now).getTime()) {
+            SmartToast.error('لا يمكن الترحيل إلى يوم مضى');
+            return;
+        }
+        postponeTask(postponeTaskId, when);
+        SmartToast.success('تم ترحيل المهمة');
+        dismissPostpone();
+    }, [postponeTaskId, postponeDateYmd, now, postponeTask, dismissPostpone]);
+
+    const postponeTarget = useMemo(
+        () => (postponeTaskId ? pendingTasks.find((t) => t.id === postponeTaskId) ?? null : null),
+        [pendingTasks, postponeTaskId],
+    );
+
     const renderTaskCard = useCallback(
         (t: LegalTask, fatalPulse: boolean, listOrdinal?: TaskListOrdinal, listKey?: string) => (
             <TaskCard
@@ -264,6 +298,7 @@ export function useTasksManagerController({
                 onDeleteRequest={requestDelete}
                 onReminderBadgeClick={(task) => setReminderModalTaskId(task.id)}
                 onRequestHelp={openRequestHelp}
+                onPostponeRequest={openPostpone}
             />
         ),
         [
@@ -282,6 +317,7 @@ export function useTasksManagerController({
             openEdit,
             requestDelete,
             openRequestHelp,
+            openPostpone,
         ],
     );
 
@@ -331,6 +367,13 @@ export function useTasksManagerController({
         setHelpTaskId,
         helpInboxOpen,
         setHelpInboxOpen,
+        postponeTaskId,
+        postponeDateYmd,
+        setPostponeDateYmd,
+        postponeTarget,
+        dismissPostpone,
+        confirmPostpone,
+        minPostponeIso: minSnoozeIso,
         requestTaskHelp,
         acceptTaskHelp,
         addSharedTaskNote,

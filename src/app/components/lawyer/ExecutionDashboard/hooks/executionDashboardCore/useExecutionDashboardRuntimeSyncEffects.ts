@@ -1,7 +1,7 @@
 // @ts-nocheck
 /** موجة 14 — effects صغيرة للمزامنة/UX (من core) */
-import { useEffect, useRef } from 'react';
-import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
+import type { ExecutionFile, StandaloneExecutionMark, TimelineEvent } from '@/app/types/execution';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import type { Debtor } from '@/app/types/execution';
 import { PerformanceMonitor } from '@/app/utils/performanceMonitor';
@@ -22,6 +22,7 @@ import {
     readFollowupMergedExecutorDecisions,
 } from '@/app/utils/maritalFurnitureDeliveryWorkflow';
 import { resolveMaritalFurnitureFinancialSyncPatch } from '@/app/components/lawyer/ExecutionDashboard/utils/maritalFurnitureFinancialSync';
+import type { FollowupUnifiedModalTab } from '../../followupModalTabTypes';
 import { isInabaSubFileId } from '@/app/stores/executionDashboardStore';
 
 export function useExecutionDashboardDebtorTabResetOnFileChange(
@@ -98,7 +99,7 @@ export function useExecutionDashboardLegacyNoticeStateBackfill({
     setActiveNoticeState,
 }: {
     executionData: ExecutionFile | null | undefined;
-    setActiveNoticeState: (v: ExecutionFile['activeNoticeState']) => void;
+    setActiveNoticeState: Dispatch<SetStateAction<string | null>>;
 }) {
     useEffect(() => {
         if (!executionData?.id) return;
@@ -135,7 +136,7 @@ export function useExecutionDashboardDebtorTabIndexClamp({
     executionDataId: string | undefined;
     debtorWorkspaceEntries: unknown[];
     partyMultiplicityAdditionalDebtors: unknown;
-    setExecutionDebtorTabIndex: (fn: (i: number) => number) => void;
+    setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
 }) {
     useEffect(() => {
         setExecutionDebtorTabIndex((i) => {
@@ -243,7 +244,7 @@ export function useExecutionDashboardDossierLifecycleDraftSync({
 export function useExecutionDashboardStandaloneMarksSync(
     executionData: ExecutionFile | null | undefined,
     executionStorageTick: number,
-    setStandaloneExecutionMarks: (v: ExecutionFile['standaloneExecutionMarks']) => void,
+    setStandaloneExecutionMarks: React.Dispatch<React.SetStateAction<StandaloneExecutionMark[]>>,
 ) {
     useEffect(() => {
         const marks = executionData?.standaloneExecutionMarks;
@@ -294,7 +295,7 @@ export function useExecutionDashboardActiveTimelineFilterNormalize(
     timelineFilterOptions: ReturnType<typeof normalizeExecutionTimelineFilter> extends never
         ? unknown
         : Parameters<typeof normalizeExecutionTimelineFilter>[1],
-    setActiveTimelineFilter: (fn: (prev: string) => string) => void,
+    setActiveTimelineFilter: Dispatch<SetStateAction<string>>,
 ) {
     useEffect(() => {
         setActiveTimelineFilter((prev) =>
@@ -304,7 +305,7 @@ export function useExecutionDashboardActiveTimelineFilterNormalize(
 }
 
 export function useExecutionDashboardEmployeeCompulsoryBannerReset(
-    employeeAssignmentPhaseForCoercive: string | undefined,
+    employeeAssignmentPhaseForCoercive: import('./executionDashboardEmployeeAssignmentSync').EmployeeAssignmentCoercivePhase,
     setEmployeeCompulsoryBannerDismissed: (v: boolean) => void,
 ) {
     useEffect(() => {
@@ -389,12 +390,12 @@ export function useExecutionDashboardUnifiedModalPersonalTabRedirect({
 }: {
     showUnifiedExecutionModal: boolean;
     modalShowPersonalCoerciveFollowupTab: boolean;
-    unifiedModalTab: string;
+    unifiedModalTab: FollowupUnifiedModalTab;
     hideFollowupSeizureRequestsTab: boolean;
     hideFollowupCoerciveTab: boolean;
     followupSolidaryDebtorIndex: number;
     executionDebtorTabIndex: number;
-    setUnifiedModalTab: (tab: string) => void;
+    setUnifiedModalTab: Dispatch<SetStateAction<FollowupUnifiedModalTab>>;
 }) {
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
@@ -405,7 +406,7 @@ export function useExecutionDashboardUnifiedModalPersonalTabRedirect({
                 ? 'correspondences'
                 : 'coercive'
             : 'seizure_requests';
-        setUnifiedModalTab(nextTab);
+        if (nextTab !== unifiedModalTab) setUnifiedModalTab(nextTab);
     }, [
         showUnifiedExecutionModal,
         followupSolidaryDebtorIndex,
@@ -425,7 +426,7 @@ export function useExecutionDashboardDebtorBrowserTabsClamp({
 }: {
     debtorBrowserTabsMode: boolean;
     debtorWorkspaceEntryCount: number;
-    setExecutionDebtorTabIndex: (fn: (i: number) => number) => void;
+    setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
 }) {
     useEffect(() => {
         if (!debtorBrowserTabsMode) return;
@@ -481,8 +482,14 @@ export function useExecutionDashboardFieldVisitScheduledListener({
     };
 }) {
     useEffect(() => {
-        const myId = String(executionDataId ?? executionId ?? '');
-        if (!myId) return;
+        const acceptedIds = new Set(
+            [
+                String(executionDataId ?? '').trim(),
+                String(executionId ?? '').trim(),
+                String(decisionsStorageExecutionId ?? '').trim(),
+            ].filter((id) => id && id !== 'undefined'),
+        );
+        if (acceptedIds.size === 0) return;
         const onFieldVisitScheduled = (e: Event) => {
             const ce = e as CustomEvent<{
                 executionId?: string;
@@ -492,7 +499,7 @@ export function useExecutionDashboardFieldVisitScheduledListener({
                 linkToAppointments?: boolean;
             }>;
             const evId = String(ce.detail?.executionId ?? '').trim();
-            if (evId !== myId && evId !== String(decisionsStorageExecutionId ?? '')) return;
+            if (!evId || !acceptedIds.has(evId)) return;
             const eventIso = String(ce.detail?.eventIso ?? '').trim();
             const decisionId = String(ce.detail?.decisionId ?? '').trim();
             if (!eventIso || !decisionId) return;
@@ -500,7 +507,7 @@ export function useExecutionDashboardFieldVisitScheduledListener({
             const linkToAppointments = ce.detail?.linkToAppointments !== false;
             if (linkToAppointments) {
                 executorApprovalActions.pushCalendarAppointment({
-                    dossierId: evId || myId,
+                    dossierId: evId,
                     decisionId,
                     purpose,
                     eventIso,

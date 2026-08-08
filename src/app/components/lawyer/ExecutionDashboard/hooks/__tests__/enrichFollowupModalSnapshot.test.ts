@@ -35,11 +35,29 @@ describe('enrichFollowupModalSnapshot', () => {
         expect(enriched.showEmployeeAssignmentCoerciveBlock).toBe(true);
         expect(enriched.showPersonalCoerciveFollowupTab).toBe(true);
         expect(enriched.resolvedEmployeeSummonsAssignment).toEqual({ phase: 'active' });
-        expect(enriched.followupSpecialization).toEqual({ hideFollowupCoerciveTab: false });
+        expect(enriched.followupSpecialization?.hideFollowupCoerciveTab).toBe(false);
+        expect(enriched.followupSpecialization?.showEncroachmentRemovalRequestCards).toBe(false);
         expect(enriched.executionDebtorTabIndex).toBe(1);
         expect(enriched.paidDebt).toBe(50_000);
         expect(enriched.totalOwed).toBe(200_000);
         expect(enriched.DebtorFinancialProgressBar).toBeTypeOf('function');
+    });
+
+    it('merges followup specialization flags from effective + picked sources', () => {
+        const enriched = enrichFollowupModalSnapshot(
+            { followupSpecialization: { hideFollowupCoerciveTab: true } },
+            {
+                followupModalSpecializationEffective: {
+                    showEncroachmentRemovalRequestCards: true,
+                    hideFollowupCoerciveTab: false,
+                },
+                followupSpecialization: { hideCoerciveGraceNoticeBanner: true },
+            },
+        );
+
+        expect(enriched.followupSpecialization?.showEncroachmentRemovalRequestCards).toBe(true);
+        expect(enriched.followupSpecialization?.hideFollowupCoerciveTab).toBe(true);
+        expect(enriched.followupSpecialization?.hideCoerciveGraceNoticeBanner).toBe(true);
     });
 
     it('falls back to bundled lazy tab components when scope has no Lazy* keys', () => {

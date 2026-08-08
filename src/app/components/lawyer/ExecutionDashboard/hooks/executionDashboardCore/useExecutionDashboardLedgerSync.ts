@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
+﻿import { useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, SeizedMovable, SeizedProperty } from '@/app/types/execution';
 import { storageCache } from '@/app/utils/storageCache';
 import {
@@ -19,7 +19,7 @@ export type UseExecutionDashboardLedgerSyncParams = {
     setUnifiedLedgerRevision: Dispatch<SetStateAction<number>>;
 };
 
-/** مزامنة عائدات الحجز + أرصدة المحضر المالي — chunk execution-hooks */
+/** ┘à╪▓╪د┘à┘╪ر ╪╣╪د╪خ╪»╪د╪ز ╪د┘╪ص╪ش╪▓ + ╪ث╪▒╪╡╪»╪ر ╪د┘┘à╪ص╪╢╪▒ ╪د┘┘à╪د┘┘è ظ¤ chunk execution-hooks */
 export function useExecutionDashboardLedgerSync({
     executionData,
     executionId,

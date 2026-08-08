@@ -7,7 +7,12 @@ import type {
 } from '@/app/types/TaskEngine';
 import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { parseTaskInput, startOfLocalDay } from '@/app/utils/nlpParser';
-import { prepareAgendaTasks, isTaskAgendaReadOnly } from '@/app/components/lawyer/dashboard/tasksManager/utils';
+import {
+    prepareAgendaTasks,
+    isTaskAgendaReadOnly,
+    buildPostponeTaskPatch,
+    isTaskArchivedToHistory,
+} from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import {
     applySilentPracticalEnrichment,
     type TaskEnrichmentOptions,
@@ -257,11 +262,29 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
     const reopenTask = useCallback((id: string) => {
         setTasks((prev) => {
             const target = prev.find((t) => t.id === id);
-            if (!target?.completedAt || isTaskAgendaReadOnly(target, new Date())) return prev;
+            if (!target?.completedAt || isTaskArchivedToHistory(target, new Date())) return prev;
             return prepareAgendaTasks(
                 prev.map((t) => (t.id === id ? { ...t, completedAt: null } : t)),
             );
         });
+    }, [setTasks]);
+
+    const postponeTask = useCallback((id: string, targetDate: Date) => {
+        const patch = buildPostponeTaskPatch(targetDate);
+        setTasks((prev) =>
+            prepareAgendaTasks(
+                prev.map((t) =>
+                    t.id === id
+                        ? {
+                              ...t,
+                              ...patch,
+                              completedAt: null,
+                              status: 'pending' as const,
+                          }
+                        : t,
+                ),
+            ),
+        );
     }, [setTasks]);
 
     const toggleTaskFatalDeadline = useCallback((id: string) => {
@@ -517,6 +540,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             deleteTask,
             completeTask,
             reopenTask,
+            postponeTask,
             toggleTaskFatalDeadline,
             toggleTaskPinnedToFieldCurtain,
             setTaskLocation,
@@ -542,6 +566,7 @@ export function useQuantumTasks(initial: LegalTask[] = [], options?: UseQuantumT
             deleteTask,
             completeTask,
             reopenTask,
+            postponeTask,
             toggleTaskFatalDeadline,
             toggleTaskPinnedToFieldCurtain,
             setTaskLocation,

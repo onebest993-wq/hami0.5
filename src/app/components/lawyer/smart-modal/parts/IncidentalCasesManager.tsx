@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRightLeft, CheckSquare, Edit3 } from 'lucide-react';
+import { ArrowRightLeft, CheckSquare, Edit3 } from '@/app/components/ui/lucideIcons';
 import type { IncidentalCase, IncidentalStatus } from '../../LawyerShared';
 import { isLinkedSpawnIncidentalType } from '../smartFile/incidentalCaseLinking';
 

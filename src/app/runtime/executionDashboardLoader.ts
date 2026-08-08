@@ -4,7 +4,7 @@
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { prefetchDeferredFeatureStyles } from '@/app/runtime/deferredFeatureStyles';
 
-type ExecutionDashboardModule = typeof import('@/app/components/lawyer/ExecutionDashboard');
+type ExecutionDashboardModule = typeof import('@/app/components/lawyer/ExecutionDashboard.tsx');
 
 export type ExecutionDashboardPrefetchMode = 'deferred' | 'intent' | 'urgent';
 
@@ -15,7 +15,7 @@ export function resetExecutionDashboardModuleCache(): void {
 }
 
 function createExecutionModuleImport(): Promise<ExecutionDashboardModule> {
-    return import('@/app/components/lawyer/ExecutionDashboard')
+    return import('@/app/components/lawyer/ExecutionDashboard.tsx')
         .then((mod) => mod)
         .catch((err) => {
             executionModulePromise = null;

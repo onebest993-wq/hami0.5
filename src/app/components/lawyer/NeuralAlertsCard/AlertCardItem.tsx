@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'motion/react';
-import { Pin, ShieldAlert, X } from 'lucide-react';
+import { Pin, ShieldAlert, X } from '@/app/components/ui/lucideIcons';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { ClientRequestService } from '@/app/services/ClientRequestService';
 import { RequestStatus } from '@/app/types/admin-types';

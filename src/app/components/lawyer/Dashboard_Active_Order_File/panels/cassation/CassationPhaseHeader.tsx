@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown } from '@/app/components/ui/lucideIcons';
 import type { CassationLifecyclePanelProps } from '../CassationLifecyclePanelProps';
 import { URGENT_LIFECYCLE_STEP_HEADER } from '../../layout/urgentDossierUi';
 

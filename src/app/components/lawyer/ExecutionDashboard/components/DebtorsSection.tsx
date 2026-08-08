@@ -1,4 +1,3 @@
-// @ts-nocheck
 import React, {
     forwardRef,
     useCallback,
@@ -9,7 +8,7 @@ import React, {
 import type { Debtor } from '@/app/types/execution';
 import type { DebtorLiabilityGroup } from '@/app/utils/debtorLiabilityGroups';
 import type { DebtorWorkspaceEntry as DebtorWorkspaceEntryContract } from '@/app/components/lawyer/ExecutionDashboard/hooks/useDebtorWorkspaceEntries';
-import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
+import { isCustodyRemovalExecutionClaim, type ExecutionClaimContext } from '@/app/utils/executionClaimIsolation';
 import { useApplyPartyEditDisplayOverlay } from '../helpers/partyEditDisplayOverlay';
 import { DebtorCardRow } from './DebtorCardRow';
 import type {
@@ -95,7 +94,11 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
     );
 
     const custodyRemovalClaimActive = useMemo(
-        () => isCustodyRemovalExecutionClaim(executionData, claimType),
+        () =>
+            isCustodyRemovalExecutionClaim(
+                executionData as ExecutionClaimContext,
+                claimType,
+            ),
         [executionData, claimType],
     );
 
@@ -164,7 +167,7 @@ export const DebtorsSection = forwardRef<DebtorsSectionHandle, DebtorsSectionPro
                         ? debtorLiabilityGroups.length > 0
                         : debtorWorkspaceEntries.length > 0) ? (
                         <div
-                            ref={debtorWorkspaceChipStripRef}
+                            ref={debtorWorkspaceChipStripRef as React.Ref<HTMLDivElement>}
                             className="scrollbar-hide flex gap-1 overflow-x-auto rounded-xl border border-rose-500/25 bg-slate-950/40 p-1.5"
                             dir="rtl"
                         >

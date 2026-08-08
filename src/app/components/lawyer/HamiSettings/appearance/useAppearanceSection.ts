@@ -1,220 +1,73 @@
-import { useMemo, useRef, useState, useEffect } from 'react';
-import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    useLawyerSettingsActions,
     useLawyerSettingsAppearance,
     useLawyerSettingsHomeLayout,
     useLawyerSettingsPerformance,
 } from '@/app/context/LawyerSettingsContext';
-import { compressWallpaperToDataUrl } from '@/app/services/profileMediaCompress';
-import {
-    evacuateDockShellIconsToMain,
-    repopulateDockShellFromHidden,
-} from '@/app/services/settings/homeLayoutDockControls';
-import {
-    BACKGROUND_PRESETS,
-    LAWYER_THEME_TOKENS,
-    normalizeBackgroundPreset,
-    persistWallpaper,
-    resolveWallpaperSrc,
-    resolveLawyerSurfaceBaseColor,
-    type AppSettingsState,
-    type BackgroundPresetId,
-} from '@/app/services/settings';
 import type { ThemeKey } from '@/app/types/common';
-import { pickCollapsedItems } from '@/app/components/lawyer/HamiSettings/components/collapseList';
 import { useSettingsPatches } from '../hooks/useSettingsPatches';
+import {
+    APPEARANCE_THEME_KEYS,
+    THEME_COLLAPSED_COUNT,
+    PATTERN_COLLAPSED_COUNT,
+} from './appearanceConstants';
+import { useAppearanceThemeControls } from './useAppearanceThemeControls';
+import { useAppearanceWallpaperControls } from './useAppearanceWallpaperControls';
+import { useAppearancePatternControls } from './useAppearancePatternControls';
+import { useAppearanceBlockCustomize } from './useAppearanceBlockCustomize';
 
-export const APPEARANCE_THEME_KEYS: ThemeKey[] = [
-    'black',
-    'gold',
-    'navy',
-    'crimson',
-    'emerald',
-    'silver',
-    'sky',
-    'brown',
-    'purple',
-    'bronze',
-    'wine',
-    'matcha',
-    'teal',
-    'greige',
-    'obsidian',
-    'coral',
-    'plum',
-    'brass',
-    'chalk',
-    'ice',
-];
-
-export const THEME_COLLAPSED_COUNT = 10;
-export const PATTERN_COLLAPSED_COUNT = 9;
+export {
+    APPEARANCE_THEME_KEYS,
+    THEME_COLLAPSED_COUNT,
+    PATTERN_COLLAPSED_COUNT,
+} from './appearanceConstants';
 
 export function useAppearanceSection() {
     const appearance = useLawyerSettingsAppearance();
     const performance = useLawyerSettingsPerformance();
     const homeLayout = useLawyerSettingsHomeLayout();
-    const { setCurrentShape, setCurrentTheme } = useLawyerSettingsActions();
-    const { patchAppearance, patchPerformance, patchHomeLayout } = useSettingsPatches();
-    const wallpaperRef = useRef<HTMLInputElement>(null);
-    const [themesExpanded, setThemesExpanded] = useState(false);
-    const [patternsExpanded, setPatternsExpanded] = useState(false);
-    const [wallpaperPreview, setWallpaperPreview] = useState<string | undefined>();
+    const { patchAppearance, patchPerformance } = useSettingsPatches();
+    const blockCustomize = useAppearanceBlockCustomize();
 
-    const persistedWallpaperSrc = resolveWallpaperSrc(appearance);
-    const wallpaperSrc = wallpaperPreview ?? persistedWallpaperSrc;
-    const hasWallpaper = !!wallpaperSrc;
-
-    useEffect(() => {
-        if (!wallpaperPreview || !persistedWallpaperSrc) return;
-        if (wallpaperPreview === persistedWallpaperSrc) {
-            setWallpaperPreview(undefined);
-        }
-    }, [wallpaperPreview, persistedWallpaperSrc, appearance.wallpaperStamp]);
-    const activePreset = normalizeBackgroundPreset(appearance.backgroundPreset);
-    const activeTheme = appearance.theme;
-    const themeToken = LAWYER_THEME_TOKENS[activeTheme] ?? LAWYER_THEME_TOKENS.gold;
-    const previewBaseColor = resolveLawyerSurfaceBaseColor(activeTheme, 'dark', false);
-    const previewAccent = themeToken.primary;
-    const patternControlsDisabled = activePreset === 'none' || hasWallpaper;
-
-    const selectTheme = (key: ThemeKey) => setCurrentTheme(key);
-
-    const selectBackgroundPreset = (id: BackgroundPresetId) => {
-        const clearsWallpaper = wallpaperSrc && id !== 'none';
-        if (clearsWallpaper) {
-            setWallpaperPreview(undefined);
-            persistWallpaper(undefined);
-        }
-        patchAppearance({
-            backgroundPreset: id,
-            ...(clearsWallpaper ? { wallpaper: undefined, wallpaperStamp: Date.now() } : {}),
-        });
-        if (id !== 'none') SmartToast.success('تم تطبيق الخلفية');
-    };
-
-    const selectShape = (shape: AppSettingsState['appearance']['shape']) => setCurrentShape(shape);
-
-    const uploadWallpaper = async (file: File): Promise<boolean> => {
-        const mime = String(file.type || '').toLowerCase();
-        const name = String(file.name || '').toLowerCase();
-        const looksLikeImage =
-            mime.startsWith('image/') ||
-            /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif)$/i.test(name);
-        if (!looksLikeImage) {
-            SmartToast.error('يرجى اختيار ملف صورة (JPG / PNG / WebP)');
-            return false;
-        }
-        if (file.size > 8_000_000) {
-            SmartToast.error('الصورة كبيرة جداً — الحد 8 ميغابايت');
-            return false;
-        }
-        let previewUrl: string | undefined;
-        try {
-            previewUrl = URL.createObjectURL(file);
-            setWallpaperPreview(previewUrl);
-            const dataUrl = await compressWallpaperToDataUrl(file);
-            if (!persistWallpaper(dataUrl)) {
-                setWallpaperPreview(undefined);
-                SmartToast.error('تعذر حفظ الصورة — مساحة التخزين ممتلئة');
-                return false;
-            }
-            setWallpaperPreview(dataUrl);
-            patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
-            SmartToast.success('تم تطبيق خلفية اللوحة');
-            return true;
-        } catch {
-            setWallpaperPreview(undefined);
-            SmartToast.error('تعذر رفع الصورة — جرّب صورة JPG/PNG أصغر');
-            return false;
-        } finally {
-            if (previewUrl) URL.revokeObjectURL(previewUrl);
-        }
-    };
-
-    const removeWallpaper = (): boolean => {
-        setWallpaperPreview(undefined);
-        const cleared = persistWallpaper(undefined);
-        if (!cleared) {
-            SmartToast.error('تعذر إزالة الخلفية من التخزين');
-            return false;
-        }
-        patchAppearance({ wallpaper: undefined, wallpaperStamp: Date.now() });
-        SmartToast.info('تمت إزالة الخلفية');
-        return true;
-    };
-
-    const toggleDockVisible = (next: boolean) => {
-        patchHomeLayout((layout) => {
-            if (next) {
-                return {
-                    ...layout,
-                    dockVisible: true,
-                    placements: repopulateDockShellFromHidden(
-                        layout.placements,
-                        layout.dockHiddenWidgetIds ?? [],
-                    ),
-                };
-            }
-            const evacuated = evacuateDockShellIconsToMain(layout.placements);
-            return {
-                ...layout,
-                dockVisible: false,
-                placements: evacuated.placements,
-                dockHiddenWidgetIds: evacuated.dockHiddenWidgetIds,
-            };
-        });
-        SmartToast.info(next ? 'تم إظهار الشريط السفلي' : 'نُقلت أيقونات الشريط إلى الواجهة الرئيسية');
-    };
-
-    const visibleThemeKeys = useMemo(
-        () => pickCollapsedItems(APPEARANCE_THEME_KEYS, THEME_COLLAPSED_COUNT, themesExpanded, activeTheme),
-        [themesExpanded, activeTheme],
+    const theme = useAppearanceThemeControls(appearance, patchAppearance);
+    const wallpaper = useAppearanceWallpaperControls(appearance, patchAppearance);
+    const pattern = useAppearancePatternControls(
+        appearance,
+        patchAppearance,
+        wallpaper,
+        theme.activeThemeKey,
+        theme.themeToken,
     );
-    const hiddenThemeCount = Math.max(0, APPEARANCE_THEME_KEYS.length - THEME_COLLAPSED_COUNT);
 
-    const visiblePresets = useMemo(
-        () =>
-            pickCollapsedItems(
-                BACKGROUND_PRESETS,
-                PATTERN_COLLAPSED_COUNT,
-                patternsExpanded,
-                BACKGROUND_PRESETS.find((p) => p.id === activePreset),
-            ),
-        [patternsExpanded, activePreset],
-    );
-    const hiddenPatternCount = Math.max(0, BACKGROUND_PRESETS.length - PATTERN_COLLAPSED_COUNT);
+    const selectTheme = (key: ThemeKey) => {
+        theme.selectTheme(key);
+    };
 
     return {
         appearance,
         performance,
         homeLayout,
-        wallpaperRef,
-        themesExpanded,
-        setThemesExpanded,
-        patternsExpanded,
-        setPatternsExpanded,
-        wallpaperSrc,
-        hasWallpaper,
-        activePreset,
-        activeTheme,
-        themeToken,
-        previewBaseColor,
-        previewAccent,
-        patternControlsDisabled,
-        visibleThemeKeys,
-        hiddenThemeCount,
-        visiblePresets,
-        hiddenPatternCount,
+        blockCustomize,
+        wallpaperRef: wallpaper.wallpaperRef,
+        themesExpanded: theme.themesExpanded,
+        setThemesExpanded: theme.setThemesExpanded,
+        wallpaperSrc: wallpaper.wallpaperSrc,
+        hasWallpaper: wallpaper.hasWallpaper,
+        activeTheme: appearance.theme,
+        activeThemeKey: theme.activeThemeKey,
+        activeThemeToken: theme.activeThemeToken,
+        themeToken: theme.themeToken,
+        visibleThemeKeys: theme.visibleThemeKeys,
+        hiddenThemeCount: theme.hiddenThemeCount,
         selectTheme,
-        selectBackgroundPreset,
-        selectShape,
-        uploadWallpaper,
-        removeWallpaper,
-        toggleDockVisible,
+        beginWallpaperEdit: wallpaper.beginWallpaperEdit,
+        cancelWallpaperEdit: wallpaper.cancelWallpaperEdit,
+        applyWallpaperEdit: wallpaper.applyWallpaperEdit,
+        editorDraft: wallpaper.editorDraft,
+        editorBusy: wallpaper.editorBusy,
+        removeWallpaper: wallpaper.removeWallpaper,
         patchAppearance,
         patchPerformance,
+        previewBaseColor: pattern.previewBaseColor,
     };
 }
 

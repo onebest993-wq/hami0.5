@@ -1,7 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useLawyerDashboardSettings } from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
+import {
+    resetSettingsOpenWarmForTests,
+    useLawyerDashboardSettings,
+} from '@/app/hooks/lawyerDashboard/useLawyerDashboardSettings';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
+import { resetDashboardInteractiveForTests } from '@/app/bootstrap/bootMetrics';
+import { LAWYER_SETTINGS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 vi.mock('@/app/components/ui/SmartToast', () => ({
     SmartToast: {
@@ -32,6 +37,10 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     },
 }));
 
+vi.mock('@/app/runtime/settingsOverlayEntryLoader', () => ({
+    prefetchSettingsOverlayEntry: vi.fn(),
+}));
+
 vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
     warmSettingsOnHover: vi.fn(),
     warmSettingsOnOpen: vi.fn(),
@@ -39,23 +48,40 @@ vi.mock('@/app/hooks/lawyerDashboard/settingsIntentWarm', () => ({
 }));
 
 import { warmSettingsOnHover, warmSettingsOnOpen } from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
+import {
+    hydrateSettingsShellForInstantOpen,
+    isSettingsShellFullyHydrated,
+} from '@/app/runtime/settingsBootHydrator';
 
 describe('useLawyerDashboardSettings', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
         vi.clearAllMocks();
+        resetSettingsOpenWarmForTests();
+        resetDashboardInteractiveForTests();
+        try {
+            sessionStorage.removeItem(LAWYER_SETTINGS_OPEN_KEY);
+        } catch {
+            /* ignore */
+        }
+        const paint = await import('@/app/runtime/settingsInstantPaint');
+        paint.clearSettingsReopenSuppress();
+        vi.mocked(isSettingsShellFullyHydrated).mockReturnValue(false);
     });
 
     async function flushOpenFrame() {
         await act(async () => {
-            await Promise.resolve();
+            await new Promise<void>((resolve) => {
+                setTimeout(resolve, 0);
+            });
         });
     }
 
-    it('primeSettingsShellMount ي arm الـ host و prefetch — بلا فتح', () => {
+    it('primeSettingsShellMount يركّب host بلا flushSync — يُدمج مع flushSync الفتح', async () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
         act(() => {
             result.current.primeSettingsShellMount();
         });
+        await flushOpenFrame();
         expect(result.current.showSettings).toBe(false);
         expect(result.current.settingsHostMounted).toBe(true);
         expect(warmSettingsOnHover).toHaveBeenCalled();
@@ -81,7 +107,7 @@ describe('useLawyerDashboardSettings', () => {
         expect(result.current.showSettings).toBe(true);
     });
 
-    it('يفتح الإعدادات فوراً ويسخّن قبل عرض الـ shell', async () => {
+    it('يفتح الإعدادات فوراً ويhydrate بعد أول paint', async () => {
         const { result } = renderHook(() => useLawyerDashboardSettings('lawyer-1'));
 
         act(() => {
@@ -89,6 +115,9 @@ describe('useLawyerDashboardSettings', () => {
         });
         await flushOpenFrame();
 
+        await vi.waitFor(() => {
+            expect(hydrateSettingsShellForInstantOpen).toHaveBeenCalledWith(true);
+        });
         expect(warmSettingsOnOpen).toHaveBeenCalled();
         expect(result.current.showSettings).toBe(true);
     });
@@ -103,6 +132,9 @@ describe('useLawyerDashboardSettings', () => {
         });
         await flushOpenFrame();
 
+        await vi.waitFor(() => {
+            expect(hydrateSettingsShellForInstantOpen).toHaveBeenCalledWith(true);
+        });
         expect(warmSettingsOnOpen).toHaveBeenCalled();
         expect(result.current.showSettings).toBe(true);
     });

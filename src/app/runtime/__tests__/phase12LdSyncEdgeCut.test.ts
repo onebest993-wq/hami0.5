@@ -33,7 +33,7 @@ describe('phase-12 LD sync-edge cut', () => {
             'src/app/components/lawyer/dashboard/schedule/ScheduleInstantShell.tsx',
         ]) {
             const src = readFileSync(join(root, rel), 'utf8');
-            expect(src, rel).not.toContain("from 'lucide-react'");
+            expect(src, rel).not.toContain("from '@/app/components/ui/lucideIcons'");
             expect(src, rel).toContain('homeStemIcons');
         }
     });

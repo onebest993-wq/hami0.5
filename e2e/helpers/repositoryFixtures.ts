@@ -3,7 +3,7 @@ import { expect } from '@playwright/test';
 import { REPOSITORY_PERF_BUDGET } from '@/app/services/repository/repositoryPerfBudget';
 import { applyE2eBootHomeLayoutAtRuntime, bootToLawyerHome } from './bootFixtures';
 import { dismissProductivityBlockers } from './productivityE2EFixtures';
-import { hydrateVaultDocsForE2E, seedVaultDocs } from './vaultFixtures';
+import { hydrateVaultDocsForE2E } from './vaultFixtures';
 
 /** ms من open-request → interactive — للـ E2E (polling حتى تسجيل المرحلتين) */
 export async function readRepositoryOpenToInteractiveMs(
@@ -59,12 +59,14 @@ export async function waitRepositoryFeedReady(page: Page): Promise<void> {
 /** ينتظر جاهزية شريط الدوك قبل النقر */
 async function waitHomeDockReady(page: Page): Promise<void> {
     await dismissRepositoryBlockers(page);
-    await page.getByTestId('home-bottom-chrome').waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByTestId('home-dock-shell-zone').waitFor({ state: 'visible', timeout: 15_000 });
-    await page.getByTestId('home-dock-shell-dockRepository').waitFor({ state: 'visible', timeout: 15_000 });
+    await page.getByTestId('home-main-grid').waitFor({ state: 'visible', timeout: 15_000 });
+    await page
+        .getByTestId('home-dock-dockRepository')
+        .or(page.getByTestId('home-dock-shell-dockRepository'))
+        .waitFor({ state: 'visible', timeout: 15_000 });
 }
 
-/** يُرسل Escape — يركّز الـ feed ثم يضغط المفتاح (capture على window) */
+/** يُرسل Escape — يركّز الـ feed ثم يضغط المفتاح */
 export async function pressRepositoryEscape(page: Page): Promise<void> {
     const feed = page.getByTestId('repository-unified-feed');
     if (await feed.isVisible().catch(() => false)) {
@@ -152,10 +154,7 @@ export async function openRepositoryFromDock(page: Page) {
 }
 
 async function expectRepositoryMediaPanel(modal: Locator) {
-    const mediaSurface = modal
-        .getByTestId('repository-feed-empty-media')
-        .or(modal.getByTestId('repository-feed-panel-media'));
-    await mediaSurface.first().waitFor({ state: 'visible', timeout: 25_000 });
+    await modal.getByTestId('repository-feed-panel-media').waitFor({ state: 'visible', timeout: 25_000 });
 }
 
 /** يستعيد جلسة فتح المستودع على تبويب الوسائط — عبر init script قبل التنقل */
@@ -181,7 +180,7 @@ export async function openRepositoryVoiceRecorder(page: Page) {
     return { modal, recorder };
 }
 
-/** يفتح المستودع على تبويب الوسائط (initialFilter=media) */
+/** يفتح المستودع على تبويب الوسائط (initialFilter=media) عبر استعادة الجلسة */
 export async function openVaultMediaFromDock(
     page: Page,
     vaultDocs?: Parameters<typeof hydrateVaultDocsForE2E>[1],
@@ -199,22 +198,9 @@ export async function openVaultMediaFromDock(
     await bootToLawyerHome(page);
     await dismissProductivityBlockers(page);
 
-    let modal = page.getByTestId('smart-repository-modal');
-    const visible = await modal.isVisible().catch(() => false);
-    if (!visible) {
-        modal = await openRepositoryFromDock(page);
-        const vaultDock = page
-            .getByTestId('home-dock-shell-dockVault')
-            .or(page.getByTestId('home-dock-dockVault'));
-        if (await vaultDock.first().isVisible().catch(() => false)) {
-            await vaultDock.first().click({ force: true });
-            await expect(modal).toBeVisible({ timeout: 15_000 });
-        }
-    } else {
-        await expect(modal).toBeVisible({ timeout: 30_000 });
-        await expect(modal.getByTestId('repository-unified-feed')).toBeVisible({ timeout: 25_000 });
-    }
-
+    const modal = page.getByTestId('smart-repository-modal');
+    await expect(modal).toBeVisible({ timeout: 30_000 });
+    await expect(modal.getByTestId('repository-unified-feed')).toBeVisible({ timeout: 25_000 });
     await expectRepositoryMediaPanel(modal);
     await waitRepositoryFeedReady(page);
     return modal;

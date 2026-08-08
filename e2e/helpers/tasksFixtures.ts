@@ -171,12 +171,10 @@ async function bootToHomeDockForTasks(page: Page): Promise<void> {
     await expect(async () => {
         await stripBootFailureLayer(page);
         await dismissProductivityBlockers(page);
-        await expect(page.getByTestId('home-bottom-chrome')).toBeVisible({ timeout: 4_000 });
-        await expect(page.getByTestId('home-dock-shell-zone')).toBeVisible({ timeout: 4_000 });
+        await expect(page.getByTestId('home-main-grid')).toBeVisible({ timeout: 4_000 });
         await expect(dockTasksTrigger(page).first()).toBeVisible({ timeout: 4_000 });
     }).toPass({ timeout: 45_000 });
 
-    await expect(page.getByTestId('home-dock-shell')).toBeVisible({ timeout: 15_000 }).catch(() => undefined);
     await expect(page.getByTestId('hami-static-boot')).toHaveCount(0, { timeout: 4_000 }).catch(() => undefined);
     await expect(page.getByTestId('lawyer-boot-shell')).toBeHidden({ timeout: 4_000 }).catch(() => undefined);
 }
@@ -198,9 +196,6 @@ export async function awaitDashboardStableForFieldTasks(page: Page): Promise<voi
         await dismissProductivityBlockers(page);
         await expect(trigger).toBeVisible({ timeout: 4_000 });
     }).toPass({ timeout: 45_000 });
-
-    await expect(page.getByTestId('home-dock-shell')).toBeVisible({ timeout: 15_000 }).catch(() => undefined);
-    await expect(page.getByTestId('home-bottom-chrome')).toBeVisible({ timeout: 10_000 }).catch(() => undefined);
 }
 
 /** إقلاع مباشر للرئيسية مع انتظار الدوك — مسار E2E الموحّد */

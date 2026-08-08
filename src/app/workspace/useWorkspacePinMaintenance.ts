@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { ClusterScanSources } from './clusterScanSources.types';
+import { buildConservativePruneKeepKeys } from './workspacePinPrunePolicy';
 
 /**
  * فهرس مسح التثبيتات وتنظيف المثبّتات اليتيمة.
@@ -47,8 +48,9 @@ export function useWorkspacePinMaintenance(params: {
                 });
                 // لا تُفرّغ التثبيتات عند فهرس فارغ (قبل التحميل أو حساب جديد بلا بيانات)
                 if (scanIndex.length === 0) return;
-                const validKeys = new Set(scanIndex.map((r) => `${r.type}:${r.id}`));
-                useWorkspaceStore.getState().pruneMissingPins(validKeys);
+                const pinnedItems = useWorkspaceStore.getState().pinnedItems;
+                const keepKeys = buildConservativePruneKeepKeys(scanIndex, pinnedItems);
+                useWorkspaceStore.getState().pruneMissingPins(keepKeys);
             })
             .catch(() => undefined);
         return () => {

@@ -20,7 +20,7 @@ export function HomeHubCardShellFallback() {
             className={`relative flex flex-col border ${blockClasses} ${resolveAlertsMinHeight('normal')} min-h-0 gap-3`}
             style={blockStyle}
             dir="rtl"
-            aria-label="التنبيهات والتثبيت"
+            aria-label="البطاقة الذكية"
             aria-busy="true"
             data-testid="home-hub-card-skeleton"
         >

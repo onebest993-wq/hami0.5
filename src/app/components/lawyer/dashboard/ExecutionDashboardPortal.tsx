@@ -8,9 +8,14 @@ import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy
 import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 
 const LazyExecutionDashboard = createPreloadableLazyComponent(() =>
-    loadExecutionDashboardModule().then((mod) => ({
-        default: mod.ExecutionDashboard as unknown as LazyComponent,
-    })),
+    loadExecutionDashboardModule().then((mod) => {
+        if (!mod.ExecutionDashboard) {
+            throw new Error('[ExecutionDossier] ExecutionDashboard export missing from module');
+        }
+        return {
+            default: mod.ExecutionDashboard as unknown as LazyComponent,
+        };
+    }),
 );
 
 if (typeof window !== 'undefined') {
@@ -57,27 +62,27 @@ export function ExecutionDashboardPortal({
     onUpdate,
     open = true,
 }: ExecutionDashboardPortalProps) {
+    /** لا keep-alive في DOM — التركيب المخفي كان يومض عند فتح إضبارة الدعوى */
+    if (!open) return null;
+
     const layer = (
         <div
-            className="fixed inset-0"
-            style={{
-                zIndex: open ? 230 : -1,
-                visibility: open ? 'visible' : 'hidden',
-                opacity: open ? 1 : 0,
-                pointerEvents: open ? 'auto' : 'none',
-            }}
-            aria-hidden={!open}
-            data-testid={open ? 'execution-dashboard-portal-open' : 'execution-dashboard-portal-keepalive'}
+            className="fixed inset-0 z-[230]"
+            data-testid="execution-dashboard-portal-open"
         >
-            <ErrorBoundary fallback={<ExecutionDossierCrashFallback onExitToHome={onExitToHome} />}>
+            <ErrorBoundary
+                fallback={<ExecutionDossierCrashFallback onExitToHome={onExitToHome} />}
+                onError={(error, errorInfo) => {
+                    console.error('[ExecutionDossier] crash:', error);
+                    console.error('[ExecutionDossier] stack:', errorInfo.componentStack);
+                }}
+            >
                 <Suspense
                     fallback={
-                        open ? (
-                            <ExecutionDashboardBootChrome
-                                file={file}
-                                onExitToHome={onExitToHome}
-                            />
-                        ) : null
+                        <ExecutionDashboardBootChrome
+                            file={file}
+                            onExitToHome={onExitToHome}
+                        />
                     }
                 >
                     <LazyExecutionDashboard

@@ -2,7 +2,10 @@
  * Luminous Pearl — إضبارة الأحوال الشخصية
  * لؤلؤي مضيء #FFFEF9 · فضي لؤلؤي #ECE8E2 · صدفي للّمسات فقط #C9B89A
  */
-import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import {
+    HUB_DOSSIER_ACTIONS_MENU_Z_CLASS,
+    HUB_DOSSIER_MODAL_Z_CLASS,
+} from '@/app/components/lawyer/dashboard/hubOverlayStack';
 export const PS_PEARL = {
     ink: '#101018',
     surface: '#16161F',
@@ -70,6 +73,9 @@ export const PS_SECTION_HEAD_ROSE =
 export const PS_SECTION_LABEL_ROSE =
     'text-[9px] font-black tracking-[0.14em] text-[#FFD4DC]/90 uppercase';
 
+export const PS_SECTION_LABEL_SAND =
+    'text-[9px] font-black tracking-[0.14em] text-[#C9B89A]/90 uppercase';
+
 export const PS_TEXT_PEARL = 'text-[#FFFEF9]';
 export const PS_TEXT_MUTED = 'text-[#9894A0]';
 export const PS_TEXT_BEIGE = 'text-[#ECE8E2]';
@@ -97,6 +103,71 @@ export const PS_TILE_INTERACTIVE =
 export const PS_BTN_PEARL =
     'inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/[0.10] border border-white/[0.18] text-[#FFFEF9] text-[10px] font-bold hover:bg-white/[0.14] transition-colors';
 
+/** شريحة عمل مضغوطة — محضر / طلبات / مهام */
+export const PS_WORK_CHIP_BASE =
+    'inline-flex items-center gap-1.5 min-h-[2.25rem] px-2.5 rounded-lg border text-[11px] font-bold transition-all touch-manipulation shrink-0';
+
+export const PS_WORK_CHIP_IDLE =
+    'border-white/[0.12] bg-white/[0.04] text-[#ECE8E2]/92 hover:bg-white/[0.07] hover:border-white/[0.20]';
+
+export const PS_WORK_CHIP_ACTIVE =
+    'border-[#F0A8B4]/38 bg-gradient-to-br from-[#F5C6D0]/[0.14] to-[#FFD4DC]/[0.06] text-[#FFFEF9] shadow-[inset_0_1px_0_rgba(255,220,228,0.22)]';
+
+export const PS_WORK_CHIP_SESSION =
+    'border-[#F0A8B4]/30 bg-gradient-to-br from-[#F5C6D0]/[0.10] to-white/[0.03] text-[#FFFEF9] hover:from-[#F5C6D0]/[0.16] hover:border-[#F0A8B4]/40';
+
+/** شريط أوامر أفقي مضغوط */
+export const PS_RIBBON_BTN =
+    'min-h-[2.25rem] min-w-[2.25rem] w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 border border-[#F0A8B4]/24 bg-gradient-to-br from-[#F5C6D0]/[0.12] to-[#E8B4BC]/[0.05] text-[#FFE8EC] hover:from-[#F5C6D0]/[0.20] hover:border-[#F0A8B4]/36 hover:text-white active:scale-95 shadow-[inset_0_1px_0_rgba(255,220,228,0.26)] backdrop-blur-sm touch-manipulation';
+
+export const PS_RIBBON_STRIP =
+    'flex items-center gap-1 overflow-x-auto scrollbar-hide py-0.5';
+
+/** زر شريط أدوات موحّد — أيقونة + تسمية */
+export const PS_TOOLBAR_BTN =
+    'inline-flex flex-col items-center justify-center gap-0.5 min-w-[2.65rem] px-1.5 py-1 rounded-lg border border-white/[0.10] bg-white/[0.03] text-[#ECE8E2] hover:bg-[#F5C6D0]/[0.08] hover:border-[#F0A8B4]/28 hover:text-[#FFFEF9] active:scale-[0.97] transition-all touch-manipulation shrink-0';
+
+export const PS_TOOLBAR_DIVIDER =
+    'w-px h-7 bg-gradient-to-b from-transparent via-white/[0.16] to-transparent shrink-0 mx-0.5 self-center';
+
+/** بطاقة محضر الجلسة — البطل الأول */
+export const PS_HERO_SESSION =
+    'group relative flex w-full min-h-[4.25rem] items-center gap-3 overflow-hidden rounded-xl border border-[#F0A8B4]/38 bg-gradient-to-br from-[#F5C6D0]/[0.22] via-[#FFD4DC]/[0.10] to-[#101018]/40 px-3 py-2.5 text-right shadow-[0_8px_32px_rgba(240,168,180,0.18),inset_0_1px_0_rgba(255,220,228,0.35)] transition-all duration-300 hover:border-[#F0A8B4]/52 hover:from-[#F5C6D0]/[0.30] hover:shadow-[0_12px_40px_rgba(240,168,180,0.24)] active:scale-[0.99] touch-manipulation';
+
+/** بطاقة الإجراء — بجانب محضر الجلسة */
+export const PS_HERO_ACTION =
+    'group relative flex w-full min-h-[4.25rem] items-center gap-3 overflow-hidden rounded-xl border border-[#C9B89A]/32 bg-gradient-to-br from-[#C9B89A]/[0.14] via-white/[0.05] to-[#101018]/30 px-3 py-2.5 text-right shadow-[0_8px_28px_rgba(201,184,154,0.12),inset_0_1px_0_rgba(255,255,255,0.12)] transition-all duration-300 hover:border-[#C9B89A]/48 hover:from-[#C9B89A]/[0.20] active:scale-[0.99] touch-manipulation';
+
+/** بطاقة الطلبات — البطل الثاني */
+export const PS_HERO_REQUESTS =
+    'group relative flex w-full min-h-[4.25rem] flex-col justify-center overflow-hidden rounded-xl border border-[#C9B89A]/32 bg-gradient-to-br from-[#C9B89A]/[0.14] via-white/[0.05] to-[#101018]/30 px-3 py-2 text-right shadow-[0_8px_28px_rgba(201,184,154,0.12),inset_0_1px_0_rgba(255,255,255,0.12)] transition-all duration-300 hover:border-[#C9B89A]/48 hover:from-[#C9B89A]/[0.20] active:scale-[0.99] touch-manipulation';
+
+/** أزرار مساعدة صغيرة */
+export const PS_UTILITY_BTN =
+    'inline-flex flex-col items-center justify-center gap-0.5 min-w-[2.4rem] px-1.5 py-1 rounded-lg border border-white/[0.08] bg-white/[0.02] text-[#9894A0] hover:bg-white/[0.06] hover:border-white/[0.14] hover:text-[#ECE8E2] active:scale-[0.97] transition-all touch-manipulation shrink-0';
+
+export const PS_REQUESTS_STAGE =
+    'relative overflow-hidden rounded-xl border border-[#C9B89A]/22 bg-gradient-to-b from-[#C9B89A]/[0.06] via-white/[0.02] to-transparent';
+
+export const PS_REQUESTS_ROW =
+    'w-full text-right rounded-lg border border-[#C9B89A]/18 bg-gradient-to-l from-white/[0.05] to-transparent p-2.5 transition-all hover:border-[#F0A8B4]/28 hover:from-[#F5C6D0]/[0.06] group';
+
+/** شريط المحور القانوني — أدوات الإضبارة */
+export const PS_RAIL_SHELL =
+    'rounded-xl border border-white/[0.10] bg-gradient-to-b from-white/[0.05] via-[#101018]/20 to-transparent overflow-hidden';
+
+export const PS_RAIL_GROUP_LABEL =
+    'text-[7px] font-black tracking-[0.2em] text-[#9894A0]/80 uppercase text-right mb-1';
+
+export const PS_RAIL_CELL_PRIMARY =
+    'flex flex-col items-center justify-center gap-1 min-h-[2.85rem] px-1 py-2 border-0 bg-transparent text-center transition-all duration-200 active:scale-[0.98] touch-manipulation min-w-0';
+
+export const PS_RAIL_CELL_SECONDARY =
+    'flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[2.35rem] px-1.5 py-1.5 rounded-lg border border-white/[0.07] bg-white/[0.02] text-[#9894A0] hover:bg-white/[0.05] hover:border-white/[0.12] hover:text-[#ECE8E2] active:scale-[0.98] transition-all touch-manipulation min-w-0';
+
+export const PS_RAIL_CELL_FLOW =
+    `${PS_RAIL_CELL_PRIMARY} hover:bg-[#C9B89A]/[0.08]`;
+
 export const PS_EMPTY_LINE = 'text-[10px] text-[#9894A0] py-1 leading-snug';
 
 export function personalPearlHubTheme() {
@@ -121,10 +192,10 @@ export function personalPearlHubTheme() {
 
 export function personalPearlModalTheme() {
     return {
-        overlay: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} flex items-center justify-center bg-[#101018]/88 backdrop-blur-md p-4 font-['Tajawal'] pointer-events-auto`,
+        overlay: `fixed inset-0 ${HUB_DOSSIER_MODAL_Z_CLASS} flex items-center justify-center bg-[#080c14]/94 backdrop-blur-md p-4 font-['Tajawal'] pointer-events-auto`,
         shell: 'relative overflow-visible motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:duration-200',
         shellCard:
-            'relative overflow-hidden w-full rounded-2xl border border-white/[0.14] bg-gradient-to-br from-white/[0.11] via-[#F8F6F0]/[0.06] to-[#ECE8E2]/[0.04] backdrop-blur-2xl shadow-[0_24px_64px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.14)]',
+            'relative overflow-hidden w-full rounded-2xl border border-white/[0.12] bg-[#16161F] shadow-[0_24px_64px_rgba(0,0,0,0.52),inset_0_1px_0_rgba(255,255,255,0.08)]',
         header:
             'relative px-4 py-3 border-b border-white/[0.10] bg-gradient-to-l from-white/[0.05] to-transparent flex justify-between items-center gap-2',
         headerTitle: 'font-bold flex items-center gap-2 text-[13px] text-[#FFFEF9]',
@@ -144,14 +215,14 @@ export function personalPearlModalTheme() {
             'px-2.5 py-1 rounded-full text-[10px] font-bold border border-white/[0.22] bg-white/[0.10] text-[#FFFEF9]',
         sectionTitle: 'px-1 pb-1.5 text-[9px] font-black tracking-[0.12em] text-[#ECE8E2]/90 uppercase',
         actionRow:
-            'flex items-center gap-2.5 w-full text-right px-2.5 py-2 rounded-lg border transition-all duration-200 group active:scale-[0.99] bg-white/[0.04] border-white/[0.10] hover:bg-white/[0.08] hover:border-white/[0.18]',
+            'flex items-center gap-2.5 w-full text-right px-2.5 py-2 rounded-lg border transition-colors duration-150 group bg-white/[0.04] border-white/[0.10] hover:bg-white/[0.08] hover:border-white/[0.18] min-h-[44px]',
         actionRowDanger:
-            'flex items-center gap-2.5 w-full text-right px-2.5 py-2 rounded-lg border transition-all duration-200 group active:scale-[0.99] bg-rose-500/[0.06] border-rose-400/18 hover:bg-rose-500/[0.10]',
+            'flex items-center gap-2.5 w-full text-right px-2.5 py-2 rounded-lg border transition-colors duration-150 group bg-rose-500/[0.06] border-rose-400/18 hover:bg-rose-500/[0.10] min-h-[44px]',
         actionRowIcon:
             'w-7 h-7 shrink-0 rounded-md flex items-center justify-center border bg-white/[0.05] border-white/[0.10] group-hover:border-white/[0.18] transition-colors',
         actionRowIconDanger:
             'w-7 h-7 shrink-0 rounded-md flex items-center justify-center border bg-rose-500/10 border-rose-400/22 transition-colors',
-        sheet: `fixed bottom-0 left-0 right-0 ${HUB_DOSSIER_MODAL_Z_CLASS} max-h-[78vh] overflow-y-auto scrollbar-hide rounded-t-[1.35rem] border-t border-white/[0.12] bg-gradient-to-b from-white/[0.07] to-[#16161F]/96 backdrop-blur-2xl shadow-[0_-16px_48px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.10)] px-3 pt-2.5 pb-8 pointer-events-auto`,
+        sheet: `fixed bottom-0 left-0 right-0 ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS} max-h-[78vh] overflow-y-auto scrollbar-hide rounded-t-[1.35rem] border-t border-white/[0.12] bg-gradient-to-b from-white/[0.07] to-[#16161F]/96 backdrop-blur-2xl shadow-[0_-16px_48px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(255,255,255,0.10)] px-3 pt-2.5 pb-8 pointer-events-auto`,
         sheetHandle: 'w-8 h-0.5 rounded-full bg-white/[0.22] mx-auto mb-3',
         sheetTitle: 'text-[#FFFEF9] font-bold text-sm mb-3 text-center flex items-center justify-center gap-2',
         accentText: 'text-[#C9B89A]',

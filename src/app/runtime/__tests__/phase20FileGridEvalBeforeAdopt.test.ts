@@ -19,7 +19,7 @@ describe('phase-20 FileGrid eval during InstantShell before portal adopt', () =>
             /notifyArchivePortalListeners\(\);\s*[\s\S]{0,120}ensureLawsuitFileGridPromise/,
         );
         expect(src).not.toMatch(
-            /await import\(\s*['\"]@\/app\/components\/lawyer\/ArchivePortal\/components\/ArchivePortalFileGrid['\"]/,
+            /await import\(\s*['\"]@\/app\/components\/lawyer\/ArchivePortal\/components\/LawsuitArchiveFileGrid['\"]/,
         );
     });
 

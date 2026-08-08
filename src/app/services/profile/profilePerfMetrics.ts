@@ -6,7 +6,21 @@ import {
 
 const MARK_PREFIX = 'hami:profile:';
 
-export type ProfilePerfPhase = 'open-request' | 'chunk-ready' | 'first-paint' | 'interactive';
+export type ProfilePerfPhase =
+    | 'pointer-down'
+    | 'open-request'
+    | 'shell-revealed'
+    | 'chunk-ready'
+    | 'first-paint'
+    | 'interactive';
+
+export type ProfilePerfSnapshot = {
+    pointerToOpenMs: number | null;
+    openToShellRevealMs: number | null;
+    openToFirstPaintMs: number | null;
+    openToInteractiveMs: number | null;
+    pointerToFirstPaintMs: number | null;
+};
 
 export type ProfilePerfReportContext = ProfileSentryReportContext;
 
@@ -22,7 +36,14 @@ export function markProfilePerfPhase(phase: ProfilePerfPhase): void {
 export function clearProfilePerfMarks(): void {
     if (typeof performance === 'undefined' || typeof performance.clearMarks !== 'function') return;
     try {
-        for (const phase of ['open-request', 'chunk-ready', 'first-paint', 'interactive'] as const) {
+        for (const phase of [
+            'pointer-down',
+            'open-request',
+            'shell-revealed',
+            'chunk-ready',
+            'first-paint',
+            'interactive',
+        ] as const) {
             performance.clearMarks(`${MARK_PREFIX}${phase}`);
         }
     } catch {
@@ -33,6 +54,24 @@ export function clearProfilePerfMarks(): void {
 function latestPerfMark(name: string): PerformanceEntry | undefined {
     const entries = performance.getEntriesByName(name, 'mark');
     return entries.length > 0 ? entries[entries.length - 1] : undefined;
+}
+
+function phaseDeltaMs(from: ProfilePerfPhase, to: ProfilePerfPhase): number | null {
+    if (typeof performance === 'undefined') return null;
+    const start = latestPerfMark(`${MARK_PREFIX}${from}`);
+    const end = latestPerfMark(`${MARK_PREFIX}${to}`);
+    if (!start || !end || end.startTime < start.startTime) return null;
+    return Math.round(end.startTime - start.startTime);
+}
+
+export function getProfilePerfSnapshot(): ProfilePerfSnapshot {
+    return {
+        pointerToOpenMs: phaseDeltaMs('pointer-down', 'open-request'),
+        openToShellRevealMs: phaseDeltaMs('open-request', 'shell-revealed'),
+        openToFirstPaintMs: phaseDeltaMs('open-request', 'first-paint'),
+        openToInteractiveMs: getProfileOpenToInteractiveMs(),
+        pointerToFirstPaintMs: phaseDeltaMs('pointer-down', 'first-paint'),
+    };
 }
 
 export function getProfileOpenToInteractiveMs(): number | null {
@@ -46,16 +85,16 @@ export function getProfileOpenToInteractiveMs(): number | null {
 
 export function reportProfilePerfIfDev(context?: ProfilePerfReportContext | string): void {
     if (!import.meta.env.DEV) return;
-    const ms = getProfileOpenToInteractiveMs();
-    if (ms == null) return;
-    debug.log(`[ProfilePerf] open→interactive ${ms}ms`, context ?? '');
+    const snapshot = getProfilePerfSnapshot();
+    if (snapshot.openToInteractiveMs == null && snapshot.openToFirstPaintMs == null) return;
+    debug.log('[ProfilePerf]', snapshot, context ?? '');
 }
 
 export function reportProfilePerf(context: ProfilePerfReportContext = {}): void {
-    const ms = getProfileOpenToInteractiveMs();
-    if (ms == null) return;
+    const snapshot = getProfilePerfSnapshot();
+    if (snapshot.openToInteractiveMs == null) return;
     if (import.meta.env.DEV) {
-        debug.log('[ProfilePerf] open→interactive', ms, 'ms', context);
+        debug.log('[ProfilePerf]', snapshot, context);
     }
-    reportProfileOpenToSentry(ms, context);
+    reportProfileOpenToSentry(snapshot.openToInteractiveMs, context);
 }

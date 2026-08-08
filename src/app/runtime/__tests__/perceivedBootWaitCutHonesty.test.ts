@@ -9,25 +9,27 @@ describe('perceived boot wait cut honesty', () => {
         const src = fs.readFileSync(path.join(root, 'src/app/runtime/deferredAppStyles.ts'), 'utf8');
         expect(src).toContain('void startDeferredAppStylesLoad()');
         expect(src).not.toMatch(/requestAnimationFrame\(\(\)\s*=>\s*\{\s*requestAnimationFrame\(load\)/);
+        const preamble = fs.readFileSync(path.join(root, 'src/boot/bootEntryPreamble.ts'), 'utf8');
+        expect(preamble).toContain('onBootContentReady');
+        expect(preamble).toContain('scheduleDeferredAppStyles');
         const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
-        expect(index).toContain('onBootContentReady');
-        expect(index).toContain('scheduleDeferredAppStyles');
-        expect(index).toContain('لا ينافس HomeTab');
+        expect(index).toContain('bootEntryPreamble');
+        expect(index).toContain('mountApplication');
         expect(index).not.toMatch(
             /critical-shell\.css';\s*\n\s*void import\('@\/app\/runtime\/deferredAppStyles'\)\.then\(\(m\)\s*=>\s*\{\s*\n\s*m\.scheduleDeferredAppStyles\(\);/,
         );
     });
 
-    it('bootReveal يقطع بكشف أقصر (microtask + first-tab)', () => {
+    it('bootReveal يكشف عند first-tab؛ deferred-app/dock بالتوازي بلا حجب', () => {
         const reveal = fs.readFileSync(path.join(root, 'src/app/bootstrap/bootReveal.ts'), 'utf8');
         expect(reveal).toContain('queueMicrotask(fire)');
-        expect(reveal).not.toMatch(
-            /requestAnimationFrame\(fire\)/,
-        );
         expect(reveal).toContain('FIRST_TAB_OPEN_EVENT');
-        expect(reveal).toContain('first-tab-open');
+        expect(reveal).toContain('shellPaintedReady');
+        expect(reveal).toContain('return shellPaintedReady');
+        expect(reveal).toContain('finishAfterStablePaint');
         expect(reveal).toContain('stylesDeferMs');
         expect(reveal).toContain('startStylesRace');
+        expect(reveal).toContain('waitForHomeDockBootChunk');
     });
 
     it('Inner يسخّن MainView/HomeTab بعد mark لتقليص first-tab', () => {
@@ -86,31 +88,28 @@ describe('perceived boot wait cut honesty', () => {
         expect(runtime).toContain('backgroundRuntimeEnabled && bridgeLive');
     });
 
-    it('vite يعزل lazyWithRetry عن HomeTab حتى لا يُحجب InnerRuntime', () => {
+    it('HomeTab يضمّ Hub مباشرة لتقليل waterfall الإقلاع', () => {
+        const home = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
+            'utf8',
+        );
+        expect(home).toContain('LawyerHomeHubCard');
+        expect(home).not.toContain('LazyLawyerHomeHubCard');
+        expect(home).toMatch(
+            /import\s*\{[^}]*LawyerHomeHubCard[^}]*\}\s*from\s*['"]@\/app\/components\/lawyer\/LawyerHomeHubCard['"]/,
+        );
         const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(vite).toContain("'/src/app/utils/lazy/lazyWithRetry'");
-        expect(vite).toContain("'app-lazy-with-retry'");
-        const pinIdx = vite.indexOf("'/src/app/utils/lazy/lazyWithRetry'");
-        const homeTabIdx = vite.indexOf("'/dashboard/LawyerDashboardHomeTab'");
-        expect(pinIdx).toBeGreaterThan(-1);
-        expect(homeTabIdx).toBeGreaterThan(-1);
+        expect(vite).toContain('experimentalMinChunkSize');
+        expect(vite).toContain("'vendor-zustand'");
     });
 
-    it('vite يفك boot-ui mega — nativePlatform/settingsRuntime خارج الحزمة الضخمة', () => {
+    it('vite يفصل vendor-zustand و boot-runtime عن المسار الحرج', () => {
         const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(vite).toContain("'app-native-platform'");
-        expect(vite).toContain("'app-settings-runtime-lite'");
-        expect(vite).toContain("'app-settings-apply'");
-        expect(vite).toContain("'app-settings-builtin'");
-        expect(vite).toContain("'app-settings-snapshot'");
-        expect(vite).toContain("'app-settings-migrate'");
-        expect(vite).toContain("'app-criminal-bridge-event'");
-        expect(vite).toContain("'app-native-boot-deferred'");
-        expect(vite).toContain("'app-deferred-app-styles'");
-        const feature = vite.slice(vite.indexOf('function resolveAppFeatureChunk'));
-        expect(feature.indexOf("'/src/app/runtime/nativePlatform.ts'")).toBeLessThan(
-            feature.indexOf("return 'boot-ui-primitives'"),
-        );
+        expect(vite).toContain('resolveBootRuntimeChunk');
+        expect(vite).toContain("return 'vendor-zustand'");
+        expect(vite).toContain('vendor-react|boot-runtime');
+        expect(vite).toContain("return 'vendor-ui'");
+        expect(vite).toContain('/lucide-react/');
     });
 
     it('شارة الإشعارات على أول paint من peekLite بلا notificationStore متزامن', () => {
@@ -120,24 +119,19 @@ describe('perceived boot wait cut honesty', () => {
         );
         expect(notif).toContain('peekNotificationUnreadCount');
         expect(notif).not.toMatch(/import \{ useNotificationStore \} from '@\/app\/stores\/notificationStore'/);
-        expect(notif).toContain("import('@/app/stores/notificationStore')");
-        expect(notif).not.toMatch(
-            /from '@\/app\/hooks\/lawyerDashboard\/notificationIntentWarm'/,
-        );
-        expect(notif).toContain("import('@/app/hooks/lawyerDashboard/notificationIntentWarm')");
-        const warm = fs.readFileSync(
-            path.join(root, 'src/app/hooks/lawyerDashboard/notificationIntentWarm.ts'),
+        expect(notif).toContain('useNotificationStoreSync');
+        const sync = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/notifications/useNotificationStoreSync.ts'),
             'utf8',
         );
-        expect(warm).not.toMatch(/import \{ useNotificationStore \} from '@\/app\/stores\/notificationStore'/);
-        expect(warm).toContain('shouldAllowIntentWarmFromDom');
+        expect(sync).toContain('loadNotificationStore');
+        expect(sync).not.toMatch(/import \{ useNotificationStore \} from '@\/app\/stores\/notificationStore'/);
+        expect(sync).toContain('onDashboardInteractive');
         const effects = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardRuntimeEffects.ts'),
             'utf8',
         );
         expect(effects).not.toMatch(/import \{ useNotificationStore \} from '@\/app\/stores\/notificationStore'/);
-        const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(vite).toContain("'app-notification-intent-warm'");
     });
 
     it('case-shares على أول paint من peekLite بلا CaseShareApiService متزامن', () => {
@@ -197,9 +191,9 @@ describe('perceived boot wait cut honesty', () => {
             'utf8',
         );
         expect(quantum).toContain('onBootContentReady');
-        const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
-        expect(index).toContain("from '@/app/services/settings/settingsSnapshot'");
-        expect(index).not.toContain("from '@/app/services/settings/settingsRuntime'");
+        const preamble = fs.readFileSync(path.join(root, 'src/boot/bootEntryPreamble.ts'), 'utf8');
+        expect(preamble).toContain("import('@/app/services/settings/settingsSnapshot')");
+        expect(preamble).not.toContain("from '@/app/services/settings/settingsRuntime'");
     });
 
     it('orchestration يستورد useThemeStyles من الملف الخفيف لا LawyerShared', () => {
@@ -224,9 +218,7 @@ describe('perceived boot wait cut honesty', () => {
             'utf8',
         );
         expect(sync).not.toContain("export { QUANTUM_TASKS_CHANGED_EVENT }");
-        const vite = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(vite).toContain("'app-quantum-tasks-events'");
-        expect(vite).toContain("'app-quantum-tasks-storage'");
+        expect(sync).toContain("from '@/app/utils/quantumTasksEvents'");
         const orch = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration.ts'),
             'utf8',

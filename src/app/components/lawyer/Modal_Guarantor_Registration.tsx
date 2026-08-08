@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Shield, User, Phone, MapPin, CreditCard, CheckCircle } from 'lucide-react';
+import { X, Shield, User, Phone, MapPin, CreditCard, CheckCircle } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GuarantorInfo } from '@/app/utils/alimonyPaymentEngine';
 

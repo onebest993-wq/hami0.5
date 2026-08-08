@@ -27,6 +27,10 @@ export interface Transaction {
   agreedFees: number;
   createdAt: ISODateTimeString;
   updatedAt: ISODateTimeString;
+  /** أرشفة — تُخفى من القائمة الرئيسية */
+  archivedAt?: ISODateTimeString | null;
+  /** حذف ناعم — تظهر في «محذوفة» */
+  deletedAt?: ISODateTimeString | null;
 }
 
 export interface TransactionTask {

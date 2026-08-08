@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Scale, Clock, CheckCircle2, XCircle, ShieldCheck } from 'lucide-react';
+import { X, Scale, Clock, CheckCircle2, XCircle, ShieldCheck } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
 import {

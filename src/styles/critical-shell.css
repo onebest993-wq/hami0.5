@@ -8,6 +8,9 @@
 @import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';
 @import '../app/components/lawyer/CommunityScreen/forumPlumChrome.css';
 @import '../app/components/lawyer/RoyalLawyerProfile/profileChrome.css';
+@import '../app/components/lawyer/LawyerHomeHubCard/homeHubCardFx.css';
+@import '../app/components/lawyer/SmartLegalRadar/radarFormCritical.css';
+@import '../app/components/lawyer/appLockOverlay.css';
 @import './critical-lawyer-utils.css';
 
 :root {
@@ -15,18 +18,29 @@
     --hami-brand: #e6c673;
     --hami-primary: #e6c673;
     --hami-secondary: #b8943f;
-    --hami-surface-bg: #0b1021;
-    --hami-glass-base: #0b1021;
-    --hami-ring-offset: #0b1021;
+    --hami-surface-bg: #0a0f1c;
+    --hami-glass-base: #020408;
+    --hami-ring-offset: #0a0f1c;
     --hami-pearl: #fff9ee;
     --hami-font-size: 16px;
+    --hami-user-font-scale: 1;
 }
 
 html {
-    font-size: var(--hami-font-size, 16px);
+    font-size: calc(16px * var(--hami-user-font-scale, 1));
 }
 
 body {
-    background-color: var(--hami-surface-bg, #0a0f1c);
+    background-color: var(--hami-board-surface-bg, var(--hami-surface-bg, #0a0f1c));
     color: #fff;
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
+}
+
+/** خلفية اللوحة — تتبع CSS vars من الإقلاع بلا وميض */
+.hami-board-canvas-bg {
+    background-color: var(--hami-board-surface-bg, var(--hami-surface-bg, #0a0f1c));
+}
+
+[data-hami-lawyer-dashboard] {
+    font-family: 'Tajawal', 'Cairo', system-ui, sans-serif;
 }

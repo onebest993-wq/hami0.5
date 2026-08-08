@@ -226,9 +226,14 @@ export async function reconcileExecutionDossierStorageAsync(): Promise<Execution
     };
 }
 
-/** مسار E2E/تشخيص — يُعرَّض في DEV فقط */
+/** مسار E2E/تشخيص — يُعرَّض في DEV أو حزمة VITE_E2E */
 export function exposeExecutionReconcileForDev(): void {
-    if (typeof window === 'undefined' || !import.meta.env.DEV) return;
+    if (typeof window === 'undefined') return;
+    const allowHooks =
+        import.meta.env.DEV ||
+        import.meta.env.VITE_E2E === '1' ||
+        import.meta.env.VITE_E2E === 'true';
+    if (!allowHooks) return;
     const w = window as unknown as {
         __hamiReconcileExecutionStorage?: () => Promise<ExecutionDossierReconcileResult>;
         __hamiLoadExecutionFilesIndex?: () => unknown[];

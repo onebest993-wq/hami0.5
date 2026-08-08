@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { warmFieldTasksOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
+import { prefetchFieldTasksSheetModule } from '@/app/runtime/fieldTasksHubLoader';
+import { warmQuantumTasksDiskRead } from '@/app/utils/quantumTasksStorage';
 import {
     loadFieldTasksBootHydrator,
     loadFieldTasksHubLoader,
-    warmQuantumTasksDiskRead,
 } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
 
 type UseFieldTasksHostLifecycleParams = {
@@ -25,33 +26,15 @@ export function useFieldTasksHostLifecycle({
 
     useLayoutEffect(() => {
         warmQuantumTasksDiskRead();
-        void loadFieldTasksHubLoader().then((m) => m.prefetchFieldTasksSheetModule());
+        void loadFieldTasksHubLoader().then((m) => {
+            m.prefetchFieldTasksSheetModule();
+            m.prefetchTasksManagerModule();
+        });
     }, []);
 
     useEffect(() => {
         if (!fieldTasksSheetOpen) return;
-        const ric =
-            typeof window !== 'undefined' && 'requestIdleCallback' in window
-                ? window.requestIdleCallback.bind(window)
-                : null;
-        const cancelRic =
-            typeof window !== 'undefined' && 'cancelIdleCallback' in window
-                ? window.cancelIdleCallback.bind(window)
-                : null;
-        let timeoutId: number | null = null;
-        let idleId: number | null = null;
-        const run = () => {
-            void loadFieldTasksHubLoader().then((m) => m.prefetchTasksManagerModule());
-        };
-        if (ric) {
-            idleId = ric(() => run(), { timeout: 2500 }) as number;
-        } else {
-            timeoutId = window.setTimeout(run, 900);
-        }
-        return () => {
-            if (idleId != null && cancelRic) cancelRic(idleId);
-            if (timeoutId != null) window.clearTimeout(timeoutId);
-        };
+        void loadFieldTasksHubLoader().then((m) => m.prefetchTasksManagerModule());
     }, [fieldTasksSheetOpen]);
 
     useEffect(() => {
@@ -65,11 +48,7 @@ export function useFieldTasksHostLifecycle({
     useEffect(() => {
         if (!initialSessionOpen || restoredWarmRef.current) return;
         restoredWarmRef.current = true;
-        warmQuantumTasksDiskRead();
         warmFieldTasksOnOpen();
-        void loadFieldTasksBootHydrator()
-            .then((m) => m.hydrateFieldTasksShellForInstantOpen(true))
-            .catch(() => undefined);
         if (initialSessionSurface === 'manager') {
             armFieldTasksManagerHost();
             void loadFieldTasksHubLoader()
@@ -85,8 +64,7 @@ export function useFieldTasksHostLifecycle({
 
 export function primeFieldTasksHostMount(setFieldTasksHostMounted: (mounted: boolean) => void): void {
     setFieldTasksHostMounted(true);
-    void loadFieldTasksHubLoader().then((m) => m.prefetchFieldTasksSheetModule());
-    void import(
-        '@/app/components/lawyer/dashboard/overlay-sections/LawyerDashboardFieldTasksOverlayEntry'
-    ).catch(() => undefined);
+    warmQuantumTasksDiskRead();
+    prefetchFieldTasksSheetModule();
+    void loadFieldTasksHubLoader().then((m) => m.prefetchTasksManagerModule());
 }

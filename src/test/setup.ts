@@ -3,7 +3,7 @@
  * إعدادات الاختبارات
  */
 
-import { afterEach, beforeAll, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import fs from 'node:fs';
@@ -14,10 +14,26 @@ afterEach(() => {
   cleanup();
 });
 
+/**
+ * وحدات مثل storageCache وRateLimitService تبدأ مؤقّت تنظيف دوري عند استيرادها،
+ * وتُنهيه على حدث pagehide. لا يُطلق jsdom ذلك الحدث أبداً، فيبقى المؤقّت حيّاً
+ * في كل ملف اختبار يستوردها ولو بشكل غير مباشر — وتتراكم مؤقّتات تُبقي حلقة
+ * الأحداث مشغولة فيعجز vitest عن الخروج بعد انتهاء المجموعة.
+ *
+ * إطلاق الحدث هنا يسلك مسار الإنهاء الذي كُتب في تلك الوحدات نفسها بدل الوصول
+ * إلى دواخلها، فيبقى سلوك الإنتاج كما هو.
+ */
+afterAll(() => {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('pagehide'));
+});
+
 // Mock environment variables
 process.env.NODE_ENV = 'test';
 vi.stubEnv('VITE_ENABLE_CLOUD_SYNC', 'true');
 vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'false');
+vi.stubEnv('VITE_SUPABASE_URL', 'https://test-project-id.supabase.co');
+vi.stubEnv('VITE_SUPABASE_ANON_KEY', 'test-anon-key-with-sufficient-length');
 
 // Mock localStorage
 const localStorageMock = (() => {

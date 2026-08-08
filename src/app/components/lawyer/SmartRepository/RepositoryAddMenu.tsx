@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ChevronDown, FileText, ImageIcon, Mic, Plus, Scan } from 'lucide-react';
+import { ChevronDown, FileText, ImageIcon, Mic, Plus, Scan } from '@/app/components/ui/lucideIcons';
 import { REPO_ADD_MENU_BTN, REPO_ADD_MENU_ITEM, REPO_ADD_MENU_PANEL } from './smartRepositoryTheme';
 
 type RepositoryAddMenuProps = {

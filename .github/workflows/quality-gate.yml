@@ -43,6 +43,9 @@ jobs:
       - name: No new broken imports, entry points intact
         run: npm run guard:import-closure
 
+      - name: Follow-up modal snapshot contract (portal ⊆ generated keys)
+        run: npm run audit:execution-snapshot
+
       # الدائرة تجعل ترتيب تهيئة الوحدات رهن باب الدخول، فيصير الخطأ عرضياً
       # يظهر في مسار ويختفي في آخر. الحارس يقيس الاستيراد الساكن وحده — أمّا
       # import() فحدّ تقسيم كود مقصود لا عطل.
@@ -51,6 +54,9 @@ jobs:
 
       - name: No ambiguous .js/.ts module twins
         run: npm run guard:module-twins
+
+      - name: No module shadow stubs (file shadows folder/index)
+        run: npm run guard:module-shadow
 
       - name: Native mobile foundation contract
         run: npm run guard:native-foundation

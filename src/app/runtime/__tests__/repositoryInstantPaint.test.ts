@@ -3,7 +3,6 @@ import {
     applyRepositoryOpaqueChrome,
     concealRepositoryWarmShell,
     isRepositoryShellPaintedOpen,
-    markRepositoryShellOpenCommitted,
     paintRepositoryInstantChrome,
 } from '../repositoryInstantPaint';
 
@@ -24,7 +23,6 @@ describe('repositoryInstantPaint', () => {
         meta.setAttribute('content', '#111111');
         document.head.appendChild(meta);
 
-        markRepositoryShellOpenCommitted(true);
         applyRepositoryOpaqueChrome();
 
         expect(document.documentElement.getAttribute('data-hami-repository-open')).toBe('1');
@@ -38,7 +36,6 @@ describe('repositoryInstantPaint', () => {
         shell.setAttribute('aria-hidden', 'true');
         document.body.appendChild(shell);
 
-        markRepositoryShellOpenCommitted(true);
         const painted = paintRepositoryInstantChrome();
 
         expect(painted).toBe(true);
@@ -57,7 +54,6 @@ describe('repositoryInstantPaint', () => {
         modal.setAttribute('aria-hidden', 'true');
         document.body.appendChild(modal);
 
-        markRepositoryShellOpenCommitted(true);
         paintRepositoryInstantChrome();
 
         expect(modal.classList.contains('hami-repository-overlay-layer--visible')).toBe(true);
@@ -74,7 +70,6 @@ describe('repositoryInstantPaint', () => {
         shell.setAttribute('data-testid', 'smart-repository-instant-shell');
         document.body.appendChild(shell);
 
-        markRepositoryShellOpenCommitted(true);
         paintRepositoryInstantChrome();
         concealRepositoryWarmShell();
 

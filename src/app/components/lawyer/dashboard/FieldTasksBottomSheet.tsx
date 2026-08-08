@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle2, MapPin, PanelBottom, X, ClipboardList } from 'lucide-react';
+import { CheckCircle2, MapPin, PanelBottom, X, ClipboardList } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { inertProps } from '@/app/utils/inertProps';
 import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
@@ -16,8 +16,20 @@ import { TaskSubTasksCollapsible } from '@/app/components/lawyer/dashboard/tasks
 import { TaskVoicePlayback } from '@/app/components/lawyer/dashboard/tasksManager/TaskVoicePlayback';
 import {
     CURTAIN_BTN_MANAGE,
+    CURTAIN_CLOSE_BTN,
+    CURTAIN_COMPLETE_BTN,
+    CURTAIN_DONE_BADGE,
+    CURTAIN_DONE_BADGE_READONLY,
+    CURTAIN_FATAL_DIALOG,
+    CURTAIN_FOOTER_ROW,
     CURTAIN_GLASS_INNER,
+    CURTAIN_HANDLE,
+    CURTAIN_HEADER_ROW,
+    CURTAIN_ICON_WELL,
+    CURTAIN_LOCATION_TEXT,
+    CURTAIN_PIN_BADGE,
     CURTAIN_SHEET,
+    CURTAIN_TASK_TITLE,
     TASKS_BRONZE_LINE,
 } from '@/app/components/lawyer/dashboard/tasksManager/tasksBoucleTheme';
 import { TaskListOrdinalBadge, taskListStripeToneClass, type TaskListOrdinal } from '@/app/components/lawyer/dashboard/tasksManager/TaskListOrdinalBadge';
@@ -34,7 +46,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/app/components/ui/dialog';
-import { isFieldTasksForceVisible } from '@/app/runtime/fieldTasksInstantPaint';
+import { isFieldTasksCloseSuppressed, isFieldTasksForceVisible } from '@/app/runtime/fieldTasksInstantPaint';
+import { SparkFieldTasksNudgeHost } from '@/app/spark/ui/SparkFieldTasksNudgeHost';
 
 const CURTAIN_LAYER_Z = 214;
 const CURTAIN_SHEET_Z = 215;
@@ -97,7 +110,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                 fatal
                     ? 'border-rose-500/40 shadow-[0_0_12px_rgba(239,68,68,0.15)]'
                     : markedDone
-                      ? 'border-[#1A7059]/35'
+                      ? 'border-[#34D399]/30'
                       : ''
             }`}
         >
@@ -115,7 +128,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                 <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5 justify-end mb-1">
                         {task.pinnedToFieldCurtain ? (
-                            <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#A67C52]/15 text-[#D4B896] border border-[#A67C52]/35">
+                            <span className={CURTAIN_PIN_BADGE}>
                                 <PanelBottom className="size-3" aria-hidden />
                                 ستارة الميدان
                             </span>
@@ -126,9 +139,9 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                             </span>
                         ) : null}
                     </div>
-                    <p className="text-[#E8F5F0] text-base font-extrabold leading-snug break-words">{task.title}</p>
+                    <p className={CURTAIN_TASK_TITLE}>{task.title}</p>
                     {task.location ? (
-                        <p className="mt-1 text-[11px] font-bold text-[#6BC4A8]/90 flex flex-row-reverse items-center gap-1 justify-end">
+                        <p className={CURTAIN_LOCATION_TEXT}>
                             <MapPin className="size-3 shrink-0 opacity-80" aria-hidden />
                             {task.location}
                         </p>
@@ -147,9 +160,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                         <div className="flex flex-col items-center gap-1">
                             <span
                                 className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-extrabold whitespace-nowrap ${
-                                    readOnly
-                                        ? 'bg-[#0c0c0e]/40 border-[#A67C52]/20 text-[#A67C52]/70'
-                                        : 'bg-[#1A7059]/25 border-[#1A7059]/40 text-[#E8F5F0]'
+                                    readOnly ? CURTAIN_DONE_BADGE_READONLY : CURTAIN_DONE_BADGE
                                 }`}
                             >
                                 <CheckCircle2 className="size-3" aria-hidden />
@@ -159,7 +170,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                                 <button
                                     type="button"
                                     onClick={() => onReopenTask(task)}
-                                    className="text-[9px] font-bold text-[#B8956A] hover:underline"
+                                    className="text-[9px] font-bold text-[#E6C673]/72 hover:underline"
                                 >
                                     تراجع
                                 </button>
@@ -170,7 +181,7 @@ const FieldCurtainTaskCard = memo(function FieldCurtainTaskCard({
                             type="button"
                             data-testid={`field-tasks-complete-${task.id}`}
                             onClick={() => onCompleteRequest(task)}
-                            className="min-h-[44px] px-2.5 py-1 rounded-lg bg-[#1A7059]/70 hover:bg-[#1A7059] border border-[#1A7059]/50 text-[#E8F5F0] text-[10px] font-extrabold whitespace-nowrap touch-manipulation"
+                            className={CURTAIN_COMPLETE_BTN}
                         >
                             إنهاء المهمة
                         </button>
@@ -237,11 +248,16 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
             return;
         }
         setSheetVisible(true);
+        const sheet = document.querySelector<HTMLElement>('[data-testid="field-tasks-sheet"]');
+        if (sheet) {
+            sheet.classList.remove('hami-field-tasks-sheet--snap');
+        }
     }, [open]);
 
     useBodyScrollLock(open);
 
     const handleClose = useCallback(() => {
+        if (isFieldTasksCloseSuppressed()) return;
         onClose();
     }, [onClose]);
 
@@ -287,12 +303,12 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         if (!o) cancelFatalComplete();
                     }}
                 >
-                    <DialogContent className="border-[#A67C52]/35 bg-[#0A2E25] text-[#E8F5F0] sm:max-w-md [&]:translate-x-[-50%] [&]:translate-y-[-50%]">
+                    <DialogContent className={CURTAIN_FATAL_DIALOG}>
                         <DialogHeader className="text-right sm:text-right space-y-2">
-                            <DialogTitle className="text-[#D4B896] text-base font-extrabold leading-relaxed">
+                            <DialogTitle className="text-[#E6C673] text-base font-extrabold leading-relaxed">
                                 تحذير — موعد حتمي
                             </DialogTitle>
-                            <DialogDescription className="text-[#E8F5F0]/80 text-sm leading-relaxed">
+                            <DialogDescription className="text-[#F4F4F5]/80 text-sm leading-relaxed">
                                 هذا موعد حتمي (سقوط حق). هل أنت متأكد من إنجاز الإجراء القانوني بشكل نهائي؟
                             </DialogDescription>
                         </DialogHeader>
@@ -307,7 +323,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                             <button
                                 type="button"
                                 onClick={cancelFatalComplete}
-                                className="px-4 py-2 rounded-lg border border-[#A67C52]/30 bg-[#0c0c0e]/40 hover:bg-[#0c0c0e]/60 text-[#E8F5F0] text-xs font-bold"
+                                className="px-4 py-2 rounded-lg border border-white/[0.1] bg-[#12182B] hover:bg-[#1A2238] text-[#F4F4F5] text-xs font-bold"
                             >
                                 إلغاء
                             </button>
@@ -332,7 +348,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                     type="button"
                     aria-label="إغلاق الستارة"
                     tabIndex={layerVisible ? 0 : -1}
-                    className={`fixed inset-0 bg-[#051410]/75 border-0 cursor-default transition-opacity duration-150 ${
+                    className={`fixed inset-0 bg-[#05060D]/78 border-0 cursor-default transition-opacity duration-150 ${
                         sheetVisible ? 'opacity-100' : 'opacity-0'
                     }`}
                     style={{ zIndex: CURTAIN_LAYER_Z }}
@@ -344,29 +360,31 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                     aria-labelledby="field-tasks-sheet-title"
                     data-testid="field-tasks-sheet"
                     data-field-tasks-hydrated={sheetHydrated && sheetVisible ? 'true' : 'false'}
-                    className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] transition-transform duration-200 ease-out will-change-transform ${
-                        sheetVisible ? 'translate-y-0' : 'translate-y-full'
-                    }`}
+                    className={`${CURTAIN_SHEET} pb-[max(0px,env(safe-area-inset-bottom))] ${
+                        open && isFieldTasksForceVisible()
+                            ? 'hami-field-tasks-sheet--snap'
+                            : 'transition-transform duration-200 ease-out will-change-transform'
+                    } ${sheetVisible ? 'translate-y-0' : 'translate-y-full'}`}
                     style={{
                         zIndex: CURTAIN_SHEET_Z,
                         marginBottom: keyboardInsetPx > 0 ? keyboardInsetPx : undefined,
                     }}
                 >
                     <div className="shrink-0 flex flex-col items-center pt-2.5 pb-1 relative z-[1]">
-                        <div className="w-12 h-1 rounded-full bg-[#A67C52]/40" />
+                        <div className={CURTAIN_HANDLE} />
                     </div>
 
-                    <div className="shrink-0 flex items-center justify-between gap-3 px-4 pb-3 border-b border-[#A67C52]/18 relative z-[1]">
+                    <div className={CURTAIN_HEADER_ROW}>
                         <div className="flex items-center gap-2 min-w-0">
-                            <div className="w-9 h-9 rounded-xl bg-[#0c0c0e]/45 border border-[#A67C52]/25 flex items-center justify-center shrink-0">
-                                <ClipboardList size={18} className="text-[#B8956A]" />
+                            <div className={CURTAIN_ICON_WELL}>
+                                <ClipboardList size={18} className="text-[#E6C673]" />
                             </div>
                             <div className="min-w-0">
-                                <h2 id="field-tasks-sheet-title" className="text-[#E8F5F0] font-extrabold text-base truncate">
+                                <h2 id="field-tasks-sheet-title" className="text-[#F4F4F5] font-extrabold text-base truncate">
                                     مهام اليوم الميدانية
                                 </h2>
                                 {curtainTasks.length > 0 ? (
-                                    <p className="text-[10px] text-[#6BC4A8]/60 font-bold">
+                                    <p className="text-[10px] text-[#34D399]/65 font-bold">
                                         {curtainTasks.length} مهمة
                                     </p>
                                 ) : null}
@@ -377,7 +395,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                             onClick={handleClose}
                             data-testid="field-tasks-close"
                             tabIndex={layerVisible ? 0 : -1}
-                            className="shrink-0 w-11 h-11 rounded-xl border border-[#A67C52]/22 bg-[#0c0c0e]/40 flex items-center justify-center text-[#E8F5F0]/80 hover:bg-[#0c0c0e]/60 touch-manipulation"
+                            className={CURTAIN_CLOSE_BTN}
                             aria-label="إغلاق"
                         >
                             <X size={20} />
@@ -388,12 +406,13 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         dir="rtl"
                         className="flex-1 overflow-y-auto overscroll-y-contain px-4 py-3 min-h-0 relative z-[1]"
                     >
+                        <SparkFieldTasksNudgeHost tasks={pendingTasks} className="px-0 pb-2" />
                         {curtainTasks.length === 0 ? (
                             <div
                                 className={`${CURTAIN_GLASS_INNER} flex flex-col items-center py-12 px-4 text-center`}
                                 data-testid="field-tasks-empty"
                             >
-                                <p className="text-[#E8F5F0]/55 text-sm font-medium leading-relaxed max-w-xs">
+                                <p className="text-[#F4F4F5]/55 text-sm font-medium leading-relaxed max-w-xs">
                                     لا مهام ميدانية لليوم. أضف مهمة من مدير المهام أو ثبّتها على الستارة للوصول السريع.
                                 </p>
                                 <div className={`mt-4 w-20 ${TASKS_BRONZE_LINE}`} />
@@ -416,7 +435,7 @@ export const FieldTasksBottomSheet = memo(function FieldTasksBottomSheet({
                         )}
                     </div>
 
-                    <div className="shrink-0 p-4 pt-2 border-t border-[#A67C52]/18 bg-[#0c0c0e]/30 relative z-[1]">
+                    <div className={CURTAIN_FOOTER_ROW}>
                         <button
                             type="button"
                             data-testid="field-tasks-manage-all"

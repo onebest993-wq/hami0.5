@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { FORUM_ICON_BTN } from '../forumPlumTheme';

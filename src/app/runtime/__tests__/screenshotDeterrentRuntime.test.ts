@@ -1,7 +1,17 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 
+const invokeNative = vi.fn(async () => undefined);
+
 vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => false,
+}));
+
+vi.mock('@/app/runtime/nativeBridgeReady', () => ({
+    whenNativeBridgeReady: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/app/runtime/privacyScreenNative', () => ({
+    callPrivacyScreenGuard: vi.fn(async () => true),
 }));
 
 import { bindWebScreenshotDeterrent } from '@/app/runtime/screenshotDeterrentRuntime';

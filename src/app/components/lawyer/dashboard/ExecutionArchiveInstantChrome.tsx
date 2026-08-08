@@ -21,7 +21,6 @@ export const ExecutionArchiveInstantChrome = memo(function ExecutionArchiveInsta
             style={{
                 zIndex: open ? 220 : -1,
                 visibility: open ? 'visible' : 'hidden',
-                opacity: open ? 1 : 0,
                 pointerEvents: open ? 'auto' : 'none',
             }}
             data-testid="execution-archive-shell"

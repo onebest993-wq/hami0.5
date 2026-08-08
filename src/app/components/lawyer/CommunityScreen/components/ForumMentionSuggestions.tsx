@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { AtSign } from 'lucide-react';
+import { AtSign } from '@/app/components/ui/lucideIcons';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
 import { FORUM_PANEL, FORUM_TEXT_APRICOT, FORUM_TEXT_MUTED, FORUM_TEXT_PRIMARY } from '../forumPlumTheme';
 

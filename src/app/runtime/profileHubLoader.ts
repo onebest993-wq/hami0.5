@@ -1,38 +1,38 @@
 import type { ComponentProps, ComponentType } from 'react';
-import { ensureRejectClearingPromise } from '@/app/runtime/ensureRejectClearingPromise';
+import {
+    getCachedLawyerDashboardProfileTab,
+    isProfileTabModuleResolved,
+    loadProfileTabModule,
+    prefetchProfileTabModule,
+    type LawyerDashboardProfileTabComponent,
+    type LawyerDashboardProfileTabProps,
+} from '@/app/runtime/profileTabModuleLoader';
+import {
+    isRoyalLawyerProfileModuleResolved,
+    loadRoyalLawyerProfileModule,
+    prefetchRoyalLawyerProfileChunk,
+} from '@/app/runtime/royalLawyerProfileLoader';
 
-type LawyerDashboardProfileTabModule =
-    typeof import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab');
-type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawyerProfile');
-
-type LawyerDashboardProfileTabProps = ComponentProps<
-    LawyerDashboardProfileTabModule['LawyerDashboardProfileTab']
->;
+type RoyalLawyerProfileModule = typeof import('@/app/components/lawyer/RoyalLawyerProfile/index');
 type RoyalLawyerProfileProps = ComponentProps<RoyalLawyerProfileModule['RoyalLawyerProfile']>;
-
-export type LawyerDashboardProfileTabComponent = ComponentType<LawyerDashboardProfileTabProps>;
 export type RoyalLawyerProfileComponent = ComponentType<RoyalLawyerProfileProps>;
 
-type ProfileHubModule = [LawyerDashboardProfileTabModule, RoyalLawyerProfileModule];
+export type { LawyerDashboardProfileTabComponent, LawyerDashboardProfileTabProps };
 
-let hubModulePromise: Promise<ProfileHubModule> | null = null;
-let cachedLawyerDashboardProfileTab: LawyerDashboardProfileTabComponent | null = null;
+export {
+    getCachedLawyerDashboardProfileTab,
+    isProfileTabModuleResolved,
+    prefetchProfileTabModule,
+} from '@/app/runtime/profileTabModuleLoader';
+
 let cachedRoyalLawyerProfile: RoyalLawyerProfileComponent | null = null;
 
 export function isProfileShellModuleResolved(): boolean {
-    return cachedLawyerDashboardProfileTab !== null && cachedRoyalLawyerProfile !== null;
+    return isProfileTabModuleResolved() && isRoyalLawyerProfileModuleResolved();
 }
 
-export function isProfileTabModuleResolved(): boolean {
-    return cachedLawyerDashboardProfileTab !== null;
-}
-
-export function isRoyalLawyerProfileModuleResolved(): boolean {
-    return cachedRoyalLawyerProfile !== null;
-}
-
-export function getCachedLawyerDashboardProfileTab(): LawyerDashboardProfileTabComponent | null {
-    return cachedLawyerDashboardProfileTab;
+export function isRoyalLawyerProfileModuleResolvedFromHub(): boolean {
+    return isRoyalLawyerProfileModuleResolved();
 }
 
 export function getCachedRoyalLawyerProfile(): RoyalLawyerProfileComponent | null {
@@ -41,44 +41,35 @@ export function getCachedRoyalLawyerProfile(): RoyalLawyerProfileComponent | nul
 
 /** للاختبارات */
 export function resetProfileHubModuleCacheForTests(): void {
-    hubModulePromise = null;
-    cachedLawyerDashboardProfileTab = null;
     cachedRoyalLawyerProfile = null;
-}
-
-function ensureHubModulePromise(): Promise<ProfileHubModule> {
-    return ensureRejectClearingPromise(hubModulePromise, (next) => {
-        hubModulePromise = next;
-    }, () =>
-        Promise.all([
-            import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab').then((mod) => {
-                if (mod?.LawyerDashboardProfileTab) {
-                    cachedLawyerDashboardProfileTab = mod.LawyerDashboardProfileTab;
-                }
-                return mod;
-            }),
-            import('@/app/components/lawyer/RoyalLawyerProfile').then((mod) => {
-                if (mod?.RoyalLawyerProfile) {
-                    cachedRoyalLawyerProfile = mod.RoyalLawyerProfile;
-                }
-                return mod;
-            }),
-        ]),
+    void import('@/app/runtime/profileTabModuleLoader').then((m) =>
+        m.resetProfileTabModuleCacheForTests(),
+    );
+    void import('@/app/runtime/royalLawyerProfileModuleState').then((m) =>
+        m.resetRoyalLawyerProfileModuleStateForTests(),
     );
 }
 
-export function loadProfileHubModule(): Promise<ProfileHubModule> {
-    return ensureHubModulePromise();
+export function loadProfileHubModule(): Promise<
+    [typeof import('@/app/components/lawyer/dashboard/LawyerDashboardProfileTab'), RoyalLawyerProfileModule]
+> {
+    return Promise.all([
+        loadProfileTabModule(),
+        loadRoyalLawyerProfileModule().then((mod) => {
+            if (mod?.RoyalLawyerProfile) cachedRoyalLawyerProfile = mod.RoyalLawyerProfile;
+            return mod;
+        }),
+    ]);
 }
 
 export function prefetchProfileHubModule(): void {
-    if (typeof window === 'undefined') return;
-    void ensureHubModulePromise().catch(() => undefined);
+    prefetchProfileTabModule();
+    prefetchRoyalLawyerProfileChunk();
 }
 
 /** يضمن جاهزية shell الملف (التبويب + الواجهة) للفتح الفوري */
 export function hydrateProfileShellForInstantOpen(): Promise<boolean> {
-    return ensureHubModulePromise()
+    return loadProfileHubModule()
         .then(() => isProfileShellModuleResolved())
         .catch(() => false);
 }

@@ -3,6 +3,10 @@ import { scheduleLawyerShellPrefetch, resetLawyerShellPrefetchForTests } from '@
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { scheduleDeferredFeatureStyles } from '@/app/runtime/deferredFeatureStyles';
+import {
+    resetHeavyDashboardSectionWarmForTests,
+    scheduleHeavyDashboardSectionWarm,
+} from '@/app/runtime/heavyDashboardSectionWarm';
 
 function loadHeaderShellIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/headerShellIntentWarm');
@@ -14,6 +18,7 @@ function loadProfileBootHydrator() {
 
 let postInteractiveWarmStarted = false;
 let cancelPendingWarm: (() => void) | null = null;
+let cancelHeavyWarm: (() => void) | null = null;
 let unbindProfileBoot: (() => void) | null = null;
 
 export function resetDashboardPostInteractiveWarmForTests(): void {
@@ -23,6 +28,9 @@ export function resetDashboardPostInteractiveWarmForTests(): void {
     unbindProfileBoot?.();
     unbindProfileBoot = null;
     resetLawyerShellPrefetchForTests();
+    resetHeavyDashboardSectionWarmForTests();
+    cancelHeavyWarm?.();
+    cancelHeavyWarm = null;
     void loadHeaderShellIntentWarm()
         .then((m) => m.resetHeaderShellIntentWarmForTests())
         .catch(() => undefined);
@@ -70,10 +78,16 @@ export function scheduleDashboardPostInteractiveWarm(userId?: string | null): vo
         });
     }
 
+    void import('@/app/runtime/homeHubCardLoader')
+        .then((m) => m.prefetchLawyerHomeHubCardModule())
+        .catch(() => undefined);
+
     cancelPendingWarm = scheduleIdleWork(runLightShellWarm, {
         minDelayMs: import.meta.env.DEV ? 4_000 : 15_000,
         timeoutMs: 25_000,
     });
+
+    cancelHeavyWarm = scheduleHeavyDashboardSectionWarm();
 }
 
 /** يُستدعى مرة واحدة من runtime effects — ينتظر boot-content-ready قبل أي warm */
@@ -87,6 +101,8 @@ export function bindDashboardPostInteractiveWarm(userId?: string | null): () => 
         unbindReady();
         cancelPendingWarm?.();
         cancelPendingWarm = null;
+        cancelHeavyWarm?.();
+        cancelHeavyWarm = null;
         unbindProfileBoot?.();
         unbindProfileBoot = null;
         /* أعد السماح بالتسخين — وإلا تبديل userId يترك hydrator ميتاً */

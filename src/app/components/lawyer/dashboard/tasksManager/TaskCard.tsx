@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import {
     AlertCircle,
+    CalendarClock,
     Check,
     CheckCircle2,
     Flame,
@@ -11,10 +12,13 @@ import {
     Paperclip,
     Pencil,
     Trash2,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
 import { buildTaskWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import {
+    TASKS_INNER_GLASS,
+    TASKS_INNER_GLASS_HOVER,
+    TASKS_INNER_GLASS_SOFT,
     TASK_CARD_BASE,
     TASK_CARD_DEFAULT,
     TASK_CARD_DONE,
@@ -28,6 +32,7 @@ import {
     formatIqd,
     isReminderDue,
     isTaskAgendaReadOnly,
+    isTaskArchivedToHistory,
     isTaskDayOverdueIncomplete,
     isTaskMarkedDone,
 } from './utils';
@@ -66,8 +71,8 @@ function TaskCardComponent(props: TaskCardProps) {
         onEditRequest,
         onDeleteRequest,
         onReminderBadgeClick,
+        onPostponeRequest,
     } = props;
-
     const [branchOpen, setBranchOpen] = useState(false);
     const [addStepOpen, setAddStepOpen] = useState(false);
     const [optionsOpen, setOptionsOpen] = useState(false);
@@ -169,6 +174,7 @@ function TaskCardComponent(props: TaskCardProps) {
     const reminderFire = task.reminderAt !== null && isReminderDue(task, now);
     const markedDone = isTaskMarkedDone(task);
     const readOnly = isTaskAgendaReadOnly(task, now);
+    const archived = isTaskArchivedToHistory(task, now);
     const overdueIncomplete = isTaskDayOverdueIncomplete(task, now);
     const clusterPin = useMemo(
         () => buildTaskWorkspacePin(task, lawsuitFiles, executionFiles),
@@ -252,9 +258,9 @@ function TaskCardComponent(props: TaskCardProps) {
                                 data-testid={`tasks-task-complete-${task.id}`}
                                 onClick={() => onCompleteRequest(task)}
                                 onPointerUp={releaseTouchFocus}
-                                className="inline-flex flex-row-reverse items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-full border border-[#1A7059]/38 bg-[#1A7059]/10 text-[11px] font-extrabold text-[#6BC4A8] hover:bg-[#1A7059]/16 active:scale-[0.98] transition touch-manipulation whitespace-nowrap"
+                                className="inline-flex flex-row-reverse items-center gap-1.5 min-h-[44px] px-3 py-1.5 rounded-full border border-[#059669]/38 bg-[#059669]/10 text-[11px] font-extrabold text-[#34D399] hover:bg-[#059669]/16 active:scale-[0.98] transition touch-manipulation whitespace-nowrap"
                             >
-                                <span className="size-5 rounded-full border border-[#6BC4A8]/50 flex items-center justify-center bg-[#1A7059]/15">
+                                <span className="size-5 rounded-full border border-[#34D399]/50 flex items-center justify-center bg-[#059669]/15">
                                     <Check className="size-3" strokeWidth={2.5} aria-hidden />
                                 </span>
                                 إنهاء
@@ -311,8 +317,24 @@ function TaskCardComponent(props: TaskCardProps) {
                                               minWidth: menuPos.minWidth,
                                               zIndex: 1200,
                                           }}
-                                          className="rounded-xl border border-[#A67C52]/28 bg-[#0A2E25]/98 py-1 shadow-xl shadow-black/45 backdrop-blur-sm"
+                                          className="rounded-xl border border-[#E6C673]/28 bg-[#12182B]/98 py-1 shadow-xl shadow-black/45 backdrop-blur-sm"
                                       >
+                                          {onPostponeRequest ? (
+                                              <button
+                                                  type="button"
+                                                  role="menuitem"
+                                                  disabled={archived}
+                                                  onClick={() => {
+                                                      if (archived) return;
+                                                      closeOptionsMenu();
+                                                      onPostponeRequest(task);
+                                                  }}
+                                                  className={`flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-[#F4F4F5] ${TASKS_INNER_GLASS_HOVER} disabled:opacity-40 min-h-[44px] touch-manipulation`}
+                                              >
+                                                  <CalendarClock className="size-4 shrink-0 opacity-80" aria-hidden />
+                                                  ترحيل
+                                              </button>
+                                          ) : null}
                                           <button
                                               type="button"
                                               role="menuitem"
@@ -322,7 +344,7 @@ function TaskCardComponent(props: TaskCardProps) {
                                                   closeOptionsMenu();
                                                   onEditRequest(task);
                                               }}
-                                              className="flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-[#E8F5F0] hover:bg-[#0c0c0e]/60 disabled:opacity-40 min-h-[44px] touch-manipulation"
+                                              className={`flex w-full flex-row-reverse items-center gap-2 px-3 py-2.5 text-right text-sm font-bold text-[#F4F4F5] ${TASKS_INNER_GLASS_HOVER} disabled:opacity-40 min-h-[44px] touch-manipulation`}
                                           >
                                               <Pencil className="size-4 shrink-0 opacity-80" aria-hidden />
                                               تعديل المهمة
@@ -349,7 +371,11 @@ function TaskCardComponent(props: TaskCardProps) {
                     </div>
                 </div>
 
-                <TaskCardMainBrief details={detailsText} location={task.location} />
+                <TaskCardMainBrief
+                    details={detailsText}
+                    location={task.location}
+                    detailsClassName={readOnly && !markedDone ? 'line-through decoration-white/35' : undefined}
+                />
 
                 {task.voiceRef ? (
                     <div className="mt-0.5">
@@ -374,7 +400,7 @@ function TaskCardComponent(props: TaskCardProps) {
                         className={`${TASK_TOOL_BTN} ${
                             task.isFatalDeadline
                                 ? 'border-rose-500/70 bg-rose-500/25 text-rose-100'
-                                : 'border-[#A67C52]/25 bg-[#0c0c0e]/40 text-[#A67C52]/70 hover:border-[#A67C52]/40 hover:text-[#D4B896]'
+                                : `border-[#E6C673]/24 ${TASKS_INNER_GLASS_SOFT} text-[#E6C673]/75 hover:border-[#E6C673]/38 hover:text-[#E6C673]`
                         }`}
                     >
                         حتمي
@@ -395,7 +421,7 @@ function TaskCardComponent(props: TaskCardProps) {
                         className={`${TASK_TOOL_BTN} ${
                             task.pinnedToFieldCurtain
                                 ? 'border-amber-500/60 bg-amber-500/15 text-amber-100'
-                                : 'border-[#A67C52]/22 bg-[#0c0c0e]/40 text-slate-400 hover:border-amber-400/40 hover:text-amber-100'
+                                : `border-[#E6C673]/22 ${TASKS_INNER_GLASS_SOFT} text-[#E6C673]/75 hover:border-amber-400/40 hover:text-amber-100`
                         }`}
                     >
                         ستارة الميدان
@@ -409,7 +435,7 @@ function TaskCardComponent(props: TaskCardProps) {
                         className={`${TASK_TOOL_BTN} ${
                             branchOpen
                                 ? 'border-sky-500/50 bg-sky-500/15 text-sky-100'
-                                : 'border-[#A67C52]/18 bg-[#0c0c0e]/35 text-slate-400 hover:text-slate-200'
+                                : `border-[#E6C673]/22 ${TASKS_INNER_GLASS_SOFT} text-[#E6C673]/72 hover:text-[#F4F4F5]`
                         }`}
                     >
                         تفريع
@@ -423,7 +449,7 @@ function TaskCardComponent(props: TaskCardProps) {
                         className={`${TASK_TOOL_BTN} ${
                             requirementsOpen
                                 ? 'border-violet-500/50 bg-violet-500/15 text-violet-100'
-                                : 'border-[#A67C52]/18 bg-[#0c0c0e]/35 text-slate-400 hover:text-slate-200'
+                                : `border-[#E6C673]/22 ${TASKS_INNER_GLASS_SOFT} text-[#E6C673]/72 hover:text-[#F4F4F5]`
                         }`}
                     >
                         طلبات
@@ -439,7 +465,7 @@ function TaskCardComponent(props: TaskCardProps) {
                 {showRequirementsBlock ? (
                     <div
                         data-testid={`tasks-task-requirements-panel-${task.id}`}
-                        className="rounded-lg border border-violet-500/16 bg-[#0c0c0e]/22 px-2.5 py-2"
+                        className={`rounded-lg border border-violet-500/16 ${TASKS_INNER_GLASS_SOFT} px-2.5 py-2`}
                     >
                         <TaskCardDocPanel
                             taskId={task.id}

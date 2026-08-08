@@ -1,5 +1,5 @@
 import React from 'react';
-import { Hammer, Send } from 'lucide-react';
+import { Hammer, Send } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import {
     ExecutionInlineAccordion,

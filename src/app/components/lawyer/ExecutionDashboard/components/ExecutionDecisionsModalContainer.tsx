@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import type { DecisionsHubProps } from '@/app/components/lawyer/DecisionsHub';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';

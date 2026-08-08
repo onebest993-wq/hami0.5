@@ -9,6 +9,119 @@
 import { fingerprintExecutionOverlayData } from './executionOverlayDataFingerprint';
 import { isExecutionHandlerStubLeaf } from '../executionHandlerClusterStubs';
 
+/** حقول ضخمة/متداخلة — بصمة بدل deep-walk (يمنع stack overflow على المسار الساخن) */
+const EXECUTION_LAZY_SYNC_FINGERPRINT_KEYS = new Set<string>([
+    'timelineEvents',
+    'mergedTimelineEvents',
+    'mergedTimelineEventsDebtorScoped',
+    'activeTimelineEventsDebtorScoped',
+    'activeTimelineEvents',
+    'savedNotesSplit',
+    'caseTasksPending',
+    'financialLedger',
+    'trashedTimelineEvents',
+    'trashedCaseNotes',
+    'trashedCaseTasks',
+    'caseNotesLog',
+    'dockPinnedNotes',
+    'dockPinnedTasks',
+    'seizedMovablesForSeizureLog',
+    'seizedPropertiesForSeizureLog',
+]);
+
+function fingerprintTimelineEventsScopeValue(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+        .filter((row) => !Boolean((row as { trashedAt?: string | null })?.trashedAt))
+        .map(
+            (row) =>
+                `${String((row as { id?: string }).id ?? '')}:${String((row as { type?: string }).type ?? '')}:${String((row as { title?: string }).title ?? '')}:${String((row as { timestamp?: string; date?: string }).timestamp ?? (row as { date?: string }).date ?? '')}`,
+        )
+        .join('|');
+}
+
+function fingerprintSavedNotesSplitScopeValue(value: unknown): string {
+    if (value == null || typeof value !== 'object') return '';
+    const split = value as { notes?: unknown[]; doneTasks?: unknown[] };
+    const pack = (rows: unknown[] | undefined) =>
+        (Array.isArray(rows) ? rows : [])
+            .map(
+                (row) =>
+                    `${String((row as { id?: string }).id ?? '')}:${String((row as { title?: string }).title ?? '')}:${String((row as { trashedAt?: string | null }).trashedAt ?? '')}`,
+            )
+            .join(',');
+    return `n:${pack(split.notes)};d:${pack(split.doneTasks)}`;
+}
+
+function fingerprintCaseTasksPendingScopeValue(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+        .map(
+            (row) =>
+                `${String((row as { id?: string }).id ?? '')}:${String((row as { title?: string }).title ?? '')}:${String((row as { trashedAt?: string | null }).trashedAt ?? '')}`,
+        )
+        .join('|');
+}
+
+function fingerprintCaseNotesLogScopeValue(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+        .map(
+            (row) =>
+                `${String((row as { id?: string }).id ?? '')}:${String((row as { title?: string }).title ?? '')}:${String((row as { trashedAt?: string | null }).trashedAt ?? '')}:${(row as { pinned?: boolean }).pinned ? '1' : '0'}`,
+        )
+        .join('|');
+}
+
+function fingerprintFinancialLedgerScopeValue(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+        .map(
+            (row) =>
+                `${String((row as { id?: string }).id ?? '')}:${String((row as { amount?: unknown }).amount ?? '')}:${String((row as { date?: string }).date ?? '')}`,
+        )
+        .join('|');
+}
+
+function fingerprintSeizedAssetsScopeValue(value: unknown): string {
+    if (!Array.isArray(value)) return '';
+    return value
+        .map((row) => {
+            const asset = row as { id?: string; decisionRowId?: string; status?: string };
+            return `${String(asset.id ?? '')}:${String(asset.decisionRowId ?? '')}:${String(asset.status ?? '')}`;
+        })
+        .join('|');
+}
+
+function fingerprintHeavyScopeValue(key: string, value: unknown): string {
+    switch (key) {
+        case 'timelineEvents':
+        case 'mergedTimelineEvents':
+        case 'mergedTimelineEventsDebtorScoped':
+        case 'activeTimelineEventsDebtorScoped':
+        case 'activeTimelineEvents':
+        case 'trashedTimelineEvents':
+            return fingerprintTimelineEventsScopeValue(value);
+        case 'savedNotesSplit':
+            return fingerprintSavedNotesSplitScopeValue(value);
+        case 'caseTasksPending':
+        case 'trashedCaseTasks':
+        case 'dockPinnedTasks':
+            return fingerprintCaseTasksPendingScopeValue(value);
+        case 'caseNotesLog':
+        case 'trashedCaseNotes':
+        case 'dockPinnedNotes':
+            return fingerprintCaseNotesLogScopeValue(value);
+        case 'financialLedger':
+            return fingerprintFinancialLedgerScopeValue(value);
+        case 'seizedMovablesForSeizureLog':
+        case 'seizedPropertiesForSeizureLog':
+            return fingerprintSeizedAssetsScopeValue(value);
+        default:
+            return '';
+    }
+}
+
 /**
  * مسودات حقول النماذج عالية التغيّر — لا ترفع shellOverlayScopeSyncToken
  * وإلا كل حرف في الملاحظات/الموعد يعيد تركيب طبقة الـ overlays كاملة.
@@ -33,6 +146,17 @@ export const EXECUTION_LAZY_SYNC_CRITICAL_HANDLER_KEYS = new Set<string>([
     'requestFollowupSeizureDecision',
     'handleDossierAction',
     'saveCoerciveAction',
+    'openEvictionResidentialGraceModal',
+    'completeEvictionResidentialGrace',
+    'savePoliceAssistanceEntry',
+    'openPoliceAssistanceDetailsForDecision',
+    'saveBreakInventoryLedgerEntry',
+    'finalizeBreakInventoryEntry',
+    'appendEvictionProcedure',
+    'tryOpenPendingBreakInventoryLedger',
+    'tryOpenPendingCustodianDetails',
+    'saveJudicialCustodianEntry',
+    'toggleEvictionGracePinned',
 ]);
 
 /**
@@ -105,30 +229,61 @@ export function isPlainComparableObject(value: unknown): value is Record<string,
     return prototype === Object.prototype || prototype === null;
 }
 
-export function areScopeValuesEqual(a: unknown, b: unknown): boolean {
+export function areScopeValuesEqual(
+    a: unknown,
+    b: unknown,
+    paired: WeakMap<object, object> = new WeakMap(),
+    depth = 0,
+): boolean {
+    try {
+        return areScopeValuesEqualInner(a, b, paired, depth);
+    } catch {
+        return Object.is(a, b);
+    }
+}
+
+function areScopeValuesEqualInner(
+    a: unknown,
+    b: unknown,
+    paired: WeakMap<object, object> = new WeakMap(),
+    depth = 0,
+): boolean {
     if (Object.is(a, b)) return true;
+    if (depth > 48) return false;
     if (Array.isArray(a) && Array.isArray(b)) {
         if (a.length !== b.length) return false;
         for (let index = 0; index < a.length; index += 1) {
-            if (!areScopeValuesEqual(a[index], b[index])) return false;
+            if (!areScopeValuesEqualInner(a[index], b[index], paired, depth + 1)) return false;
         }
         return true;
     }
     if (isPlainComparableObject(a) && isPlainComparableObject(b)) {
+        const prior = paired.get(a);
+        if (prior === b) return true;
+        paired.set(a, b);
         const aKeys = Object.keys(a);
         const bKeys = Object.keys(b);
         if (aKeys.length !== bKeys.length) return false;
         for (const key of aKeys) {
             if (!Object.prototype.hasOwnProperty.call(b, key)) return false;
-            if (!areScopeValuesEqual(a[key], b[key])) return false;
+            if (!areScopeValuesEqualInner(a[key], b[key], paired, depth + 1)) return false;
         }
         return true;
     }
     return false;
 }
 
-/** مزامنة lazy chunks — تجاهل هوية الدوال العامة؛ مقارنة حرجة للـ stubs والحفظ */
-export function hasSelectedScopeDeltaForLazySync(
+function safeScopeValuesDiffer(a: unknown, b: unknown): boolean {
+    if (Object.is(a, b)) return false;
+    try {
+        return !areScopeValuesEqualInner(a, b);
+    } catch {
+        // مقارنة عميقة فاشلة (دائرة/عمق) — لا نُسقط الواجهة ولا نُدخل حلقة token
+        return false;
+    }
+}
+
+function hasSelectedScopeDeltaForLazySyncInner(
     current: Record<string, unknown>,
     next: Record<string, unknown>,
 ): boolean {
@@ -179,9 +334,32 @@ export function hasSelectedScopeDeltaForLazySync(
             }
             return true;
         }
-        if (!areScopeValuesEqual(currentValue, nextValue)) {
-            return true;
+        if (EXECUTION_LAZY_SYNC_FINGERPRINT_KEYS.has(key)) {
+            if (
+                fingerprintHeavyScopeValue(key, currentValue) !==
+                fingerprintHeavyScopeValue(key, nextValue)
+            ) {
+                return true;
+            }
+            continue;
         }
+        if (!safeScopeValuesDiffer(currentValue, nextValue)) {
+            continue;
+        }
+        return true;
     }
     return false;
+}
+
+/** مزامنة lazy chunks — تجاهل هوية الدوال العامة؛ مقارنة حرجة للـ stubs والحفظ */
+export function hasSelectedScopeDeltaForLazySync(
+    current: Record<string, unknown>,
+    next: Record<string, unknown>,
+): boolean {
+    try {
+        return hasSelectedScopeDeltaForLazySyncInner(current, next);
+    } catch {
+        // عمق/دائرة/مقارنة فاشلة — لا نُسقط الواجهة ولا نُدخل حلقة token
+        return false;
+    }
 }

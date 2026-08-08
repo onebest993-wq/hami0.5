@@ -21,7 +21,10 @@ export function useProfileLifecycle({
     isOwnProfile,
     perfOpenEpoch = 0,
 }: UseProfileLifecycleParams) {
-    const [hadWarmCache, setHadWarmCache] = useState(false);
+    const [hadWarmCache, setHadWarmCache] = useState(() => {
+        if (!profileUserId?.trim()) return false;
+        return Boolean(peekProfileWarmCache(profileUserId));
+    });
     const reportedRef = useRef(false);
 
     useEffect(() => {

@@ -6,7 +6,7 @@ const getResidentialVacateDeadlineMaxIsoMock = vi.fn();
 const isVacateDeadlinePassedMock = vi.fn();
 const hasApprovedLawyerFeePayoutMock = vi.fn();
 const hasApprovedUnifiedCollectionMock = vi.fn();
-const applyEarnerFinancialPersonalCoerciveOverlayMock = vi.fn();
+const applyFollowupSpecializationOverlaysMock = vi.fn();
 const useExecutionDashboardGraceAndSummoningMock = vi.fn();
 const useEarnerFinancialPersonalCoerciveFlagsMock = vi.fn();
 const useExecutionDashboardOtherPartyMirrorMock = vi.fn();
@@ -30,9 +30,9 @@ vi.mock('@/app/utils/executorDecisionReadQueries', () => ({
         hasApprovedUnifiedCollectionMock(...args),
 }));
 
-vi.mock('@/app/utils/earnerPersonalCoerciveFinancialGate', () => ({
-    applyEarnerFinancialPersonalCoerciveOverlay: (...args: unknown[]) =>
-        applyEarnerFinancialPersonalCoerciveOverlayMock(...args),
+vi.mock('@/app/utils/applyFollowupSpecializationOverlays', () => ({
+    applyFollowupSpecializationOverlays: (...args: unknown[]) =>
+        applyFollowupSpecializationOverlaysMock(...args),
 }));
 
 vi.mock('../useExecutionDashboardGraceAndSummoning', () => ({
@@ -104,9 +104,10 @@ describe('useExecutionDashboardCoreGraceMasterEvictionPipeline', () => {
             earnerFinancialPersonalCoerciveActive: true,
             hideExecutiveDetentionJudgeCard: false,
         });
-        applyEarnerFinancialPersonalCoerciveOverlayMock.mockImplementation(
-            (specialization, gate) => ({ ...specialization, gateRemaining: gate.financialCenterTotalIqd }),
-        );
+        applyFollowupSpecializationOverlaysMock.mockImplementation((specialization, overlay) => ({
+            ...specialization,
+            gateRemaining: overlay.financialCenterTotalIqd,
+        }));
         hasApprovedUnifiedCollectionMock.mockReturnValue(true);
         hasApprovedLawyerFeePayoutMock.mockReturnValue(true);
         const otherPartyCreditorMirrorProps = { mirror: true };
@@ -195,8 +196,10 @@ describe('useExecutionDashboardCoreGraceMasterEvictionPipeline', () => {
             paidClientFees: 0,
             activeDebtorIsEmployee: false,
             followupSpecializationEffective: { hideFollowupCoerciveTab: false },
+            followupModalSpecialization: { hideFollowupCoerciveTab: false },
             followupModalSpecializationEffective: { hideFollowupCoerciveTab: false },
             followupModalDebtorIsEmployee: false,
+            followupModalDebtorIsDeceased: false,
             decisionsReloadEpoch: 3,
             isRepresentingDebtor: false,
             decisionsStorageExecutionId: 'exec-1',
@@ -288,9 +291,11 @@ describe('useExecutionDashboardCoreGraceMasterEvictionPipeline', () => {
         expect(result.current.evictionVacateLayerOk).toBe(true);
         expect(result.current.evictionProcedureLockHint).toBe('hint');
         expect(result.current.otherPartyCreditorMirrorProps).toBe(otherPartyCreditorMirrorProps);
-        expect(result.current.followupSpecializationWithEarnerGate).toEqual({
-            hideFollowupCoerciveTab: false,
-            gateRemaining: 850,
-        });
+        expect(result.current.followupSpecializationWithEarnerGate).toEqual(
+            expect.objectContaining({
+                hideFollowupCoerciveTab: false,
+                gateRemaining: 850,
+            }),
+        );
     });
 });

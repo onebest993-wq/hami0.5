@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Bell, Pin, X } from 'lucide-react';
+import { Bell, Pin, X } from '@/app/components/ui/lucideIcons';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import type { WorkspacePinnedItem } from '@/app/workspace/types';
 import { clusterPinDisplayMeta } from '@/app/workspace/clusterPinDisplay';
@@ -9,7 +9,6 @@ import { alertsForHorizon, classifySecretaryAlertsByHorizon } from '@/app/servic
 import {
     resolveHomeHubPinUnpinAriaLabel,
     resolveHomeHubTabAriaLabel,
-    resolveNextHomeHubPanel,
 } from '@/app/services/alerts/homeHubCardLogic';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { HAMI_SHELL_CONTAINER } from './lawyerShellLayout';
@@ -64,7 +63,7 @@ export function HomeDockQuickSheet({
     const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, key: 'alerts' | 'pins') => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             e.preventDefault();
-            setPanel(resolveNextHomeHubPanel(key));
+            setPanel(key === 'alerts' ? 'pins' : 'alerts');
             return;
         }
         if (e.key === 'Home') {
@@ -135,7 +134,7 @@ export function HomeDockQuickSheet({
                                 <div
                                     className="flex mx-3 mt-3 rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5"
                                     role="tablist"
-                                    aria-label="التنبيهات والتثبيت"
+                                    aria-label="البطاقة الذكية"
                                 >
                                     {(['alerts', 'pins'] as const).map((key) => {
                                         const active = panel === key;

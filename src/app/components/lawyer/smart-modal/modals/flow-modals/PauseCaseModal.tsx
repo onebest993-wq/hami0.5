@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { PauseCircle, X } from 'lucide-react';
+import { PauseCircle, X } from '@/app/components/ui/lucideIcons';
 import {
     GLASS_MODAL_HEADER,
     MoroccanCloseButton,

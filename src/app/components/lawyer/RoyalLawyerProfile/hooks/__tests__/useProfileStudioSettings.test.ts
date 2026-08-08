@@ -13,8 +13,8 @@ vi.mock('@/app/utils/lazyComponentsIntent', () => ({
     loadProfileSettingsSheetModule: vi.fn(() => Promise.resolve({ ProfileSettingsSheet: () => null })),
 }));
 
-vi.mock('@/app/runtime/profileSettingsSheetLoader', () => ({
-    prefetchProfileSettingsSheetModule: vi.fn(),
+vi.mock('@/app/runtime/profileShellPrime', () => ({
+    primeProfileStudio: vi.fn(),
 }));
 
 vi.mock('@/app/services/cloud/lawyerProfileCloud', () => ({
@@ -33,6 +33,10 @@ vi.mock('@/app/services/profile/profileWarmCache', () => ({
     setProfileWarmCache: vi.fn(),
 }));
 
+vi.mock('@/app/services/kvProxyConfig', () => ({
+    isKvProxyNetworkEnabled: () => false,
+}));
+
 vi.mock('@/app/services/profile/profileSaveQueue', () => ({
     createProfileSaveQueue: () => (fn: () => Promise<void>) => fn(),
 }));
@@ -48,7 +52,7 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
 
 import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
 import { loadProfileSettingsSheetModule } from '@/app/utils/lazyComponentsIntent';
-import { prefetchProfileSettingsSheetModule } from '@/app/runtime/profileSettingsSheetLoader';
+import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 
@@ -107,7 +111,7 @@ describe('useProfileStudioSettings', () => {
             await Promise.resolve();
         });
 
-        expect(prefetchProfileSettingsSheetModule).toHaveBeenCalledTimes(1);
+        expect(primeProfileStudio).toHaveBeenCalledTimes(1);
         expect(loadProfileSettingsSheetModule).toHaveBeenCalledTimes(1);
     });
 

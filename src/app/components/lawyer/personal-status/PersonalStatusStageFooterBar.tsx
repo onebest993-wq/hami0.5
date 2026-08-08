@@ -1,8 +1,10 @@
 import type { ReactNode } from 'react';
-import { Clock, Scale } from 'lucide-react';
+import { Clock, Scale } from '@/app/components/ui/lucideIcons';
 
 const FOOTER_SHELL =
-    'shrink-0 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden w-full space-y-2 relative z-40 border-t border-[#F0A8B4]/22 bg-[#101018]/97 backdrop-blur-xl shadow-[0_-10px_40px_rgba(240,168,180,0.12)]';
+    'shrink-0 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] print:hidden w-full relative z-40 border-t border-[#F0A8B4]/22 bg-[#101018] shadow-[0_-4px_24px_rgba(0,0,0,0.35)]';
+
+export { FOOTER_SHELL };
 
 const OPPONENT_APPEAL_BTN =
     'group w-full py-3.5 rounded-xl bg-gradient-to-l from-[#F5C6D0]/[0.20] via-[#FFD4DC]/[0.10] to-white/[0.05] backdrop-blur-md border border-[#F0A8B4]/32 text-[#FFFEF9] font-bold text-sm shadow-[0_8px_28px_rgba(240,168,180,0.18),inset_0_1px_0_rgba(255,220,228,0.22)] hover:border-[#F0A8B4]/45 hover:from-[#F5C6D0]/[0.26] transition-all flex items-center justify-center gap-2.5';

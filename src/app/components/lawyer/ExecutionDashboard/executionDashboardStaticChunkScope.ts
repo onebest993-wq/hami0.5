@@ -11,7 +11,7 @@ import {
     Wallet, CreditCard, Shield,
     XCircle, Pause, Play, Car, ClipboardList, Building2, Package, AlertTriangle,
     Forward, Shuffle, RefreshCw, MessageSquare
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import {
     AR_TABLIGH_RAQM,
     EXEC_FOC_LAZY_FALLBACK,

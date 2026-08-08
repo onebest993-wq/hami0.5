@@ -5,19 +5,32 @@
 type LawyerDashboardModule = typeof import('@/app/components/lawyer/LawyerDashboard');
 
 let dashboardModulePromise: Promise<LawyerDashboardModule> | null = null;
+let cachedDashboardModule: LawyerDashboardModule | null = null;
 
 export function resetLawyerDashboardModuleCache(): void {
     dashboardModulePromise = null;
+    cachedDashboardModule = null;
+}
+
+export function getLawyerDashboardModuleSync(): LawyerDashboardModule | null {
+    return cachedDashboardModule;
 }
 
 function createDashboardModuleImport(): Promise<LawyerDashboardModule> {
-    return import('@/app/components/lawyer/LawyerDashboard').catch((err) => {
-        dashboardModulePromise = null;
-        throw err;
-    });
+    return import('@/app/components/lawyer/LawyerDashboard')
+        .then((mod) => {
+            cachedDashboardModule = mod;
+            return mod;
+        })
+        .catch((err) => {
+            dashboardModulePromise = null;
+            cachedDashboardModule = null;
+            throw err;
+        });
 }
 
 export function loadLawyerDashboardModule(): Promise<LawyerDashboardModule> {
+    if (cachedDashboardModule) return Promise.resolve(cachedDashboardModule);
     if (!dashboardModulePromise) {
         dashboardModulePromise = createDashboardModuleImport();
     }

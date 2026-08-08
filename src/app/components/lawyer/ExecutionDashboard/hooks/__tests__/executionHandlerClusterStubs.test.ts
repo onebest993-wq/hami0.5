@@ -28,6 +28,22 @@ describe('executionHandlerClusterStubs', () => {
         ).toBe(true);
     });
 
+    it('exposes dossierFollowupHandlers keys for scopeBagPick', () => {
+        const dossier = EXECUTION_HANDLER_CLUSTER_STUBS.dossierFollowupHandlers as Record<string, unknown>;
+        expect('handleDossierAction' in dossier).toBe(true);
+        expect(typeof dossier.handleDossierAction).toBe('function');
+        expect(isExecutionHandlerStubLeaf(dossier.handleDossierAction)).toBe(true);
+    });
+
+    it('exposes evictionResidentialGraceHandlers keys via scopeBagPick on handlerLeaf stub', () => {
+        const graceStub = EXECUTION_HANDLER_CLUSTER_STUBS.evictionResidentialGraceHandlers;
+        expect(typeof graceStub).toBe('function');
+        expect(isExecutionHandlerStubLeaf(graceStub)).toBe(true);
+        const picked = (graceStub as Record<string, unknown>).openEvictionResidentialGraceModal;
+        expect(typeof picked).toBe('function');
+        expect(isExecutionHandlerStubLeaf(picked)).toBe(true);
+    });
+
     it('notifies on stub invocation instead of failing silently', () => {
         const notifier = vi.fn();
         registerExecutionHandlerStubNotifier(notifier);
@@ -38,6 +54,15 @@ describe('executionHandlerClusterStubs', () => {
 
         expect(notifier).toHaveBeenCalled();
         expect(getExecutionHandlerStubInvocationCountForTests()).toBeGreaterThanOrEqual(1);
+    });
+
+    it('submit stubs return { ok: false } instead of undefined', () => {
+        const dossier = EXECUTION_HANDLER_CLUSTER_STUBS.dossierFollowupHandlers as Record<
+            string,
+            (...args: unknown[]) => unknown
+        >;
+        const submit = dossier.otherPartyTabSubmitHandler({ date: '2026-01-01', content: 'x' });
+        expect(submit).toEqual({ ok: false });
     });
 
     it('cools down toast spam across rapid stub calls', () => {

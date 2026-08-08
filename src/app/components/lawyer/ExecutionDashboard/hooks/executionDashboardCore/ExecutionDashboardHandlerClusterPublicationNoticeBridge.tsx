@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
 } from './handlerClusterContextShared';
 import { useExecutionDashboardPublicationNoticeHandlers } from './useExecutionDashboardPublicationNoticeHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterPublicationNoticeBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -28,9 +31,13 @@ export function ExecutionDashboardHandlerClusterPublicationNoticeBridge({
         setTimelineEvents: c.setTimelineEvents,
     });
 
-    useEffect(() => {
-        onCluster({ publicationNoticeHandlers });
-    }, [onCluster, publicationNoticeHandlers]);
+    const cluster = { publicationNoticeHandlers };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        handlerBagKeyFingerprint(publicationNoticeHandlers as Record<string, unknown>),
+        onCluster,
+    );
 
     return null;
 }

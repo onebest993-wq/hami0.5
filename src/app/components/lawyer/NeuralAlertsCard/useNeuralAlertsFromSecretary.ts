@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef } from 'react';
+﻿import { useCallback, useMemo, useRef } from 'react';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { secretaryAlertToSmartAlert } from '@/app/services/alertMappers';
 import type { AlertTimeHorizon } from '@/app/services/alertTimeClassification';
@@ -17,11 +17,11 @@ function mapAndSort(alerts: SecretaryAlert[]): SmartAlert[] {
 }
 
 /**
- * يفترض أن القائمة الواردة مُصفّاة مسبقاً (visibleAppAlerts).
+ * ┘è┘╪ز╪▒╪╢ ╪ث┘ ╪د┘┘é╪د╪خ┘à╪ر ╪د┘┘ê╪د╪▒╪»╪ر ┘à┘╪╡┘┘ّ╪د╪ر ┘à╪│╪ذ┘é╪د┘ï (visibleAppAlerts).
  *
- * تحسين أداء: التخريط (map + sort) يجري بكسل (lazy) لكل أفق على حدة
- * وبتخزين مؤقت داخلي — فلا نُخرّط 3 دلاء كل مرّة بل الأفق النشط فقط،
- * مع إعادة الاستخدام عند الاستعلام نفسه.
+ * ╪ز╪ص╪│┘è┘ ╪ث╪»╪د╪ة: ╪د┘╪ز╪«╪▒┘è╪╖ (map + sort) ┘è╪ش╪▒┘è ╪ذ┘â╪│┘ (lazy) ┘┘â┘ ╪ث┘┘é ╪╣┘┘ë ╪ص╪»╪ر
+ * ┘ê╪ذ╪ز╪«╪▓┘è┘ ┘à╪ج┘é╪ز ╪»╪د╪«┘┘è ظ¤ ┘┘╪د ┘┘╪«╪▒┘ّ╪╖ 3 ╪»┘╪د╪ة ┘â┘ ┘à╪▒┘ّ╪ر ╪ذ┘ ╪د┘╪ث┘┘é ╪د┘┘╪┤╪╖ ┘┘é╪╖╪î
+ * ┘à╪╣ ╪ح╪╣╪د╪»╪ر ╪د┘╪د╪│╪ز╪«╪»╪د┘à ╪╣┘╪» ╪د┘╪د╪│╪ز╪╣┘╪د┘à ┘┘╪│┘ç.
  */
 export function useNeuralAlertsFromSecretary(secretaryAlerts: SecretaryAlert[]) {
     const classified = useMemo(
@@ -31,7 +31,7 @@ export function useNeuralAlertsFromSecretary(secretaryAlerts: SecretaryAlert[]) 
 
     const counts = useMemo(() => horizonCounts(classified), [classified]);
 
-    // ذاكرة مؤقتة (per-`classified`-reference): تُعاد تهيئتها فقط عند تغير المرجع
+    // ╪░╪د┘â╪▒╪ر ┘à╪ج┘é╪ز╪ر (per-`classified`-reference): ╪ز┘╪╣╪د╪» ╪ز┘ç┘è╪خ╪ز┘ç╪د ┘┘é╪╖ ╪╣┘╪» ╪ز╪║┘è╪▒ ╪د┘┘à╪▒╪ش╪╣
     const mapCacheRef = useRef<{
         key: typeof classified;
         urgent?: SmartAlert[];

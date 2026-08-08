@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     User, BadgeCheck, CornerUpLeft, Trash2, Edit2, UserPlus, UserCheck,
     ArrowUpCircle, Flag, VolumeX,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 import { canDeleteComment, canEditComment } from '../communityPermissions';

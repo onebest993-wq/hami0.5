@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+﻿import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
     BellRing,
@@ -96,7 +96,7 @@ export function QuestionCardMoreMenu({
     if (onCopyPostText) {
         items.push({
             id: 'copy',
-            label: 'نسخ نص المنشور',
+            label: '┘╪│╪« ┘╪╡ ╪د┘┘à┘╪┤┘ê╪▒',
             icon: Copy,
             onClick: () => onCopyPostText(post.id),
         });
@@ -104,7 +104,7 @@ export function QuestionCardMoreMenu({
     if (canSaveToVault) {
         items.push({
             id: 'vault',
-            label: 'حفظ المرفق في المستودع',
+            label: '╪ص┘╪╕ ╪د┘┘à╪▒┘┘é ┘┘è ╪د┘┘à╪│╪ز┘ê╪»╪╣',
             icon: FolderOpen,
             onClick: () => onSaveToVault!(post.id),
         });
@@ -112,7 +112,7 @@ export function QuestionCardMoreMenu({
     if (onToggleThreadFollow && currentUserId) {
         items.push({
             id: 'thread-follow',
-            label: isThreadFollowing ? 'إيقاف تنبيهات النقاش' : 'تنبيهات النقاش',
+            label: isThreadFollowing ? '╪ح┘è┘é╪د┘ ╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘┘┘é╪د╪┤' : '╪ز┘╪ذ┘è┘ç╪د╪ز ╪د┘┘┘é╪د╪┤',
             icon: BellRing,
             onClick: () => onToggleThreadFollow(post.id),
             active: isThreadFollowing,
@@ -121,7 +121,7 @@ export function QuestionCardMoreMenu({
     if (canLockUnlock && onToggleLock) {
         items.push({
             id: 'lock',
-            label: isLocked ? 'فتح النقاش' : 'قفل النقاش',
+            label: isLocked ? '┘╪ز╪ص ╪د┘┘┘é╪د╪┤' : '┘é┘┘ ╪د┘┘┘é╪د╪┤',
             icon: isLocked ? Lock : Unlock,
             onClick: () => onToggleLock(post.id),
             active: isLocked,
@@ -130,7 +130,7 @@ export function QuestionCardMoreMenu({
     if (isOwner) {
         items.push({
             id: 'edit',
-            label: 'تعديل المنشور',
+            label: '╪ز╪╣╪»┘è┘ ╪د┘┘à┘╪┤┘ê╪▒',
             icon: Pencil,
             onClick: () => onEdit(post.id),
         });
@@ -138,7 +138,7 @@ export function QuestionCardMoreMenu({
     if (isAdmin) {
         items.push({
             id: 'pin',
-            label: isPinned ? 'إلغاء التثبيت' : 'تثبيت المنشور',
+            label: isPinned ? '╪ح┘╪║╪د╪ة ╪د┘╪ز╪س╪ذ┘è╪ز' : '╪ز╪س╪ذ┘è╪ز ╪د┘┘à┘╪┤┘ê╪▒',
             icon: Pin,
             onClick: () => onTogglePin(post.id),
             active: isPinned,
@@ -147,7 +147,7 @@ export function QuestionCardMoreMenu({
     if (!isOwner && !isAnonymous && onMuteUser) {
         items.push({
             id: 'mute',
-            label: 'كتم هذا المحامي',
+            label: '┘â╪ز┘à ┘ç╪░╪د ╪د┘┘à╪ص╪د┘à┘è',
             icon: VolumeX,
             onClick: () => onMuteUser(authorId),
         });
@@ -157,7 +157,7 @@ export function QuestionCardMoreMenu({
     if (isOwner || isAdmin) {
         destructiveItems.push({
             id: 'delete',
-            label: isAdmin && !isOwner ? 'حذف (إدارة)' : 'حذف المنشور',
+            label: isAdmin && !isOwner ? '╪ص╪░┘ (╪ح╪»╪د╪▒╪ر)' : '╪ص╪░┘ ╪د┘┘à┘╪┤┘ê╪▒',
             icon: Trash2,
             onClick: () => onDelete(post.id),
             destructive: true,
@@ -165,7 +165,7 @@ export function QuestionCardMoreMenu({
     } else {
         destructiveItems.push({
             id: 'report',
-            label: 'إبلاغ عن المنشور',
+            label: '╪ح╪ذ┘╪د╪║ ╪╣┘ ╪د┘┘à┘╪┤┘ê╪▒',
             icon: Flag,
             onClick: () => onReport(post.id),
             destructive: true,
@@ -184,7 +184,7 @@ export function QuestionCardMoreMenu({
         <div ref={rootRef} className="relative shrink-0" data-testid="forum-post-more-menu">
             <button
                 type="button"
-                aria-label="خيارات المنشور"
+                aria-label="╪«┘è╪د╪▒╪د╪ز ╪د┘┘à┘╪┤┘ê╪▒"
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-controls={menuId}

@@ -1,5 +1,11 @@
 /** ترحيل حالة Zustand persist للنظام الجزائي — مُستخرج من criminalStore */
 import type {
+    JudicialDecision,
+    JourneyNode,
+    ProceduralNode,
+    SeveranceReason,
+} from '@/app/types/criminal';
+import type {
     CrimeType,
     CriminalCase,
     CriminalCaseStage,
@@ -7,21 +13,22 @@ import type {
     CriminalDossierStatus,
     InAbsentiaDetails,
     InvestigationLog,
-    JudicialDecision,
     LawyerRequest,
     LegalArticleChange,
     OtherEvidenceItem,
     PhysicalLocation,
-    ProceduralNode,
-    SeveranceReason,
     StageConclusion,
     Statement,
     TimelineEvent,
-} from '@/app/types/criminal';
-import type { JourneyNode } from '@/app/types/criminal';
+} from './criminalCaseModel';
 import { DEFAULT_INVESTIGATION_DEFENDANT_STATUS } from '@/app/types/investigationDefendant';
 import { createCriminalId as createId } from './criminalIdUtils';
 import { makeInitialDraft, normalizeCriminalCaseLocation, normalizeSocialInquiryReport } from './criminalCaseDraftFactory';
+import { resolveMergedCaseIds } from './criminalCaseMergeUtils';
+import { resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
+import { isCorruptTimelineEvent } from './criminalCaseTimelineUtils';
+import { normalizeGuarantorDetails } from './criminalGuarantorModel';
+import { normalizeSeizedAssets } from './criminalSeizedAssetModel';
 import { normalizeOurRepresentation } from './criminalProceduralPartyUtils';
 import { coerceDefendantFullName, repairUnknownDefendantCaseRecord, resolveDefendantFullName } from './criminalUnknownDefendant';
 import { normalizeTrashBin } from './criminalCaseTrash';
@@ -86,14 +93,14 @@ export function migrateCriminalPersistState(persistedState: unknown): unknown {
                         };
                     };
                     if (Array.isArray(ctx.defendantSnapshots)) {
-                        ctx.defendantSnapshots = ctx.defendantSnapshots.map((d) =>
+                        ctx.defendantSnapshots = ctx.defendantSnapshots.map((d: unknown) =>
                             normDef(d),
                         ) as CriminalDefendant[];
                     }
                     if (ctx.formDraft && Array.isArray(ctx.formDraft.defendants)) {
                         ctx.formDraft = {
                             ...ctx.formDraft,
-                            defendants: ctx.formDraft.defendants.map((d) =>
+                            defendants: ctx.formDraft.defendants.map((d: unknown) =>
                                 normDef(d),
                             ) as CriminalDefendant[],
                         };

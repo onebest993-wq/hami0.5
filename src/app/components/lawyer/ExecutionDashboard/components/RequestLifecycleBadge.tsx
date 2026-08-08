@@ -1,5 +1,5 @@
 import React from 'react';
-import { History } from 'lucide-react';
+import { History } from '@/app/components/ui/lucideIcons';
 import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 
 const TONE_CLASS: Record<

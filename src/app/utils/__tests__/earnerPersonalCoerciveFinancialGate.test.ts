@@ -76,4 +76,21 @@ describe('earnerPersonalCoerciveFinancialGate', () => {
             })
         ).toBe(true);
     });
+
+    it('does not reopen coercive tab for financial debt collection claims', () => {
+        const financial = {
+            isFinancialDebtCollection: true,
+            hidePersonalCoerciveFollowupTab: false,
+            hidePersonalForcedBringActivation: false,
+            hidePersonalJudgePresentation: false,
+            hideFollowupCoerciveTab: true,
+            hideFollowupSeizureRequestsTab: false,
+        };
+        const overlaid = applyEarnerFinancialPersonalCoerciveOverlay(financial, {
+            isEmployee: false,
+            financialCenterTotalIqd: 400_000,
+        });
+        expect(overlaid.hideFollowupCoerciveTab).toBe(true);
+        expect(overlaid.hidePersonalCoerciveFollowupTab).toBe(false);
+    });
 });

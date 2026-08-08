@@ -16,6 +16,7 @@ import {
 } from '@/app/components/lawyer/personal-status/personalStatusVisualTheme';
 import { SmartFileModalThemeProvider } from './smartFile/smartFileModalTheme';
 import { prefetchSmartFileModalShellWidgets } from './lazySmartFileModalWidgets';
+import { prefetchLegalActionsModalChunks } from './prefetchLegalActionsModalChunks';
 import { HUB_DOSSIER_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { isSmartFileNestedOverlayOpen } from './smartFile/smartFileNestedOverlayState';
@@ -27,6 +28,7 @@ import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 import { useSmartFileDossierHeaderNavigation } from './hooks/useSmartFileDossierHeaderNavigation';
 import { rejectLawsuitFileMutation } from '@/app/domain/lawsuit/lawsuitFileMutationGuard';
+import { CaseLinkBrowseBanner } from './parts/CaseLinkBrowseBanner';
 export type { SmartFileModalProps } from './smartFile/smartFileModalTypes';
 
 function prefetchSmartFileHotModals(): void {
@@ -40,11 +42,20 @@ function prefetchSmartFileHotModals(): void {
     void import('./SmartJudgmentModal').catch(() => undefined);
     void import('./AppealTransitionModal').catch(() => undefined);
     void import('./modals/appealObjectionModals').catch(() => undefined);
+    prefetchLegalActionsModalChunks();
     void import('./FastTrackModal').catch(() => undefined);
 }
 
 export const SmartFileModalContent = (props: import('./smartFile/smartFileModalTypes').SmartFileModalProps) => {
-    const { onClose, onExitToProfile } = props;
+    const {
+        onClose,
+        onExitToProfile,
+        caseLinkViewOnly = false,
+        onReturnFromCaseLinkBrowse,
+        onUnlinkCaseLink,
+        caseLinkBrowseMeta,
+        lawsuitFiles,
+    } = props;
     const { layout, consolidationNavActive, caseLinkNavActive } = useSmartFileModalOrchestrator(props);
     const isPersonalDossier = isPersonalStatusFile(props.file);
 
@@ -73,12 +84,14 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         [onClose, onExitToProfile],
     );
 
-    const { handleDossierBack, handleDossierExit } = useSmartFileDossierHeaderNavigation({
+    const { handleDossierBack, handleDossierExit, dossierNestedNav } = useSmartFileDossierHeaderNavigation({
         onClose,
         onExitToProfile: exitToProfile,
         isTrashOpen: layout?.chrome.isTrashOpen ?? false,
         setIsTrashOpen: layout?.chrome.setIsTrashOpen ?? (() => undefined),
         modalsPortal: layout?.modalsPortal,
+        caseLinkViewOnly,
+        onReturnFromCaseLinkBrowse,
     });
 
     useEffect(() => {
@@ -132,11 +145,15 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         isViewingArchived: layout.chrome.isViewingArchived || fileLevelReadOnly,
         onDossierBack: handleDossierBack,
         onDossierExit: handleDossierExit,
+        dossierNestedNav,
     };
 
     const mainPanelProps = {
         ...layout.mainPanel,
         isViewingArchived: layout.mainPanel.isViewingArchived || fileLevelReadOnly,
+        isCaseLinkViewOnly: caseLinkViewOnly,
+        onUnlinkCaseLink: caseLinkViewOnly ? undefined : onUnlinkCaseLink,
+        lawsuitFiles: lawsuitFiles ?? layout.mainPanel.lawsuitFiles,
     };
 
     const themeVariant = layout.modalsPortal.modalVisualVariant ?? (isPersonalDossier ? 'personal-pearl' : 'civil');
@@ -155,11 +172,17 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
         ? PERSONAL_STATUS_DOSSIER_INNER
         : 'flex-1 flex flex-col min-h-0 overflow-hidden bg-[#0F121E] relative';
 
+    const modalsPortalProps = {
+        ...layout.modalsPortal,
+        isViewingArchived: layout.modalsPortal.isViewingArchived || fileLevelReadOnly || caseLinkViewOnly,
+        isCaseLinkViewOnly: caseLinkViewOnly,
+    };
+
     const modalsLayer =
         typeof document !== 'undefined' ? (
-            createPortal(<SmartFileModalsPortal {...layout.modalsPortal} />, document.body)
+            createPortal(<SmartFileModalsPortal {...modalsPortalProps} />, document.body)
         ) : (
-            <SmartFileModalsPortal {...layout.modalsPortal} />
+            <SmartFileModalsPortal {...modalsPortalProps} />
         );
 
     return (
@@ -179,6 +202,15 @@ export const SmartFileModalContent = (props: import('./smartFile/smartFileModalT
                                 >
                                     الإضبارة مؤرشفة — للقراءة فقط
                                 </div>
+                            ) : caseLinkViewOnly && caseLinkBrowseMeta && onReturnFromCaseLinkBrowse && onUnlinkCaseLink ? (
+                                <CaseLinkBrowseBanner
+                                    originCaseNo={caseLinkBrowseMeta.originCaseNo}
+                                    peerCaseNo={caseLinkBrowseMeta.peerCaseNo}
+                                    peerFileId={caseLinkBrowseMeta.peerFileId}
+                                    peerCriminalId={caseLinkBrowseMeta.peerCriminalId}
+                                    onReturnToOrigin={onReturnFromCaseLinkBrowse}
+                                    onUnlink={onUnlinkCaseLink}
+                                />
                             ) : null}
                             {isPersonalDossier ? (
                                 <PersonalStatusSmartFileChrome {...chromeProps} />

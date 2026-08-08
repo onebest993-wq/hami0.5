@@ -51,7 +51,8 @@ export function checkForumRateLimit(
     let maxInWindow = 5;
 
     if (scope === 'post') {
-        return { allowed: true };
+        windowMs = 30_000;
+        maxInWindow = 1;
     } else if (scope === 'comment') {
         windowMs = 60_000;
         maxInWindow = 30;

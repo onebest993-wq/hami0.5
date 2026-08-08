@@ -4,6 +4,10 @@
  */
 export const LAWSUIT_DOSSIER_CLICK_BUDGET_MS = 400;
 
+/** يُطلَق قبل commit فتح الدعوى — يمنع وميض إضبارة التنفيذ المسلّحة */
+export const LAWSUIT_DOSSIER_SUPPRESS_EXECUTION_HOST_EVENT =
+    'hami:lawsuit-dossier-suppress-execution-host';
+
 /** تسخين بوابة SmartFile + المحتوى + مساحة الدعاوى — fire-and-forget */
 export function prepareLawsuitDossierOpen(): void {
     if (typeof window === 'undefined') return;
@@ -20,6 +24,9 @@ export function prepareLawsuitDossierOpen(): void {
 
 /** commit الحالة فوراً بعد بدء التسخين — مصدر الحقيقة لفتح الدعوى */
 export function openLawsuitDossierWithContract(commit: () => void): void {
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(LAWSUIT_DOSSIER_SUPPRESS_EXECUTION_HOST_EVENT));
+    }
     prepareLawsuitDossierOpen();
     commit();
 }

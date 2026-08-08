@@ -1,12 +1,13 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from '@/app/components/ui/lucideIcons';
 import type { CrossSectionConflictResult } from '@/app/services/calendar/scheduleConflictDetector';
 import {
     RADAR_ALERT_ICON,
     RADAR_ALERT_MUTED,
-    RADAR_ALERT_PANEL,
+    RADAR_ALERT_PANEL_BASE,
     RADAR_ALERT_TEXT,
 } from './radarTheme';
+import { resolveScheduleConflictAlertBorderClass } from './scheduleConflictAlertBorder';
 
 export type ScheduleConflictAlertProps = {
     conflict: CrossSectionConflictResult;
@@ -41,10 +42,11 @@ export const ScheduleConflictAlert = React.memo(function ScheduleConflictAlert({
         conflict.warningMessage && conflict.travelWarning && conflict.hasTravelConflict,
     );
     const summary = sourceSummary(conflict);
+    const borderClass = resolveScheduleConflictAlertBorderClass(conflict);
 
     return (
         <div
-            className={RADAR_ALERT_PANEL}
+            className={`${RADAR_ALERT_PANEL_BASE} ${borderClass}`}
             role="alert"
             data-testid="schedule-conflict-alert"
             data-overloaded={conflict.isOverloaded ? '1' : '0'}
@@ -60,11 +62,11 @@ export const ScheduleConflictAlert = React.memo(function ScheduleConflictAlert({
                             {conflict.travelWarning}
                         </p>
                     ) : null}
-                    <p className="text-[11px] text-[#E8DCC8]/55">
+                    <p className="text-[11px] hami-radar-text-secondary">
                         إجمالي البنود:{' '}
                         <span className="font-bold text-[#FAF7F2]">{conflict.totalCount}</span>
                         {summary ? (
-                            <span className="text-[#E8DCC8]/45"> — {summary}</span>
+                            <span className="text-[#94A3B8]/85"> — {summary}</span>
                         ) : null}
                     </p>
                 </div>

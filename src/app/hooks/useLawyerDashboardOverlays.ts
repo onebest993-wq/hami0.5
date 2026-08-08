@@ -4,6 +4,7 @@ import type { LawyerArchiveOverlay } from '@/app/hooks/useLawyerExecutionFiles';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import {
     readInitialLawyerTab,
+    resetProfileShellOnColdDashboardBoot,
     type LawyerDashboardTab,
     type OpenCriminalCaseOptions,
 } from './lawyerDashboard/lawyerDashboardNav';
@@ -26,7 +27,10 @@ export function useLawyerDashboardOverlays({
     setArchiveType,
     executionArchiveOpen = false,
 }: UseLawyerDashboardOverlaysParams) {
-    const [activeTab, setActiveTab] = useState<LawyerDashboardTab>(readInitialLawyerTab);
+    const [activeTab, setActiveTab] = useState<LawyerDashboardTab>(() => {
+        resetProfileShellOnColdDashboardBoot();
+        return readInitialLawyerTab();
+    });
     const [showLawsuitsWorkspace, setShowLawsuitsWorkspace] = useState(false);
     const [lawsuitsHostMounted, setLawsuitsHostMounted] = useState(false);
     const [executionArchiveHostMounted, setExecutionArchiveHostMounted] = useState(false);
@@ -37,6 +41,7 @@ export function useLawyerDashboardOverlays({
     const [urgentFocusCaseId, setUrgentFocusCaseId] = useState<string | undefined>();
     const [criminalDashboardCaseId, setCriminalDashboardCaseId] = useState<string | null>(null);
     const criminalReturnTargetRef = useRef<'lawsuits_workspace' | 'main'>('main');
+    const lawsuitDossierReturnTargetRef = useRef<'lawsuits_workspace' | 'main'>('main');
 
     const isCriminalDossierOpen = Boolean(criminalDashboardCaseId);
 
@@ -56,11 +61,29 @@ export function useLawyerDashboardOverlays({
         setArchiveType(null);
     }, [setArchiveType]);
 
+    const resetLawsuitDossierReturnTarget = useCallback(() => {
+        lawsuitDossierReturnTargetRef.current = 'main';
+    }, []);
+
+    const markLawsuitDossierOpenedFromWorkspace = useCallback(() => {
+        lawsuitDossierReturnTargetRef.current = 'lawsuits_workspace';
+    }, []);
+
+    const returnFromLawsuitDossier = useCallback(() => {
+        const returnTarget = lawsuitDossierReturnTargetRef.current;
+        lawsuitDossierReturnTargetRef.current = 'main';
+        if (returnTarget === 'lawsuits_workspace') {
+            setLawsuitsHostMounted(true);
+            setShowLawsuitsWorkspace(true);
+        }
+    }, []);
+
     const closeHubShellOverlays = useCallback(() => {
+        resetLawsuitDossierReturnTarget();
         setArchiveType(null);
         setShowLawsuitsWorkspace(false);
         setUrgentFocusCaseId(undefined);
-    }, [setArchiveType]);
+    }, [resetLawsuitDossierReturnTarget, setArchiveType]);
 
     const openCriminalCase = useCallback(
         (caseId: string, options?: OpenCriminalCaseOptions) => {
@@ -126,9 +149,15 @@ export function useLawyerDashboardOverlays({
      * بعد interactive: ركّب Hosts مخفية + سخّن chunks — يزيل سباق «دفء/برد» عند أول نقرة.
      */
     useLayoutEffect(() => {
-        if (isLitePerformanceActive()) return;
         return onDashboardInteractive(() => {
             armLawsuitsHost();
+            void import('@/app/runtime/hubArchiveLoader')
+                .then((m) => m.prefetchLawsuitArchiveContent())
+                .catch(() => undefined);
+            void import('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports')
+                .then((m) => m.prefetchFieldTasksInstantPaint())
+                .catch(() => undefined);
+            if (isLitePerformanceActive()) return;
             armExecutionArchiveHost();
             void import('@/app/runtime/lawsuitWorkspaceWarm')
                 .then((m) => m.warmLawsuitWorkspace({ includeSecondary: false }))
@@ -184,5 +213,8 @@ export function useLawyerDashboardOverlays({
         openCriminalCase,
         closeCriminalCase,
         exitCriminalDossierToHome,
+        markLawsuitDossierOpenedFromWorkspace,
+        returnFromLawsuitDossier,
+        resetLawsuitDossierReturnTarget,
     };
 }

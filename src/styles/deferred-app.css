@@ -1,6 +1,5 @@
 @import './tailwind.css';
 @import './theme.css';
 @import '../app/components/lawyer/dashboard/lawyerHomeFx.css';
-@import '../app/components/lawyer/ArchivePortal/royalGlassBtn.css';
-/* بعد قواعد الويب/الخلفيات — يغلب banding على Android فقط */
-@import '../app/components/lawyer/dashboard/lawyerHomeFx-android.css';
+/* radarTheme + royalGlassBtn → deferred-features.css (أقسام lazy) */
+/* lawyerHomeFx-android.css — مرة واحدة في critical-shell.css (قواعد !important تسبق lawyerHomeFx) */

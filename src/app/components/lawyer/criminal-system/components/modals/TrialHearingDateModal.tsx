@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock } from '@/app/components/ui/lucideIcons';
 import { CriminalModalPortal, CRIMINAL_MODAL_Z } from '../../criminalModalPortal';
 import { CRIMINAL_DOSSIER_TEST_IDS } from '../../criminalDossierTestIds';
 import {

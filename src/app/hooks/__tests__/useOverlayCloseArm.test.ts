@@ -25,7 +25,7 @@ describe('useOverlayCloseArm', () => {
         expect(close).not.toHaveBeenCalled();
 
         act(() => {
-            vi.advanceTimersByTime(320);
+            vi.advanceTimersByTime(120);
         });
         act(() => {
             result.current.requestClose(close);
@@ -43,10 +43,24 @@ describe('useOverlayCloseArm', () => {
         rerender({ open: true });
         act(() => {
             window.dispatchEvent(new Event('pointerup'));
-            vi.advanceTimersByTime(80);
+            vi.advanceTimersByTime(32);
         });
         act(() => {
             result.current.requestClose(close);
+        });
+        expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    it('force close bypasses arm window', () => {
+        const close = vi.fn();
+        const { result, rerender } = renderHook(
+            ({ open }) => useOverlayCloseArm(open),
+            { initialProps: { open: false } },
+        );
+
+        rerender({ open: true });
+        act(() => {
+            result.current.requestClose(close, { force: true });
         });
         expect(close).toHaveBeenCalledTimes(1);
     });

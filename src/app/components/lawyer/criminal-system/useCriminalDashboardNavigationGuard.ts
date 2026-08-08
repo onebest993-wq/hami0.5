@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { LawyerRequest, Statement, TimelineEvent } from './criminalStore';
 import type { TrialDeposition } from './trialDepositionsEngine';
@@ -7,6 +7,7 @@ import type { CriminalDashboardTab } from './criminalDashboardTabChrome';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
 import type { JudicialCassationAppealModalVariant } from './components/JudicialCassationAppealModal';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
+import { resolveCriminalDashboardNestedNav } from './resolveCriminalDashboardNestedNav';
 
 export type ConfirmActionState = {
     title?: string;
@@ -404,5 +405,71 @@ export function useCriminalDashboardNavigationGuard(params: UseCriminalDashboard
         };
     }, [handleDashboardBack]);
 
-    return { handleDashboardBack };
+    const dossierNestedNav = useMemo(
+        () =>
+            resolveCriminalDashboardNestedNav({
+                confirmAction,
+                cassationResultContext,
+                cassationAppealModal,
+                isStageFinalDecisionOpen,
+                verdictCassationFilingCard,
+                trialSessionAddModalOpen,
+                quickFinalizeRequest,
+                requestMarginModalOpen,
+                isRequestsModalOpen,
+                linkedTimelineFromProcedural,
+                isStatementModalOpen,
+                isTrialDepositionModalOpen,
+                isOtherEvidenceFormOpen,
+                isTrashModalOpen,
+                isReopenCaseOpen,
+                isSendToCassationOpen,
+                isMergeCasesOpen,
+                isStageCloserOpen,
+                isLegalEditOpen,
+                isInvestigationDecisionOpen,
+                isSeveranceOpen,
+                isInlineSeveranceFormOpen,
+                identityEdit,
+                forfeitureModal,
+                selectedPartyFilterId,
+                selectedJourneyBranchId,
+                selectedNodeFilter,
+                proceduralNavTarget,
+                activeTab,
+            }),
+        [
+            activeTab,
+            cassationAppealModal,
+            cassationResultContext,
+            confirmAction,
+            forfeitureModal,
+            identityEdit,
+            isInlineSeveranceFormOpen,
+            isInvestigationDecisionOpen,
+            isLegalEditOpen,
+            isMergeCasesOpen,
+            isOtherEvidenceFormOpen,
+            isReopenCaseOpen,
+            isRequestsModalOpen,
+            isSendToCassationOpen,
+            isSeveranceOpen,
+            isStageCloserOpen,
+            isStageFinalDecisionOpen,
+            isStatementModalOpen,
+            isTrashModalOpen,
+            isTrialDepositionModalOpen,
+            linkedTimelineFromProcedural,
+            proceduralNavTarget,
+            quickFinalizeRequest,
+            requestMarginModalOpen,
+            selectedJourneyBranchId,
+            selectedNodeFilter,
+            selectedPartyFilterId,
+            trialSessionAddModalOpen,
+            verdictCassationFilingCard,
+        ],
+    );
+
+    return { handleDashboardBack, dossierNestedNav };
 }

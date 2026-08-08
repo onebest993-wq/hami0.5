@@ -3,10 +3,10 @@ import React from 'react';
 /** حقن خطوط/خلفية أساسية — بدون motion أو lucide (مسار الإقلاع) */
 export const FontInjector = React.memo(() => (
     <style>{`
-    body { font-family: 'Tajawal', 'Cairo', sans-serif; background-color: #05060D; color: white; }
+    body { font-family: 'Tajawal', 'Cairo', sans-serif; background-color: #0a0f1c; color: white; }
 
     .royal-texture {
-        background-color: #05060D;
+        background-color: #0a0f1c;
         background-image:
             radial-gradient(circle at 50% 50%, rgba(230, 198, 115, 0.03) 0%, transparent 50%),
             linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),

@@ -1,5 +1,5 @@
 import React, { memo, useMemo, type ElementType } from 'react';
-import { Archive, Trash2 } from 'lucide-react';
+import { Archive, Trash2 } from '@/app/components/ui/lucideIcons';
 import { HighlightedText } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalSearchEntry } from '@/app/services/globalSearchIndex';
 import { SEARCH_CATEGORY_LABELS } from '@/app/services/globalSearchIndex';
@@ -46,11 +46,7 @@ export const ResultRow = memo(function ResultRow({
     return (
         <div
             role="presentation"
-            className={`w-full flex items-stretch gap-1 rounded-2xl transition-colors duration-150 ${
-                active
-                    ? 'bg-white/[0.045] shadow-[inset_0_0_0_1px_rgba(230,198,115,0.28)]'
-                    : 'hover:bg-white/[0.03]'
-            }`}
+            className={`hami-gs-result-card ${active ? 'hami-gs-result-card--active' : 'hover:bg-white/[0.03]'}`}
         >
             <button
                 type="button"

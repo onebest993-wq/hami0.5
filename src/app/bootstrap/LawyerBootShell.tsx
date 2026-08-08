@@ -6,12 +6,13 @@ import { shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
 /**
  * غلاف أثناء انتظار المستخدم/التهيئة قبل أول كشف.
  * مع #hami-static-boot: خلفية فقط — الشعار من الطبقة الثابتة.
+ * لا يُزيل الشعار هنا — ينتظر paint شبكة الرئيسية أو useBootReveal.
  */
 export function LawyerBootShell(): React.ReactElement {
     if (isBootRevealDone() || !shouldMountReactBootOverlay()) {
         return (
             <div
-                className="min-h-screen w-full bg-[#0a0f1c]"
+                className="min-h-screen w-full hami-board-canvas-bg"
                 data-testid="lawyer-boot-shell-frozen"
                 aria-busy="true"
                 aria-label="تهيئة حامي"

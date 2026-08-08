@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
 import type { Dispatch, SetStateAction } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import {

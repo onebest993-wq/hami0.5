@@ -100,7 +100,7 @@ export const EventCardsList = React.memo(function EventCardsList({
                     type="button"
                     data-testid="radar-show-all-events"
                     onClick={expandAll}
-                    className="w-full py-3 rounded-xl border border-[#F5EDE0]/12 bg-[#F5EDE0]/[0.04] text-[#E8DCC8]/80 text-sm font-bold hover:bg-[#F5EDE0]/[0.07] hover:text-[#F5EDE0] transition-colors touch-manipulation min-h-[44px]"
+                    className="w-full py-3 rounded-xl border border-white bg-[#1A1A1A] hami-radar-text-secondary text-sm font-bold hami-radar-hover-row transition-colors touch-manipulation min-h-[44px]"
                 >
                     عرض {hiddenCount} موعد إضافي
                 </button>

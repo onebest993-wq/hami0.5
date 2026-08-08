@@ -1,5 +1,6 @@
-import { memo, useEffect, type ReactNode } from 'react';
+import { memo, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import { TX_DRAWER_SHELL } from './transactionsGlassTheme';
 
 export const TransactionsHubSheet = memo(function TransactionsHubSheet({
@@ -19,6 +20,7 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
     ariaLabel?: string;
 }) {
     const reduceMotion = useReduceMotion();
+    const keyboardInsetPx = useMobileKeyboardInset(open);
     const mounted = keepMounted || open;
 
     useEffect(() => {
@@ -38,6 +40,14 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
     const backdropMotion = reduceMotion ? '!transition-none' : 'transition-opacity duration-75 ease-out';
     const panelMotion = reduceMotion ? '!transition-none' : 'transition-opacity duration-75 ease-out';
 
+    const panelStyle: CSSProperties | undefined =
+        keyboardInsetPx > 0
+            ? {
+                  marginBottom: keyboardInsetPx,
+                  maxHeight: `min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - ${keyboardInsetPx}px))`,
+              }
+            : undefined;
+
     return (
         <div
             className={`fixed inset-0 z-[210] ${open ? 'pointer-events-auto' : 'pointer-events-none'}`}
@@ -56,6 +66,8 @@ export const TransactionsHubSheet = memo(function TransactionsHubSheet({
                 aria-label={ariaLabel}
                 data-testid={testId}
                 data-state={open ? 'open' : 'closed'}
+                data-keyboard-inset={keyboardInsetPx > 0 ? String(keyboardInsetPx) : undefined}
+                style={panelStyle}
                 className={`absolute inset-x-0 bottom-0 mx-auto max-w-[100vw] ${TX_DRAWER_SHELL} ${panelMotion} ${
                     open ? 'opacity-100' : 'opacity-0'
                 }`}

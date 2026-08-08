@@ -5,6 +5,7 @@ import {
     buildCustodyWardTimelineEvent,
     commitCustodyWardTimelineAction,
     custodyWardHasTimelineEvent,
+    wardAwaitingRescheduleAfterMissed,
     enrichCustodyWardsFromTimeline,
     formatCustodyAppointmentLabelAr,
     isCustodyAppointmentDue,
@@ -160,6 +161,51 @@ describe('custodyWardDeliveryEngine', () => {
             appointmentYmd: '2026-07-31',
             status: 'scheduled',
         });
+    });
+
+    it('لا يعيد تطبيق موعد مُلغى بعد عدم الاستلام عند انتظار موعد جديد', () => {
+        const ward = {
+            wardKey: 'ward-0',
+            name: 'أحمد',
+            status: 'scheduled' as const,
+            appointmentYmd: '2026-07-31',
+        };
+        const appt = buildCustodyWardTimelineEvent(ward, 'appointment', {
+            id: 'tl-appt',
+            todayYmd: '2026-07-31',
+            recordedAt: '2026-07-31T08:00:00.000Z',
+        });
+        const missed = buildCustodyWardTimelineEvent(
+            { ...ward, status: 'not_received' },
+            'not_received',
+            {
+                id: 'tl-missed',
+                todayYmd: '2026-07-31',
+                recordedAt: '2026-07-31T12:00:00.000Z',
+            },
+        );
+        const restartedBundle = restartCustodyWardBundleAfterMissedDelivery(
+            {
+                wards: [
+                    {
+                        wardKey: 'ward-0',
+                        name: 'أحمد',
+                        status: 'pending',
+                    },
+                ],
+            },
+            'ward-0',
+        );
+        const enriched = enrichCustodyWardsFromTimeline(restartedBundle.wards, [appt, missed]);
+        expect(enriched[0]).toMatchObject({
+            wardKey: 'ward-0',
+            name: 'أحمد',
+            status: 'pending',
+        });
+        expect(enriched[0].appointmentYmd).toBeUndefined();
+        expect(
+            wardAwaitingRescheduleAfterMissed(enriched[0], [appt, missed]),
+        ).toBe(true);
     });
 
     it('commit merges bundle and timeline in one persist patch', () => {

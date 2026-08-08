@@ -2,6 +2,7 @@
 import { useMemo, useRef } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import { SPECIAL_REQUEST_MANUAL_MODE } from '../../components/requestsTabConstants';
 import { useStandardSubmit } from '@/app/hooks/useStandardSubmit';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
@@ -75,38 +76,49 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
             } = draftRef.current;
             const [
                 { appendSpecialFollowupRequest },
-                { dispatchDomainIsolationBlocked, isFollowupRequestKindAllowed },
             ] = await Promise.all([
                 import('@/app/utils/specialFollowupDecisionQueue'),
-                import('@/app/utils/executionDomainIsolation'),
             ]);
 
-            const followupGate = isFollowupRequestKindAllowed(
-                execData as Record<string, unknown> | null | undefined,
-                storageId,
-                'special_followup',
-            );
-            if (!followupGate.allowed) {
-                dispatchDomainIsolationBlocked(followupGate.reasonAr, 'special_followup');
+            const execRecord = execData as Record<string, unknown> | null | undefined;
+            const resolvedStorageId = (() => {
+                const fromResolver = resolveDecisionsStorageExecutionId(storageId, execRecord);
+                if (fromResolver !== 'default') return fromResolver;
+                return String(storageId || execRecord?.id || '').trim();
+            })();
+            if (!resolvedStorageId) {
+                showToast('تعذّر الإرسال — معرّف الإضبارة غير جاهز', 'error', { decisionsLink: false });
                 return false;
             }
 
             const d = date.trim();
             const trimmedContent = content.trim();
             const title = manualTitle.trim() || 'طلب يدوي';
+            const payloadJson = JSON.stringify({
+                kind: 'manual_followup',
+                v: 1,
+                source: 'followup_admin',
+            });
             const decisionId = appendSpecialFollowupRequest({
-                executionId: storageId,
+                executionId: resolvedStorageId,
                 requestDate: d,
                 content: trimmedContent || title,
                 decisionTitle: title,
-                payloadJson: JSON.stringify({
-                    kind: 'manual_followup',
-                    v: 1,
-                }),
+                payloadJson,
+                executionData: execRecord,
+                adminRequestsTab: true,
             });
             if (!decisionId) {
-                showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true });
+                showToast('تعذّر إرسال الطلب — أعد المحاولة', 'warning', { decisionsLink: true });
                 return false;
+            }
+            try {
+                const { flushExecutorDecisionsStorageAwait } = await import(
+                    '@/app/utils/executionDecisionsNamespace'
+                );
+                await flushExecutorDecisionsStorageAwait(resolvedStorageId, execRecord);
+            } catch {
+                /* ignore */
             }
             const now = new Date().toISOString();
             const fullBody = `بتاريخ ${d}:\n\n${trimmedContent || title}`;
@@ -127,7 +139,7 @@ export function useExecutionDashboardDossierAdminFollowupHandlers({
         },
         onClose: () => {},
         successMessage:
-            'تم حفظ الطلب بنجاح وتحويله إلى مركز القرارات بانتظار موافقة المنفذ — افتح «القرارات والطعون» من الشريط عند الحاجة',
+            'تم إرسال الطلب إلى مركز القرارات — يظهر في سجل الطلبات أدناه مع اختصار قرار المنفذ',
         showToast,
         successToastOptions: { decisionsLink: true },
     });

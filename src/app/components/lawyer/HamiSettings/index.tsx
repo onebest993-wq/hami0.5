@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
 import { EnsureLawyerSettingsProvider } from '@/app/context/LawyerSettingsContext';
 import { SettingsShell } from './SettingsShell';
@@ -9,50 +9,46 @@ import {
     persistSettingsSection,
     readPersistedSettingsSection,
 } from './settingsSectionPersistence';
-import { loadSettingsSection, prefetchSettingsSection } from './settingsSectionLoader';
-import { resolveSettingsSectionComponent } from './settingsSectionRegistry';
-import { prefetchSettingsDialogs } from './settingsDialogPrefetch';
+import { prefetchSettingsDialogs, ensureSettingsDialogsReady } from './settingsDialogPrefetch';
 
 export interface HamiSettingsProps {
     onClose: () => void;
     onLogout?: () => void;
-    onEnterHomeLayoutEdit?: () => void;
     onShellReset?: () => void;
     userId?: string | null;
     /** false مع keep-alive — الإعدادات مخفية لكن mounted */
     open?: boolean;
+    /** يبقي shellHydrated بعد الإغلاق */
+    keepAlive?: boolean;
 }
 
 export const HamiSettings = ({
     onClose,
     onLogout,
-    onEnterHomeLayoutEdit,
     onShellReset,
     userId,
     open = true,
+    keepAlive = false,
 }: HamiSettingsProps) => {
     const [activeSection, setActiveSection] = useState<SettingsSectionId>(readPersistedSettingsSection);
     const [shellHydrated, setShellHydrated] = useState(false);
 
     useEffect(() => {
-        if (!open) setShellHydrated(false);
-    }, [open]);
+        if (!open && !keepAlive) setShellHydrated(false);
+    }, [keepAlive, open]);
 
     useSettingsLifecycle(open, activeSection, userId, () => setShellHydrated(true));
 
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!open) return;
-        prefetchSettingsDialogs();
-        void loadSettingsSection(activeSection).catch(() => undefined);
-    }, [activeSection, open]);
+        void ensureSettingsDialogsReady();
+    }, [open]);
 
     useEffect(() => {
         persistSettingsSection(activeSection);
     }, [activeSection]);
 
     const handleSectionChange = useCallback((sectionId: SettingsSectionId) => {
-        prefetchSettingsSection(sectionId);
-        void resolveSettingsSectionComponent(sectionId);
         setActiveSection(sectionId);
     }, []);
 
@@ -69,7 +65,6 @@ export const HamiSettings = ({
                     <SettingsSectionRouter
                         activeSection={activeSection}
                         onClose={onClose}
-                        onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
                         open={open}
                         accountProps={{ onLogout }}
                     />

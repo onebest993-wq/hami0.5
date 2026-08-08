@@ -8,6 +8,7 @@ export function applyDebtorDeathFollowupOverlay<T extends object>(
         ...flags,
         hidePersonalCoerciveFollowupTab: true,
         hideFollowupCoerciveTab: true,
+        hideFollowupSeizureRequestsTab: true,
         suppressHiddenPersonalCoerciveRequests: true,
         hidePersonalForcedBringActivation: true,
         hidePersonalJudgePresentation: true,

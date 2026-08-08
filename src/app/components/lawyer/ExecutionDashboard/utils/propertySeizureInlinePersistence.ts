@@ -9,7 +9,8 @@ import { patchExecutorDecisionRowEverywhere } from '@/app/utils/executorSeizureD
 export type PropertyInlineSaveContext = {
     dossierId: string;
     showToast: (msg: string, type?: 'success' | 'warning' | 'info') => void;
-    persistProperties: (next: SeizedProperty[]) => void;
+    persistProperties: (next: SeizedProperty[]) => boolean;
+    readProperties?: () => SeizedProperty[];
     pushTimeline: (event: {
         id: string;
         date: string;
@@ -53,6 +54,37 @@ function patchProperty(
     return next;
 }
 
+function persistPropertyPatch(
+    properties: SeizedProperty[],
+    propertyId: string,
+    patch: Record<string, unknown>,
+    ctx: PropertyInlineSaveContext,
+): SeizedProperty[] | null {
+    const next = patchProperty(properties, propertyId, patch);
+    if (!next) {
+        ctx.showToast('تعذّر تحديث سجل العقار — أعد فتح السجل أو أعد المحاولة', 'error');
+        return null;
+    }
+    const persisted = ctx.persistProperties(next);
+    if (persisted === false) {
+        ctx.showToast('تعذّر حفظ التغيير على الإضبارة — أعد المحاولة', 'error');
+        return null;
+    }
+    try {
+        window.dispatchEvent(
+            new CustomEvent('hami-seized-property-inline-updated', {
+                detail: {
+                    propertyId,
+                    property: next.find((x) => String(x.id) === propertyId),
+                },
+            }),
+        );
+    } catch {
+        /* ignore */
+    }
+    return next;
+}
+
 export function savePropertyMarkInline(
     properties: SeizedProperty[],
     propertyId: string,
@@ -75,13 +107,17 @@ export function savePropertyMarkInline(
         return false;
     }
     const nowIso = new Date().toISOString();
-    const next = patchProperty(properties, propertyId, {
-        seizureMarkLetterNumber: letterNo,
-        seizureMarkDate: ymd,
-        seizureMarkEntity: entity,
-    });
+    const next = persistPropertyPatch(
+        properties,
+        propertyId,
+        {
+            seizureMarkLetterNumber: letterNo,
+            seizureMarkDate: ymd,
+            seizureMarkEntity: entity,
+        },
+        ctx,
+    );
     if (!next) return false;
-    ctx.persistProperties(next);
     ctx.pushTimeline({
         id: ctx.nextTimelineId(),
         date: nowIso.slice(0, 10),
@@ -135,17 +171,21 @@ export function savePropertyExpertReportInline(
     const nowIso = new Date().toISOString();
     const header = headerFor(cur);
     const desc = `${header}\nالسعر المقدر: ${Number(price).toLocaleString('ar-IQ')} د.ع\nتاريخ التقرير: ${reportYmd}\nالخبراء: ${expertNames.join('، ')}`;
-    const next = patchProperty(properties, propertyId, {
-        status: 'valued',
-        estimatedPriceIqd: price,
-        expertEstimatedAmountIqd: price,
-        expertNames,
-        expertCommitteeSize: requiredExperts,
-        expertReportDateYmd: reportYmd,
-        experts: { expertName: expertNames.join('، '), estimatedPriceIqd: price, recordedAtIso: nowIso },
-    });
+    const next = persistPropertyPatch(
+        properties,
+        propertyId,
+        {
+            status: 'valued',
+            estimatedPriceIqd: price,
+            expertEstimatedAmountIqd: price,
+            expertNames,
+            expertCommitteeSize: requiredExperts,
+            expertReportDateYmd: reportYmd,
+            experts: { expertName: expertNames.join('، '), estimatedPriceIqd: price, recordedAtIso: nowIso },
+        },
+        ctx,
+    );
     if (!next) return false;
-    ctx.persistProperties(next);
     patchExecutorDecisionRowEverywhere(decisionId, {
         seizureRequestSavedAt: nowIso,
         seizureRequestDetails: desc,
@@ -181,15 +221,19 @@ export function savePropertyAuctionDateInline(
     const nowIso = new Date().toISOString();
     const header = headerFor(cur);
     const desc = `${header}\nموعد المزايدة: ${date}`;
-    const next = patchProperty(properties, propertyId, {
-        status: 'published',
-        auctionDateYmd: date,
-        auction: { auctionDateYmd: date, recordedAtIso: nowIso },
-        newspaperName: '',
-        publicationDateYmd: null,
-    });
+    const next = persistPropertyPatch(
+        properties,
+        propertyId,
+        {
+            status: 'published',
+            auctionDateYmd: date,
+            auction: { auctionDateYmd: date, recordedAtIso: nowIso },
+            newspaperName: '',
+            publicationDateYmd: null,
+        },
+        ctx,
+    );
     if (!next) return false;
-    ctx.persistProperties(next);
     patchExecutorDecisionRowEverywhere(decisionId, {
         seizureRequestSavedAt: nowIso,
         seizureRequestDetails: desc,
@@ -231,12 +275,16 @@ export function savePropertyPublicationInline(
         return false;
     }
     const nowIso = new Date().toISOString();
-    const next = patchProperty(properties, propertyId, {
-        newspaperName,
-        publicationDateYmd: ymd,
-    });
+    const next = persistPropertyPatch(
+        properties,
+        propertyId,
+        {
+            newspaperName,
+            publicationDateYmd: ymd,
+        },
+        ctx,
+    );
     if (!next) return false;
-    ctx.persistProperties(next);
     ctx.pushTimeline({
         id: ctx.nextTimelineId(),
         date: nowIso.slice(0, 10),
@@ -304,9 +352,8 @@ export function savePropertyAuctionResultInline(
             noBiddersRecordedAtIso: nowIso,
         };
     }
-    const next = patchProperty(properties, propertyId, patch);
+    const next = persistPropertyPatch(properties, propertyId, patch, ctx);
     if (!next) return false;
-    ctx.persistProperties(next);
     ctx.pushTimeline({
         id: ctx.nextTimelineId(),
         date: nowIso.slice(0, 10),
@@ -332,18 +379,22 @@ export function savePropertyReauctionDefaultInline(
     const notesTrim = String(notes || '').trim();
     const hit = properties.find((x) => String(x.id) === propertyId);
     if (!hit) return false;
-    const next = patchProperty(properties, propertyId, {
-        reauctionDefault: { recordedAtIso: nowIso, ...(notesTrim ? { notes: notesTrim } : {}) },
-        status: 'published',
-        initialAwardBuyerName: undefined,
-        initialAwardAmountIqd: null,
-        initialAwardRecordedAtIso: undefined,
-        noBiddersRecordedAtIso: undefined,
-        lastBidderOrBuyerName: undefined,
-        finalAwardAmountIqd: null,
-    });
+    const next = persistPropertyPatch(
+        properties,
+        propertyId,
+        {
+            reauctionDefault: { recordedAtIso: nowIso, ...(notesTrim ? { notes: notesTrim } : {}) },
+            status: 'published',
+            initialAwardBuyerName: undefined,
+            initialAwardAmountIqd: null,
+            initialAwardRecordedAtIso: undefined,
+            noBiddersRecordedAtIso: undefined,
+            lastBidderOrBuyerName: undefined,
+            finalAwardAmountIqd: null,
+        },
+        ctx,
+    );
     if (!next) return false;
-    ctx.persistProperties(next);
     if (decisionId) {
         const header = headerFor(hit);
         patchExecutorDecisionRowEverywhere(decisionId, {

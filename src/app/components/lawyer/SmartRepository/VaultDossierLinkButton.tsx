@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Link2, Loader2 } from 'lucide-react';
+import { Link2, Loader2 } from '@/app/components/ui/lucideIcons';
 import type { DossierPickerOption } from '@/app/services/repository/repositoryDossierRegistry';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { REPO_TOUCH_CHIP } from './smartRepositoryTheme';

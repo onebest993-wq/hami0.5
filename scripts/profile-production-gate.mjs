@@ -8,6 +8,9 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
+/** ملف .tsx بجانب مجلد بنفس الاسم يحجب index — قنبلة module shadowing */
+const PROFILE_SHADOW_STUB = 'src/app/components/lawyer/RoyalLawyerProfile.tsx';
+
 const criticalPaths = [
     'src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts',
     'src/app/hooks/lawyerDashboard/profile/profileShellOpenFlow.ts',
@@ -43,6 +46,14 @@ console.log('=== Profile production gate ===\n');
 for (const path of criticalPaths) {
     if (existsSync(path)) ok(path);
     else fail(`missing ${path}`);
+}
+
+if (existsSync(PROFILE_SHADOW_STUB)) {
+    fail(
+        `${PROFILE_SHADOW_STUB} shadows RoyalLawyerProfile/ — delete stub or rename; imports without /index load wrong module`,
+    );
+} else {
+    ok('no RoyalLawyerProfile.tsx shadow stub');
 }
 
 console.log('\nRunning profile unit test suite...');

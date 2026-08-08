@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useMemo } from 'react';
 import type { HomeBlockStyleOverride, HomeCustomizableId } from '@/app/services/settings/homeLayout';
 import {
     resolveHomeBlockClassNames,
@@ -7,6 +7,7 @@ import {
     shouldShowHomeBlockSheen,
 } from '@/app/services/settings/resolveHomeBlockStyle';
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
+import { mergeBlockScopedAppearance } from '@/app/services/settings/themeResolve';
 import { HomeBlockPatternOverlay } from './HomeBlockPatternOverlay';
 import { HomeMoroccanGlassDecor } from './HomeMoroccanGlassDecor';
 
@@ -54,10 +55,15 @@ export const HomeBlockShell = memo(function HomeBlockShell({
     inheritContentScale = false,
 }: HomeBlockShellProps) {
     const { settings } = useLawyerSettings();
-    const blockClasses = resolveHomeBlockClassNames(override);
+    const scopedAppearance = useMemo(
+        () => mergeBlockScopedAppearance(settings.appearance, override),
+        [settings.appearance, override],
+    );
+    const blockClasses = resolveHomeBlockClassNames(override, settings.appearance.shape);
     const style = resolveHomeBlockInlineStyle(override, themePrimary, {
         skipContentScale: inheritContentScale,
         defaultGlassOpacity: settings.appearance.glassOpacity,
+        appearance: settings.appearance,
     });
     const containerBorderOn = resolveBlockContainerBorder(
         override,
@@ -83,11 +89,11 @@ export const HomeBlockShell = memo(function HomeBlockShell({
             onFocus={onFocus}
             disabled={isButton ? disabled : undefined}
             tabIndex={isButton ? tabIndex : undefined}
-            className={`relative overflow-hidden border ${blockClasses} ${focusRing} ${className}`.trim()}
+            className={`relative overflow-hidden ${containerBorderOn ? 'border' : 'border-0'} ${blockClasses} ${focusRing} ${className}`.trim()}
             style={style}
         >
-            <HomeBlockPatternOverlay override={override} themePrimary={themePrimary} />
-            <HomeMoroccanGlassDecor pattern={override?.pattern} />
+            <HomeBlockPatternOverlay blockId={blockId} override={override} themePrimary={themePrimary} />
+            <HomeMoroccanGlassDecor pattern={override?.pattern} blockOverride={override} />
             {shouldShowHomeBlockSheen(override?.pattern) ? (
                 <div
                     className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none z-0"

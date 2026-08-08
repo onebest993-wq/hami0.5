@@ -13,6 +13,7 @@ const page = await browser.newPage();
 
 await page.addInitScript(() => {
     try {
+        localStorage.setItem('hami_e2e_boot', '1');
         localStorage.setItem('hami:last-screen', 'lawyer');
     } catch {
         /* ignore */
@@ -27,6 +28,13 @@ page.on('pageerror', (err) => {
 });
 
 await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+
+for (let i = 0; i < 25; i++) {
+    const ready = await page.getByTestId('lawyer-dashboard-ready').isVisible().catch(() => false);
+    if (ready) break;
+    await page.waitForTimeout(400);
+}
+
 await page.getByTestId('lawyer-dashboard-ready').waitFor({ state: 'visible', timeout: 45_000 });
 await page.waitForTimeout(3000);
 

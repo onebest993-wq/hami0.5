@@ -4,10 +4,11 @@
   --glass-opacity: 0.85;
   --hami-brand: #e6c673;
   --hami-font-size: 16px;
+  --hami-user-font-scale: 1;
 }
 
 html {
-  font-size: var(--hami-font-size, 16px);
+  font-size: calc(16px * var(--hami-user-font-scale, 1));
 }
 
 .hami-glass-surface {
@@ -73,31 +74,11 @@ html.hami-high-contrast [data-hami-settings-shell] .text-white\/40 {
   color: rgba(255, 250, 240, 0.72) !important;
 }
 
-/* لوحة القيادة: وضوح سطح + حد أنيق — بلا inset ring سميك */
+/* لوحة القيادة + الإعدادات: حدود أوضح فقط — بلا إعادة رسم تدرجات ثقيلة */
 html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-sovereign-glass,
-html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
-  border: 1px solid var(--hami-hc-border) !important;
-  box-shadow:
-    0 10px 36px rgba(0, 0, 0, 0.38),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-  background-image: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--hami-primary, #e6c673) 14%, transparent) 0%,
-    var(--hami-hc-surface) 45%,
-    color-mix(in srgb, #6366f1 6%, transparent) 100%
-  ) !important;
-}
-
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass,
 html.hami-high-contrast [data-hami-settings-shell] .hami-setting-glass {
-  border: 1px solid var(--hami-hc-border) !important;
-  box-shadow:
-    0 6px 22px rgba(0, 0, 0, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-  background: linear-gradient(
-    165deg,
-    color-mix(in srgb, var(--hami-primary, #e6c673) 12%, #141a2e) 0%,
-    #0b1021 100%
-  ) !important;
+  border-color: var(--hami-hc-border) !important;
 }
 
 html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-home-themed-border,

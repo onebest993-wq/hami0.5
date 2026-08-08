@@ -88,6 +88,7 @@ export function useSmartFileModalFileSync(params: {
             court: f?.court,
             judge: f?.judge,
             consolidationSecondaryRefs: f?.consolidationSecondaryRefs,
+            mergedConsolidatedFileIds: f?.mergedConsolidatedFileIds,
             caseLinks: f?.caseLinks,
             timelineCount: Array.isArray(activeStage?.timeline) ? activeStage.timeline.length : 0,
             stagesCount: fileStages.length,

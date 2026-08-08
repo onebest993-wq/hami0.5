@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bold, ChevronLeft, ChevronRight, Eraser, Highlighter } from 'lucide-react';
 import { FONT_SIZES, TEXT_COLORS } from './legalRichTextEditorConstants';
 import { LEGAL_HIGHLIGHT_COLORS } from './legalRichTextEditorHighlight';
@@ -13,11 +13,11 @@ type LegalRichTextEditorToolbarProps = {
     onToggleForeColor: (color: string) => void;
     onApplyHighlightColor: (color: string) => void;
     onClearHighlight: () => void;
-    /** شريط مصغّر أفقي قابل للتمرير (نمط Apple Notes) — لا يغيّر النسخة الافتراضية */
+    /** ╪┤╪▒┘è╪╖ ┘à╪╡╪║┘ّ╪▒ ╪ث┘┘é┘è ┘é╪د╪ذ┘ ┘┘╪ز┘à╪▒┘è╪▒ (┘┘à╪╖ Apple Notes) ظ¤ ┘╪د ┘è╪║┘è┘ّ╪▒ ╪د┘┘╪│╪«╪ر ╪د┘╪د┘╪ز╪▒╪د╪╢┘è╪ر */
     compact?: boolean;
 };
 
-/** أيقونات حجم الخط للنسخة المصغّرة — حرف واحد بحجم متدرّج بدل أزرار نصية عريضة */
+/** ╪ث┘è┘é┘ê┘╪د╪ز ╪ص╪ش┘à ╪د┘╪«╪╖ ┘┘┘╪│╪«╪ر ╪د┘┘à╪╡╪║┘ّ╪▒╪ر ظ¤ ╪ص╪▒┘ ┘ê╪د╪ص╪» ╪ذ╪ص╪ش┘à ┘à╪ز╪»╪▒┘ّ╪ش ╪ذ╪»┘ ╪ث╪▓╪▒╪د╪▒ ┘╪╡┘è╪ر ╪╣╪▒┘è╪╢╪ر */
 const COMPACT_SIZE_GLYPHS: Record<string, string> = {
     '2': 'text-[10px]',
     '3': 'text-[13px]',
@@ -31,9 +31,9 @@ type CompactOverflowState = {
 };
 
 /**
- * تمرير الشريط المصغّر: الـ scrollbar مخفي، لذا نوفّر ثلاث وسائل صريحة —
- * سحب بالماوس/القلم، عجلة الماوس (عمودي → أفقي)، وأسهم تنقّل عند الطرفين.
- * اللمس يعتمد overflow-x-auto الأصلي بلا تدخّل.
+ * ╪ز┘à╪▒┘è╪▒ ╪د┘╪┤╪▒┘è╪╖ ╪د┘┘à╪╡╪║┘ّ╪▒: ╪د┘┘ scrollbar ┘à╪«┘┘è╪î ┘╪░╪د ┘┘ê┘┘ّ╪▒ ╪س┘╪د╪س ┘ê╪│╪د╪خ┘ ╪╡╪▒┘è╪ص╪ر ظ¤
+ * ╪│╪ص╪ذ ╪ذ╪د┘┘à╪د┘ê╪│/╪د┘┘é┘┘à╪î ╪╣╪ش┘╪ر ╪د┘┘à╪د┘ê╪│ (╪╣┘à┘ê╪»┘è ظْ ╪ث┘┘é┘è)╪î ┘ê╪ث╪│┘ç┘à ╪ز┘┘é┘ّ┘ ╪╣┘╪» ╪د┘╪╖╪▒┘┘è┘.
+ * ╪د┘┘┘à╪│ ┘è╪╣╪ز┘à╪» overflow-x-auto ╪د┘╪ث╪╡┘┘è ╪ذ┘╪د ╪ز╪»╪«┘ّ┘.
  */
 function useCompactToolbarScroll() {
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -71,7 +71,7 @@ function useCompactToolbarScroll() {
             typeof ResizeObserver !== 'undefined' ? new ResizeObserver(syncOverflow) : null;
         resizeObserver?.observe(el);
 
-        // عجلة الماوس العمودية تحرّك الشريط أفقياً (rtl: الاتجاه معكوس)
+        // ╪╣╪ش┘╪ر ╪د┘┘à╪د┘ê╪│ ╪د┘╪╣┘à┘ê╪»┘è╪ر ╪ز╪ص╪▒┘ّ┘â ╪د┘╪┤╪▒┘è╪╖ ╪ث┘┘é┘è╪د┘ï (rtl: ╪د┘╪د╪ز╪ش╪د┘ç ┘à╪╣┘â┘ê╪│)
         const onWheel = (e: WheelEvent) => {
             if (el.scrollWidth <= el.clientWidth + 1) return;
             if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
@@ -89,7 +89,7 @@ function useCompactToolbarScroll() {
     }, [syncOverflow]);
 
     const onPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
-        if (e.pointerType === 'touch') return; // اللمس له تمرير أصلي
+        if (e.pointerType === 'touch') return; // ╪د┘┘┘à╪│ ┘┘ç ╪ز┘à╪▒┘è╪▒ ╪ث╪╡┘┘è
         const el = scrollRef.current;
         if (!el) return;
         dragRef.current = { active: true, moved: false, startX: e.clientX, startScroll: el.scrollLeft };
@@ -113,13 +113,13 @@ function useCompactToolbarScroll() {
 
     const onClickCapture = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
         if (!dragRef.current.moved) return;
-        // السحب انتهى بنقرة عرضية فوق زر — لا نُفعّل الأداة
+        // ╪د┘╪│╪ص╪ذ ╪د┘╪ز┘ç┘ë ╪ذ┘┘é╪▒╪ر ╪╣╪▒╪╢┘è╪ر ┘┘ê┘é ╪▓╪▒ ظ¤ ┘╪د ┘┘┘╪╣┘ّ┘ ╪د┘╪ث╪»╪د╪ر
         dragRef.current.moved = false;
         e.preventDefault();
         e.stopPropagation();
     }, []);
 
-    /** توجيه فيزيائي: في rtl البداية يمين (+scrollLeft نحو 0) والنهاية يسار (−) */
+    /** ╪ز┘ê╪ش┘è┘ç ┘┘è╪▓┘è╪د╪خ┘è: ┘┘è rtl ╪د┘╪ذ╪»╪د┘è╪ر ┘è┘à┘è┘ (+scrollLeft ┘╪ص┘ê 0) ┘ê╪د┘┘┘ç╪د┘è╪ر ┘è╪│╪د╪▒ (ظêْ) */
     const scrollTowards = useCallback((edge: 'start' | 'end') => {
         const el = scrollRef.current;
         if (!el) return;
@@ -153,7 +153,7 @@ function CompactToolbarNavButton({
     disabled: boolean;
     onClick: () => void;
 }) {
-    // rtl: زر البداية على اليمين بصرياً (سهم يمين)، زر النهاية على اليسار (سهم يسار)
+    // rtl: ╪▓╪▒ ╪د┘╪ذ╪»╪د┘è╪ر ╪╣┘┘ë ╪د┘┘è┘à┘è┘ ╪ذ╪╡╪▒┘è╪د┘ï (╪│┘ç┘à ┘è┘à┘è┘)╪î ╪▓╪▒ ╪د┘┘┘ç╪د┘è╪ر ╪╣┘┘ë ╪د┘┘è╪│╪د╪▒ (╪│┘ç┘à ┘è╪│╪د╪▒)
     const Icon = edge === 'start' ? ChevronRight : ChevronLeft;
     return (
         <button
@@ -162,7 +162,7 @@ function CompactToolbarNavButton({
             onClick={onClick}
             disabled={disabled}
             className="flex h-9 w-6 shrink-0 touch-manipulation items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-25"
-            aria-label={edge === 'start' ? 'بداية شريط الأدوات' : 'مزيد من الأدوات'}
+            aria-label={edge === 'start' ? '╪ذ╪»╪د┘è╪ر ╪┤╪▒┘è╪╖ ╪د┘╪ث╪»┘ê╪د╪ز' : '┘à╪▓┘è╪» ┘à┘ ╪د┘╪ث╪»┘ê╪د╪ز'}
             data-testid={`compact-toolbar-nav-${edge}`}
         >
             <Icon size={14} />
@@ -196,7 +196,7 @@ function CompactToolbar({
                 ref={scrollRef}
                 className="flex min-w-0 flex-1 cursor-grab items-center gap-2 overflow-x-auto whitespace-nowrap px-0.5 active:cursor-grabbing [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 role="toolbar"
-                aria-label="أدوات تنسيق النص"
+                aria-label="╪ث╪»┘ê╪د╪ز ╪ز┘╪│┘è┘é ╪د┘┘╪╡"
                 onMouseDown={(e) => e.preventDefault()}
                 {...dragHandlers}
             >
@@ -204,7 +204,7 @@ function CompactToolbar({
                     type="button"
                     onClick={onToggleBold}
                     className={`${btnBase} ${activeBold ? 'bg-[#E6C673]/15 text-[#E6C673]' : 'text-white/75 hover:bg-white/10'}`}
-                    aria-label="عريض"
+                    aria-label="╪╣╪▒┘è╪╢"
                     aria-pressed={activeBold}
                 >
                     <Bold size={14} />
@@ -215,10 +215,10 @@ function CompactToolbar({
                         type="button"
                         onClick={() => onFontSize(size.value)}
                         className={`${btnBase} font-black text-white/70 hover:bg-white/10 ${COMPACT_SIZE_GLYPHS[size.value] ?? 'text-[13px]'}`}
-                        aria-label={`حجم الخط ${size.label}`}
+                        aria-label={`╪ص╪ش┘à ╪د┘╪«╪╖ ${size.label}`}
                         title={size.label}
                     >
-                        أ
+                        ╪ث
                     </button>
                 ))}
                 <span className="mx-1 h-4 w-px shrink-0 bg-white/10" aria-hidden />
@@ -228,7 +228,7 @@ function CompactToolbar({
                         type="button"
                         onClick={() => onToggleForeColor(color)}
                         className={`${btnBase} hover:bg-white/10`}
-                        aria-label={`لون النص ${color}`}
+                        aria-label={`┘┘ê┘ ╪د┘┘╪╡ ${color}`}
                         aria-pressed={activeForeColor === color}
                     >
                         <span
@@ -250,9 +250,9 @@ function CompactToolbar({
                         type="button"
                         onClick={() => onApplyHighlightColor(color)}
                         className={`${btnBase} hover:bg-white/10`}
-                        aria-label={`تأشير ${i + 1}`}
+                        aria-label={`╪ز╪ث╪┤┘è╪▒ ${i + 1}`}
                         aria-pressed={activeHighlightColor === color}
-                        title="حدّد النص ثم اضغط للتأشير"
+                        title="╪ص╪»┘ّ╪» ╪د┘┘╪╡ ╪س┘à ╪د╪╢╪║╪╖ ┘┘╪ز╪ث╪┤┘è╪▒"
                     >
                         <span
                             className={`h-4 w-4 rounded border transition-transform ${
@@ -269,8 +269,8 @@ function CompactToolbar({
                     type="button"
                     onClick={onClearHighlight}
                     className={`${btnBase} text-white/50 hover:bg-white/10 hover:text-white/85`}
-                    aria-label="إزالة التأشير"
-                    title="إزالة التأشير من النص المحدّد"
+                    aria-label="╪ح╪▓╪د┘╪ر ╪د┘╪ز╪ث╪┤┘è╪▒"
+                    title="╪ح╪▓╪د┘╪ر ╪د┘╪ز╪ث╪┤┘è╪▒ ┘à┘ ╪د┘┘╪╡ ╪د┘┘à╪ص╪»┘ّ╪»"
                 >
                     <Eraser size={13} />
                 </button>
@@ -315,14 +315,14 @@ export function LegalRichTextEditorToolbar({
         <div
             className="flex flex-wrap items-center gap-1.5 p-2 rounded-xl border border-white/[0.10] bg-[#0A0F1C]/60 backdrop-blur-sm"
             role="toolbar"
-            aria-label="أدوات تنسيق النص"
+            aria-label="╪ث╪»┘ê╪د╪ز ╪ز┘╪│┘è┘é ╪د┘┘╪╡"
         >
             <button
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onToggleBold}
                 className={`${REPO_TOUCH_ICON} rounded-lg hover:bg-white/10 ${activeBold ? 'bg-[#E6C673]/15 text-[#E6C673]' : 'text-white/80'}`}
-                aria-label="عريض"
+                aria-label="╪╣╪▒┘è╪╢"
                 aria-pressed={activeBold}
             >
                 <Bold size={16} />
@@ -349,7 +349,7 @@ export function LegalRichTextEditorToolbar({
                         activeForeColor === color ? 'border-[#E6C673] ring-2 ring-[#E6C673]/40' : 'border-white/20'
                     } touch-manipulation`}
                     style={{ background: color }}
-                    aria-label={`لون النص ${color}`}
+                    aria-label={`┘┘ê┘ ╪د┘┘╪╡ ${color}`}
                     aria-pressed={activeForeColor === color}
                 />
             ))}
@@ -367,9 +367,9 @@ export function LegalRichTextEditorToolbar({
                             : 'border-white/20 hover:border-white/35'
                     }`}
                     style={{ background: color }}
-                    aria-label={`تأشير ${i + 1}`}
+                    aria-label={`╪ز╪ث╪┤┘è╪▒ ${i + 1}`}
                     aria-pressed={activeHighlightColor === color}
-                    title="حدّد النص ثم اضغط للتأشير — أو فعّل وضع التأشير للكتابة — اضغط مجدداً لإيقافه"
+                    title="╪ص╪»┘ّ╪» ╪د┘┘╪╡ ╪س┘à ╪د╪╢╪║╪╖ ┘┘╪ز╪ث╪┤┘è╪▒ ظ¤ ╪ث┘ê ┘╪╣┘ّ┘ ┘ê╪╢╪╣ ╪د┘╪ز╪ث╪┤┘è╪▒ ┘┘┘â╪ز╪د╪ذ╪ر ظ¤ ╪د╪╢╪║╪╖ ┘à╪ش╪»╪»╪د┘ï ┘╪ح┘è┘é╪د┘┘ç"
                 />
             ))}
             <button
@@ -377,8 +377,8 @@ export function LegalRichTextEditorToolbar({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={onClearHighlight}
                 className={`${REPO_TOUCH_ICON} rounded-lg border border-white/15 text-white/55 hover:text-white/85 hover:bg-white/10 transition-colors`}
-                aria-label="إزالة التأشير"
-                title="إزالة التأشير من النص المحدّد"
+                aria-label="╪ح╪▓╪د┘╪ر ╪د┘╪ز╪ث╪┤┘è╪▒"
+                title="╪ح╪▓╪د┘╪ر ╪د┘╪ز╪ث╪┤┘è╪▒ ┘à┘ ╪د┘┘╪╡ ╪د┘┘à╪ص╪»┘ّ╪»"
             >
                 <Eraser size={14} />
             </button>

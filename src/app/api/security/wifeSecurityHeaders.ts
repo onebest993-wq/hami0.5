@@ -1,10 +1,14 @@
 import { buildContentSecurityPolicy, resolveCspMode } from './contentSecurityPolicy';
 
+/** ترويسة واحدة — يجب تطابق vercel.json و public/_headers (انظر deployHeadersParity.test) */
+export const HAMI_PERMISSIONS_POLICY =
+    'geolocation=(), microphone=(self), camera=(self), payment=(), usb=(), publickey-credentials-get=(self), publickey-credentials-create=(self)';
+
 const BASE_SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'geolocation=(), microphone=(), camera=(), payment=(), usb=()',
+  'Permissions-Policy': HAMI_PERMISSIONS_POLICY,
   'Cross-Origin-Opener-Policy': 'same-origin',
   'Cross-Origin-Resource-Policy': 'same-site',
   'X-XSS-Protection': '0',

@@ -23,6 +23,7 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
 
 vi.mock('@/app/modules/transactionsThreading/store', () => ({
     warmTransactionsThreadingStore: (...args: unknown[]) => warmTransactionsThreadingStore(...args),
+    ensureTransactionsUserBound: vi.fn(),
 }));
 
 describe('transactionsIntentWarm', () => {

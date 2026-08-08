@@ -32,12 +32,26 @@ export function useHomeHubHorizonSync({
     }, [carouselTotal, horizonCounts, setActiveFilter]);
 
     useEffect(() => {
+        if (activeFilter === 'near') {
+            setActiveFilter('upcoming');
+        }
+    }, [activeFilter, setActiveFilter]);
+
+    useEffect(() => {
         const prev = prevHorizonCountsRef.current;
         prevHorizonCountsRef.current = horizonCounts;
         if (!horizonInitRef.current || carouselTotal === 0) return;
 
-        const hadItems = prev[activeFilter] > 0;
-        const nowEmpty = horizonCounts[activeFilter] === 0;
+        const hadItems =
+            activeFilter !== 'urgent' &&
+            activeFilter !== 'near' &&
+            prev[activeFilter] > 0;
+        const nowEmpty =
+            activeFilter === 'urgent'
+                ? horizonCounts.urgent === 0
+                : activeFilter === 'near' || activeFilter === 'upcoming'
+                  ? horizonCounts.upcoming === 0
+                  : horizonCounts[activeFilter] === 0;
         if (hadItems && nowEmpty) {
             const next = syncHorizonFilterIfEmpty(horizonCounts, activeFilter);
             if (next) setActiveFilter(next);

@@ -1,5 +1,5 @@
-import React from 'react';
-import { ArrowRightLeft, ChevronDown, Clock } from 'lucide-react';
+import React, { useEffect, useMemo } from 'react';
+import { ArrowRightLeft, ChevronDown, Clock } from '@/app/components/ui/lucideIcons';
 import { SmartHeader } from '../parts/SmartHeader';
 import { ToDoList } from '../parts/ToDoList';
 import { SessionAndRequestsHub } from '../parts/SessionAndRequestsHub';
@@ -11,14 +11,20 @@ import { storedFastTrackStatus } from '../smartFile/fastTrackStatus';
 import { buildSessionRecordPayload, isOpponentProceedingsEvent, isSessionTimelineEvent } from '../smartFile/sessionRecordEngine';
 import { pickNonemptyString, readFileDetailsField } from './mainPanel/smartFileMainPanelUtils';
 import { useSmartFileMainPanelLayout } from './mainPanel/useSmartFileMainPanelLayout';
+import { SparkLawsuitNudgeSlot } from '@/app/spark/ui/SparkLawsuitNudgeSlot';
+import { SparkVaultDocOpenBridge } from '@/app/spark/ui/SparkVaultDocOpenBridge';
+import { SPARK_LAWSUIT_EXPAND_TIMELINE_EVENT } from '@/app/spark/focus/sparkLawsuitFocus';
 import { SmartFileStatusBanners } from './mainPanel/SmartFileStatusBanners';
 import { SmartFileAppealDeadlineBanner } from './mainPanel/SmartFileAppealDeadlineBanner';
 import { SmartFileStageFooterBar } from './mainPanel/SmartFileStageFooterBar';
+import { CaseLinkUnlinkButton } from '../parts/CaseLinkUnlinkButton';
 import { isCassationStageName } from '../smartFile/judgmentTypes';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { PersonalStatusDossierBody } from '@/app/components/lawyer/personal-status/PersonalStatusDossierBody';
 export type { SmartFileMainPanelProps } from './mainPanel/smartFileMainPanelTypes';
 import type { SmartFileMainPanelProps } from './mainPanel/smartFileMainPanelTypes';
+import { prefetchLegalActionsModalChunks } from '../prefetchLegalActionsModalChunks';
+import { resolveViewOnlyQuickActionIds } from '../smartFile/viewOnlyQuickActions';
 
 export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
     const {
@@ -42,8 +48,9 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         onTouchStart,
         onTouchMove,
         onTouchEnd,
-        handleResumeAbandonment,
         handleResume,
+        setShowPauseResumeModal,
+        setShowAbandonmentRenewalModal,
         handleToggleClient,
         handleStageSelect,
         handleInterruptionToggle,
@@ -57,6 +64,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         handleOpenDefendantCassationAppeal,
         handleDefaultObjection,
         handleWaiveObjection,
+        handleOpponentAppealWaived,
         handleOtherAppeals,
         onAbsentJudgmentNotification,
         onOpponentAbsentObjection,
@@ -98,7 +106,29 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         stepperStages,
         currentStageId,
         onOpenLinkedFile,
+        onUnlinkCaseLink,
     } = p;
+    const isCassationStage = isCassationStageName(displayStage?.stageName);
+    const isCaseLinkViewOnly = Boolean(p.isCaseLinkViewOnly);
+    const interactionLocked = isViewingArchived || isCaseLinkViewOnly;
+    const viewOnlyQuickActionIds = useMemo(
+        () => (isCaseLinkViewOnly ? resolveViewOnlyQuickActionIds(displayTimeline) : undefined),
+        [isCaseLinkViewOnly, displayTimeline],
+    );
+    const viewOnlySessionHubVisible = useMemo(() => {
+        if (!isCaseLinkViewOnly) return true;
+        const hasSessions = (displayTimeline ?? []).some(
+            (e) => isSessionTimelineEvent(e) && !isOpponentProceedingsEvent(e),
+        );
+        const hasPetitions = (displayStage?.fastTrackPetitions ?? []).length > 0;
+        const hasAttachments = (displayStage?.attachments ?? []).length > 0;
+        return hasSessions || hasPetitions || hasAttachments;
+    }, [isCaseLinkViewOnly, displayTimeline, displayStage]);
+    const showWorkflowSections = !isViewingArchived && !isCassationStage;
+    const showWorkflowPanels =
+        showWorkflowSections && (!displayStage?.isPleadingsClosed || isCaseLinkViewOnly);
+    const showSessionHubInStageTools =
+        showWorkflowPanels && viewOnlySessionHubVisible && Boolean(handleAddAction);
     const {
         incidentalParentLink,
         linkedChildIncidentalCases,
@@ -117,6 +147,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         showFirstInstanceIncidentalUi,
         showAbsentJudgmentFooter,
         showOpponentAppealBtnEffective,
+        showPostJudgmentAppealFooter,
         showAppealStageFooter,
         showPetitionVoidFooter,
         showPleadingCloseFooter,
@@ -125,9 +156,16 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
         opponentAppealFooterPanel,
         appealStageFooterPanel,
         petitionVoidFooterPanel,
+        postJudgmentAppealFooterPanel,
+        showFlowStatusFooter,
+        flowStatusFooterPanel,
     } = useSmartFileMainPanelLayout(p);
 
-    const isCassationStage = isCassationStageName(displayStage?.stageName);
+    useEffect(() => {
+        const onExpandTimeline = () => setIsTimelineExpanded(true);
+        window.addEventListener(SPARK_LAWSUIT_EXPAND_TIMELINE_EVENT, onExpandTimeline);
+        return () => window.removeEventListener(SPARK_LAWSUIT_EXPAND_TIMELINE_EVENT, onExpandTimeline);
+    }, [setIsTimelineExpanded]);
 
     if (isPersonalStatusFile(file)) {
         return (
@@ -155,11 +193,29 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                             <SmartFileStatusBanners
                                 displayStage={displayStage}
                                 status={status}
-                                isViewingArchived={isViewingArchived}
-                                handleResumeAbandonment={handleResumeAbandonment}
-                                setShowResumeInterruptionModal={setShowResumeInterruptionModal}
-                                handleResume={handleResume}
+                                interruptionData={interruptionData}
                             />
+
+                            <SparkLawsuitNudgeSlot
+                                file={file}
+                                parentData={parentData}
+                                displayStage={displayStage}
+                                stages={stages}
+                                displayTimeline={displayTimeline}
+                                status={status}
+                                disabled={interactionLocked}
+                                onAbsentJudgmentNotification={onAbsentJudgmentNotification}
+                                onOpponentAbsentObjection={onOpponentAbsentObjection}
+                                onAbandonmentRenewal={() => setShowAbandonmentRenewalModal(true)}
+                                onAttachDocument={() => setShowDocModal(true)}
+                                onOpenAppeal={() => setShowAppealModal(true)}
+                                onResumeInterruption={() => setShowResumeInterruptionModal(true)}
+                                onResumePause={() => setShowPauseResumeModal(true)}
+                                onReviewPetitionVoid={() => setShowJudgmentModal(true)}
+                                onReviewIncidental={() => setShowIncidentalModal(true)}
+                                onCrossAppeal={() => setShowCrossAppealModal(true)}
+                            />
+                            <SparkVaultDocOpenBridge enabled={!interactionLocked} />
 
                             <SmartHeader 
                                 formData={{
@@ -192,7 +248,7 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 }}
                                 caseType={String(file?.type ?? displayStage?.type ?? 'غير محدد')}
                                 representedParty={parentData.representedParty}
-                                onToggleClient={!isViewingArchived ? handleToggleClient : undefined}
+                                onToggleClient={!interactionLocked ? handleToggleClient : undefined}
                                 incidentalCases={displayStage?.incidentalCases || []}
                                 stages={stepperStages}
                                 crossAppealEligibility={crossAppealEligibility}
@@ -201,25 +257,25 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 stageHistory={stages.filter(s => s.status === 'completed' || s.status === 'locked')}
                                 isPaused={isPaused}
                                 pauseReason={pauseReason}
-                                onResume={!isViewingArchived ? handleResume : undefined}
-                                onPause={!isViewingArchived ? () => setShowPauseModal(true) : undefined}
+                                onResume={!interactionLocked ? () => setShowPauseResumeModal(true) : undefined}
+                                onPause={!interactionLocked ? () => setShowPauseModal(true) : undefined}
                                 status={status}
                                 isInterrupted={isInterrupted}
                                 interruptionData={interruptionData}
                                 linkedCaseNo={consolidatedSecondaryLabel || linkedCaseNo}
-                                onInterrupt={!isViewingArchived ? handleInterruptionToggle : undefined}
-                                onAbandon={!isViewingArchived ? handleAbandonment : undefined}
-                                onNotification={!isViewingArchived ? () => setShowNotificationModal(true) : undefined}
-                                isReadOnly={isViewingArchived}
+                                onInterrupt={!interactionLocked ? handleInterruptionToggle : undefined}
+                                onAbandon={!interactionLocked ? handleAbandonment : undefined}
+                                onNotification={!interactionLocked ? () => setShowNotificationModal(true) : undefined}
+                                isReadOnly={interactionLocked}
                                 hasCrossAppeal={displayStage?.hasCrossAppeal}
-                                onCancelCrossAppeal={!isViewingArchived ? handleCancelCrossAppeal : undefined}
+                                onCancelCrossAppeal={!interactionLocked ? handleCancelCrossAppeal : undefined}
                                 onAddCrossAppeal={
-                                    !isViewingArchived && crossAppealEligibility.showButton
+                                    !interactionLocked && crossAppealEligibility.showButton
                                         ? () => setShowCrossAppealModal(true)
                                         : undefined
                                 }
                                 notificationStatus={displayStage?.parties?.[1]?.notificationStatus || displayStage?.defendantNotificationStatus}
-                                onToggleNotification={!isViewingArchived ? handleToggleNotification : undefined}
+                                onToggleNotification={!interactionLocked ? handleToggleNotification : undefined}
                                 // Cassation Props
                                 onCassationDecision={
                                     !isViewingArchived
@@ -230,20 +286,20 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 // Pleadings Lock Props
                                 isPleadingsClosed={displayStage?.isPleadingsClosed}
                                 wasReopened={displayStage?.wasReopened}
-                                onClosePleadings={!isViewingArchived ? handleClosePleadings : undefined}
-                                onReopenPleadings={!isViewingArchived ? handleReopenPleadings : undefined}
-                                onCassationAppeal={!isViewingArchived ? handleOpenDefendantCassationAppeal : undefined}
-                                onRegisterOpponentAppeal={!isViewingArchived ? () => setShowAppealModal(true) : undefined}
+                                onClosePleadings={!interactionLocked ? handleClosePleadings : undefined}
+                                onReopenPleadings={!interactionLocked ? handleReopenPleadings : undefined}
+                                onCassationAppeal={!interactionLocked ? handleOpenDefendantCassationAppeal : undefined}
+                                onRegisterOpponentAppeal={!interactionLocked ? () => setShowAppealModal(true) : undefined}
                                 hasJudgment={Boolean(displayStage?.finalDecision || displayStage?.isPleadingsClosed)}
                                 // Default Judgment Props
-                                onDefaultObjection={!isViewingArchived ? handleDefaultObjection : undefined}
-                                onWaiveObjection={!isViewingArchived ? handleWaiveObjection : undefined}
-                                onOtherAppeals={!isViewingArchived ? handleOtherAppeals : undefined}
+                                onDefaultObjection={!interactionLocked ? handleDefaultObjection : undefined}
+                                onWaiveObjection={!interactionLocked ? handleWaiveObjection : undefined}
+                                onOtherAppeals={!interactionLocked ? handleOtherAppeals : undefined}
                                 provisionalOrders={displayStage?.provisionalOrders || []}
-                                onAddProvisionalOrder={!isViewingArchived ? () => setShowProvisionalOrderModal(true) : undefined}
+                                onAddProvisionalOrder={!interactionLocked ? () => setShowProvisionalOrderModal(true) : undefined}
                                 thirdParties={displayStage?.thirdParties || []}
                                 onUpdateIncidentalEntryDecision={
-                                    !isViewingArchived ? handleUpdateIncidentalEntryDecision : undefined
+                                    !interactionLocked ? handleUpdateIncidentalEntryDecision : undefined
                                 }
                             />
                             
@@ -252,6 +308,75 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 showOpponentAppealBtn={showOpponentAppealBtn}
                                 showAbsentJudgmentFooter={showAbsentJudgmentFooter}
                             />
+
+                            {/* ربط الدعاوى — زر التنقل على الإضبارة الطالبة فقط */}
+                            {!isCaseLinkViewOnly && internalCaseLink && onOpenLinkedFile ? (
+                                <div className="mt-2 space-y-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (
+                                                internalCaseLink.peerDossierKind === 'criminal' &&
+                                                internalCaseLink.peerCriminalId
+                                            ) {
+                                                onOpenLinkedFile(0, internalCaseLink.peerCriminalId);
+                                                return;
+                                            }
+                                            if (internalCaseLink.peerFileId != null) {
+                                                onOpenLinkedFile(internalCaseLink.peerFileId);
+                                            }
+                                        }}
+                                        className="w-full flex items-center justify-between gap-2 rounded-xl border border-sky-400/25 bg-sky-400/8 px-3 py-2.5 text-right hover:bg-sky-400/12 transition-colors"
+                                    >
+                                        <ArrowRightLeft size={14} className="text-sky-300 shrink-0" />
+                                        <span className="text-xs font-bold text-sky-200">
+                                            الانتقال إلى{' '}
+                                            {internalCaseLink.peerDossierKind === 'criminal'
+                                                ? 'الإضبارة الجزائية'
+                                                : 'الدعوى'}{' '}
+                                            المربوطة ({internalCaseLink.peerCaseNo || '—'}) — للاطلاع
+                                        </span>
+                                    </button>
+                                    {onUnlinkCaseLink ? (
+                                        <CaseLinkUnlinkButton
+                                            peerCaseNo={internalCaseLink.peerCaseNo}
+                                            originCaseNo={primaryCaseNo}
+                                            peerFileId={internalCaseLink.peerFileId}
+                                            peerCriminalId={internalCaseLink.peerCriminalId}
+                                            onConfirm={onUnlinkCaseLink}
+                                        />
+                                    ) : null}
+                                    {externalCaseLinks.map((link) => (
+                                        <div
+                                            key={link.id}
+                                            className="rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] px-3 py-2.5 text-right"
+                                        >
+                                            <p className="text-[10px] text-white/45 mb-0.5">دعوى مربوطة (مرجع)</p>
+                                            <p className="text-xs font-bold text-white/75">{link.peerCaseNo}</p>
+                                            <p className="text-[10px] text-white/40 mt-1">تاريخ الربط: {link.linkDate}</p>
+                                            {link.reason ? (
+                                                <p className="text-[10px] text-white/50 mt-0.5">{link.reason}</p>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : externalCaseLinks.length > 0 ? (
+                                <div className="mt-2 space-y-2">
+                                    {externalCaseLinks.map((link) => (
+                                        <div
+                                            key={link.id}
+                                            className="rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] px-3 py-2.5 text-right"
+                                        >
+                                            <p className="text-[10px] text-white/45 mb-0.5">دعوى مربوطة (مرجع)</p>
+                                            <p className="text-xs font-bold text-white/75">{link.peerCaseNo}</p>
+                                            <p className="text-[10px] text-white/40 mt-1">تاريخ الربط: {link.linkDate}</p>
+                                            {link.reason ? (
+                                                <p className="text-[10px] text-white/50 mt-0.5">{link.reason}</p>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : null}
 
                             {/* 2. Incidental Cases — مرحلة البداءة فقط */}
                             {showFirstInstanceIncidentalUi ? (
@@ -265,18 +390,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                             <ArrowRightLeft size={14} className="text-[#E6C673] shrink-0" />
                                             <span className="text-xs font-bold text-[#E6C673]">
                                                 الانتقال إلى الدعوى الأم ({incidentalParentLink.parentCaseNo || '—'})
-                                            </span>
-                                        </button>
-                                    ) : null}
-                                    {internalCaseLink && onOpenLinkedFile ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => onOpenLinkedFile(internalCaseLink.peerFileId!)}
-                                            className="w-full flex items-center justify-between gap-2 rounded-xl border border-sky-400/25 bg-sky-400/8 px-3 py-2.5 text-right hover:bg-sky-400/12 transition-colors"
-                                        >
-                                            <ArrowRightLeft size={14} className="text-sky-300 shrink-0" />
-                                            <span className="text-xs font-bold text-sky-200">
-                                                الانتقال إلى الدعوى المربوطة ({internalCaseLink.peerCaseNo || '—'})
                                             </span>
                                         </button>
                                     ) : null}
@@ -301,19 +414,6 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                             ) : null}
                                         </div>
                                     ))}
-                                    {externalCaseLinks.map((link) => (
-                                        <div
-                                            key={link.id}
-                                            className="rounded-xl border border-dashed border-white/[0.14] bg-white/[0.02] px-3 py-2.5 text-right"
-                                        >
-                                            <p className="text-[10px] text-white/45 mb-0.5">دعوى مربوطة (مرجع)</p>
-                                            <p className="text-xs font-bold text-white/75">{link.peerCaseNo}</p>
-                                            <p className="text-[10px] text-white/40 mt-1">تاريخ الربط: {link.linkDate}</p>
-                                            {link.reason ? (
-                                                <p className="text-[10px] text-white/50 mt-0.5">{link.reason}</p>
-                                            ) : null}
-                                        </div>
-                                    ))}
                                     {linkedChildIncidentalCases.length > 0 && onOpenLinkedFile
                                         ? linkedChildIncidentalCases.map((linkedCase) => (
                                               <button
@@ -334,33 +434,63 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                         : null}
                                     <IncidentalCasesManager 
                                         cases={displayStage?.incidentalCases || []} 
-                                        onResolve={!isViewingArchived ? handleResolveIncidentalCase : undefined}
+                                        onResolve={!interactionLocked ? handleResolveIncidentalCase : undefined}
                                         onOpenLinkedFile={onOpenLinkedFile}
                                     />
                                 </div>
                             ) : null}
 
                             {/* 4. Quick Actions */}
-                            {!isViewingArchived && !isCassationStage && (
+                            {showWorkflowSections && (
                                 <div className="print:hidden">
                                     <QuickActions
                                         variant={quickActionsVariant}
+                                        viewOnlyActionIds={viewOnlyQuickActionIds}
                                         onAction={handleQuickAction}
-                                        onPause={() => setShowPauseModal(true)}
-                                        onOpenLegalActions={() => setIsActionsMenuOpen(true)}
+                                        onOpenLegalActions={() => {
+                                            prefetchLegalActionsModalChunks();
+                                            setIsActionsMenuOpen(true);
+                                        }}
                                     />
                                 </div>
                             )}
 
-                            {/* Civil law reference — القضاء المدني فقط */}
-                            {!isViewingArchived && !isCassationStage && (
-                                <CivilLawReferenceHub readOnly={isViewingArchived} />
+                            {/* أدوات المرحلة — مرجع قانوني + محضر في صف واحد */}
+                            {showWorkflowSections && !isCaseLinkViewOnly && (
+                                <div
+                                    className={`${showSessionHubInStageTools ? 'grid grid-cols-2' : ''} gap-2 mb-2 print:hidden`}
+                                >
+                                    <CivilLawReferenceHub compact />
+                                    {showSessionHubInStageTools ? (
+                                        <SessionAndRequestsHub
+                                            compose="session-only"
+                                            compactSessionTrigger
+                                            readOnly={isCaseLinkViewOnly}
+                                            visualVariant="civil"
+                                            timeline={displayTimeline}
+                                            editingSessionRecord={
+                                                editingEvent
+                                                    && isSessionTimelineEvent(editingEvent)
+                                                    && !isOpponentProceedingsEvent(editingEvent)
+                                                    ? editingEvent
+                                                    : null
+                                            }
+                                            onCancelEditSessionRecord={() => setEditingEvent(null)}
+                                            onEditSessionRecord={(event) => setEditingEvent(event)}
+                                            onSubmitSessionRecord={(data) => {
+                                                handleAddAction(buildSessionRecordPayload(data, data.id));
+                                            }}
+                                        />
+                                    ) : null}
+                                </div>
                             )}
 
-                            {/* 5. Session record + Requests — فقط أثناء المرافعة المفتوحة */}
-                            {!isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed && (
+                            {/* الطلبات — لوحة مضغوطة قابلة للطي */}
+                            {showWorkflowPanels && viewOnlySessionHubVisible && isCaseLinkViewOnly && (
                                 <SessionAndRequestsHub
-                                    readOnly={isViewingArchived}
+                                    compose="session-only"
+                                    compactSessionTrigger
+                                    readOnly
                                     visualVariant="civil"
                                     timeline={displayTimeline}
                                     editingSessionRecord={
@@ -371,9 +501,16 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                             : null
                                     }
                                     onCancelEditSessionRecord={() => setEditingEvent(null)}
-                                    onSubmitSessionRecord={(data) => {
-                                        handleAddAction(buildSessionRecordPayload(data, data.id));
-                                    }}
+                                    onEditSessionRecord={(event) => setEditingEvent(event)}
+                                />
+                            )}
+
+                            {showWorkflowPanels && viewOnlySessionHubVisible && (
+                                <SessionAndRequestsHub
+                                    compose="requests-only"
+                                    readOnly={isCaseLinkViewOnly}
+                                    visualVariant="civil"
+                                    timeline={displayTimeline}
                                     onAddFastTrack={(preset) => {
                                         setEditingFastTrack(
                                             preset?.requestType
@@ -408,12 +545,13 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 />
                             )}
 
-                            {/* 6. To-Do List - CRITICAL: Display viewedStage tasks - Hide in Cassation OR Pleadings Closed */}
-                            {!isViewingArchived && !isCassationStage && !displayStage?.isPleadingsClosed && (
-                                <div className="mt-4 pt-1">
-                                <ToDoList 
+                            {showWorkflowPanels
+                                && (!isCaseLinkViewOnly || (displayStage?.tasks?.length ?? 0) > 0) && (
+                                <div className="mt-2">
+                                <ToDoList
                                     tasks={displayStage?.tasks || []} 
                                     visualVariant="civil"
+                                    readOnly={isCaseLinkViewOnly}
                                     onAddTask={() => setShowTaskModal(true)}
                                     onToggleTask={handleToggleTask}
                                     onAppealBriefFile={handleAppealBriefFile}
@@ -424,8 +562,8 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                 </div>
                             )}
 
-                            {/* 6. Timeline - collapsible */}
-                            <div className="mb-4 print:block">
+                            {/* 7. Timeline - collapsible */}
+                            <div className="mb-4 print:block" data-spark-focus="lawsuit_timeline">
                                 <button
                                     type="button"
                                     onClick={() => setIsTimelineExpanded((v) => !v)}
@@ -455,7 +593,30 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                                         <TimelineFeed
                                             events={displayTimeline}
                                             visualVariant="civil"
-                                            onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
+                                            onDelete={!interactionLocked ? handleDeleteEvent : undefined}
+                                            onEventClick={
+                                                !interactionLocked
+                                                    ? (event) => {
+                                                          if (
+                                                              isSessionTimelineEvent(event)
+                                                              && !isOpponentProceedingsEvent(event)
+                                                          ) {
+                                                              setEditingEvent(event);
+                                                          } else {
+                                                              handleEditEvent(String(event.id));
+                                                          }
+                                                      }
+                                                    : isCaseLinkViewOnly
+                                                      ? (event) => {
+                                                            if (
+                                                                isSessionTimelineEvent(event)
+                                                                && !isOpponentProceedingsEvent(event)
+                                                            ) {
+                                                                setEditingEvent(event);
+                                                            }
+                                                        }
+                                                      : undefined
+                                            }
                                         />
                                     </div>
                                 ) : null}
@@ -463,11 +624,12 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                         </div>
 
                             <SmartFileStageFooterBar
-                            isViewingArchived={isViewingArchived}
-                            showOpponentAppealBtnEffective={showOpponentAppealBtnEffective}
-                            showAbsentJudgmentFooter={showAbsentJudgmentFooter}
-                            showAppealStageFooter={showAppealStageFooter}
-                            showPetitionVoidFooter={showPetitionVoidFooter}
+                            isViewingArchived={interactionLocked}
+                            showOpponentAppealBtnEffective={isCaseLinkViewOnly ? false : showOpponentAppealBtnEffective}
+                            showAbsentJudgmentFooter={isCaseLinkViewOnly ? false : showAbsentJudgmentFooter}
+                            showPostJudgmentAppealFooter={isCaseLinkViewOnly ? false : showPostJudgmentAppealFooter}
+                            showAppealStageFooter={isCaseLinkViewOnly ? false : showAppealStageFooter}
+                            showPetitionVoidFooter={isCaseLinkViewOnly ? false : showPetitionVoidFooter}
                             displayStage={displayStage}
                             crossAppealEligibility={crossAppealEligibility}
                             setShowCrossAppealModal={setShowCrossAppealModal}
@@ -475,7 +637,10 @@ export function SmartFileMainPanel(p: SmartFileMainPanelProps) {
                             absentJudgmentFooterPanel={absentJudgmentFooterPanel}
                             opponentAppealFooterPanel={opponentAppealFooterPanel}
                             appealStageFooterPanel={appealStageFooterPanel}
+                            postJudgmentAppealFooterPanel={postJudgmentAppealFooterPanel}
                             showPleadingCloseFooter={showPleadingCloseFooter}
+                            showFlowStatusFooter={showFlowStatusFooter}
+                            flowStatusFooterPanel={flowStatusFooterPanel}
                             setShowJudgmentModal={setShowJudgmentModal}
                             />
         </div>

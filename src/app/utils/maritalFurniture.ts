@@ -57,6 +57,10 @@ export function sumDeliveredMaritalFurnitureTotal(items: MaritalFurnitureItem[])
     }, 0);
 }
 
+export function sumRemainingMaritalFurnitureListTotal(items: MaritalFurnitureItem[]): number {
+    return Math.max(0, sumMaritalFurnitureTotal(items) - sumDeliveredMaritalFurnitureTotal(items));
+}
+
 /** هل سُجّلت حالة التسليم (من جرد «تسليم أثاث») */
 export function isMaritalFurnitureDeliveryStatusRecorded(
     data:
@@ -169,7 +173,13 @@ export function resolveMaritalFurnitureFinancialPrincipal(
         | undefined
 ): number {
     if (!isMaritalFurnitureDeliveryStatusRecorded(data)) return 0;
-    return sumUndeliveredMaritalFurnitureTotal(readMaritalFurnitureItems(data));
+    const items = readMaritalFurnitureItems(data);
+    const fromItems = sumUndeliveredMaritalFurnitureTotal(items);
+    if (fromItems > 0) return fromItems;
+    return Math.max(
+        Math.round(Number(data?.debtAmount) || 0),
+        Math.round(Number(data?.totalAmount) || 0),
+    );
 }
 
 export function countMaritalFurnitureDeliveryStatus(items: MaritalFurnitureItem[]): {

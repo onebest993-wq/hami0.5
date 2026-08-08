@@ -10,6 +10,15 @@ describe('resolveDecisionsStorageExecutionId', () => {
         expect(normalizeDecisionsExecutionIdProp('default')).toBeUndefined();
         expect(normalizeDecisionsExecutionIdProp('real-id')).toBe('real-id');
     });
+    it('يفضّل معرّف الأب حتى عندما executionId هو الإضبارة الفرعية', () => {
+        expect(
+            resolveDecisionsStorageExecutionId('sub-uuid', {
+                id: 'sub-uuid',
+                parentDossierId: 'parent-uuid',
+            }),
+        ).toBe('parent-uuid');
+    });
+
     it('يفضّل معرّف الأب على معرّف الإضبارة الفرعية', () => {
         expect(
             resolveDecisionsStorageExecutionId('parent-uuid', {

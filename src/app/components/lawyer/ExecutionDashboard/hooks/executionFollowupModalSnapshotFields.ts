@@ -1,8 +1,10 @@
-import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../followupSnapshotFieldKeys';
-import type { FollowupModalSnapshot } from '../followupModalContext';
+import {
+    EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS,
+    type FollowupModalSnapshot,
+} from '../followupSnapshotFieldKeys';
 
 export function pickExecutionFollowupModalSnapshotFields(
-    fields: FollowupModalSnapshot,
+    fields: Record<string, unknown>,
 ): FollowupModalSnapshot {
     const out: FollowupModalSnapshot = {};
     for (const key of EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS) {

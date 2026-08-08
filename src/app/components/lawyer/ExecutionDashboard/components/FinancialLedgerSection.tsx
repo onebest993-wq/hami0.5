@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React from 'react';
 import { motion } from 'motion/react';
-import { DollarSign, FileText, History, Wallet, X } from 'lucide-react';
+import { DollarSign, FileText, History, Wallet, X } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile } from '@/app/types/execution';
 import { buildExecutionClaimBreakdown } from '@/app/components/lawyer/ExecutionCreationView/hooks/executionFormUtils';
 

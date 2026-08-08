@@ -64,12 +64,12 @@ export function HamiSettingsHost({
     return createPortal(
         <div
             className={settingsHostLayerClass(open, keepAlive)}
-            style={{ backgroundColor: 'var(--hami-surface-bg, #0B1021)' }}
+            style={{ backgroundColor: '#0B1021' }}
             data-testid="hami-settings-overlay-host"
             aria-hidden={!open}
             {...inertProps(!open)}
         >
-            <HamiSettings {...props} />
+            <HamiSettings {...props} keepAlive={keepAlive} />
         </div>,
         document.body,
     );

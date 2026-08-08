@@ -99,6 +99,11 @@ html[data-hami-lite='1'] [data-hami-lawyer-dashboard] {
 }
 
 /* Lite — إخفاء طبقات مكلفة؛ الزخارف المخصّصة للبطاقة تبقى (اختيار صريح) */
+html[data-hami-lite='1'] .hami-home-block-pattern {
+    display: block !important;
+    opacity: inherit;
+}
+
 html[data-hami-lite='1'] .hami-home-glass-decor,
 html[data-hami-lite='1'] .hami-wallpaper-scrim,
 html[data-hami-lite='1'] .hami-hub-icon-glow,
@@ -127,7 +132,14 @@ html[data-hami-animations='0'] .hami-repository-overlay-layer,
 html[data-hami-animations='0'] .hami-hub-icon-badge-press,
 html[data-hami-animations='0'] .hami-hub-tile-press,
 html[data-hami-animations='0'] .hami-hub-tile--route,
-html[data-hami-animations='0'] .hami-hub-tile--hero {
+html[data-hami-animations='0'] .hami-hub-tile--hero,
+html[data-hami-animations='0'] .hami-sovereign-aurora,
+html[data-hami-animations='0'] .hami-sovereign-shine::after,
+html[data-hami-animations='0'] .hami-sovereign-breathe,
+html[data-hami-animations='0'] .hami-sovereign-float,
+html[data-hami-animations='0'] .hami-home-shimmer::after,
+html[data-hami-animations='0'] .hami-home-pulse-ring,
+html[data-hami-animations='0'] .animate-fade-in {
     transition: none !important;
     animation: none !important;
 }
@@ -140,6 +152,81 @@ html[data-hami-animations='0'] .active\:scale-\[0\.98\]:active {
 /** عند تفعيل الحركات — انتقال شاشة أوضح ليشعر المستخدم بالفرق */
 html[data-hami-animations='1']:not([data-hami-reduce-motion='1']) .hami-app-screen {
     animation: hami-screen-enter 0.35s cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+/**
+ * تباين أعلى — حرج (لا يعتمد على deferred-app/theme.css).
+ * محددات صريحة فقط — بلا [class*='…'] أو تجاوز --glass-opacity (يسبب بطء إعادة الرسم).
+ */
+html.hami-high-contrast {
+    --hami-hc-text: #ffffff;
+    --hami-hc-muted: rgba(255, 255, 255, 0.92);
+    --hami-hc-border: color-mix(in srgb, var(--hami-primary, #e6c673) 58%, rgba(255, 255, 255, 0.55));
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard],
+html.hami-high-contrast [data-hami-settings-shell] {
+    color: var(--hami-hc-text);
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] :is(
+        .text-white\/30,
+        .text-white\/40,
+        .text-white\/45,
+        .text-white\/50,
+        .text-white\/55,
+        .text-white\/60,
+        .text-white\/65,
+        .text-white\/70,
+        .text-white\/75,
+        .text-white\/80
+    ),
+html.hami-high-contrast [data-hami-settings-shell] :is(
+        .text-white\/30,
+        .text-white\/40,
+        .text-white\/45,
+        .text-white\/50,
+        .text-white\/55,
+        .text-white\/60,
+        .text-white\/65,
+        .text-white\/70,
+        .text-white\/75,
+        .text-white\/80
+    ) {
+    color: var(--hami-hc-muted) !important;
+    opacity: 1 !important;
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-white,
+html.hami-high-contrast [data-hami-settings-shell] .text-white {
+    color: var(--hami-hc-text) !important;
+}
+
+html.hami-high-contrast [data-hami-settings-shell] .text-sm.font-semibold,
+html.hami-high-contrast [data-hami-settings-shell] .text-sm.font-bold,
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-sm.font-semibold,
+html.hami-high-contrast [data-hami-lawyer-dashboard] .text-sm.font-bold {
+    font-weight: 700 !important;
+}
+
+html.hami-high-contrast [data-hami-settings-shell] .hami-setting-glass,
+html.hami-high-contrast [data-hami-settings-shell] .hami-setting-glass-inner,
+html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-sovereign-glass,
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
+    border-color: var(--hami-hc-border) !important;
+}
+
+html.hami-high-contrast [data-hami-lawyer-dashboard] .hami-home-themed-border,
+html.hami-high-contrast [data-hami-lawyer-dashboard] [data-hami-block].hami-home-themed-border {
+    border-color: var(--hami-hc-border) !important;
+}
+
+/** أداء خفيف — سطح صلب أوضح في الإعدادات */
+html[data-hami-lite='1'] [data-hami-settings-shell] .hami-setting-glass,
+html[data-hami-lite='1'] [data-hami-settings-shell] .hami-settings-header--glass::before {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8, 12, 22, 0.94) !important;
 }
 
 /**
@@ -201,4 +288,53 @@ html[data-hami-jank-guard='1'] .hami-wallpaper-layer {
 [data-hami-lawyer-dashboard] [data-hami-block='dockShell'],
 [data-hami-lawyer-dashboard] [data-hami-block='alerts'] {
     contain-intrinsic-size: auto 16rem;
+}
+
+[data-hami-lawyer-dashboard] button[data-hami-block^='dock'] {
+  isolation: isolate;
+  background-color: color-mix(in srgb, var(--hami-board-surface-bg, #0d0d1a) 92%, transparent);
+}
+
+[data-hami-lawyer-dashboard] button[data-hami-block^='dock'] .hami-home-glass-wash {
+  opacity: 0.45;
+}
+
+/** إغلاق فوري لكل الطبقات — إطار واحد بلا انتقالات CSS */
+html[data-hami-overlay-snap-close='1'] .hami-gs-layer,
+html[data-hami-overlay-snap-close='1'] [data-notification-root],
+html[data-hami-overlay-snap-close='1'] .hami-repository-overlay-layer,
+html[data-hami-overlay-snap-close='1'] [data-field-tasks-root],
+html[data-hami-overlay-snap-close='1'] .hami-settings-warm-layer,
+html[data-hami-overlay-snap-close='1'] [data-hami-profile-open],
+html[data-hami-overlay-snap-close='1'] [data-hami-schedule-open] {
+    transition: none !important;
+    animation: none !important;
+}
+
+html[data-hami-overlay-snap-close='1'] .hami-gs-layer[data-search-open='false'],
+html[data-hami-overlay-snap-close='1'] .hami-gs-layer[aria-hidden='true'] {
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/** بحث شامل — ستارة html حرجة قبل تحميل chunk البحث */
+html[data-hami-global-search-open='1']::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 279;
+    background: rgba(1, 3, 8, 0.94);
+    pointer-events: none;
+}
+
+html[data-hami-native='1'][data-hami-global-search-open='1']::before,
+html.hami-native-shell[data-hami-global-search-open='1']::before {
+    background: rgba(1, 3, 8, 0.98);
+}
+
+html[data-hami-global-search-open='1']:has(
+        [data-hami-global-search-shell] .hami-gs-layer[data-search-open='true']
+    )::before {
+    opacity: 0;
 }

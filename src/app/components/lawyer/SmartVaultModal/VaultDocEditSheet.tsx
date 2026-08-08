@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
-import { X, Save, Loader2 } from 'lucide-react';
+import { X, Save, Loader2 } from '@/app/components/ui/lucideIcons';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { VaultCategoryPicker } from '@/app/components/lawyer/SmartVaultModal/VaultCategoryPicker';
 import {

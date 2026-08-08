@@ -64,7 +64,7 @@ describe('VisitationScheduleModule', () => {
         renderModule();
 
         expect(screen.getByTestId('visitation-schedule-launcher')).toBeInTheDocument();
-        expect(screen.getByText('أحمد')).toBeInTheDocument();
+        expect(screen.getByText(/أحمد/)).toBeInTheDocument();
         expect(screen.queryByTestId('visitation-schedule-workspace')).not.toBeInTheDocument();
     });
 

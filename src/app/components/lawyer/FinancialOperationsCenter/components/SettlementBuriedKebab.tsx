@@ -1,5 +1,5 @@
 import React from 'react';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical } from '@/app/components/ui/lucideIcons';
 
 export interface SettlementBuriedKebabProps {
     onActivate: () => void;

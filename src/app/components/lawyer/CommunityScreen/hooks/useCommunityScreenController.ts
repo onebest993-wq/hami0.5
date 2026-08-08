@@ -16,6 +16,7 @@ import { useCommunityDualPostLists } from './useCommunityDualPostLists';
 import { useCommunityPostsFeed } from './useCommunityPostsFeed';
 import { useCommunityGroupsFeed } from './useCommunityGroupsFeed';
 import { useCommunityPostActions } from './useCommunityPostActions';
+import { useForumPostCommentsLive } from './useForumPostCommentsLive';
 import { useCommunityAddQuestion } from './useCommunityAddQuestion';
 import { useCommunityScreenSocialGraph } from './useCommunityScreenSocialGraph';
 import { useCommunityScreenSearchOverlay } from './useCommunityScreenSearchOverlay';
@@ -204,6 +205,14 @@ export function useCommunityScreenController({
         onThreadSubscribed: markThreadSubscribed,
         onPostDeleted: (postId) => {
             setCommentingPostId((current) => (current === postId ? null : current));
+        },
+    });
+
+    useForumPostCommentsLive({
+        postId: commentingPostId,
+        enabled: forumSurfaceOpen && Boolean(commentingPostId),
+        onPostUpdate: (postId, updater) => {
+            updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? updater(p) : p)));
         },
     });
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2 } from '@/app/components/ui/lucideIcons';
 
 export type DecisionCardTrashButtonProps = {
     onClick: () => void;

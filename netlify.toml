@@ -6,10 +6,20 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "20"
-  NPM_FLAGS = "--legacy-peer-deps"
-  # Static demo على Netlify — بدون Vercel Functions؛ يُفعّل كشف API السريع ويقلّل انتظار الجلسة
-  VITE_SHELL_AUTH_OPEN = "true"
+  NODE_VERSION = "24"
+  # لا Vercel Functions هنا، فالمصادقة تجري مع Supabase مباشرة من المتصفّح
   VITE_BFF_AUTH = "false"
+
+# VITE_SHELL_AUTH_OPEN=true يفتح الواجهة كاملةً بلا تسجيل دخول. كان مضبوطاً في
+# [build.environment] الذي يسري على كل السياقات — أي أن نطاق الإنتاج كان مفتوحاً
+# للجميع. العرض التجريبي مقصود، لكن محلّه المعاينات لا الإنتاج.
+[context.production.environment]
+  VITE_SHELL_AUTH_OPEN = "false"
+
+[context.deploy-preview.environment]
+  VITE_SHELL_AUTH_OPEN = "true"
+
+[context.branch-deploy.environment]
+  VITE_SHELL_AUTH_OPEN = "true"
 
 # SPA fallback + security headers: public/_redirects و public/_headers (تُنسَخ إلى dist عبر Vite)

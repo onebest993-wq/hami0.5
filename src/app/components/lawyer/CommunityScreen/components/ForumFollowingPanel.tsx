@@ -2,7 +2,7 @@ import React, { useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion } from 'motion/react';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
-import { UserCheck, UserMinus, Bell, MessageCircle, Reply, X } from 'lucide-react';
+import { UserCheck, UserMinus, Bell, MessageCircle, Reply, X } from '@/app/components/ui/lucideIcons';
 import type { ForumFollowRecord } from '@/app/services/forum/forumFollowTypes';
 import {
     FORUM_ICON_BTN,

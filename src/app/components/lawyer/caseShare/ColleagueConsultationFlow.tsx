@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Send, X, Shield, UserCheck, ChevronLeft, Loader2 } from 'lucide-react';
+import { Send, X, Shield, UserCheck, ChevronLeft, Loader2 } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import type { DossierShareSource, CaseShareVisibleFields, NetworkColleague } from '@/app/services/caseShare/caseShareTypes';

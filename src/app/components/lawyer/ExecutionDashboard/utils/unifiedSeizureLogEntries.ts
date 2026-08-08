@@ -14,7 +14,15 @@ import {
     isExecutorRowEffectivelyApproved,
     isExecutorRowRejectedAndFinal,
     readExecutorDecisionsArray,
+    readSeizureRequestTarget,
 } from '@/app/utils/executorSeizureDecisionQueue';
+import {
+    mergeSeizedMovableLists,
+    mergeSeizedPropertyLists,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/executionPhoneBodyExecutionDataMerge';
+import { coalesceDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
+import { buildSalarySeizureTabRows } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
+import type { SeizedAsset } from '@/app/types/execution';
 
 export type UnifiedSeizureLogBuildInput = {
     viewExecutionData: ExecutionFile | null | undefined;
@@ -36,6 +44,34 @@ export type UnifiedSeizureTabCounts = {
     third_party: number;
 };
 
+function list<T>(value: T[] | undefined | null): T[] {
+    return Array.isArray(value) ? value : [];
+}
+
+function mergeThirdPartySeizureSources(
+    ui: ThirdPartySeizure[],
+    fromFile: ThirdPartySeizure[] | undefined | null,
+): ThirdPartySeizure[] {
+    const map = new Map<string, ThirdPartySeizure>();
+    for (const s of fromFile || []) {
+        const id = String(s?.id || '').trim();
+        if (id) map.set(id, s);
+    }
+    for (const s of ui) {
+        const id = String(s?.id || '').trim();
+        if (id) map.set(id, s);
+    }
+    return Array.from(map.values());
+}
+
+function readSalaryDecisionRowId(asset: SeizedAsset): string {
+    const det =
+        typeof asset.details === 'object' && asset.details && !Array.isArray(asset.details)
+            ? (asset.details as Record<string, unknown>)
+            : null;
+    return String(det?.decisionRowId || '').trim();
+}
+
 function sortEntries(entries: UnifiedSeizureLogEntry[]): UnifiedSeizureLogEntry[] {
     return entries.slice().sort((a, b) => {
         const aa = a.dateYmd || '';
@@ -44,12 +80,73 @@ function sortEntries(entries: UnifiedSeizureLogEntry[]): UnifiedSeizureLogEntry[
     });
 }
 
+function seizureDecisionMatchesLogKind(
+    subtype: string,
+    kind: UnifiedSeizureLogEntry['kind']
+): boolean {
+    const s = String(subtype || '').trim();
+    if (kind === 'movable') return s === 'movable' || s === 'movable_auction';
+    if (kind === 'property') return s === 'property';
+    if (kind === 'salary') return s === 'salary';
+    if (kind === 'third_party') return s === 'third_party';
+    return false;
+}
+
+function guarantorSeizureSubtypeToLogKind(subtype: string): UnifiedSeizureLogEntry['kind'] | null {
+    const s = String(subtype || '').trim();
+    if (s === 'property') return 'property';
+    if (s === 'salary') return 'salary';
+    if (s === 'movable' || s === 'movable_auction') return 'movable';
+    return null;
+}
+
+function inferGuarantorSeizureSubtype(row: Record<string, unknown>): string {
+    let rowSubtype = String(row?.seizureSubtype || '').trim();
+    if (rowSubtype) return rowSubtype;
+    const text = `${String(row?.title || '')}\n${String(row?.body || '')}`;
+    if (/عقار/i.test(text)) return 'property';
+    if (/راتب|مكافآت|حوافز|مخصصات/i.test(text)) return 'salary';
+    if (/منقول|مركبة/i.test(text)) return 'movable';
+    return '';
+}
+
+function readAssetSeizureTarget(details: Record<string, unknown> | null): string {
+    return String(details?.seizureTarget || '').trim();
+}
+
+function isExecutorRowPending(row: Record<string, unknown>): boolean {
+    const outcome = String(row?.executorOutcome ?? 'pending').trim();
+    return !outcome || outcome === 'pending';
+}
+
+function shouldIncludeExecutorSeizureDecisionRow(row: Record<string, unknown>): boolean {
+    if (isExecutorRowRejectedAndFinal(row as never)) return false;
+    if (isExecutorRowEffectivelyApproved(row as never)) return true;
+    return isExecutorRowPending(row);
+}
+
+function executorSeizureDecisionStatusLabel(row: Record<string, unknown>): string {
+    if (String(row?.seizureRequestSavedAt || '').trim()) return 'مسجّل في السجل';
+    if (isExecutorRowPending(row)) return 'قيد البت لدى المنفذ';
+    return 'موافقة المنفذ — أكمل البيانات';
+}
+
 export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput): UnifiedSeizureLogEntry[] {
     const entries: UnifiedSeizureLogEntry[] = [];
 
-    const seizedProperties = Array.isArray((input.viewExecutionData as any)?.seizedProperties)
-        ? (((input.viewExecutionData as any).seizedProperties as SeizedProperty[]) || [])
-        : [];
+    const seizedProperties = mergeSeizedPropertyLists(
+        Array.isArray((input.viewExecutionData as { seizedProperties?: unknown })?.seizedProperties)
+            ? ((input.viewExecutionData as { seizedProperties?: SeizedProperty[] }).seizedProperties as SeizedProperty[])
+            : [],
+        [],
+    );
+
+    const seizedMovablesForLog = mergeSeizedMovableLists(
+        list(input.seizedMovablesForSeizureLog),
+        Array.isArray((input.viewExecutionData as { seizedMovables?: unknown })?.seizedMovables)
+            ? ((input.viewExecutionData as { seizedMovables?: SeizedMovable[] }).seizedMovables as SeizedMovable[])
+            : [],
+    );
 
     for (const p of seizedProperties) {
         const ymd = String(p.seizedAtIso || '').slice(0, 10) || '';
@@ -189,13 +286,13 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
             const did = String(row?.id || '').trim();
             if (!did || linkedPropertyDecisionIds.has(did)) continue;
             if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+            if (readSeizureRequestTarget(row) === 'guarantor') continue;
             let rowSubtype = String(row?.seizureSubtype || '').trim();
             if (!rowSubtype && /عقار/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
                 rowSubtype = 'property';
             }
-            if (rowSubtype !== 'property') continue;
-            if (isExecutorRowRejectedAndFinal(row as any)) continue;
-            if (!isExecutorRowEffectivelyApproved(row as any)) continue;
+            if (!seizureDecisionMatchesLogKind(rowSubtype, 'property')) continue;
+            if (!shouldIncludeExecutorSeizureDecisionRow(row)) continue;
             linkedPropertyDecisionIds.add(did);
             const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
             entries.push({
@@ -203,9 +300,7 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
                 kind: 'property',
                 dateYmd: ymd,
                 title: String(row?.title || '').trim() || 'طلب حجز عقار',
-                statusLabel: String(row?.seizureRequestSavedAt || '').trim()
-                    ? 'مسجّل في السجل'
-                    : 'موافقة المنفذ — أكمل البيانات',
+                statusLabel: executorSeizureDecisionStatusLabel(row),
                 statusCode: 'seized',
                 description:
                     String(row?.seizureRequestDetails || row?.body || '').trim() ||
@@ -215,7 +310,28 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
         }
     }
 
-    for (const asset of input.salarySeizureRegistryAssets as any[]) {
+    const decisionsExIdForSalary = coalesceDecisionsStorageExecutionId({
+        decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+        executionId: input.executionId,
+        executionData: input.viewExecutionData as Record<string, unknown> | null,
+    });
+    const salaryDrafts = (input.viewExecutionData?.seizureDraftsByDecisionId || {}) as Record<
+        string,
+        SeizedAsset
+    >;
+    const salaryAssetsForLog = buildSalarySeizureTabRows({
+        registryAssets: (input.salarySeizureRegistryAssets || []) as SeizedAsset[],
+        seizureDraftsByDecisionId: salaryDrafts,
+        executionData: input.viewExecutionData ?? null,
+        executionId: decisionsExIdForSalary,
+    });
+    const linkedSalaryDecisionIds = new Set<string>();
+    for (const asset of salaryAssetsForLog) {
+        const did = readSalaryDecisionRowId(asset);
+        if (did) linkedSalaryDecisionIds.add(did);
+    }
+
+    for (const asset of salaryAssetsForLog) {
         const det =
             typeof asset?.details === 'object' && asset.details && !Array.isArray(asset.details)
                 ? (asset.details as Record<string, unknown>)
@@ -236,7 +352,11 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
         const subject = resolveSalarySeizureSubject(
             asset as Record<string, unknown>,
             input.viewExecutionData ?? null,
-            String(input.decisionsStorageExecutionId ?? input.executionId ?? '').trim() || undefined
+            coalesceDecisionsStorageExecutionId({
+                decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+                executionId: input.executionId,
+                executionData: input.viewExecutionData as Record<string, unknown> | null,
+            }),
         );
         const desc = buildSalarySeizureDescriptionText({
             employerName: office,
@@ -249,12 +369,49 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
             id: `salary:${String(asset.id)}`,
             kind: 'salary',
             dateYmd: String(asset.seizureDate || ''),
-            title: input.activeDebtorIsDeceased ? 'حجز مخصصات/مكافأة' : 'حجز راتب',
+            title:
+                readAssetSeizureTarget(det) === 'guarantor' || /كفيل|ضامن/i.test(String(asset.type || ''))
+                    ? input.activeDebtorIsDeceased
+                        ? 'حجز مخصصات/مكافأة الكفيل'
+                        : 'حجز راتب الكفيل'
+                    : input.activeDebtorIsDeceased
+                      ? 'حجز مخصصات/مكافأة'
+                      : 'حجز راتب',
             statusLabel,
             statusCode: String(asset.status || ''),
             description: desc,
             entityId: String(asset.id),
         });
+    }
+
+    if (decisionsExIdForSalary && decisionsExIdForSalary !== 'default' && decisionsExIdForSalary !== 'undefined') {
+        const rows = readExecutorDecisionsArray(decisionsExIdForSalary) as Array<Record<string, unknown>>;
+        for (const row of rows) {
+            const did = String(row?.id || '').trim();
+            if (!did || linkedSalaryDecisionIds.has(did)) continue;
+            if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+            if (readSeizureRequestTarget(row) === 'guarantor') continue;
+            let rowSubtype = String(row?.seizureSubtype || '').trim();
+            if (!rowSubtype && /راتب|مكافآت|حوافز|مخصصات/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
+                rowSubtype = 'salary';
+            }
+            if (!seizureDecisionMatchesLogKind(rowSubtype, 'salary')) continue;
+            if (!shouldIncludeExecutorSeizureDecisionRow(row)) continue;
+            linkedSalaryDecisionIds.add(did);
+            const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
+            entries.push({
+                id: `salary_decision:${did}`,
+                kind: 'salary',
+                dateYmd: ymd,
+                title: String(row?.title || '').trim() || (input.activeDebtorIsDeceased ? 'طلب حجز مخصصات' : 'طلب حجز راتب'),
+                statusLabel: executorSeizureDecisionStatusLabel(row),
+                statusCode: String((row as any).seizureRequestSavedAt ? 'seized' : 'pending'),
+                description:
+                    String(row?.seizureRequestDetails || row?.body || '').trim() ||
+                    'طلب حجز راتب — بانتظار إكمال بيانات السجل',
+                entityId: did,
+            });
+        }
     }
 
     const seenMovableDecisionIds = new Set<string>();
@@ -293,7 +450,7 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
         });
     }
 
-    for (const m of input.seizedMovablesForSeizureLog) {
+    for (const m of seizedMovablesForLog) {
         const mid = String(m.id || '').trim();
         const did = String(m.decisionRowId || m.id || '').trim();
         if (mid && seenMovableEntityIds.has(mid)) continue;
@@ -306,7 +463,19 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
                 ? 'تم الحجز'
                 : m.status === 'released'
                   ? 'فُك الحجز'
-                  : String(m.status || '—');
+                  : m.status === 'published'
+                    ? 'قيد النشر والمزايدة'
+                    : m.status === 'valued' || m.status === 'estimated'
+                      ? 'تم التقدير'
+                      : m.status === 'initial_award'
+                        ? 'إحالة أولية'
+                        : m.status === 'no_bidders'
+                          ? 'لا راغب'
+                          : m.status === 'sold'
+                            ? 'مباع'
+                            : m.status === 'estimation_objected'
+                              ? 'تم الاعتراض'
+                              : String(m.status || '—');
         const desc = [
             String(m.movableDescription || '').trim() ? `وصف المال المنقول: ${String(m.movableDescription || '').trim()}` : null,
             String(m.movableLocation || '').trim() ? `المكان: ${String(m.movableLocation || '').trim()}` : null,
@@ -337,13 +506,13 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
             const did = String(row?.id || '').trim();
             if (!did || seenMovableDecisionIds.has(did)) continue;
             if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+            if (readSeizureRequestTarget(row) === 'guarantor') continue;
             let rowSubtype = String(row?.seizureSubtype || '').trim();
             if (!rowSubtype && /منقول|مركبة/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
                 rowSubtype = 'movable';
             }
-            if (rowSubtype !== 'movable') continue;
-            if (isExecutorRowRejectedAndFinal(row as any)) continue;
-            if (!isExecutorRowEffectivelyApproved(row as any)) continue;
+            if (!seizureDecisionMatchesLogKind(rowSubtype, 'movable')) continue;
+            if (!shouldIncludeExecutorSeizureDecisionRow(row)) continue;
             seenMovableDecisionIds.add(did);
             const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
             entries.push({
@@ -351,9 +520,7 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
                 kind: 'movable',
                 dateYmd: ymd,
                 title: String(row?.title || '').trim() || 'طلب حجز مال منقول',
-                statusLabel: String(row?.seizureRequestSavedAt || '').trim()
-                    ? 'مسجّل في السجل'
-                    : 'موافقة المنفذ — أكمل البيانات',
+                statusLabel: executorSeizureDecisionStatusLabel(row),
                 statusCode: 'seized',
                 description:
                     String(row?.seizureRequestDetails || row?.body || '').trim() ||
@@ -363,8 +530,14 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
         }
     }
 
+    const thirdPartyCombined = mergeThirdPartySeizureSources(
+        input.thirdPartySeizuresUi,
+        (input.viewExecutionData as { thirdPartySeizures?: ThirdPartySeizure[] } | null | undefined)
+            ?.thirdPartySeizures,
+    );
+
     const thirdPartyUiKeys = new Set<string>();
-    for (const s of input.thirdPartySeizuresUi) {
+    for (const s of thirdPartyCombined) {
         const id = String(s?.id || '').trim();
         const did = String(s?.decisionRowId || '').trim();
         if (id) thirdPartyUiKeys.add(id);
@@ -407,7 +580,7 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
         });
     }
 
-    for (const s of input.thirdPartySeizuresUi) {
+    for (const s of thirdPartyCombined) {
         const id = String(s?.id || '').trim();
         if (!id) continue;
         const thirdPartyName = String(s?.thirdPartyName || '').trim() || 'جهة غير محددة';
@@ -458,6 +631,90 @@ export function buildUnifiedSeizureLogEntries(input: UnifiedSeizureLogBuildInput
             description: desc,
             entityId: id,
         });
+    }
+
+    const thirdPartyDecisionsExId = String(
+        input.decisionsStorageExecutionId || input.viewExecutionData?.id || ''
+    ).trim();
+    if (thirdPartyDecisionsExId && thirdPartyDecisionsExId !== 'default' && thirdPartyDecisionsExId !== 'undefined') {
+        const rows = readExecutorDecisionsArray(thirdPartyDecisionsExId) as Array<Record<string, unknown>>;
+        for (const row of rows) {
+            const did = String(row?.id || '').trim();
+            if (!did || thirdPartyUiKeys.has(did)) continue;
+            if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+            if (readSeizureRequestTarget(row) === 'guarantor') continue;
+            let rowSubtype = String(row?.seizureSubtype || '').trim();
+            if (!rowSubtype && /غير|لدى الغير/i.test(`${String(row?.title || '')}\n${String(row?.body || '')}`)) {
+                rowSubtype = 'third_party';
+            }
+            if (!seizureDecisionMatchesLogKind(rowSubtype, 'third_party')) continue;
+            if (!shouldIncludeExecutorSeizureDecisionRow(row)) continue;
+            thirdPartyUiKeys.add(did);
+            const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
+            entries.push({
+                id: `third_party_decision:${did}`,
+                kind: 'third_party',
+                dateYmd: ymd,
+                title: String(row?.title || '').trim() || 'حجز مال المدين لدى الغير',
+                statusLabel: executorSeizureDecisionStatusLabel(row),
+                statusCode: 'seized',
+                description:
+                    String(row?.seizureRequestDetails || row?.body || '').trim() ||
+                    'طلب حجز لدى الغير — بانتظار إكمال بيانات السجل',
+                entityId: did,
+            });
+        }
+    }
+
+    const guarantorDecisionsExId = coalesceDecisionsStorageExecutionId({
+        decisionsStorageExecutionId: input.decisionsStorageExecutionId,
+        executionId: input.executionId,
+        executionData: input.viewExecutionData as Record<string, unknown> | null,
+    });
+    if (
+        guarantorDecisionsExId &&
+        guarantorDecisionsExId !== 'default' &&
+        guarantorDecisionsExId !== 'undefined'
+    ) {
+        const rows = readExecutorDecisionsArray(guarantorDecisionsExId) as Array<Record<string, unknown>>;
+        const gf = input.viewExecutionData?.guarantor_followup;
+        const guarantorName = String(gf?.guarantor_name || '').trim();
+        for (const row of rows) {
+            if (readSeizureRequestTarget(row) !== 'guarantor') continue;
+            if (String(row?.requestKind || '').trim() !== 'seizure') continue;
+            const did = String(row?.id || '').trim();
+            if (!did) continue;
+            const rowSubtype = inferGuarantorSeizureSubtype(row);
+            const kind = guarantorSeizureSubtypeToLogKind(rowSubtype);
+            if (!kind) continue;
+            if (kind === 'property' && linkedPropertyDecisionIds.has(did)) continue;
+            if (kind === 'salary' && linkedSalaryDecisionIds.has(did)) continue;
+            if (kind === 'movable' && seenMovableDecisionIds.has(did)) continue;
+            if (!shouldIncludeExecutorSeizureDecisionRow(row)) continue;
+            const ymd = String(row?.resolvedAt || row?.date || '').slice(0, 10) || '';
+            const baseTitle = String(row?.title || '').trim();
+            const titlePrefix = guarantorName ? `حجز كفيل — ${guarantorName}` : 'حجز كفيل';
+            const title =
+                baseTitle && !/كفيل|ضامن/i.test(baseTitle)
+                    ? `${titlePrefix} — ${baseTitle}`
+                    : baseTitle || titlePrefix;
+            entries.push({
+                id: `guarantor_decision:${did}`,
+                kind,
+                dateYmd: ymd,
+                title,
+                statusLabel: String(row?.seizureRequestSavedAt || '').trim()
+                    ? 'مسجّل في السجل'
+                    : isExecutorRowPending(row)
+                      ? 'قيد البت لدى المنفذ'
+                      : 'موافقة المنفذ — أكمل بيانات الكفيل',
+                statusCode: String(row?.seizureRequestSavedAt ? 'seized' : isExecutorRowPending(row) ? 'pending' : 'seized'),
+                description:
+                    String(row?.seizureRequestDetails || row?.body || '').trim() ||
+                    'طلب حجز على الكفيل — بانتظار إكمال بيانات السجل',
+                entityId: did,
+            });
+        }
     }
 
     return sortEntries(entries);

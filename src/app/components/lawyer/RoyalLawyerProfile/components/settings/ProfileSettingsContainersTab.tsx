@@ -1,11 +1,11 @@
-import React from 'react';
-import { ChevronDown, Image as ImageIcon, Trash2, Type } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ChevronDown, Image as ImageIcon, Trash2, Type } from '@/app/components/ui/lucideIcons';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import type { ContainerKindTab } from '../../hooks/useProfileSettingsSheetState';
 import {
-    getCachedImageBlockStudioEditor,
-    getCachedTextBlockStudioEditor,
-} from '@/app/runtime/profileSettingsStudioTabsLoader';
+    prefetchProfileStudioEditor,
+    useProfileStudioEditorChunk,
+} from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileStudioEditorChunk';
 import { ProfileSettingsTabSkeleton } from './ProfileSettingsTabSkeleton';
 
 type ProfileSettingsContainersTabProps = {
@@ -45,8 +45,18 @@ export function ProfileSettingsContainersTab({
     onClearCanvasBg,
     saving = false,
 }: ProfileSettingsContainersTabProps) {
-    const TextBlockStudioEditor = getCachedTextBlockStudioEditor();
-    const ImageBlockStudioEditor = getCachedImageBlockStudioEditor();
+    const expandedEditorKind = useMemo(() => {
+        if (!expandedBlockId) return null;
+        if (textBlocks.some((block) => block.id === expandedBlockId)) return 'text' as const;
+        if (imageBlocks.some((block) => block.id === expandedBlockId)) return 'image' as const;
+        return null;
+    }, [expandedBlockId, textBlocks, imageBlocks]);
+
+    const {
+        ready: editorReady,
+        TextBlockStudioEditor,
+        ImageBlockStudioEditor,
+    } = useProfileStudioEditorChunk(expandedEditorKind, Boolean(expandedBlockId));
 
     const renderContainerBlock = (block: ProfileCustomBlock, blockIndex: number, isText: boolean) => {
         const isOpen = expandedBlockId === block.id;
@@ -63,6 +73,8 @@ export function ProfileSettingsContainersTab({
                         type="button"
                         data-testid={`profile-block-expand-${block.id}`}
                         className="flex flex-1 items-center gap-2 min-w-0 text-right min-h-[44px]"
+                        onPointerEnter={() => prefetchProfileStudioEditor(isText ? 'text' : 'image')}
+                        onFocus={() => prefetchProfileStudioEditor(isText ? 'text' : 'image')}
                         onClick={() => setExpandedBlockId(isOpen ? null : block.id)}
                     >
                         <span className="profile-settings-block-kind">
@@ -118,7 +130,7 @@ export function ProfileSettingsContainersTab({
                 {isOpen ? (
                     <div className="profile-settings-block-body" data-testid={`profile-block-body-${block.id}`}>
                         {isText ? (
-                            TextBlockStudioEditor ? (
+                            editorReady && TextBlockStudioEditor ? (
                                 <TextBlockStudioEditor
                                     block={block}
                                     onChange={(patch) => onUpdateBlock(block.id, patch)}
@@ -132,7 +144,7 @@ export function ProfileSettingsContainersTab({
                             ) : (
                                 <ProfileSettingsTabSkeleton />
                             )
-                        ) : ImageBlockStudioEditor ? (
+                        ) : editorReady && ImageBlockStudioEditor ? (
                             <ImageBlockStudioEditor
                                 block={block}
                                 uploading={uploadingBlockId === block.id}
@@ -159,6 +171,8 @@ export function ProfileSettingsContainersTab({
                     type="button"
                     data-active={containerKind === 'text' ? 'true' : 'false'}
                     className="profile-settings-container-tab min-h-[44px]"
+                    onPointerEnter={() => prefetchProfileStudioEditor('text')}
+                    onFocus={() => prefetchProfileStudioEditor('text')}
                     onClick={() => {
                         setExpandedBlockId(null);
                         setContainerKind('text');
@@ -174,6 +188,8 @@ export function ProfileSettingsContainersTab({
                     type="button"
                     data-active={containerKind === 'image' ? 'true' : 'false'}
                     className="profile-settings-container-tab min-h-[44px]"
+                    onPointerEnter={() => prefetchProfileStudioEditor('image')}
+                    onFocus={() => prefetchProfileStudioEditor('image')}
                     onClick={() => {
                         setExpandedBlockId(null);
                         setContainerKind('image');
@@ -187,7 +203,7 @@ export function ProfileSettingsContainersTab({
                 </button>
             </div>
 
-            <section className="profile-settings-containers-section">
+            <section className="profile-settings-containers-section" data-flat="true">
                 {containerKind === 'text' ? (
                     <>
                         <div className="profile-settings-containers-section-title">

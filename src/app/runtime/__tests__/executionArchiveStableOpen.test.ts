@@ -32,7 +32,7 @@ describe('execution archive open — keep-alive sync', () => {
 
     it('Chrome المضمّن ليس bg-black/90 وFileGrid sync', () => {
         const chrome = readFileSync(
-            join(root, 'src/app/components/lawyer/ArchivePortal/ArchivePortalChrome.tsx'),
+            join(root, 'src/app/components/lawyer/ArchivePortal/ExecutionArchiveChrome.tsx'),
             'utf8',
         );
         expect(chrome).toContain('bg-[#0B1021]');

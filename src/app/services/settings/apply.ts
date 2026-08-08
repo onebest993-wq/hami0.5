@@ -2,8 +2,17 @@ import type { ThemeMode, ThemeKey } from '@/app/types/common';
 import type { AppSettingsState, SecuritySettings } from './types';
 import { normalizeGlassOpacity } from './surfaceAppearance';
 import { applyLawyerThemeCssVars, LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
+import { resolveBoardThemeKey, resolveCardThemeKey, resolvePatternThemeKey } from './themeResolve';
+import { resolveLawyerBoardChromeBg } from './boardSurfaceResolve';
+import { LAWYER_WALLPAPER_CHROME_BG } from './surfaceApplyTarget';
 import { applyLitePerformanceDataset } from '@/app/runtime/devicePerformanceTier';
+import { persistBootSurfacePaintFromDom } from '@/app/services/settings/bootSurfacePaintCache';
+import { ensureWallpaperDecoded } from '@/app/services/settings/wallpaperPaintReady';
+import { syncDashboardBlockGlassPaint } from './syncDashboardBlockGlassPaint';
+import { opacityToGlassTransparency } from './glassTransparency';
+import { resolveGlassPanelBackground, tintHex } from './glassSurfacePaint';
 import SecureStoreService from '@/app/services/SecureStoreService';
+import { getLawyerSettingsSnapshot } from './settingsSnapshot';
 import {
     BUILTIN_COMPACT_MODE,
     BUILTIN_NOTIFICATIONS_ENABLED,
@@ -30,6 +39,7 @@ let wallpaperCache: string | undefined | null = null;
 
 export function invalidateWallpaperCache(): void {
     wallpaperCache = null;
+    void import('@/app/services/settings/wallpaperPaintReady').then((m) => m.clearWallpaperDecodeCache());
 }
 
 function readLegacyWallpaperFromLocalStorage(): string | undefined {
@@ -56,10 +66,24 @@ export function persistWallpaper(dataUrl: string | undefined): boolean {
         if (dataUrl) {
             SecureStoreService.setItemSync(WALLPAPER_KEY, dataUrl);
             clearLegacyWallpaperLocalStorage();
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.setItem(WALLPAPER_KEY, dataUrl);
+                }
+            } catch {
+                /* ignore mirror */
+            }
             wallpaperCache = dataUrl;
         } else {
             SecureStoreService.deleteItemSync(WALLPAPER_KEY);
             clearLegacyWallpaperLocalStorage();
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.removeItem(WALLPAPER_KEY);
+                }
+            } catch {
+                /* ignore mirror */
+            }
             wallpaperCache = undefined;
         }
         return true;
@@ -119,7 +143,7 @@ export function hasPersistedWallpaper(): boolean {
 }
 
 /** لون سطح معتم — لا يُخلط مع transparent عند وجود صورة خلفية */
-const WALLPAPER_SOLID_SURFACE = '#0B1021';
+const WALLPAPER_SOLID_SURFACE = LAWYER_WALLPAPER_CHROME_BG;
 
 function cssWallpaperUrl(src: string): string {
     return `url("${src.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")`;
@@ -146,19 +170,150 @@ export function applyWallpaperSurfaceVars(
     }
 }
 
+/** يفك ترميز الصورة ثم يطبّق متغيرات الخلفية — للإقلاع والرفع بلا وميض */
+export async function applyWallpaperSurfaceVarsWhenReady(
+    hasWallpaper: boolean,
+    themeKey: ThemeKey,
+    wallpaperSrc?: string | null,
+): Promise<void> {
+    if (hasWallpaper) {
+        const src = wallpaperSrc ?? loadPersistedWallpaper();
+        if (src) await ensureWallpaperDecoded(src);
+    }
+    applyWallpaperSurfaceVars(hasWallpaper, themeKey, wallpaperSrc);
+}
+
 /** Apply settings to document root / body (call on change + mount). */
+/** تبديل تباين أعلى فقط — خفيف (لا يعيد حساب الثيم/الزجاج/الخلفية). */
+export function applyHighContrastToDom(highContrast: boolean): void {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    root.dataset.hamiHighContrast = highContrast ? '1' : '0';
+    root.classList.toggle('hami-high-contrast', highContrast);
+}
+
+export const FONT_LAYOUT_BASE_PX = 16;
+
+/** مقياس قراءة المستخدم — لا يُطبَّق على html/rem لتثبيت التخطيط. */
+export function resolveUserFontScale(fontSizePx: number): number {
+    const px = Number.isFinite(fontSizePx) ? fontSizePx : FONT_LAYOUT_BASE_PX;
+    return Number((px / FONT_LAYOUT_BASE_PX).toFixed(3));
+}
+
+/** حجم الخط فقط — بلا إعادة تطبيق الثيم/الزجاج. */
+export function applyFontSizeToDom(fontSize: number): void {
+    if (typeof document === 'undefined') return;
+    const px = Number.isFinite(fontSize) ? fontSize : FONT_LAYOUT_BASE_PX;
+    const root = document.documentElement;
+    root.style.setProperty('--hami-font-size', `${px}px`);
+    root.style.setProperty('--hami-user-font-scale', String(resolveUserFontScale(px)));
+}
+
+/** تقليل الحركة + animations dataset — خفيف. */
+export function applyReduceMotionToDom(reduceMotion: boolean, enableAnimations: boolean): void {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    root.dataset.hamiReduceMotion = reduceMotion ? '1' : '0';
+    root.dataset.hamiAnimations = !reduceMotion && enableAnimations ? '1' : '0';
+    if (reduceMotion || !enableAnimations) {
+        root.classList.add('reduce-motion');
+    } else {
+        root.classList.remove('reduce-motion');
+    }
+}
+
+let settingsDomFastPathPending = false;
+
+/** يُستدعى بعد تطبيق DOM خفيف من الإعدادات — يمنع إعادة applySettingsToDom الكاملة فوراً */
+export function markSettingsDomFastPath(): void {
+    settingsDomFastPathPending = true;
+}
+
+export function consumeSettingsDomFastPath(): boolean {
+    if (!settingsDomFastPathPending) return false;
+    settingsDomFastPathPending = false;
+    return true;
+}
+
+/** للاختبارات */
+export function resetSettingsDomFastPathForTests(): void {
+    settingsDomFastPathPending = false;
+}
+
+/** ثيم اللوحة/البطاقات/النقوش — بلا لغة/أداء/أمان */
+export function applyAppearanceThemeToDom(settings: AppSettingsState): void {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const { appearance } = settings;
+
+    const boardTheme = resolveBoardThemeKey(appearance);
+    const cardTheme = resolveCardThemeKey(appearance);
+    const patternTheme = resolvePatternThemeKey(appearance);
+    const boardToken = LAWYER_THEME_TOKENS[boardTheme] ?? LAWYER_THEME_TOKENS.gold;
+    const cardToken = LAWYER_THEME_TOKENS[cardTheme] ?? LAWYER_THEME_TOKENS.gold;
+    const patternToken = LAWYER_THEME_TOKENS[patternTheme] ?? LAWYER_THEME_TOKENS.gold;
+    const wallpaper = loadPersistedWallpaper();
+    const hasWallpaper = Boolean(wallpaper);
+    const boardChromeBg = resolveLawyerBoardChromeBg(appearance, hasWallpaper);
+
+    root.style.setProperty('--hami-brand', appearance.brandColor);
+    applyLawyerThemeCssVars(boardTheme as ThemeKey);
+    root.style.setProperty('--hami-board-surface-bg', boardChromeBg);
+    root.style.setProperty('--hami-card-surface-bg', cardToken.bg);
+    const glassBaseHex = tintHex(cardToken.bg, cardToken.primary, 0.16);
+    root.style.setProperty('--hami-glass-base', glassBaseHex);
+    root.style.setProperty(
+        '--hami-glass-panel-bg',
+        resolveGlassPanelBackground(glassBaseHex, boardChromeBg, appearance.glassOpacity, hasWallpaper),
+    );
+    root.style.setProperty('--hami-card-accent', cardToken.primary);
+    root.style.setProperty('--hami-pattern-accent', patternToken.primary);
+    applyWallpaperSurfaceVars(hasWallpaper, boardTheme as ThemeKey, wallpaper);
+    root.dataset.hamiTheme = appearance.theme;
+
+    const paintBg = boardChromeBg || boardToken.bg;
+    root.style.backgroundColor = paintBg;
+    document.body.style.backgroundColor = paintBg;
+    syncDashboardBlockGlassPaint(settings);
+}
+
+/** شفافية/زخرفة/إطار — خفيف */
+export function applyGlassSurfaceAppearanceToDom(settings: AppSettingsState): void {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    const { appearance } = settings;
+    const wallpaper = loadPersistedWallpaper();
+    const hasWallpaper = Boolean(wallpaper);
+    const cardTheme = resolveCardThemeKey(appearance);
+    const cardToken = LAWYER_THEME_TOKENS[cardTheme] ?? LAWYER_THEME_TOKENS.gold;
+    const boardChromeBg = resolveLawyerBoardChromeBg(appearance, hasWallpaper);
+
+    root.style.setProperty('--glass-opacity', String(normalizeGlassOpacity(appearance.glassOpacity)));
+    root.dataset.hamiGlassLevel = opacityToGlassTransparency(appearance.glassOpacity);
+    root.dataset.hamiHomeContainerBorder = appearance.homeContainerBorder !== false ? '1' : '0';
+    root.dataset.hamiBgPreset = appearance.backgroundPreset ?? 'none';
+
+    const glassBaseHex = tintHex(cardToken.bg, cardToken.primary, 0.16);
+    root.style.setProperty('--hami-glass-base', glassBaseHex);
+    root.style.setProperty(
+        '--hami-glass-panel-bg',
+        resolveGlassPanelBackground(glassBaseHex, boardChromeBg, appearance.glassOpacity, hasWallpaper),
+    );
+    syncDashboardBlockGlassPaint(settings);
+}
+
+export function applyHomeLayoutOverridesToDom(settings: AppSettingsState): void {
+    syncDashboardBlockGlassPaint(settings);
+}
+
 export function applySettingsToDom(settings: AppSettingsState) {
     const root = document.documentElement;
     const { appearance, performance } = settings;
 
-    root.style.setProperty('--glass-opacity', String(normalizeGlassOpacity(appearance.glassOpacity)));
-    root.dataset.hamiHomeContainerBorder = appearance.homeContainerBorder !== false ? '1' : '0';
-    root.style.setProperty('--hami-brand', appearance.brandColor);
+    applyGlassSurfaceAppearanceToDom(settings);
     root.style.setProperty('--hami-font-size', `${appearance.fontSize}px`);
-    applyLawyerThemeCssVars(appearance.theme as ThemeKey);
-    const wallpaper = loadPersistedWallpaper();
-    applyWallpaperSurfaceVars(Boolean(wallpaper), appearance.theme as ThemeKey, wallpaper);
-    root.dataset.hamiTheme = appearance.theme;
+    root.style.setProperty('--hami-user-font-scale', String(resolveUserFontScale(appearance.fontSize)));
+    applyAppearanceThemeToDom(settings);
     root.dataset.hamiShape = appearance.shape;
     const colorMode = resolveThemeMode(appearance.themeMode);
     root.dataset.hamiColorMode = colorMode;
@@ -167,13 +322,11 @@ export function applySettingsToDom(settings: AppSettingsState) {
     document.documentElement.dir = appearance.language === 'en' ? 'ltr' : 'rtl';
     root.dataset.hamiViewMode = loadPersistedViewMode() ?? BUILTIN_VIEW_MODE_DEFAULT;
     root.dataset.hamiCompact = BUILTIN_COMPACT_MODE ? '1' : '0';
-    root.dataset.hamiHighContrast = appearance.highContrast ? '1' : '0';
-    root.dataset.hamiReduceMotion = appearance.reduceMotion || !performance.enableAnimations ? '1' : '0';
+    root.dataset.hamiReduceMotion = appearance.reduceMotion ? '1' : '0';
     root.dataset.hamiAnimations =
         !appearance.reduceMotion && performance.enableAnimations ? '1' : '0';
     root.dataset.hamiPrefetch = performance.prefetchScreens ? '1' : '0';
 
-    root.dataset.hamiBgPreset = appearance.backgroundPreset ?? 'none';
     document.body.style.backgroundImage = '';
     document.body.style.backgroundSize = '';
     document.body.style.backgroundPosition = '';
@@ -185,11 +338,7 @@ export function applySettingsToDom(settings: AppSettingsState) {
         root.classList.remove('reduce-motion');
     }
 
-    if (appearance.highContrast) {
-        root.classList.add('hami-high-contrast');
-    } else {
-        root.classList.remove('hami-high-contrast');
-    }
+    applyHighContrastToDom(appearance.highContrast);
 
     if (BUILTIN_COMPACT_MODE) {
         root.classList.add('hami-compact');
@@ -205,10 +354,21 @@ export function applySettingsToDom(settings: AppSettingsState) {
 
     root.dataset.hamiLocalOnly = settings.security.localOnlyMode ? '1' : '0';
     applyLitePerformanceDataset(settings.performance.litePerformance);
+
+    persistBootSurfacePaintFromDom();
 }
 
-export function isWithinQuietHours(_settings?: AppSettingsState, now = new Date()): boolean {
-    return isWithinBuiltInQuietHours(now);
+export function isWithinQuietHours(settings?: AppSettingsState, now = new Date()): boolean {
+    const s = settings ?? getLawyerSettingsSnapshot();
+    const q = s.notifications?.quietHours;
+    if (!q?.enabled) return isWithinBuiltInQuietHours(now);
+    const [sh, sm] = q.start.split(':').map(Number);
+    const [eh, em] = q.end.split(':').map(Number);
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const start = sh * 60 + (sm || 0);
+    const end = eh * 60 + (em || 0);
+    if (start <= end) return mins >= start && mins < end;
+    return mins >= start || mins < end;
 }
 
 export function shouldAllowPush(settings: AppSettingsState): boolean {

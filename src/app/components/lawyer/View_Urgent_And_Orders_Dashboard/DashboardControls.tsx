@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, List, Search, Trash2 } from 'lucide-react';
+import { LayoutGrid, List, Search, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { ViewMode } from './types';
 import { ARCHIVE_GLASS_ACTIVE_COMPACT } from '@/app/components/lawyer/ArchivePortal/archiveToolbarStyles';
 

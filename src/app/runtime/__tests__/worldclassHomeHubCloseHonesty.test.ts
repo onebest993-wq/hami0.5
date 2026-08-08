@@ -11,7 +11,7 @@ describe('world-class home-hub close honesty', () => {
             'utf8',
         );
         expect(hook).toMatch(/markHomeHubPerfPhase\('open-request'\)/);
-        expect(hook).toMatch(/clearHomeHubPerfMarks\(\)/);
+        expect(hook).not.toMatch(/clearHomeHubPerfMarks\(\)/);
     });
 
     it('H1: interactive احتياطي + reportedRef في useHomeHubLifecycle', () => {
@@ -55,9 +55,13 @@ describe('world-class home-hub close honesty', () => {
             ),
             'utf8',
         );
-        expect(tabs).toContain('min-h-[44px]');
+        const fx = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/LawyerHomeHubCard/homeHubCardFx.css'),
+            'utf8',
+        );
         expect(tabs).toContain('role="tablist"');
         expect(tabs).toContain('home-hub-tab-${panel}');
+        expect(fx).toMatch(/min-height:\s*44px/);
     });
 
     it('H7: رادار مربوط بـ dismiss', () => {
@@ -94,14 +98,16 @@ describe('world-class home-hub close honesty', () => {
         expect(homeHook).not.toContain('homeHubCardSessionKey');
     });
 
-    it('H8: ErrorBoundary + بطاقة مباشرة بلا تأخير chunk', () => {
+    it('H8: ErrorBoundary + بطاقة Hub مدمجة في HomeTab (بلا Suspense waterfall)', () => {
         const home = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
             'utf8',
         );
         expect(home).toContain('HomeHubErrorBoundary');
         expect(home).toContain('LawyerHomeHubCard');
-        expect(home).toContain('HomeHubCardShellFallback');
         expect(home).not.toContain('LazyLawyerHomeHubCard');
+        expect(home).toContain('prefetchLawyerHomeHubCard');
+        const preload = fs.readFileSync(path.join(root, 'src/boot/bootCriticalPreload.ts'), 'utf8');
+        expect(preload).toContain('LawyerHomeHubCard');
     });
 });

@@ -14,11 +14,8 @@
  */
 
 import type { CriminalCase, CriminalComplainant, CriminalDefendant, InvestigationLog, LawyerRequest, Statement, TimelineEvent } from './criminalStore';
-import {
-    isInternalCaseIdentifier,
-    resolveMergedCaseIds,
-    resolveOfficialCaseNumber,
-} from './criminalStore';
+import { isInternalCaseIdentifier, resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
+import { resolveMergedCaseIds } from './criminalCaseMergeUtils';
 import type { JudicialDecision } from '@/app/types/criminal';
 import { areCasesSameProceduralStage, CROSS_STAGE_MERGE_ERROR_MESSAGE } from './caseMergeTimeline';
 import { INVESTIGATION_MERGE_JUDICIAL_TEMPLATE, isInvestigationMergeJudicialTemplate } from './proceduralRequestTypes';

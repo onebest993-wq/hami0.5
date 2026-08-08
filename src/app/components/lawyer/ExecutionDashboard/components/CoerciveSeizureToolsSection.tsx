@@ -34,6 +34,7 @@ export interface CoerciveSeizureToolsSectionProps {
         type: 'success' | 'error' | 'warning' | 'info',
         options?: any,
     ) => void;
+    persistExecutionMerge?: (patch: Record<string, unknown>) => void;
 }
 
 /**
@@ -60,6 +61,7 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
     pushTimelineEvent,
     nextTimelineId,
     showToast,
+    persistExecutionMerge,
 }) => {
     const seizureActionsDisabled = executionCoerciveButtonDisabled || isHistoricalMode;
 
@@ -95,6 +97,7 @@ export const CoerciveSeizureToolsSection: React.FC<CoerciveSeizureToolsSectionPr
         inlineActionGateKey,
         setInlineActionGateKey,
         activeDebtorIsDeceased,
+        persistExecutionMerge,
     });
 
     if (isEvictionExecutionModule) return null;

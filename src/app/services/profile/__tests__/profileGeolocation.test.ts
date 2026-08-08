@@ -8,6 +8,10 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
     },
 }));
 
+vi.mock('@/app/runtime/nativePlatform', () => ({
+    isCapacitorNativePlatform: () => false,
+}));
+
 import { SmartToast } from '@/app/components/ui/SmartToast';
 
 describe('pickCurrentLocationForProfile', () => {

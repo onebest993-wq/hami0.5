@@ -1,4 +1,4 @@
-import { Upload } from 'lucide-react';
+import { Upload } from '@/app/components/ui/lucideIcons';
 import { RepositoryCard } from './RepositoryCard';
 import { UploadDocumentModal } from './UploadDocumentModal';
 import { ForumDeleteConfirmModal } from './ForumDeleteConfirmModal';
@@ -18,6 +18,7 @@ export const LegalRepository = ({
     sortBy = 'newest',
     selectedTag = null,
     surfaceOpen = true,
+    repositoryActive = true,
 }: LegalRepositoryFilters = {}) => {
     const repo = useLegalRepositoryDocuments({
         searchTerm,
@@ -25,6 +26,7 @@ export const LegalRepository = ({
         sortBy,
         selectedTag,
         surfaceOpen,
+        repositoryActive,
     });
 
     return (
@@ -73,10 +75,11 @@ export const LegalRepository = ({
                 </div>
             ) : (
                 <div className="grid grid-cols-1 gap-4">
-                    {repo.filteredDocuments.map((doc) => (
+                    {repo.filteredDocuments.map((doc, index) => (
                         <RepositoryCard
                             key={doc.id}
                             doc={doc}
+                            priorityThumb={index < 4}
                             isOwner={repo.isOwner(doc)}
                             downloadingId={repo.downloadingId}
                             deletingId={repo.deletingId}

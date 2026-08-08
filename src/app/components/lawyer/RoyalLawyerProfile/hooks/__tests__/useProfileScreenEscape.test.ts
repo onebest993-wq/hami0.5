@@ -69,6 +69,24 @@ describe('useProfileScreenEscape', () => {
         expect(onLeaveProfile).not.toHaveBeenCalled();
     });
 
+    it('لا يستدعي onLeaveProfile عند enabled=false (keep-alive مخفي)', () => {
+        const onLeaveProfile = vi.fn();
+        renderHook(() =>
+            useProfileScreenEscape({
+                enabled: false,
+                settingsOpen: false,
+                isEditing: false,
+                onCloseSettings: vi.fn(),
+                onLeaveProfile,
+            }),
+        );
+
+        window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+        expect(onLeaveProfile).not.toHaveBeenCalled();
+        expect(nativeBackHandler).toBeNull();
+    });
+
     it('Cap native back يغلق الاستوديو أولاً', () => {
         const onCloseSettings = vi.fn();
         const onLeaveProfile = vi.fn();

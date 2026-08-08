@@ -6,7 +6,8 @@ import { matchesExecutionTimelineFilter } from '@/app/utils/timelineCategoryFilt
 import { buildCustodyWardTimelineEvent } from '@/app/utils/custodyWardDeliveryEngine';
 
 function renderModule(overrides: Partial<React.ComponentProps<typeof CustodyRemovalWardsModule>> = {}) {
-    let timelineState: import('@/app/types/execution').TimelineEvent[] = [];
+    let timelineState: import('@/app/types/execution').TimelineEvent[] =
+        overrides.timelineEvents ?? [];
     const setTimelineEvents = vi.fn((updater) => {
         timelineState =
             typeof updater === 'function'
@@ -32,10 +33,55 @@ function renderModule(overrides: Partial<React.ComponentProps<typeof CustodyRemo
         />,
     );
 
-    return { setTimelineEvents, persistExecutionMerge, showToast, view, getTimelineState: () => timelineState };
+    const rerenderWithTimeline = () => {
+        view.rerender(
+            <CustodyRemovalWardsModule
+                executionId="ex-1"
+                parentDossierId="ex-1"
+                executionData={{ id: 'ex-1' } as never}
+                custodyWardNames={['أحمد']}
+                timelineEvents={timelineState}
+                todayYmd="2026-07-31"
+                setTimelineEvents={setTimelineEvents}
+                persistExecutionMerge={persistExecutionMerge}
+                nextTimelineId={() => 'tl-1'}
+                showToast={showToast}
+                {...overrides}
+            />,
+        );
+    };
+
+    return {
+        setTimelineEvents,
+        persistExecutionMerge,
+        showToast,
+        view,
+        rerenderWithTimeline,
+        getTimelineState: () => timelineState,
+    };
 }
 
 describe('CustodyRemovalWardsModule', () => {
+    it('يطوي قسم المحضونين تلقائياً عند أكثر من ثلاثة أسماء', () => {
+        renderModule({
+            custodyWardNames: ['أحمد', 'سارة', 'محمد', 'فاطمة'],
+        });
+
+        const header = screen.getByRole('button', { name: /المحضونين/i });
+        expect(header).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.queryByRole('button', { name: /أحمد/ })).not.toBeInTheDocument();
+    });
+
+    it('يفتح قسم المحضونين تلقائياً عند ثلاثة أسماء أو أقل', () => {
+        renderModule({
+            custodyWardNames: ['أحمد', 'سارة', 'محمد'],
+        });
+
+        const header = screen.getByRole('button', { name: /المحضونين/i });
+        expect(header).toHaveAttribute('aria-expanded', 'true');
+        expect(screen.getByRole('button', { name: /أحمد/ })).toBeInTheDocument();
+    });
+
     it('يحفظ موعد التسليم ذرياً في السجل وبيانات المحضونين', () => {
         const { setTimelineEvents, persistExecutionMerge, showToast } = renderModule();
 
@@ -43,7 +89,7 @@ describe('CustodyRemovalWardsModule', () => {
         fireEvent.change(screen.getByDisplayValue('') as HTMLInputElement, {
             target: { value: '2026-08-05' },
         });
-        fireEvent.click(screen.getByRole('button', { name: 'حفظ' }));
+        fireEvent.click(screen.getByRole('button', { name: 'حفظ الموعد' }));
 
         expect(setTimelineEvents).toHaveBeenCalled();
         expect(persistExecutionMerge).toHaveBeenCalledWith(
@@ -157,7 +203,53 @@ describe('CustodyRemovalWardsModule', () => {
     it('يعطّل حفظ الموعد قبل اختيار تاريخ', () => {
         renderModule({ custodyWardNames: ['سارة'] });
         fireEvent.click(screen.getByRole('button', { name: /سارة/ }));
-        expect(screen.getByRole('button', { name: 'حفظ' })).toBeDisabled();
+        expect(screen.getByRole('button', { name: 'حفظ الموعد' })).toBeDisabled();
+    });
+
+    it('بعد حفظ موعد مستقبلي يعرض تغيير الموعد بدون التقويم', () => {
+        renderModule();
+        fireEvent.click(screen.getByRole('button', { name: /أحمد/ }));
+        fireEvent.change(screen.getByDisplayValue('') as HTMLInputElement, {
+            target: { value: '2026-08-06' },
+        });
+        fireEvent.click(screen.getByRole('button', { name: 'حفظ الموعد' }));
+
+        expect(screen.queryByRole('button', { name: 'حفظ الموعد' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'تغيير الموعد' })).toBeInTheDocument();
+        expect(screen.getByText(/موعد التسليم:/)).toBeInTheDocument();
+    });
+
+    it('بعد عدم الاستلام يعرض زر تحديد موعد آخر ثم التقويم', () => {
+        const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        const { persistExecutionMerge, rerenderWithTimeline } = renderModule({
+            executionData: {
+                id: 'ex-1',
+                custodyWardDelivery: {
+                    wards: [
+                        {
+                            wardKey: 'ward-0',
+                            name: 'أحمد',
+                            status: 'scheduled',
+                            appointmentYmd: '2026-07-31',
+                        },
+                    ],
+                },
+            } as never,
+        });
+
+        fireEvent.click(screen.getByRole('button', { name: /أحمد/ }));
+        fireEvent.click(screen.getByRole('button', { name: 'لم يُستلم' }));
+        rerenderWithTimeline();
+
+        expect(screen.queryByRole('button', { name: 'لم يُستلم' })).not.toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'تحديد موعد آخر للتسليم' })).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: 'حفظ الموعد' })).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'تحديد موعد آخر للتسليم' }));
+        expect(screen.getByRole('button', { name: 'حفظ الموعد' })).toBeInTheDocument();
+
+        confirmSpy.mockRestore();
+        expect(persistExecutionMerge).toHaveBeenCalled();
     });
 });
 

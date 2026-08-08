@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Wallet, Plus, Check } from 'lucide-react';
+import { Wallet, Plus, Check } from '@/app/components/ui/lucideIcons';
 
 interface FinancialCardProps {
     total: number | string;

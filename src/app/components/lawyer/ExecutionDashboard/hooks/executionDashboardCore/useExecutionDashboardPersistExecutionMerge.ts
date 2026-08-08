@@ -103,7 +103,42 @@ export function isDurablePartyDeathPersistPatch(patch: Record<string, unknown>):
 
 }
 
+/** مواعيد المحضونين — نفس خطر الضياع عند إعادة التحميل السريع */
+export function isDurableCustodyWardPersistPatch(patch: Record<string, unknown>): boolean {
+    return 'custodyWardDelivery' in patch;
+}
 
+/** تبويبات محضر المتابعة — سجل تحركات الطرف الآخر ومسارات الطلبات */
+export function isDurableFollowupTabPersistPatch(patch: Record<string, unknown>): boolean {
+    return 'other_party_actions_log' in patch || 'other_party_request_tracks' in patch;
+}
+
+/** أثاث زوجية — نتائج التسليم والمبلغ المالي يجب أن تصل للقرص فوراً */
+export function isDurableMaritalFurnitureDeliveryPersistPatch(patch: Record<string, unknown>): boolean {
+    if ('maritalFurnitureDeliveryRecordedAt' in patch) return true;
+    if ('maritalFurnitureEarlyDeliveryUnlocked' in patch) return true;
+    if ('debtAmount' in patch || 'totalAmount' in patch) {
+        const debt = Math.round(Number(patch.debtAmount) || 0);
+        const total = Math.round(Number(patch.totalAmount) || 0);
+        if (debt > 0 || total > 0) return true;
+    }
+    if (!Array.isArray(patch.maritalFurnitureItems)) return false;
+    return (patch.maritalFurnitureItems as Array<Record<string, unknown>>).some(
+        (row) =>
+            Boolean(row?.deliveryOutcome) ||
+            Boolean(row?.deliveryRecordedAt) ||
+            typeof row?.delivered === 'boolean',
+    );
+}
+
+export function isDurableImmediateExecutionPersistPatch(patch: Record<string, unknown>): boolean {
+    return (
+        isDurablePartyDeathPersistPatch(patch) ||
+        isDurableCustodyWardPersistPatch(patch) ||
+        isDurableFollowupTabPersistPatch(patch) ||
+        isDurableMaritalFurnitureDeliveryPersistPatch(patch)
+    );
+}
 
 function commitExecutionViewOptimistically(params: {
 
@@ -224,7 +259,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
             if (!base) return false;
 
-            const durableDeath = isDurablePartyDeathPersistPatch(safePatch);
+            const durableImmediate = isDurableImmediateExecutionPersistPatch(safePatch);
 
             const epoch = ++persistEpochRef.current;
 
@@ -348,7 +383,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
                 };
 
-                if (durableDeath) {
+                if (durableImmediate) {
 
                     return writeSubDisk() === 'persisted';
 
@@ -446,7 +481,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
                 );
 
-                const syncIndex = durableDeath || latestHasDeath;
+                const syncIndex = durableImmediate || latestHasDeath;
 
                 const ok = persistExecutionDossierBlob(
 
@@ -470,7 +505,7 @@ export function useExecutionDashboardPersistExecutionMerge({
 
 
 
-            if (durableDeath) {
+            if (durableImmediate) {
 
                 return writeMainDisk() === 'persisted';
 

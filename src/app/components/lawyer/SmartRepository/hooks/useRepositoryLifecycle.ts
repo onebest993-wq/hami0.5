@@ -10,11 +10,13 @@ export function useRepositoryLifecycle(
     vaultLoading: boolean,
     vaultDocCount: number,
     notesCount: number,
-    _notesBootSettled?: boolean,
+    _notesBootSettled = true,
+    repositoryOpen = false,
 ) {
     const uid = userId?.trim() ?? '';
     const hadVaultCacheRef = useRef(peekVaultDocsWarmCache(uid) !== undefined);
     const reportedRef = useRef(false);
+    const wasOpenRef = useRef(false);
 
     /** الفلاتر والقائمة تظهر فوراً — بيانات vault تُدمَج عند وصولها دون حجب كامل */
     const isShellReady = true;
@@ -26,7 +28,14 @@ export function useRepositoryLifecycle(
     }, [uid]);
 
     useEffect(() => {
-        if (!isShellReady || reportedRef.current) return;
+        if (repositoryOpen && !wasOpenRef.current) {
+            reportedRef.current = false;
+        }
+        wasOpenRef.current = repositoryOpen;
+    }, [repositoryOpen]);
+
+    useEffect(() => {
+        if (!repositoryOpen || !isShellReady || reportedRef.current) return;
         reportedRef.current = true;
         markRepositoryPerfPhase('first-paint');
         markRepositoryPerfPhase('interactive');
@@ -36,11 +45,11 @@ export function useRepositoryLifecycle(
             notesCount,
             hadVaultCache: hadVaultCacheRef.current,
         });
-    }, [isShellReady, notesCount, userId, vaultDocCount]);
+    }, [isShellReady, repositoryOpen, notesCount, userId, vaultDocCount]);
 
     /* احتياطي — لا يبقى open→interactive معلّقاً إن تأخرت الجاهزية (R1/R9) */
     useEffect(() => {
-        if (reportedRef.current) return;
+        if (!repositoryOpen || reportedRef.current) return;
 
         const markInteractiveFallback = () => {
             if (reportedRef.current) return;
@@ -57,7 +66,7 @@ export function useRepositoryLifecycle(
 
         const fallback = window.setTimeout(markInteractiveFallback, 1_200);
         return () => window.clearTimeout(fallback);
-    }, [notesCount, uid, userId, vaultDocCount]);
+    }, [repositoryOpen, notesCount, uid, userId, vaultDocCount]);
 
     return { isShellReady, feedLoading, hadVaultCache: hadVaultCacheRef.current };
 }

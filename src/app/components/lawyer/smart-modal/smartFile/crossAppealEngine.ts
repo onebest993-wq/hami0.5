@@ -1,5 +1,9 @@
 import type { CaseStage, Party } from '../../LawyerShared';
 import {
+    isPersonalStatusAppealContext,
+    isPersonalStatusDossierFromStages,
+} from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import {
     classifyPartySideBucket,
     extractParentheticalUnderlyingSide,
     isAppellantAppealRole,
@@ -304,6 +308,21 @@ export function resolveCrossAppealEligibility(input: {
     appealStageIndex?: number;
 }): CrossAppealEligibility {
     const { appealStage, stages, appealStageIndex = -1 } = input;
+
+    if (
+        isPersonalStatusAppealContext(appealStage.stageName, stages)
+        || isPersonalStatusDossierFromStages(stages)
+    ) {
+        return {
+            showButton: false,
+            isPartialJudgment: false,
+            hasStaggeredCoLitigants: false,
+            pendingCrossAppellants: [],
+            crossAppellees: [],
+            filedCrossAppellants: [],
+        };
+    }
+
     const meta = appealStage.appealMetadata;
     const previousStage =
         appealStageIndex >= 0

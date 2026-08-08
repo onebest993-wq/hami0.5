@@ -5,18 +5,16 @@ const confirm = vi.fn();
 const success = vi.fn();
 const info = vi.fn();
 const warning = vi.fn();
+const loading = vi.fn();
+const dismiss = vi.fn();
 const patchSecurity = vi.fn();
 const patchData = vi.fn();
-const clearStoredBiometricCredential = vi.fn();
-const clearNativeBiometricEnrollment = vi.fn();
-const clearNativeBiometricOnDisable = vi.fn();
-const hasNativeBiometricEnrollment = vi.fn();
-const hasStoredBiometricCredential = vi.fn();
-const probeNativeBiometricAvailability = vi.fn();
-const registerNativeBiometric = vi.fn();
-const isCapacitorNativePlatform = vi.fn();
-const isWebAuthnLockSupported = vi.fn();
-const registerBiometricCredential = vi.fn();
+const clearBiometricSessionEnrollment = vi.fn();
+const enrollBiometricSessionLock = vi.fn();
+const hasBiometricSessionEnrollment = vi.fn();
+const probeBiometricSession = vi.fn();
+const reconcileBiometricSessionLockEnabled = vi.fn();
+const resolveBiometricSessionHint = vi.fn();
 
 let securityState = {
     localOnlyMode: false,
@@ -37,6 +35,8 @@ vi.mock('@/app/components/ui/SmartToast', () => ({
         success: (...args: unknown[]) => success(...args),
         info: (...args: unknown[]) => info(...args),
         warning: (...args: unknown[]) => warning(...args),
+        loading: (...args: unknown[]) => loading(...args),
+        dismiss: (...args: unknown[]) => dismiss(...args),
     },
 }));
 
@@ -51,23 +51,13 @@ vi.mock('@/app/components/lawyer/HamiSettings/hooks/useSettingsPatches', () => (
     }),
 }));
 
-vi.mock('@/app/runtime/nativeBiometricBridge', () => ({
-    clearNativeBiometricOnDisable: (...args: unknown[]) => clearNativeBiometricOnDisable(...args),
-    clearNativeBiometricEnrollment: (...args: unknown[]) => clearNativeBiometricEnrollment(...args),
-    hasNativeBiometricEnrollment: () => hasNativeBiometricEnrollment(),
-    probeNativeBiometricAvailability: (...args: unknown[]) => probeNativeBiometricAvailability(...args),
-    registerNativeBiometric: (...args: unknown[]) => registerNativeBiometric(...args),
-}));
-
-vi.mock('@/app/runtime/nativePlatform', () => ({
-    isCapacitorNativePlatform: () => isCapacitorNativePlatform(),
-}));
-
-vi.mock('@/app/services/security/webAuthnLock', () => ({
-    clearStoredBiometricCredential: (...args: unknown[]) => clearStoredBiometricCredential(...args),
-    hasStoredBiometricCredential: () => hasStoredBiometricCredential(),
-    isWebAuthnLockSupported: () => isWebAuthnLockSupported(),
-    registerBiometricCredential: (...args: unknown[]) => registerBiometricCredential(...args),
+vi.mock('@/app/services/security/biometricSessionService', () => ({
+    clearBiometricSessionEnrollment: (...args: unknown[]) => clearBiometricSessionEnrollment(...args),
+    enrollBiometricSessionLock: (...args: unknown[]) => enrollBiometricSessionLock(...args),
+    hasBiometricSessionEnrollment: () => hasBiometricSessionEnrollment(),
+    probeBiometricSession: (...args: unknown[]) => probeBiometricSession(...args),
+    reconcileBiometricSessionLockEnabled: (...args: unknown[]) => reconcileBiometricSessionLockEnabled(...args),
+    resolveBiometricSessionHint: (...args: unknown[]) => resolveBiometricSessionHint(...args),
 }));
 
 import { useSecuritySection } from '@/app/components/lawyer/HamiSettings/security/useSecuritySection';
@@ -83,18 +73,17 @@ describe('useSecuritySection', () => {
             screenshotDeterrent: false,
         };
         confirm.mockResolvedValue(true);
-        isCapacitorNativePlatform.mockReturnValue(false);
-        isWebAuthnLockSupported.mockReturnValue(false);
-        hasNativeBiometricEnrollment.mockReturnValue(false);
-        hasStoredBiometricCredential.mockReturnValue(false);
-        probeNativeBiometricAvailability.mockResolvedValue({
-            nativeShell: true,
-            pluginLoaded: true,
-            hardwareAvailable: true,
+        hasBiometricSessionEnrollment.mockReturnValue(false);
+        reconcileBiometricSessionLockEnabled.mockReturnValue('ok');
+        probeBiometricSession.mockResolvedValue({
+            channel: 'none',
+            pluginLoaded: false,
+            hardwareAvailable: false,
+            enrolled: false,
         });
-        registerNativeBiometric.mockResolvedValue(null);
-        registerBiometricCredential.mockResolvedValue(false);
-        clearNativeBiometricOnDisable.mockResolvedValue(undefined);
+        resolveBiometricSessionHint.mockReturnValue('');
+        enrollBiometricSessionLock.mockResolvedValue({ status: 'unavailable' });
+        loading.mockReturnValue('toast-loading');
     });
 
     it('يفعّل localOnly مع تعطيل مسارات المزامنة بعد التأكيد', async () => {
@@ -125,38 +114,31 @@ describe('useSecuritySection', () => {
         expect(patchData).not.toHaveBeenCalled();
     });
 
-    it('يعطّل البصمة ويمسح التسجيلات المحلية والأصلية', async () => {
+    it('يعطّل البصمة عبر BiometricSessionService', async () => {
         const { result } = renderHook(() => useSecuritySection());
 
         await act(async () => {
             await result.current.toggleBiometric(false);
         });
 
-        expect(clearStoredBiometricCredential).toHaveBeenCalledTimes(1);
-        expect(clearNativeBiometricEnrollment).toHaveBeenCalledTimes(1);
-        expect(clearNativeBiometricOnDisable).toHaveBeenCalledTimes(1);
+        expect(clearBiometricSessionEnrollment).toHaveBeenCalledTimes(1);
         expect(patchSecurity).toHaveBeenCalledWith({ biometricLock: false });
     });
 
     it('يعيد ضبط القفل عند وجود علم مفعّل بلا تسجيل فعلي', async () => {
         securityState = { ...securityState, biometricLock: true };
-        hasNativeBiometricEnrollment.mockReturnValue(false);
-        hasStoredBiometricCredential.mockReturnValue(false);
-        isWebAuthnLockSupported.mockReturnValue(true);
+        reconcileBiometricSessionLockEnabled.mockReturnValue('reset');
 
         renderHook(() => useSecuritySection());
 
         await waitFor(() => {
             expect(patchSecurity).toHaveBeenCalledWith({ biometricLock: false });
         });
-        expect(clearStoredBiometricCredential).toHaveBeenCalled();
-        expect(clearNativeBiometricEnrollment).toHaveBeenCalled();
         expect(info).toHaveBeenCalled();
     });
 
-    it('يفعّل البصمة الأصلية ويضبط القفل التلقائي عند الحاجة', async () => {
-        isCapacitorNativePlatform.mockReturnValue(true);
-        registerNativeBiometric.mockResolvedValueOnce(true);
+    it('يفعّل البصمة ويضبط القفل التلقائي عند الحاجة', async () => {
+        enrollBiometricSessionLock.mockResolvedValueOnce({ status: 'enrolled' });
         securityState = { ...securityState, autoLockMinutes: 0 };
 
         const { result } = renderHook(() => useSecuritySection());
@@ -165,16 +147,17 @@ describe('useSecuritySection', () => {
             await result.current.toggleBiometric(true);
         });
 
-        expect(probeNativeBiometricAvailability).toHaveBeenCalled();
+        expect(enrollBiometricSessionLock).toHaveBeenCalled();
+        expect(loading).toHaveBeenCalled();
+        expect(dismiss).toHaveBeenCalledWith('toast-loading');
         expect(patchSecurity).toHaveBeenCalledWith({
             biometricLock: true,
             autoLockMinutes: 5,
         });
     });
 
-    it('يعرض تحذيراً عند فشل التسجيل الأصلي للبصمة', async () => {
-        isCapacitorNativePlatform.mockReturnValue(true);
-        registerNativeBiometric.mockResolvedValueOnce(false);
+    it('يعرض رسالة عند إلغاء التحقق البيومتري', async () => {
+        enrollBiometricSessionLock.mockResolvedValueOnce({ status: 'cancelled' });
 
         const { result } = renderHook(() => useSecuritySection());
 
@@ -182,16 +165,17 @@ describe('useSecuritySection', () => {
             await result.current.toggleBiometric(true);
         });
 
-        expect(warning).toHaveBeenCalled();
+        expect(info).toHaveBeenCalled();
         expect(patchSecurity).not.toHaveBeenCalled();
     });
 
-    it('يوقف التفعيل إذا لم تُحمَّل إضافة البصمة الأصلية', async () => {
-        isCapacitorNativePlatform.mockReturnValue(true);
-        probeNativeBiometricAvailability.mockResolvedValue({
-            nativeShell: true,
+    it('يوقف التفعيل إذا كانت القناة غير متاحة', async () => {
+        enrollBiometricSessionLock.mockResolvedValueOnce({ status: 'unavailable' });
+        probeBiometricSession.mockResolvedValue({
+            channel: 'native',
             pluginLoaded: false,
             hardwareAvailable: false,
+            enrolled: false,
         });
 
         const { result } = renderHook(() => useSecuritySection());
@@ -201,13 +185,17 @@ describe('useSecuritySection', () => {
         });
 
         expect(warning).toHaveBeenCalled();
-        expect(registerNativeBiometric).not.toHaveBeenCalled();
         expect(patchSecurity).not.toHaveBeenCalled();
     });
 
     it('يعرض رسالة صادقة إذا كان WebAuthn غير مدعوم', async () => {
-        isCapacitorNativePlatform.mockReturnValue(false);
-        isWebAuthnLockSupported.mockReturnValue(false);
+        enrollBiometricSessionLock.mockResolvedValueOnce({ status: 'unavailable' });
+        probeBiometricSession.mockResolvedValueOnce({
+            channel: 'none',
+            pluginLoaded: false,
+            hardwareAvailable: false,
+            enrolled: false,
+        });
 
         const { result } = renderHook(() => useSecuritySection());
 
@@ -221,9 +209,7 @@ describe('useSecuritySection', () => {
 
     it('يفعّل WebAuthn دون تعديل autoLock إذا كان مضبوطاً مسبقاً', async () => {
         securityState = { ...securityState, autoLockMinutes: 15 };
-        isCapacitorNativePlatform.mockReturnValue(false);
-        isWebAuthnLockSupported.mockReturnValue(true);
-        registerBiometricCredential.mockResolvedValueOnce(true);
+        enrollBiometricSessionLock.mockResolvedValueOnce({ status: 'enrolled' });
 
         const { result } = renderHook(() => useSecuritySection());
 
@@ -233,15 +219,6 @@ describe('useSecuritySection', () => {
 
         expect(patchSecurity).toHaveBeenCalledWith({
             biometricLock: true,
-        });
-    });
-
-    it('يعرض تلميح جاهزية على المتصفح', async () => {
-        isWebAuthnLockSupported.mockReturnValue(true);
-        const { result } = renderHook(() => useSecuritySection());
-
-        await waitFor(() => {
-            expect(result.current.biometricSubLabel).toMatch(/متاح على المتصفح|مفعّل عبر WebAuthn/);
         });
     });
 });

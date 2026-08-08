@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Archive, Trash2, Link2, Eye, RotateCcw } from 'lucide-react';
+import { Archive, Trash2, Link2, Eye, RotateCcw } from '@/app/components/ui/lucideIcons';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { dossierLifecycleBadgeClass } from '@/app/components/lawyer/ExecutionDashboard/helpers/dossierLifecycleUtils';
 import { isEvictionClaim } from '@/app/utils/executionModuleStrategies';
@@ -70,6 +70,43 @@ function outlineTextActionClassName(tone: 'accent' | 'success') {
     return `inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-[10px] font-bold transition-all duration-200 ${tones[tone]}`;
 }
 
+function stopToolbarPointerEvent(event: React.SyntheticEvent) {
+    event.stopPropagation();
+}
+
+function fireToolbarAction(event: React.MouseEvent, action?: () => void) {
+    event.preventDefault();
+    event.stopPropagation();
+    action?.();
+}
+
+function ToolbarIconButton({
+    onAction,
+    className,
+    children,
+    ...rest
+}: {
+    onAction?: () => void;
+    className: string;
+    children: React.ReactNode;
+    title?: string;
+    'aria-label'?: string;
+    'data-testid'?: string;
+}) {
+    return (
+        <button
+            type="button"
+            {...rest}
+            onPointerDown={stopToolbarPointerEvent}
+            onMouseDown={stopToolbarPointerEvent}
+            onClick={(event) => fireToolbarAction(event, onAction)}
+            className={className}
+        >
+            {children}
+        </button>
+    );
+}
+
 function ExecutionSmartCard({
     file,
     liveRevision = 0,
@@ -88,15 +125,6 @@ function ExecutionSmartCard({
 }: ExecutionSmartCardProps) {
     const reduceMotion = useReduceMotion();
     const prefetchFiredRef = React.useRef(false);
-
-    const handleToolbarAction = React.useCallback(
-        (event: React.SyntheticEvent, action?: () => void) => {
-            event.preventDefault();
-            event.stopPropagation();
-            action?.();
-        },
-        [],
-    );
 
     const loose = file;
     const unifiedCount = Number(file.unifiedCount || 0);
@@ -169,6 +197,12 @@ function ExecutionSmartCard({
         [warmDossierBlob],
     );
 
+    const openSurfaceProps = {
+        onClick: handleCardClick,
+        onPointerDown: handleCardPointerDown,
+        className: 'cursor-pointer',
+    } as const;
+
     const headerMeta = React.useMemo(
         () => resolveDossierHeaderFields(cardView.snap),
         [cardView.snap],
@@ -200,7 +234,7 @@ function ExecutionSmartCard({
         showTrashSelect || showPin || showArchive || showTrash || showPermanentDelete;
 
     const cardClassName = `
-                group relative cursor-pointer overflow-hidden rounded-3xl
+                group relative overflow-hidden rounded-3xl
                 border border-white/10 bg-gradient-to-br from-[#0B1120]/95 to-[#05060D]/90
                 p-4 sm:p-[1.125rem] shadow-[0_16px_42px_rgba(0,0,0,0.42)] backdrop-blur-xl
                 transition-all duration-300 hover:border-[#E6C673]/35 hover:shadow-[0_20px_52px_rgba(230,198,115,0.08)]
@@ -226,7 +260,7 @@ function ExecutionSmartCard({
 
             <div className="relative mb-3" dir="rtl">
                 <div className="flex items-start justify-between gap-2.5">
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1" {...openSurfaceProps}>
                         <div className="mb-1 flex flex-wrap items-center gap-2">
                             <span className="text-[11px] font-semibold text-slate-400">رقم الإضبارة</span>
                             <span
@@ -278,11 +312,10 @@ function ExecutionSmartCard({
                     </div>
 
                     <div
-                        className="relative z-20 inline-flex shrink-0 flex-col items-stretch gap-1.5"
-                        onClick={(e) => e.stopPropagation()}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                        role="presentation"
+                        className="relative z-40 inline-flex shrink-0 flex-col items-stretch gap-1.5"
+                        onPointerDown={stopToolbarPointerEvent}
+                        onMouseDown={stopToolbarPointerEvent}
+                        onClick={stopToolbarPointerEvent}
                     >
                         {hasIconToolbar ? (
                             <div className="inline-flex items-center justify-end gap-1.5 rounded-2xl border border-white/10 bg-black/20 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
@@ -309,42 +342,37 @@ function ExecutionSmartCard({
                                     />
                                 ) : null}
                                 {showArchive ? (
-                                    <button
-                                        type="button"
+                                    <ToolbarIconButton
                                         title="أرشفة الإضبارة"
                                         aria-label="أرشفة الإضبارة"
                                         data-testid="execution-smart-card-archive"
-                                        onClick={(event) => handleToolbarAction(event, onRequestArchive)}
-                                        onPointerDown={(event) => handleToolbarAction(event, undefined)}
+                                        onAction={onRequestArchive}
                                         className={outlineIconActionClassName('accent')}
                                     >
                                         <Archive size={16} />
-                                    </button>
+                                    </ToolbarIconButton>
                                 ) : null}
                                 {showTrash ? (
-                                    <button
-                                        type="button"
+                                    <ToolbarIconButton
                                         title="نقل إلى سلة المهملات"
                                         aria-label="نقل إلى سلة المهملات"
                                         data-testid="execution-smart-card-trash"
-                                        onClick={(event) => handleToolbarAction(event, onRequestMoveToTrash)}
-                                        onPointerDown={(event) => handleToolbarAction(event, undefined)}
+                                        onAction={onRequestMoveToTrash}
                                         className={outlineIconActionClassName('danger')}
                                     >
                                         <Trash2 size={16} />
-                                    </button>
+                                    </ToolbarIconButton>
                                 ) : null}
                                 {showPermanentDelete ? (
-                                    <button
-                                        type="button"
+                                    <ToolbarIconButton
                                         title="حذف نهائي"
                                         aria-label="حذف نهائي"
                                         data-testid="execution-smart-card-permanent-delete"
-                                        onClick={(event) => handleToolbarAction(event, onRequestPermanentDelete)}
+                                        onAction={onRequestPermanentDelete}
                                         className={outlineIconActionClassName('danger')}
                                     >
                                         <Trash2 size={16} />
-                                    </button>
+                                    </ToolbarIconButton>
                                 ) : null}
                             </div>
                         ) : null}
@@ -387,7 +415,10 @@ function ExecutionSmartCard({
             </div>
 
             {isEvictionClaim(String(cardView.snap.claimType || cardView.snap.docType || '')) && (
-                <div className="mb-3 space-y-1 rounded-2xl border border-blue-500/20 bg-blue-950/20 px-3 py-2 text-right">
+                <div
+                    {...openSurfaceProps}
+                    className="mb-3 space-y-1 rounded-2xl border border-blue-500/20 bg-blue-950/20 px-3 py-2 text-right"
+                >
                     <p className="text-[10px] font-semibold text-blue-300/90">العقار (من بيانات الإضبارة)</p>
                     <p className="text-[11px] text-slate-300">
                         رقم: {snapLoose.property_number || '—'} · المقاطعة: {snapLoose.district || '—'}
@@ -398,16 +429,18 @@ function ExecutionSmartCard({
                 </div>
             )}
 
-            <ExecutionArchivePartyBlock view={cardView} className="border-t border-slate-800/50 pt-3" />
-            {cardView.relationship ? (
-                <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-purple-500/20 pt-2.5">
-                    <span className="text-[11px] text-purple-200">
-                        الصلة: <span className="font-bold">({cardView.relationship})</span> للمدين{' '}
-                        <BiDiText className="font-bold">{cardView.linkedDebtorLabel}</BiDiText>
-                    </span>
-                    <Link2 size={12} className="shrink-0 text-purple-400" />
-                </div>
-            ) : null}
+            <div {...openSurfaceProps}>
+                <ExecutionArchivePartyBlock view={cardView} className="border-t border-slate-800/50 pt-3" />
+                {cardView.relationship ? (
+                    <div className="mt-2.5 flex items-center justify-end gap-2 border-t border-purple-500/20 pt-2.5">
+                        <span className="text-[11px] text-purple-200">
+                            الصلة: <span className="font-bold">({cardView.relationship})</span> للمدين{' '}
+                            <BiDiText className="font-bold">{cardView.linkedDebtorLabel}</BiDiText>
+                        </span>
+                        <Link2 size={12} className="shrink-0 text-purple-400" />
+                    </div>
+                ) : null}
+            </div>
         </>
     );
 
@@ -415,9 +448,7 @@ function ExecutionSmartCard({
         return (
             <div
                 onPointerEnter={primeExecutionDossier}
-                onPointerDown={handleCardPointerDown}
                 onFocus={primeExecutionDossier}
-                onClick={handleCardClick}
                 className={cardClassName}
             >
                 {cardBody}
@@ -431,9 +462,7 @@ function ExecutionSmartCard({
             animate={{ opacity: 1, y: 0 }}
             whileHover={reduceMotion ? undefined : { y: -6 }}
             onPointerEnter={primeExecutionDossier}
-            onPointerDown={handleCardPointerDown}
             onFocus={primeExecutionDossier}
-            onClick={handleCardClick}
             className={cardClassName}
         >
             {cardBody}

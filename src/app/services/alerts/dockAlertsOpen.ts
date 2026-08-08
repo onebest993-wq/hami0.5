@@ -1,5 +1,5 @@
 /** فتح تنبيهات/تثبيت الدوك — منطق موحّد قابل للاختبار */
-export const ALERTS_DOCK_FEATURE = 'التنبيهات والتثبيت';
+export const ALERTS_DOCK_FEATURE = 'البطاقة الذكية';
 
 export type AlertsDockSheetMode = 'alerts' | 'pins';
 

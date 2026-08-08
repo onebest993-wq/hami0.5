@@ -1,7 +1,13 @@
 <!--
   انسخ إلى android/app/src/main/AndroidManifest.xml داخل <manifest>
-  عند إنشاء مشروع Capacitor Android (npm run cap:add:android / npx cap add android).
+  عند إنشاء مشروع Capacitor Android (npx cap add android).
 -->
+<uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 <!-- أجهزة أقدم من API 28 -->
 <uses-permission android:name="android.permission.USE_FINGERPRINT" />
+<!-- التقاط مرفقات الخزنة -->
+<uses-permission android:name="android.permission.CAMERA" />
+<!-- تحديد موقع المكتب في الملف المهني -->
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />

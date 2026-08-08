@@ -10,7 +10,6 @@ import {
 } from '@/app/services/calendarBridge';
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import { TransactionDB, TransactionsThreadingDB } from '@/app/services/cloud/lawyerTransactionsCloud';
-import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { debug } from '@/app/utils/debug';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
@@ -65,9 +64,7 @@ export async function pruneOrphanedBridgedEventsForEntity(
             await CalendarBridge.remove(sourceModule, entityKey, evSourceId, uid);
             removed++;
         }
-        if (removed > 0 && typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT));
-        }
+        if (removed > 0) dispatchCalendarUpdated();
         return removed;
     } catch (err) {
         debug.warn('[calendarDossierSync] pruneOrphanedBridgedEventsForEntity failed:', err);
@@ -93,9 +90,7 @@ export async function removeAllBridgedEventsForEntity(
             await CalendarBridge.remove(sourceModule, entityKey, String(e.sourceEventId), uid);
             removed++;
         }
-        if (removed > 0 && typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent(CALENDAR_UPDATED_EVENT));
-        }
+        if (removed > 0) dispatchCalendarUpdated();
         return removed;
     } catch (err) {
         debug.warn('[calendarDossierSync] removeAllBridgedEventsForEntity failed:', err);

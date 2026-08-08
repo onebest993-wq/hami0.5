@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 
 import { useCalendarData, buildEventsByDateIndex } from '@/app/components/lawyer/hooks/useCalendarData';
 
@@ -29,6 +29,8 @@ import { RADAR_SCROLL } from './SmartLegalRadar/radarTheme';
 import { useOpaqueFeatureSurface } from '@/app/hooks/useOpaqueFeatureSurface';
 
 import { RadarAddEventDock } from './SmartLegalRadar/RadarAddEventDock';
+import { SparkCalendarNudgeHost } from '@/app/spark/ui/SparkCalendarNudgeHost';
+import type { CalendarSparkSupplementalInput } from '@/app/spark/calendar/calendarSparkSupplementalScan';
 
 
 
@@ -43,6 +45,13 @@ interface SmartLegalRadarProps {
     initialEventId?: string;
 
     onOpenSource?: (sourceModule: string, sourceEntityId: string) => void;
+
+    onOpenRepositoryNote?: (noteId: string) => void;
+
+    calendarSparkSupplemental?: CalendarSparkSupplementalInput;
+
+    /** false عند keep-alive مخفي — يوقف سرقة Cap/Escape */
+    screenActive?: boolean;
 
 }
 
@@ -60,13 +69,19 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
     onOpenSource,
 
+    onOpenRepositoryNote,
+
+    calendarSparkSupplemental,
+
+    screenActive = true,
+
 }) => {
 
     const [highlightEventId, setHighlightEventId] = useState<string | undefined>(initialEventId);
 
 
 
-    useOpaqueFeatureSurface(true, '#1f1712');
+    useOpaqueFeatureSurface(screenActive, '#121212');
 
 
 
@@ -92,6 +107,8 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
         allEvents,
 
+        sparkScanEvents,
+
         customEvents,
 
         effectiveUserId,
@@ -111,8 +128,6 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
         error: calendarError,
 
     } = useCalendarData(userId);
-
-
 
     useSmartLegalRadarLifecycle(userId, foregroundSyncing || backgroundSyncing, allEvents.length);
 
@@ -135,7 +150,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
     });
 
     useScheduleTabEscape({
-        enabled: true,
+        enabled: screenActive,
         showForm: form.showForm,
         formSaving: form.saving,
         onCloseForm: form.closeForm,
@@ -212,19 +227,29 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
 
 
-    const handleOpenSource = onOpenSource
+    const handleOpenSource = useCallback(
+        (ev: (typeof selectedEvents)[number]) => {
+            const mod = ev.bridge?.sourceModule;
+            const entId = ev.bridge?.sourceEntityId;
+            if (mod && entId) onOpenSource?.(mod, entId);
+        },
+        [onOpenSource],
+    );
 
-        ? (ev: (typeof selectedEvents)[number]) => {
+    const handleFocusCalendarEvent = useCallback(
+        (eventId: string, date: string) => {
+            view.focusDate(date);
+            setHighlightEventId(eventId);
+        },
+        [view],
+    );
 
-              const mod = ev.bridge?.sourceModule;
-
-              const entId = ev.bridge?.sourceEntityId;
-
-              if (mod && entId) onOpenSource(mod, entId);
-
-          }
-
-        : undefined;
+    const handleFocusCalendarDay = useCallback(
+        (dateYmd: string) => {
+            view.focusDate(dateYmd);
+        },
+        [view],
+    );
 
 
 
@@ -252,7 +277,17 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
                 <MonthNav {...headerProps} />
 
-
+                <SparkCalendarNudgeHost
+                    allEvents={sparkScanEvents}
+                    supplemental={calendarSparkSupplemental}
+                    disabled={!screenActive}
+                    onFocusEvent={handleFocusCalendarEvent}
+                    onFocusDay={handleFocusCalendarDay}
+                    onOpenSource={onOpenSource}
+                    onOpenRepositoryNote={onOpenRepositoryNote}
+                    suppressConflictNudge={scheduleConflict.hasConflict}
+                    selectedDateYmd={view.selectedDate}
+                />
 
                 <CalendarGridHost
 
@@ -282,7 +317,7 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
 
                     highlightEventId={highlightEventId}
 
-                    aiBriefing={aiBriefing}
+                    aiBriefing={aiBriefing ?? undefined}
 
                     conflictMessage={conflictMessage}
 
@@ -321,8 +356,6 @@ export const SmartLegalRadar: React.FC<SmartLegalRadarProps> = ({
                 editingEvent={form.editingEvent}
 
                 saving={form.saving}
-
-                onFormChange={form.handleFormChange}
 
                 onSave={form.handleSave}
 

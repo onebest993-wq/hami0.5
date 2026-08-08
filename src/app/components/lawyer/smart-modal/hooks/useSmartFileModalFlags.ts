@@ -14,6 +14,8 @@ export function useSmartFileModalFlags() {
     const [showPauseModal, setShowPauseModal] = useState(false);
     const [showInterruptionModal, setShowInterruptionModal] = useState(false);
     const [showResumeInterruptionModal, setShowResumeInterruptionModal] = useState(false);
+    const [showAbandonmentRenewalModal, setShowAbandonmentRenewalModal] = useState(false);
+    const [showPauseResumeModal, setShowPauseResumeModal] = useState(false);
     const [showInterlocutoryModal, setShowInterlocutoryModal] = useState(false);
     const [showAppealModal, setShowAppealModal] = useState(false);
     const [isTrashOpen, setIsTrashOpen] = useState(false);
@@ -101,6 +103,10 @@ export function useSmartFileModalFlags() {
         setShowInterruptionModal,
         showResumeInterruptionModal,
         setShowResumeInterruptionModal,
+        showAbandonmentRenewalModal,
+        setShowAbandonmentRenewalModal,
+        showPauseResumeModal,
+        setShowPauseResumeModal,
         showInterlocutoryModal,
         setShowInterlocutoryModal,
         showAppealModal,

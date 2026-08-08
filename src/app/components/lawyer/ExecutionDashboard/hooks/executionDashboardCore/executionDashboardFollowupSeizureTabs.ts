@@ -2,6 +2,7 @@ import { resolveAmountGuarantorRequestVisible } from '@/app/slices/financial/spe
 import type { PendingSettlement } from '@/app/slices/financial/specialtyPublic';
 import { hasActiveFinancialGuarantorFollowup } from '@/app/utils/execution/guarantorFollowup';
 import type { ExecutionFile } from '@/app/types/execution';
+import type { FollowupSpecializationVisibility } from '@/app/utils/followupSpecializationVisibility';
 
 export type FollowupSeizureSpecialization = {
     hideAllGuarantorPresence: boolean;
@@ -57,6 +58,30 @@ export function computeShowGuarantorInSeizureFollowupTab(input: {
         return followupSpecialization.showFinancialGuarantorRequestOnly;
     }
     return false;
+}
+
+/** تبويبات مسموحة عند تقييد المحضر (كيان قانوني / وكيل مدين) — ديناميكي حسب أعلام التخصيص */
+export function buildRestrictedFollowupTabIds(input: {
+    specialization: Pick<
+        FollowupSpecializationVisibility,
+        'hideFollowupCoerciveTab' | 'hideFollowupSeizureRequestsTab' | 'hidePersonalCoerciveFollowupTab'
+    >;
+    showPersonalCoerciveFollowupTab: boolean;
+}): Set<string> {
+    const ids = new Set<string>(['correspondences', 'admin', 'dossier_controls', 'other_party']);
+    if (!input.specialization.hideFollowupCoerciveTab) {
+        ids.add('coercive');
+    }
+    if (!input.specialization.hideFollowupSeizureRequestsTab) {
+        ids.add('seizure_requests');
+    }
+    if (
+        input.showPersonalCoerciveFollowupTab &&
+        !input.specialization.hidePersonalCoerciveFollowupTab
+    ) {
+        ids.add('personal');
+    }
+    return ids;
 }
 
 export function filterSeizureFromFollowupSectionTabOrder(

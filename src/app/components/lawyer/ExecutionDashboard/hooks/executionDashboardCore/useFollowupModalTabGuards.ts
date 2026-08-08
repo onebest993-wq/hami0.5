@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect } from 'react';
 import type { Dispatch, RefObject, SetStateAction } from 'react';
 import { bindHorizontalWheelToScroll } from '@/app/components/lawyer/ExecutionDashboard/helpers';
 import type { FollowupUnifiedModalTab } from '../../followupModalTabTypes';
+import { resolveLegacyFollowupTabRuntimeRedirect } from '../../utils/followupLegacyTabNormalization';
 
 export type UseFollowupModalTabGuardsParams = {
     showUnifiedExecutionModal: boolean;
@@ -46,13 +47,14 @@ export function useFollowupModalTabGuards({
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
         if (followupTabsRestricted && !restrictedFollowupTabIds.has(unifiedModalTab)) {
-            setUnifiedModalTab(hideCoerciveTabsForDebtorAgent ? 'other_party' : 'correspondences');
+            const nextTab = (hideCoerciveTabsForDebtorAgent ? 'other_party' : 'correspondences') as FollowupUnifiedModalTab;
+            if (nextTab !== unifiedModalTab) setUnifiedModalTab(nextTab);
             return;
         }
         if (unifiedModalTab !== 'seizure_requests') return;
         if (!seizureMatrix.hideSeizureTab && !hideFollowupSeizureRequestsTab) return;
         const fallback = (effectiveFollowupSectionTabOrder[0] ?? 'correspondences') as FollowupUnifiedModalTab;
-        setUnifiedModalTab(fallback);
+        if (fallback !== unifiedModalTab) setUnifiedModalTab(fallback);
     }, [
         showUnifiedExecutionModal,
         unifiedModalTab,
@@ -67,9 +69,14 @@ export function useFollowupModalTabGuards({
 
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
-        if (unifiedModalTab !== 'financial') return;
-        const fallback = effectiveFollowupSectionTabOrder[0] ?? 'coercive';
-        setUnifiedModalTab(hideFollowupCoerciveTab ? (fallback as FollowupUnifiedModalTab) : 'coercive');
+        const legacyRedirect = resolveLegacyFollowupTabRuntimeRedirect({
+            unifiedModalTab,
+            effectiveFollowupSectionTabOrder,
+            hideFollowupCoerciveTab,
+        });
+        if (legacyRedirect && legacyRedirect !== unifiedModalTab) {
+            setUnifiedModalTab(legacyRedirect);
+        }
     }, [
         effectiveFollowupSectionTabOrder,
         hideFollowupCoerciveTab,
@@ -82,7 +89,8 @@ export function useFollowupModalTabGuards({
         if (!showUnifiedExecutionModal) return;
         if (showPersonalCoerciveFollowupTab || unifiedModalTab !== 'personal') return;
         const fallback = effectiveFollowupSectionTabOrder[0] ?? 'coercive';
-        setUnifiedModalTab(hideFollowupCoerciveTab ? (fallback as FollowupUnifiedModalTab) : 'coercive');
+        const nextTab = (hideFollowupCoerciveTab ? fallback : 'coercive') as FollowupUnifiedModalTab;
+        if (nextTab !== unifiedModalTab) setUnifiedModalTab(nextTab);
     }, [
         effectiveFollowupSectionTabOrder,
         hideFollowupCoerciveTab,
@@ -95,7 +103,8 @@ export function useFollowupModalTabGuards({
     useEffect(() => {
         if (!showUnifiedExecutionModal) return;
         if (!hideFollowupCoerciveTab || unifiedModalTab !== 'coercive') return;
-        setUnifiedModalTab((effectiveFollowupSectionTabOrder[0] ?? 'coercive') as FollowupUnifiedModalTab);
+        const fallback = (effectiveFollowupSectionTabOrder[0] ?? 'coercive') as FollowupUnifiedModalTab;
+        if (fallback !== unifiedModalTab) setUnifiedModalTab(fallback);
     }, [
         effectiveFollowupSectionTabOrder,
         hideFollowupCoerciveTab,

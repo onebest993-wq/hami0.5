@@ -206,10 +206,15 @@ export type DebtorsSectionProps = {
     setExecutionDebtorTabIndex: Dispatch<SetStateAction<number>>;
     setExecutionMemoBadgePopoverOpen: Dispatch<SetStateAction<boolean>>;
     setShowExtraDebtors: Dispatch<SetStateAction<boolean>>;
-    onOpenUnifiedSummonsHub: (options?: {
+    onOpenUnifiedSummonsHub?: (options?: {
         debtorKey?: string | null;
         initialMainTab?: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null;
     }) => void;
+    setSummonsContextDebtorKey?: (debtorKey: string | null) => void;
+    setSummonsHubInitialMainTab?: (
+        tab: 'tabligh' | 'taklif' | 'nashr' | 'guarantor' | null,
+    ) => void;
+    setShowUnifiedSummonsModal?: (open: boolean) => void;
     setSummonsMarkerPopoverOpen: Dispatch<SetStateAction<boolean>>;
     setSummonsPurposeDraft: Dispatch<SetStateAction<string>>;
     showDebtorSummonsAttendanceBadge: boolean;

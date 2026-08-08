@@ -47,6 +47,8 @@ const REST_GROUPS = {
         'setDebtorNotificationDate', 'setDebtorSummonsMarkerLocal', 'debtorNotificationDate', 'debtorSummonsMarkerLocal',
         'setSummonsMarkerPopoverOpen', 'setSummonsPurposeDraft', 'summonsMarkerPopoverOpen', 'summonsPurposeDraft', 'notificationCount',
         'noticeVoluntaryPeriodEndOptimistic', 'voluntaryEndOptimistic', 'dismissDebtorAbsenceBadge', 'syncRollingCalendarSessions',
+        'summoningRound', 'debtorAttendedVoluntarily', 'debtorArrested', 'voluntaryAttendanceCount', 'investigationMemoIssued',
+        'forcedPathAttendanceSecured', 'primaryDebtorTaklifActive', 'openFollowupModalPersisted',
     ],
     modals: [
         'activeCoerciveActions', 'setActiveCoerciveActions', 'saveCoerciveActionRef', 'setShowCoerciveActionForm', 'setShowCoerciveModal',
@@ -57,7 +59,7 @@ const REST_GROUPS = {
     followupDerived: [
         'followupModalDebtorIsDeceased', 'followupModalDebtorIsEmployee', 'followupModalSpecializationEffectiveWithEarnerGate',
         'followupSpecializationWithEarnerGate', 'modalKasabTerminationEmphasis', 'modalResolvedEmployeeSummonsAssignment',
-        'modalShowEmployeeAssignmentCoerciveBlock',
+        'modalShowEmployeeAssignmentCoerciveBlock', 'runSpecialFollowupSubmit',
     ],
     claimDisplay: [
         'claimType', 'claimTypeArabicDisplay', 'classificationDisplay', 'headerFields', 'judgmentDateDisplay',

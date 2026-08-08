@@ -6,6 +6,7 @@ import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFi
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import {
     buildE2eHubRadarCalendarEvent,
+    buildE2eHubRadarCalendarEvents,
     buildE2eWorkspacePin,
     clearCalendarEvents,
     clearHomeHubPerfMarksInPage,
@@ -13,7 +14,7 @@ import {
     E2E_HUB_PIN_ID,
     E2E_HOME_HUB_CACHED_OPEN_MS,
     E2E_HOME_HUB_COLD_OPEN_MS,
-    primeCalendarEventsOnPage,
+    hydrateCalendarEventsForE2E,
     readHomeHubOpenToInteractiveMs,
     seedCalendarEvents,
     seedWorkspacePins,
@@ -26,6 +27,19 @@ async function hubCard(page: import('@playwright/test').Page) {
     const card = page.getByTestId('home-hub-card');
     await expect(card).toBeVisible({ timeout: 15_000 });
     return card;
+}
+
+async function openAlertsUrgentFeed(card: import('@playwright/test').Locator) {
+    await card.getByTestId('home-hub-tab-alerts').click();
+    await expect(card.getByRole('tab', { name: /عاجل/ })).toHaveAttribute('aria-selected', 'true');
+}
+
+async function expectRadarItemVisible(
+    card: import('@playwright/test').Locator,
+    eventId: string,
+    timeout = 25_000,
+) {
+    await expect(card.getByTestId(`home-hub-radar-item-${eventId}`)).toBeVisible({ timeout });
 }
 
 test.describe('بطاقة التنبيهات والتثبيت', () => {
@@ -45,6 +59,7 @@ test.describe('بطاقة التنبيهات والتثبيت', () => {
 
         const card = await hubCard(page);
         await expect(card.getByTestId('home-hub-tab-alerts')).toBeVisible();
+        await expect(card.getByTestId('home-hub-tab-secretary')).toBeVisible();
         await expect(card.getByTestId('home-hub-tab-pins')).toBeVisible();
         await expect(card.getByTestId('home-hub-fully-empty')).toBeVisible({ timeout: 20_000 });
         await expect(card.getByText('لا يوجد تنبيه أو تثبيت')).toBeVisible();
@@ -62,7 +77,9 @@ test.describe('بطاقة التنبيهات والتثبيت', () => {
 
         await card.getByTestId('home-hub-tab-alerts').click();
         await expect(card.getByTestId('home-hub-panel-alerts')).toBeVisible();
-        await expect(card.getByTestId('home-hub-alerts-empty')).toBeVisible();
+        await expect(card.getByTestId('home-hub-alerts-feed')).toBeVisible();
+        await expect(card.getByRole('tab', { name: /عاجل/ })).toHaveAttribute('aria-selected', 'true');
+        await expect(card.getByRole('tab', { name: /قادم/ })).toBeVisible();
 
         await card.getByTestId('home-hub-tab-pins').click();
         await expect(card.getByTestId('home-hub-panel-pins')).toBeVisible();
@@ -80,19 +97,59 @@ test.describe('بطاقة التنبيهات والتثبيت', () => {
         await expect(card.getByTestId(`home-hub-pin-lawsuit-${E2E_HUB_PIN_ID}`)).toBeVisible({ timeout: 5_000 });
     });
 
-    test('تعرض رادار 48 ساعة من التقويم', async ({ page }) => {
+    test('تعرض تبويبي عاجل/قادم دائماً مع تذييل سبارك عند توفر مصادر المسح', async ({ page }) => {
         const radarEvent = buildE2eHubRadarCalendarEvent();
         await seedCalendarEvents(page, [radarEvent]);
         await page.goto('/');
         await page.reload({ waitUntil: 'domcontentloaded' });
         await ensureLawyerDashboard(page);
         await dismissProductivityBlockers(page);
-        await primeCalendarEventsOnPage(page, [radarEvent]);
+        await hydrateCalendarEventsForE2E(page, [radarEvent]);
 
         const card = await hubCard(page);
-        await expect(card.getByTestId('home-hub-radar')).toBeVisible({ timeout: 20_000 });
-        await expect(card.getByTestId('home-hub-radar-item-e2e-radar-event-1')).toBeVisible();
+        await openAlertsUrgentFeed(card);
+        await expect(card.getByTestId('home-hub-alerts-feed')).toBeVisible();
+        await expect(card.getByRole('tab', { name: /قادم/ })).toBeVisible();
+    });
+
+    test('تعرض مواعيد الرادار في تبويب عاجل', async ({ page }) => {
+        const radarEvent = buildE2eHubRadarCalendarEvent();
+        await seedCalendarEvents(page, [radarEvent]);
+        await page.goto('/');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await ensureLawyerDashboard(page);
+        await dismissProductivityBlockers(page);
+        await hydrateCalendarEventsForE2E(page, [radarEvent]);
+
+        const card = await hubCard(page);
+        await openAlertsUrgentFeed(card);
+        await expectRadarItemVisible(card, 'e2e-radar-event-1');
         await expect(card.getByText(E2E_RADAR_TITLE)).toBeVisible();
+    });
+
+    test('يعرض بطاقتين فقط ويفتح البقية في حاوية منفصلة', async ({ page }) => {
+        const radarEvents = buildE2eHubRadarCalendarEvents(4);
+        await seedCalendarEvents(page, radarEvents);
+        await page.goto('/');
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await ensureLawyerDashboard(page);
+        await dismissProductivityBlockers(page);
+        await hydrateCalendarEventsForE2E(page, radarEvents);
+
+        const card = await hubCard(page);
+        await openAlertsUrgentFeed(card);
+        await expectRadarItemVisible(card, 'e2e-radar-event-1');
+        await expectRadarItemVisible(card, 'e2e-radar-event-2');
+        await expect(card.getByTestId('home-hub-radar-item-e2e-radar-event-3')).not.toBeVisible();
+
+        const more = card.getByTestId('home-hub-urgent-more-trigger');
+        await expect(more).toBeVisible();
+        await expect(more).toContainText('البقية (2)');
+        await more.click();
+
+        await expect(page.getByTestId('home-hub-urgent-more-overlay')).toBeVisible({ timeout: 5_000 });
+        await expect(page.getByTestId('home-hub-radar-item-e2e-radar-event-3')).toBeVisible();
+        await expect(page.getByTestId('home-hub-radar-item-e2e-radar-event-4')).toBeVisible();
     });
 
     test('تبدأ على التثبيت عند عدم وجود تنبيهات', async ({ page }) => {
@@ -117,6 +174,8 @@ test.describe('بطاقة التنبيهات والتثبيت', () => {
         const card = await hubCard(page);
         const alertsTab = card.getByTestId('home-hub-tab-alerts');
         await alertsTab.focus();
+        await page.keyboard.press('ArrowLeft');
+        await expect(card.getByTestId('home-hub-tab-secretary')).toHaveAttribute('aria-selected', 'true');
         await page.keyboard.press('ArrowLeft');
         await expect(card.getByTestId('home-hub-tab-pins')).toHaveAttribute('aria-selected', 'true');
         await page.keyboard.press('Home');

@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { PhoneOff } from 'lucide-react';
+import { PhoneOff } from '@/app/components/ui/lucideIcons';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CaseShareApiService } from '@/app/services/caseShare/caseShareApiService';

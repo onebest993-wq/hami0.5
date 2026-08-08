@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BadgeCheck, CalendarClock, ChevronDown, ChevronUp, Handshake, X, XCircle } from 'lucide-react';
+import { BadgeCheck, CalendarClock, ChevronDown, ChevronUp, Handshake, X, XCircle } from '@/app/components/ui/lucideIcons';
 import { formatIqdDisplay } from '../utils';
 import type { SettlementDuePhase } from '../utils';
 import type { UnifiedLedgerStore } from '../types';

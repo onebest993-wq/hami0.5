@@ -1,4 +1,4 @@
-import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+﻿import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { UserRole } from '@/app/types/admin-types';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
@@ -46,7 +46,7 @@ async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
             body: JSON.stringify({ paths: toRemove }),
         });
     } catch {
-        console.warn('[LawyerStorage] فشل حذف ملف(ات) من المخزن:', toRemove.join(', '));
+        console.warn('[LawyerStorage] ┘╪┤┘ ╪ص╪░┘ ┘à┘┘(╪د╪ز) ┘à┘ ╪د┘┘à╪«╪▓┘:', toRemove.join(', '));
     }
 }
 
@@ -76,7 +76,7 @@ function parseCommunityPostsRaw(raw: string | null | undefined): CommunityPost[]
     }
 }
 
-/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+/** ┘é╪▒╪د╪ة╪ر ┘┘ê╪▒┘è╪ر ظ¤ localStorage mirror ╪س┘à SecureStore sync cache */
 function readCommunityPostsFromMirrors(): CommunityPost[] | null {
     if (typeof localStorage !== 'undefined') {
         try {
@@ -182,7 +182,7 @@ function parseDeletedCommunityPostIdsRaw(raw: string | null | undefined): Set<st
     }
 }
 
-/** قراءة فورية — localStorage mirror ثم SecureStore sync cache */
+/** ┘é╪▒╪د╪ة╪ر ┘┘ê╪▒┘è╪ر ظ¤ localStorage mirror ╪س┘à SecureStore sync cache */
 function readDeletedCommunityPostIdsFromMirrors(): Set<string> | null {
     if (typeof localStorage !== 'undefined') {
         try {
@@ -572,7 +572,7 @@ async function mergeCommunityPostsFromKvInBackground(
         );
         await saveLocalCommunityPosts(merged);
     } catch {
-        /* background sync — لا نُعطّل التفاعل */
+        /* background sync ظ¤ ┘╪د ┘┘╪╣╪╖┘ّ┘ ╪د┘╪ز┘╪د╪╣┘ */
     }
 }
 
@@ -609,7 +609,7 @@ export const CommunityDB = {
     async savePost(post: CommunityPost): Promise<void> {
         return withCommunityPostsWriteLock(async () => {
             const normalized = normalizeCommunityPost(post);
-            if (!normalized) throw new Error('بيانات المنشور غير صالحة');
+            if (!normalized) throw new Error('╪ذ┘è╪د┘╪د╪ز ╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ╪╡╪د┘╪ص╪ر');
             const mirrored = readCommunityPostsFromMirrors();
             const localPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
             const merged = mergePostsById(localPosts, [normalized]).sort((a, b) => {
@@ -624,7 +624,7 @@ export const CommunityDB = {
         });
     },
 
-    /** حفظ دفعي آمن — يمنع فقدان منشورات عند المزامنة */
+    /** ╪ص┘╪╕ ╪»┘╪╣┘è ╪ت┘à┘ ظ¤ ┘è┘à┘╪╣ ┘┘é╪»╪د┘ ┘à┘╪┤┘ê╪▒╪د╪ز ╪╣┘╪» ╪د┘┘à╪▓╪د┘à┘╪ر */
     async persistPostsBatch(posts: CommunityPost[]): Promise<void> {
         return withCommunityPostsWriteLock(async () => {
             const deletedIds = await loadDeletedCommunityPostIds();
@@ -706,7 +706,7 @@ async function saveForumBookmarkStore(store: ForumBookmarkStore): Promise<void> 
     }
 }
 
-/** حفظ المنشورات للقراءة لاحقاً — محلي per-user (يعمل بدون Supabase). */
+/** ╪ص┘╪╕ ╪د┘┘à┘╪┤┘ê╪▒╪د╪ز ┘┘┘é╪▒╪د╪ة╪ر ┘╪د╪ص┘é╪د┘ï ظ¤ ┘à╪ص┘┘è per-user (┘è╪╣┘à┘ ╪ذ╪»┘ê┘ Supabase). */
 export const ForumBookmarkDB = {
     async listPostIds(userId: string): Promise<string[]> {
         if (!userId) return [];
@@ -716,7 +716,7 @@ export const ForumBookmarkDB = {
     },
 
     async toggle(userId: string, postId: string): Promise<boolean> {
-        if (!userId || !postId) throw new Error('معرّف المستخدم أو المنشور غير صالح');
+        if (!userId || !postId) throw new Error('┘à╪╣╪▒┘ّ┘ ╪د┘┘à╪│╪ز╪«╪»┘à ╪ث┘ê ╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ╪╡╪د┘╪ص');
         const store = await loadForumBookmarkStore();
         const current = new Set(
             Array.isArray(store[userId]) ? store[userId].filter((id) => typeof id === 'string') : [],
@@ -758,7 +758,7 @@ export async function addCommunityPost(post: CommunityPost) {
 
 export async function addCommunityComment(postId: string, comment: CommunityComment): Promise<CommunityPost> {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const updated: CommunityPost = { ...post, comments: [...post.comments, comment], updatedAt: new Date().toISOString() };
     await CommunityDB.savePost(updated);
     return updated;
@@ -771,13 +771,13 @@ export async function deleteCommunityComment(
     requesterRole?: UserRole,
 ): Promise<CommunityPost> {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const comment = post.comments.find((c) => c.id === commentId);
-    if (!comment) throw new Error('التعليق غير موجود');
+    if (!comment) throw new Error('╪د┘╪ز╪╣┘┘è┘é ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const isAdmin =
         requesterRole === UserRole.SUPER_ADMIN || requesterRole === UserRole.MODERATOR;
     if (comment.authorId !== requesterId && post.authorId !== requesterId && !isAdmin) {
-        throw new Error('ليس لديك صلاحية لحذف هذا التعليق');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ┘╪ص╪░┘ ┘ç╪░╪د ╪د┘╪ز╪╣┘┘è┘é');
     }
     const updated: CommunityPost = {
         ...post,
@@ -795,14 +795,14 @@ export async function editCommunityComment(
     requesterId: string,
 ): Promise<CommunityPost> {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const comment = post.comments.find((c) => c.id === commentId);
-    if (!comment) throw new Error('التعليق غير موجود');
+    if (!comment) throw new Error('╪د┘╪ز╪╣┘┘è┘é ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     if (comment.authorId !== requesterId) {
-        throw new Error('ليس لديك صلاحية لتعديل هذا التعليق');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ┘╪ز╪╣╪»┘è┘ ┘ç╪░╪د ╪د┘╪ز╪╣┘┘è┘é');
     }
     const trimmed = newContent.trim();
-    if (trimmed.length < 2) throw new Error('نص التعليق قصير جداً');
+    if (trimmed.length < 2) throw new Error('┘╪╡ ╪د┘╪ز╪╣┘┘è┘é ┘é╪╡┘è╪▒ ╪ش╪»╪د┘ï');
     const updated: CommunityPost = {
         ...post,
         comments: post.comments.map((c) => (c.id === commentId ? { ...c, content: trimmed } : c)),
@@ -821,17 +821,17 @@ export async function deleteCommunityPost(
     const stored = await findLocalCommunityPostById(postId);
     const ownerId = resolveCommunityPostOwnerId(stored ?? undefined, authorId);
     if (!canActOnCommunityPost(requesterId, ownerId, authorId, requesterRole)) {
-        throw new Error('ليس لديك صلاحية لحذف هذا المنشور');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ┘╪ص╪░┘ ┘ç╪░╪د ╪د┘┘à┘╪┤┘ê╪▒');
     }
     await CommunityDB.deletePost(postId);
 }
 
 export async function updateCommunityPost(postId: string, newContent: string, requesterId?: string) {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const postAuthorId = post.author_id ?? post.authorId ?? '';
     if (requesterId && requesterId !== postAuthorId) {
-        throw new Error('ليس لديك صلاحية لتعديل هذا المنشور');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ┘╪ز╪╣╪»┘è┘ ┘ç╪░╪د ╪د┘┘à┘╪┤┘ê╪▒');
     }
     const { buildForumEditPatch } = await import('@/app/services/forum/forumEditUtils');
     const updated: CommunityPost = {
@@ -850,11 +850,11 @@ export async function toggleLockCommunityPost(
     authorHint?: string,
 ): Promise<CommunityPost> {
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const ownerId = resolveCommunityPostOwnerId(post, authorHint);
     const adminRole = requesterIsAdmin ? UserRole.SUPER_ADMIN : undefined;
     if (!canActOnCommunityPost(requesterId, ownerId, authorHint, adminRole)) {
-        throw new Error('ليس لديك صلاحية لقفل النقاش');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ┘┘é┘┘ ╪د┘┘┘é╪د╪┤');
     }
     const updated: CommunityPost = {
         ...post,
@@ -874,10 +874,10 @@ export async function togglePinCommunityPost(
         requesterRole !== UserRole.SUPER_ADMIN &&
         requesterRole !== UserRole.MODERATOR
     ) {
-        throw new Error('ليس لديك صلاحية تثبيت المنشورات');
+        throw new Error('┘┘è╪│ ┘╪»┘è┘â ╪╡┘╪د╪ص┘è╪ر ╪ز╪س╪ذ┘è╪ز ╪د┘┘à┘╪┤┘ê╪▒╪د╪ز');
     }
     const post = await findLocalCommunityPostById(postId);
-    if (!post) throw new Error('المنشور غير موجود');
+    if (!post) throw new Error('╪د┘┘à┘╪┤┘ê╪▒ ╪║┘è╪▒ ┘à┘ê╪ش┘ê╪»');
     const updated: CommunityPost = {
         ...post,
         isPinned: pinned || undefined,
@@ -920,7 +920,7 @@ export async function reportCommunityPost(
     try {
         await CommunityDB.saveReport(report);
     } catch {
-        // silent — الأفضل أن نكمل حتى لو فشل التخزين
+        // silent ظ¤ ╪د┘╪ث┘╪╢┘ ╪ث┘ ┘┘â┘à┘ ╪ص╪ز┘ë ┘┘ê ┘╪┤┘ ╪د┘╪ز╪«╪▓┘è┘
     }
     return { ok: true, postId, reason };
 }

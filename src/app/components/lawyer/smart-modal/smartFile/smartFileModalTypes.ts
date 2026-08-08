@@ -18,7 +18,7 @@ export interface SmartFileModalProps {
     onAddStage?: (stage: CaseStage) => void;
     onAddAlert?: (alert: unknown) => void;
     onSpawnLinkedIncidentalCase?: (ctx: IncidentalSpawnContext) => void;
-    onOpenLinkedFile?: (fileId: number) => void;
+    onOpenLinkedFile?: (linkedFileId: number, linkedCriminalId?: string) => void;
     lawsuitFiles?: FileData[];
     onStartConsolidationNewCase?: (ctx: ConsolidationSpawnContext) => void;
     onConsolidateWithExisting?: (
@@ -28,10 +28,27 @@ export interface SmartFileModalProps {
     ) => void;
     onLinkWithExistingCase?: (
         primaryFileId: number,
-        secondaryFileId: number,
+        peer: {
+            dossierKind: 'lawsuit' | 'criminal';
+            lawsuitFileId?: number;
+            criminalId?: string;
+            caseNo: string;
+        },
         meta: { linkDate: string; reason?: string },
     ) => void;
+    onOpenLinkedCriminalCase?: (criminalId: string) => void;
     consolidationNavActive?: boolean;
     caseLinkNavActive?: boolean;
+    /** نسخة معزولة للاطلاع عند التصفح من الإضبارة الأصلية — لا تُكتب على ملف المخزن */
+    caseLinkViewOnly?: boolean;
+    onReturnFromCaseLinkBrowse?: () => void;
+    onUnlinkCaseLink?: (peer: { peerFileId?: number; peerCriminalId?: string }) => void;
+    caseLinkBrowseMeta?: {
+        originCaseNo: string;
+        peerCaseNo: string;
+        peerFileId?: number;
+        peerCriminalId?: string;
+        peerDossierKind?: 'lawsuit' | 'criminal';
+    };
     onExitToProfile?: () => void;
 }

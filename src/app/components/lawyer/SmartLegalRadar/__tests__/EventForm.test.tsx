@@ -22,7 +22,6 @@ describe('EventForm', () => {
                 formData={{ ...EMPTY_FORM, date: '2026-06-24' }}
                 editingEvent={null}
                 saving={false}
-                onFormChange={vi.fn()}
                 onSave={vi.fn()}
                 onDelete={vi.fn()}
             />,
@@ -42,7 +41,6 @@ describe('EventForm', () => {
                 formData={{ ...EMPTY_FORM, date: '2026-06-24', title: 'جلسة' }}
                 editingEvent={null}
                 saving
-                onFormChange={vi.fn()}
                 onSave={vi.fn()}
                 onDelete={vi.fn()}
             />,

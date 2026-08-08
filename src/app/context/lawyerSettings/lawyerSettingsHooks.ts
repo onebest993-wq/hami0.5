@@ -114,6 +114,7 @@ export function useLawyerSettingsFromSlices(): AppSettingsState {
     const data = useLawyerSettingsData();
     const performance = useLawyerSettingsPerformance();
     const homeLayout = useLawyerSettingsHomeLayout();
+    const { settings } = useLawyerSettings();
     return useMemo(
         (): AppSettingsState => ({
             version: SETTINGS_SCHEMA_VERSION,
@@ -122,8 +123,9 @@ export function useLawyerSettingsFromSlices(): AppSettingsState {
             data,
             performance,
             homeLayout,
+            notifications: settings.notifications,
         }),
-        [appearance, security, data, performance, homeLayout],
+        [appearance, security, data, performance, homeLayout, settings.notifications],
     );
 }
 

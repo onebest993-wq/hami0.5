@@ -6,6 +6,7 @@ import { useExecutionDashboardSeizureReleaseHandlers } from './useExecutionDashb
 import { useExecutionDashboardThirdPartyReceiveHandlers } from './useExecutionDashboardThirdPartyReceiveHandlers';
 import { useExecutionDashboardStandaloneMarkHandlers } from './useExecutionDashboardStandaloneMarkHandlers';
 import { useExecutionDashboardSalarySeizurePatch } from './useExecutionDashboardSalarySeizurePatch';
+import { useUnifiedSeizureLogFooterBridge } from '../useUnifiedSeizureLogFooterBridge';
 import type {
     ExecutionDashboardCoreHandlerClusterInput,
     HandlerClusterPushTimelineEvent,
@@ -120,6 +121,9 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         effectiveDebtors,
         coerciveSubjectRef,
         openSeizureRequestsTabRef,
+        openFollowupModalPersisted: (c as { openFollowupModalPersisted?: unknown }).openFollowupModalPersisted as
+            | import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn
+            | undefined,
         setShowUnifiedExecutionModal,
         showToast,
         saveCoerciveAction,
@@ -171,6 +175,14 @@ export function useExecutionDashboardCoreHandlerClusterSeizureCoercive(
         decisionsStorageExecutionId,
         executionId,
         persistExecutionMerge,
+    });
+
+    useUnifiedSeizureLogFooterBridge({
+        openFollowupModalPersisted: (c as { openFollowupModalPersisted?: unknown }).openFollowupModalPersisted as
+            | import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn
+            | undefined,
+        setShowUnifiedExecutionModal: setShowUnifiedExecutionModal as (show: boolean) => void,
+        openSeizureRequestsTabRef: openSeizureRequestsTabRef as MutableRefObject<(() => void) | null>,
     });
 
     return {

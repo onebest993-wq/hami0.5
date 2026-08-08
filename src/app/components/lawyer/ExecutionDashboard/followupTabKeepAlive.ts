@@ -1,10 +1,12 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
 import type { FollowupTabPanelKey } from './components/FollowupTabKeepAlivePanel';
+import { resolveLegacyFollowupTabRuntimeRedirect } from './utils/followupLegacyTabNormalization';
 
 export function resolveFollowupActivePanelKey(args: {
     unifiedModalTab: string;
     showPersonalCoerciveFollowupTab: boolean;
     hideFollowupCoerciveTab?: boolean;
+    effectiveFollowupSectionTabOrder?: readonly string[];
 }): FollowupTabPanelKey {
     const chip = resolveActiveFollowupChipTabId(args);
     if (chip === 'personal') return 'personal';
@@ -17,17 +19,24 @@ export function resolveActiveFollowupChipTabId(args: {
     unifiedModalTab: string;
     showPersonalCoerciveFollowupTab: boolean;
     hideFollowupCoerciveTab?: boolean;
+    effectiveFollowupSectionTabOrder?: readonly string[];
 }): string {
     const { unifiedModalTab, showPersonalCoerciveFollowupTab, hideFollowupCoerciveTab } = args;
-    if (unifiedModalTab === 'personal' && showPersonalCoerciveFollowupTab) return 'personal';
+    const legacyRedirect = resolveLegacyFollowupTabRuntimeRedirect({
+        unifiedModalTab,
+        effectiveFollowupSectionTabOrder: args.effectiveFollowupSectionTabOrder ?? [],
+        hideFollowupCoerciveTab: Boolean(hideFollowupCoerciveTab),
+    });
+    const effectiveTab = legacyRedirect ?? unifiedModalTab;
+    if (effectiveTab === 'personal' && showPersonalCoerciveFollowupTab) return 'personal';
     if (
         !hideFollowupCoerciveTab &&
-        (unifiedModalTab === 'coercive' ||
-            (unifiedModalTab === 'personal' && !showPersonalCoerciveFollowupTab))
+        (effectiveTab === 'coercive' ||
+            (effectiveTab === 'personal' && !showPersonalCoerciveFollowupTab))
     ) {
         return 'coercive';
     }
-    return unifiedModalTab;
+    return effectiveTab;
 }
 
 /** تبويبات زُرت مرة واحدة تبقى mounted — التبويب النشط يُعرض فوراً */

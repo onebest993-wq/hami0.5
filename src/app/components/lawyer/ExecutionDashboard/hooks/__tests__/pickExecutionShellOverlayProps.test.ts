@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { EXECUTION_SHELL_OVERLAY_PROP_KEYS } from '../executionShellOverlayPropKeys';
-import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../executionFollowupModalSnapshotFieldKeys';
+import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../../followupSnapshotFieldKeys';
 import { pickExecutionShellOverlayProps } from '../pickExecutionShellOverlayProps';
 import { pickExecutionFollowupModalSnapshotFields } from '../executionFollowupModalSnapshotFields';
 

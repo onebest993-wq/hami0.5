@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale } from 'lucide-react';
+import { Scale } from '@/app/components/ui/lucideIcons';
 import type { JudicialDecision, JudicialDecisionAppeal } from '@/app/types/criminal';
 import type { CriminalActionParty } from '../criminalStageUtils';
 import { formatConcernedPartyLabel } from '../criminalStageUtils';

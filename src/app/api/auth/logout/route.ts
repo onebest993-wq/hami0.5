@@ -6,6 +6,8 @@ import {
 import { getVerifiedTokenSubject } from '../../security/wifeValidator.ts';
 import { applyWifeSecurityHeaders } from '../../security/wifeSecurityHeaders.ts';
 import { invalidateCsrfForSubject } from '../../security/csrfServerStore.ts';
+import { invalidateWifeSessionsForSubject } from '../../security/wifeSessionServerStore.ts';
+import { revokeTokenSessionsForSubject } from '../../security/stolenTokenServer.ts';
 
 /** POST /api/auth/logout — يمسح HttpOnly session cookies. */
 export async function POST(request: Request): Promise<Response> {
@@ -14,7 +16,11 @@ export async function POST(request: Request): Promise<Response> {
 
     if (token) {
         const subject = await getVerifiedTokenSubject(token);
-        if (subject) await invalidateCsrfForSubject(subject);
+        if (subject) {
+            await invalidateCsrfForSubject(subject);
+            await invalidateWifeSessionsForSubject(subject);
+            await revokeTokenSessionsForSubject(subject);
+        }
     }
 
     const headers = new Headers({ 'Content-Type': 'application/json; charset=utf-8' });

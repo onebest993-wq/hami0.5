@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
-import { applySettingsToDom } from '../apply';
+import { applyFontSizeToDom, applyHighContrastToDom, applySettingsToDom } from '../apply';
 import { LAWYER_SETTINGS_V2_DEFAULTS } from '../defaults';
 import { shouldAllowIntentWarm } from '../settingsRuntime';
 import type { AppSettingsState } from '../types';
@@ -37,7 +37,8 @@ describe('performance settings → DOM + intent warm', () => {
         document.documentElement.removeAttribute('data-hami-reduce-motion');
         document.documentElement.removeAttribute('data-hami-animations');
         document.documentElement.removeAttribute('data-hami-prefetch');
-        document.documentElement.classList.remove('reduce-motion');
+        document.documentElement.removeAttribute('data-hami-high-contrast');
+        document.documentElement.classList.remove('reduce-motion', 'hami-high-contrast');
     });
 
     afterEach(() => {
@@ -45,7 +46,8 @@ describe('performance settings → DOM + intent warm', () => {
         document.documentElement.removeAttribute('data-hami-reduce-motion');
         document.documentElement.removeAttribute('data-hami-animations');
         document.documentElement.removeAttribute('data-hami-prefetch');
-        document.documentElement.classList.remove('reduce-motion');
+        document.documentElement.removeAttribute('data-hami-high-contrast');
+        document.documentElement.classList.remove('reduce-motion', 'hami-high-contrast');
     });
 
     it('applySettingsToDom يضبط lite / animations / prefetch / reduceMotion', () => {
@@ -80,9 +82,34 @@ describe('performance settings → DOM + intent warm', () => {
             }),
         );
         expect(document.documentElement.dataset.hamiLite).toBe('0');
-        expect(document.documentElement.dataset.hamiReduceMotion).toBe('1');
+        expect(document.documentElement.dataset.hamiReduceMotion).toBe('0');
         expect(document.documentElement.dataset.hamiAnimations).toBe('0');
         expect(document.documentElement.dataset.hamiPrefetch).toBe('1');
+        expect(document.documentElement.classList.contains('reduce-motion')).toBe(true);
+    });
+
+    it('تباين أعلى يضيف الصنف فوراً', () => {
+        applySettingsToDom(
+            baseSettings({
+                appearance: { ...LAWYER_SETTINGS_V2_DEFAULTS.appearance, highContrast: true },
+            }),
+        );
+        expect(document.documentElement.classList.contains('hami-high-contrast')).toBe(true);
+        expect(document.documentElement.dataset.hamiHighContrast).toBe('1');
+    });
+
+    it('applyFontSizeToDom يضبط المتغير فوراً', () => {
+        applyFontSizeToDom(18);
+        expect(document.documentElement.style.getPropertyValue('--hami-font-size')).toBe('18px');
+        expect(document.documentElement.style.getPropertyValue('--hami-user-font-scale')).toBe('1.125');
+    });
+
+    it('applyHighContrastToDom خفيف — بلا إعادة تطبيق كامل', () => {
+        applyHighContrastToDom(true);
+        expect(document.documentElement.classList.contains('hami-high-contrast')).toBe(true);
+        applyHighContrastToDom(false);
+        expect(document.documentElement.classList.contains('hami-high-contrast')).toBe(false);
+        expect(document.documentElement.dataset.hamiHighContrast).toBe('0');
     });
 
     it('shouldAllowIntentWarm يحترم prefetch و lite', () => {

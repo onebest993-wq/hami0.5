@@ -51,6 +51,27 @@ export function isAbsentObjectedRole(role: string): boolean {
     return r.includes('المعترض عليه');
 }
 
+export function hasAbsentObjectionPartyRoles(
+    parties?: Array<{ role?: string }> | null,
+): boolean {
+    if (!Array.isArray(parties)) return false;
+    return parties.some(
+        (p) => isAbsentObjectorRole(String(p.role ?? '')) || isAbsentObjectedRole(String(p.role ?? '')),
+    );
+}
+
+/** الجانب الأصلي في الدعوى (مدعي/مدعى عليه) — من القوسين أو من صفة الاعتراض */
+export function resolveAbsentObjectionOriginalSide(
+    party: Pick<Party, 'role'>,
+): 'المدعي' | 'المدعى عليه' | null {
+    const role = String(party.role ?? '').trim();
+    const fromParens = extractParentheticalUnderlyingSide(role);
+    if (fromParens) return fromParens;
+    if (isAbsentObjectorRole(role)) return 'المدعى عليه';
+    if (isAbsentObjectedRole(role)) return 'المدعي';
+    return null;
+}
+
 export function isAppellantAppealRole(role: string): boolean {
     const r = String(role ?? '').trim();
     if (isAbsentObjectorRole(r)) return true;
@@ -282,4 +303,43 @@ export function partitionPartiesForHeader(parties: Party[]): {
 export function partitionPartiesBySide(parties: Party[]): { plaintiffs: Party[]; defendants: Party[] } {
     const { plaintiffs, defendants } = partitionPartiesForHeader(parties);
     return { plaintiffs, defendants };
+}
+
+/**
+ * تسمية عمود الأطراف من صفاتهم الفعلية — لا من اسم المرحلة فقط.
+ * يُرجع null إذا لم يُستنتج من الأطراف (يُستخدم getLegalRole كاحتياط).
+ */
+export function resolveHeaderPartyColumnLabel(
+    columnParties: Party[],
+    count?: number,
+): string | null {
+    if (!columnParties.length) return null;
+    const n = count ?? columnParties.length;
+
+    if (columnParties.some((p) => isAbsentObjectorRole(String(p.role ?? '')))) {
+        return n === 1
+            ? 'المعترض على الحكم الغيابي'
+            : 'المعترضون على الحكم الغيابي';
+    }
+    if (columnParties.some((p) => isAbsentObjectedRole(String(p.role ?? '')))) {
+        return n === 1
+            ? 'المعترض عليه بالحكم الغيابي'
+            : 'المعترض عليهم بالحكم الغيابي';
+    }
+
+    const hasAppellant = columnParties.some(
+        (p) => isAppellantAppealRole(String(p.role ?? '')) && !isAbsentObjectorRole(String(p.role ?? '')),
+    );
+    const hasAppellee = columnParties.some(
+        (p) => isAppelleeAppealRole(String(p.role ?? '')) && !isAbsentObjectedRole(String(p.role ?? '')),
+    );
+
+    if (hasAppellant && !hasAppellee) {
+        return n === 1 ? 'المستأنف' : n === 2 ? 'المستأنفان' : 'المستأنفون';
+    }
+    if (hasAppellee && !hasAppellant) {
+        return n === 1 ? 'المستأنف عليه' : n === 2 ? 'المستأنف عليهما' : 'المستأنف عليهم';
+    }
+
+    return null;
 }

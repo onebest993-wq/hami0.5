@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@/app/components/ui/lucideIcons';
 import { useSmartFileModalTheme } from './smartFileModalTheme';
 import {
     addManualClassificationTemplate,

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { ChevronDown, GitBranch, MapPinned, Plus } from 'lucide-react';
+import { ChevronDown, GitBranch, MapPinned, Plus } from '@/app/components/ui/lucideIcons';
 import type { DocumentRequirementItem, LegalSubTask, TaskExpenseEntry } from '@/app/types/TaskEngine';
 import { formatIqd, parseAmountInput } from './utils';
-import { TASKS_INPUT } from './tasksBoucleTheme';
+import { TASKS_INPUT, TASKS_INNER_GLASS, TASKS_INNER_GLASS_SOFT, TASKS_INNER_GLASS_HOVER } from './tasksBoucleTheme';
 import { TaskRingToggle } from './TaskRingToggle';
 
 export type TaskCardBranchPanelProps = {
@@ -43,7 +43,7 @@ export function TaskCardBranchPanel({
     };
 
     return (
-        <div className="mx-3 mb-3 rounded-xl border border-sky-500/22 bg-[#0c0c0e]/45 overflow-hidden text-right">
+        <div className={`mx-3 mb-3 rounded-xl border border-sky-500/22 ${TASKS_INNER_GLASS_SOFT} overflow-hidden text-right`}>
             <button
                 type="button"
                 onClick={onToggleSection}
@@ -72,30 +72,30 @@ export function TaskCardBranchPanel({
                                     key={st.id}
                                     className={`rounded-lg border px-2.5 py-2 flex flex-row-reverse items-start gap-2 ${
                                         st.isCompleted
-                                            ? 'border-[#1A7059]/30 bg-[#1A7059]/8'
-                                            : 'border-[#A67C52]/18 bg-[#0c0c0e]/35'
+                                            ? 'border-[#059669]/30 bg-[#059669]/8'
+                                            : `border-[#E6C673]/18 ${TASKS_INNER_GLASS_SOFT}`
                                     }`}
                                 >
-                                    <span className="text-[10px] font-bold text-[#A67C52]/55 tabular-nums shrink-0 pt-0.5">
+                                    <span className="text-[10px] font-bold text-[#E6C673]/55 tabular-nums shrink-0 pt-0.5">
                                         {idx + 1}.
                                     </span>
                                     <div className="flex-1 min-w-0 text-right">
                                         <span
                                             className={`block text-sm font-bold leading-snug break-words ${
                                                 st.isCompleted
-                                                    ? 'text-[#6BC4A8]/55 line-through'
-                                                    : 'text-[#E8F5F0]'
+                                                    ? 'text-[#34D399]/55 line-through'
+                                                    : 'text-[#F4F4F5]'
                                             }`}
                                         >
                                             {st.title}
                                         </span>
                                         {st.location ? (
-                                            <p className="mt-1 text-[10px] font-semibold text-[#6BC4A8]/90 flex flex-row-reverse items-center gap-1 justify-end">
+                                            <p className="mt-1 text-[10px] font-semibold text-[#34D399]/90 flex flex-row-reverse items-center gap-1 justify-end">
                                                 <MapPinned className="size-3 shrink-0 opacity-75" aria-hidden />
                                                 {st.location}
                                             </p>
                                         ) : (
-                                            <p className="mt-0.5 text-[10px] font-medium text-[#E8F5F0]/30 italic">
+                                            <p className="mt-0.5 text-[10px] font-medium text-[#F4F4F5]/30 italic">
                                                 بدون موقع فرعي
                                             </p>
                                         )}
@@ -122,11 +122,11 @@ export function TaskCardBranchPanel({
                             ))}
                         </ul>
                     ) : !addStepOpen ? (
-                        <p className="text-[11px] text-[#E8F5F0]/45 py-1">لا توجد خطوات فرعية بعد.</p>
+                        <p className="text-[11px] text-[#F4F4F5]/45 py-1">لا توجد خطوات فرعية بعد.</p>
                     ) : null}
 
                     {!readOnly && addStepOpen ? (
-                        <div className="rounded-lg border border-sky-500/18 bg-[#0c0c0e]/30 p-2.5 space-y-1.5">
+                        <div className={`rounded-lg border border-sky-500/18 ${TASKS_INNER_GLASS_SOFT} p-2.5 space-y-1.5`}>
                             <input
                                 dir="rtl"
                                 type="text"
@@ -153,14 +153,14 @@ export function TaskCardBranchPanel({
                                     type="button"
                                     onClick={() => commitNewSubTask()}
                                     disabled={!subDraft.trim()}
-                                    className="flex-1 min-h-[44px] py-1.5 rounded-full bg-[#1A7059]/85 hover:bg-[#1A7059] text-white text-xs font-extrabold disabled:opacity-40 transition touch-manipulation"
+                                    className="flex-1 min-h-[44px] py-1.5 rounded-full bg-[#059669]/85 hover:bg-[#059669] text-white text-xs font-extrabold disabled:opacity-40 transition touch-manipulation"
                                 >
                                     إضافة
                                 </button>
                                 <button
                                     type="button"
                                     onClick={onCloseAddStep}
-                                    className="flex-1 min-h-[44px] py-1.5 rounded-full border border-[#A67C52]/25 bg-[#0c0c0e]/50 text-[#E8F5F0]/80 text-xs font-extrabold hover:bg-[#0c0c0e]/70 transition touch-manipulation"
+                                    className={`flex-1 min-h-[44px] py-1.5 rounded-full border border-[#E6C673]/22 ${TASKS_INNER_GLASS_SOFT} text-[#F4F4F5]/82 text-xs font-extrabold ${TASKS_INNER_GLASS_HOVER} transition touch-manipulation`}
                                 >
                                     إلغاء
                                 </button>
@@ -208,7 +208,7 @@ export function TaskCardDocPanel({
             className={
                 embedded
                     ? 'text-right space-y-1.5'
-                    : 'mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2'
+                    : `mx-3.5 mb-3.5 mr-5 border-r-2 border-violet-500/35 pr-3 py-2.5 ${TASKS_INNER_GLASS_SOFT} rounded-lg rounded-tr-none text-right space-y-2`
             }
         >
             {embedded && items.length > 0 ? (
@@ -246,8 +246,8 @@ export function TaskCardDocPanel({
                             <span
                                 className={`text-[12px] flex-1 leading-snug break-words ${
                                     d.isChecked
-                                        ? 'text-[#E8F5F0]/45 line-through decoration-violet-300/30'
-                                        : 'text-[#E8F5F0]/90'
+                                        ? 'text-[#F4F4F5]/45 line-through decoration-violet-300/30'
+                                        : 'text-[#F4F4F5]/90'
                                 }`}
                             >
                                 {d.text}
@@ -255,15 +255,13 @@ export function TaskCardDocPanel({
                         </li>
                     ))}
                 </ul>
-            ) : embedded ? (
-                <p className="text-[11px] text-[#E8F5F0]/40 py-1">لا طلبات بعد — أضف من الأسفل.</p>
             ) : null}
             {!readOnly && showAdd ? (
                 <div className="flex gap-1.5 flex-row-reverse pt-0.5">
                     <input
                         dir="rtl"
                         type="text"
-                        placeholder="طلب أو مستند…"
+                        data-testid="tasks-doc-add-input"
                         value={docDraft}
                         onChange={(e) => setDocDraft(e.target.value)}
                         onKeyDown={(e) => {
@@ -307,7 +305,7 @@ export function TaskCardExpensePanel({ expenses, readOnly, onAdd }: TaskCardExpe
     const [expLabel, setExpLabel] = useState('');
 
     return (
-        <div className="mx-3.5 mb-3.5 mr-5 border-r-2 border-amber-500/35 pr-3 py-2.5 bg-[#0c0c0e]/35 rounded-lg rounded-tr-none text-right space-y-2">
+        <div className={`mx-3.5 mb-3.5 mr-5 border-r-2 border-amber-500/35 pr-3 py-2.5 ${TASKS_INNER_GLASS_SOFT} rounded-lg rounded-tr-none text-right space-y-2`}>
             <p className="text-[11px] font-bold text-amber-200/90">مصروفات مسجلة</p>
             <ul className="space-y-1 text-sm text-slate-300">
                 {expenses.map((e) => (

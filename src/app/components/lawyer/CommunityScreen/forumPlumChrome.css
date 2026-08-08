@@ -1,9 +1,9 @@
-/**
- * منتدى الزملاء — Quiet Court × Silk Glass
- * زجاج حريري على الأسطح؛ النقش المسماري على الأزرار فقط (ليس الخلفية).
+﻿/**
+ * ┘à┘╪ز╪»┘ë ╪د┘╪▓┘à┘╪د╪ة ظ¤ Quiet Court ├ù Silk Glass
+ * ╪▓╪ش╪د╪ش ╪ص╪▒┘è╪▒┘è ╪╣┘┘ë ╪د┘╪ث╪│╪╖╪ص╪ؤ ╪د┘┘┘é╪┤ ╪د┘┘à╪│┘à╪د╪▒┘è ╪╣┘┘ë ╪د┘╪ث╪▓╪▒╪د╪▒ ┘┘é╪╖ (┘┘è╪│ ╪د┘╪«┘┘┘è╪ر).
  */
 
-/* نقش مسماري — أسافين إسفينية بأسلوب ألواح بلاد الرافدين (بلاطة 96px) */
+/* ┘┘é╪┤ ┘à╪│┘à╪د╪▒┘è ظ¤ ╪ث╪│╪د┘┘è┘ ╪ح╪│┘┘è┘┘è╪ر ╪ذ╪ث╪│┘┘ê╪ذ ╪ث┘┘ê╪د╪ص ╪ذ┘╪د╪» ╪د┘╪▒╪د┘╪»┘è┘ (╪ذ┘╪د╪╖╪ر 96px) */
 :root {
     --hami-forum-cuneiform-btn: url('./assets/forum-cuneiform-tile-dark.svg');
     --hami-forum-cuneiform-btn-light: url('./assets/forum-cuneiform-tile-gold.svg');
@@ -81,7 +81,7 @@
     border-width: 0;
 }
 
-/* —— جذر الحرير (بلا نقش على الخلفية) —— */
+/* ظ¤ظ¤ ╪ش╪░╪▒ ╪د┘╪ص╪▒┘è╪▒ (╪ذ┘╪د ┘┘é╪┤ ╪╣┘┘ë ╪د┘╪«┘┘┘è╪ر) ظ¤ظ¤ */
 .hami-forum-silk-root {
     position: relative;
     isolation: isolate;
@@ -92,8 +92,8 @@
         linear-gradient(180deg, #0c1220 0%, #0a0f1c 52%, #070b14 100%);
 }
 
-/* لا تفرض position:relative على الأبناء — كانت تكسر fixed للـ FAB إلى شريط بعرض الشاشة */
-/* —— نقش مسماري على الأزرار فقط —— */
+/* ┘╪د ╪ز┘╪▒╪╢ position:relative ╪╣┘┘ë ╪د┘╪ث╪ذ┘╪د╪ة ظ¤ ┘â╪د┘╪ز ╪ز┘â╪│╪▒ fixed ┘┘┘ FAB ╪ح┘┘ë ╪┤╪▒┘è╪╖ ╪ذ╪╣╪▒╪╢ ╪د┘╪┤╪د╪┤╪ر */
+/* ظ¤ظ¤ ┘┘é╪┤ ┘à╪│┘à╪د╪▒┘è ╪╣┘┘ë ╪د┘╪ث╪▓╪▒╪د╪▒ ┘┘é╪╖ ظ¤ظ¤ */
 .hami-forum-cuneiform-btn {
     position: relative;
     overflow: hidden;
@@ -121,7 +121,7 @@
     z-index: 1;
 }
 
-/* زر ذهبي نشط — نقش بحبر داكن أوضح */
+/* ╪▓╪▒ ╪░┘ç╪ذ┘è ┘╪┤╪╖ ظ¤ ┘┘é╪┤ ╪ذ╪ص╪ذ╪▒ ╪»╪د┘â┘ ╪ث┘ê╪╢╪ص */
 .hami-forum-section-active.hami-forum-cuneiform-btn::before,
 .hami-forum-cuneiform-btn--solid::before {
     background-image: var(--hami-forum-cuneiform-btn);
@@ -132,7 +132,7 @@
     -webkit-mask-image: radial-gradient(ellipse 94% 90% at 50% 48%, #000 40%, transparent 100%);
 }
 
-/* —— بطاقة منشور زجاجية —— */
+/* ظ¤ظ¤ ╪ذ╪╖╪د┘é╪ر ┘à┘╪┤┘ê╪▒ ╪▓╪ش╪د╪ش┘è╪ر ظ¤ظ¤ */
 .hami-forum-feed-card {
     border: 1px solid rgba(255, 255, 255, 0.12);
     background:
@@ -164,7 +164,7 @@
     transform: translateY(0);
 }
 
-/* —— شريط البحث —— */
+/* ظ¤ظ¤ ╪┤╪▒┘è╪╖ ╪د┘╪ذ╪ص╪س ظ¤ظ¤ */
 .hami-forum-search-bar {
     border: 1px solid rgba(255, 255, 255, 0.12);
     background: rgba(22, 30, 44, 0.5);
@@ -195,7 +195,7 @@
     background: rgba(26, 35, 51, 0.55);
 }
 
-/* —— لوحات / ستائر زجاجية —— */
+/* ظ¤ظ¤ ┘┘ê╪ص╪د╪ز / ╪│╪ز╪د╪خ╪▒ ╪▓╪ش╪د╪ش┘è╪ر ظ¤ظ¤ */
 .hami-forum-panel {
     border: 1px solid rgba(255, 255, 255, 0.12);
     background:
@@ -209,7 +209,7 @@
         0 16px 48px rgba(0, 0, 0, 0.4);
 }
 
-/* حقول — زجاج أوضح للقراءة */
+/* ╪ص┘é┘ê┘ ظ¤ ╪▓╪ش╪د╪ش ╪ث┘ê╪╢╪ص ┘┘┘é╪▒╪د╪ة╪ر */
 .hami-forum-input {
     border: 1px solid rgba(255, 255, 255, 0.14) !important;
     background:

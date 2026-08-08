@@ -166,6 +166,8 @@ export function ExecutionDashboardChunkHost({
         if (!phoneBodyReady) return;
 
         const prefetchSecondaryHandlers = () => {
+            // تبويب الحجز افتراضي — سخّن مبكراً (معالجات Core المقيمة لا تحتاج prefetch)
+            prefetchExecutionCoreHandlers('seizure-requests');
             if (loadCoerciveHeavyHandlerCluster) {
                 prefetchExecutionCoreHandlers('coercive');
                 if (loadCoerciveEmployeeAssignmentBridge) {
@@ -176,33 +178,9 @@ export function ExecutionDashboardChunkHost({
                 }
             }
             if (loadSeizureHeavyHandlerCluster) {
-                if (loadSeizureRequestsHandlerCluster) {
-                    prefetchExecutionCoreHandlers('seizure-requests');
-                }
                 if (loadSeizureLogHandlerCluster) {
                     prefetchExecutionCoreHandlers('seizure-log');
                 }
-            }
-            if (loadFollowupHeavyHandlerCluster) {
-                if (loadFollowupAdminSpecialHandlerCluster) {
-                    prefetchExecutionCoreHandlers('followup-admin-special');
-                }
-                if (loadFollowupDossierControlsHandlerCluster) {
-                    prefetchExecutionCoreHandlers('followup-dossier-controls');
-                }
-                if (loadFollowupOtherPartyHandlerCluster) {
-                    prefetchExecutionCoreHandlers(
-                        followupOtherPartyHandlerClusterInput.isRepresentingDebtor
-                            ? 'followup-other-party-debtor'
-                            : 'followup-other-party-creditor',
-                    );
-                }
-            }
-            if (loadLightHandlerCluster) {
-                prefetchExecutionCoreHandlers('light');
-            }
-            if (loadDossierSupportHandlerCluster) {
-                prefetchExecutionCoreHandlers('dossier-support');
             }
         };
 
@@ -211,19 +189,11 @@ export function ExecutionDashboardChunkHost({
         return cancelIdlePrefetch;
     }, [
         phoneBodyReady,
-        loadFollowupHeavyHandlerCluster,
-        loadFollowupAdminSpecialHandlerCluster,
-        loadFollowupDossierControlsHandlerCluster,
-        loadFollowupOtherPartyHandlerCluster,
-        followupOtherPartyHandlerClusterInput.isRepresentingDebtor,
         loadCoerciveHeavyHandlerCluster,
         loadCoerciveEmployeeAssignmentBridge,
         coerciveInputIsEvictionModule,
-        loadDossierSupportHandlerCluster,
-        loadLightHandlerCluster,
-        loadSeizureLogHandlerCluster,
-        loadSeizureRequestsHandlerCluster,
         loadSeizureHeavyHandlerCluster,
+        loadSeizureLogHandlerCluster,
     ]);
 
     if (!phoneBodyReady && !shellOverlaysReady) {

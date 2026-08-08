@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Scale } from 'lucide-react';
+import { Plus, Scale } from '@/app/components/ui/lucideIcons';
 import DecisionCard from './DecisionCard';
 import AppealWorkflowCard from './AppealWorkflowCard';
 import type { Decision } from '../types';

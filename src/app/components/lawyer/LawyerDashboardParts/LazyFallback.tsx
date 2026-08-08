@@ -2,6 +2,8 @@ import React, { useEffect } from 'react';
 import { GlobalSearchInstantShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantShell';
 import { TransactionsHubInstantShell } from '@/app/components/lawyer/TransactionsThreading/TransactionsHubInstantShell';
 import { ForumInstantShell } from '@/app/components/lawyer/CommunityScreen/components/ForumInstantShell';
+import { FieldTasksInstantSheetShell } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksInstantSheetShell';
+import { ProfileInstantShell } from '@/app/components/lawyer/RoyalLawyerProfile/ProfileInstantShell';
 
 /** أجندة المهام — skeleton شبكة أسبوعية أثناء lazy load (z-230) */
 export const TasksManagerFallback: React.ReactNode = (
@@ -50,18 +52,8 @@ export const TasksManagerFallback: React.ReactNode = (
 
 export { TasksManagerFallback as TASKS_MANAGER_FALLBACK };
 
-/** ستارة مهام اليوم — تحميل سريع أثناء lazy load */
-export const FieldTasksSheetFallback: React.ReactNode = (
-    <div
-        className="fixed inset-0 z-[214] flex items-end justify-center"
-        role="dialog"
-        aria-label="مهام اليوم الميدانية"
-        aria-busy="true"
-        data-testid="field-tasks-sheet-loading"
-    >
-        <div className="w-full max-h-[40dvh] rounded-t-[24px] border border-[#A67C52]/28 bg-[#0A2E25]/95 animate-pulse" />
-    </div>
-);
+/** ستارة مهام اليوم — هيكل فوري أثناء lazy load (يطابق الستارة الحقيقية) */
+export const FieldTasksSheetFallback: React.ReactNode = <FieldTasksInstantSheetShell />;
 
 export { FieldTasksSheetFallback as FIELD_TASKS_SHEET_FALLBACK };
 
@@ -86,7 +78,7 @@ export function RepositoryHubLoadingFallback({ onClose }: { onClose?: () => void
                     'linear-gradient(168deg, #0A0F1C 0%, #0E1424 42%, #0A0F1C 100%)',
             }}
             role="dialog"
-            aria-label="المستودع الذكي"
+            aria-label="المستودع"
             aria-busy="true"
             dir="rtl"
             data-testid="smart-repository-loading"
@@ -102,51 +94,12 @@ export function RepositoryHubLoadingFallback({ onClose }: { onClose?: () => void
                 <div className="flex-1 h-5 rounded-lg bg-white/5 animate-pulse" aria-hidden />
             </div>
             <div className="flex-1" aria-hidden />
-            <span className="sr-only">جاري فتح المستودع الذكي</span>
+            <span className="sr-only">جاري فتح المستودع</span>
         </div>
     );
 }
 
 export { RepositoryHubLoadingFallback as REPOSITORY_HUB_FALLBACK };
-
-/** أرشيف/مخزن الإضابير — يطابق InstantChrome (كان pulse مركزي يسبب وميض عند الانتقال للقشرة) */
-export const ArchivePortalFallback: React.ReactNode = (
-    <div
-        className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex flex-col"
-        role="dialog"
-        aria-modal="true"
-        aria-label="مخزن الأضابير التنفيذية"
-        aria-busy="true"
-        data-testid="execution-archive-portal-fallback"
-    >
-        <div className="shrink-0 border-b border-white/10 bg-[#0B1021]">
-            <div className="px-4 sm:px-5 pt-[max(1rem,env(safe-area-inset-top))] pb-4 flex items-center justify-between gap-3">
-                <div className="text-right min-w-0">
-                    <h2 className="text-white font-extrabold text-lg sm:text-xl">مخزن الأضابير التنفيذية</h2>
-                </div>
-                <span
-                    className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-xl border border-white/10 bg-white/5"
-                    aria-hidden
-                />
-            </div>
-        </div>
-        <div className="flex-1 min-h-0 overflow-hidden">
-            <div className="h-full flex flex-col items-center justify-center gap-4 px-6">
-                <div className="w-full max-w-[520px] space-y-3" aria-hidden>
-                    {Array.from({ length: 4 }).map((_, index) => (
-                        <div
-                            key={index}
-                            className="h-16 rounded-xl border border-white/10 bg-white/[0.04] animate-pulse"
-                        />
-                    ))}
-                </div>
-                <p className="text-[#E6C673]/70 text-sm font-bold animate-pulse">جاري تحميل مخزن التنفيذ...</p>
-            </div>
-        </div>
-    </div>
-);
-
-export { ArchivePortalFallback as ARCHIVE_PORTAL_FALLBACK };
 
 /** المنتدى — قشرة Obsidian فورية أثناء lazy (بلا برقوقي قديم / بلا شاشة فارغة) */
 export function CommunityScreenLoadingFallback({
@@ -178,30 +131,6 @@ export function CommunityScreenLoadingFallback({
 export const CommunityScreenFallback = CommunityScreenLoadingFallback;
 
 export { CommunityScreenLoadingFallback as COMMUNITY_SCREEN_FALLBACK };
-
-export const LawsuitsWorkspaceFallback: React.ReactNode = (
-    <div
-        className="fixed inset-0 z-[220] bg-[#0B1021] font-['Tajawal','Cairo',sans-serif] flex flex-col"
-        role="dialog"
-        aria-label="مخزن الإضابير"
-        aria-busy="true"
-        data-testid="lawsuits-workspace"
-    >
-        <div className="shrink-0 border-b border-white/10 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3">
-            <h2 className="text-white font-extrabold text-lg text-right">مخزن الإضابير</h2>
-        </div>
-        <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 p-4 content-start">
-            {Array.from({ length: 6 }).map((_, i) => (
-                <div
-                    key={i}
-                    className="rounded-2xl border border-white/[0.07] bg-white/[0.03] p-4 min-h-[132px] animate-pulse"
-                    aria-hidden
-                />
-            ))}
-        </div>
-        <p className="sr-only">جاري فتح الدعاوى</p>
-    </div>
-);
 
 export function TransactionsHubLoadingFallback({ onBack }: { onBack?: () => void }) {
     /* قشرة Instant الحقيقية — بلا رسالة انتظار نصية */
@@ -271,13 +200,13 @@ export const RepositoryShellFallback: React.ReactNode = (
 /** تبويب التقويم — خلفية مطابقة لـ SmartLegalRadar */
 export const ScheduleTabFallback: React.ReactNode = (
     <div
-        className="block h-[100dvh] bg-[#1f1712] flex flex-col items-center justify-center font-['Tajawal','Cairo',sans-serif]"
+        className="block h-[100dvh] bg-[#121212] flex flex-col items-center justify-center font-['Tajawal','Cairo',sans-serif]"
         role="status"
         aria-label="التقويم"
         aria-busy="true"
         data-testid="schedule-tab-loading"
     >
-        <div className="w-8 h-8 rounded-full border-2 border-[#E6C673]/30 border-t-[#E6C673] animate-spin" aria-hidden />
+        <div className="w-8 h-8 rounded-full border-2 border-[#E2E8F0]/25 border-t-[#FBF9F5] animate-spin" aria-hidden />
         <span className="sr-only">جاري فتح التقويم...</span>
     </div>
 );
@@ -403,7 +332,14 @@ export const LawyerHomeHubFallback: React.ReactNode = sectionFallback('min-h-[28
 export const LawyerHomeDockFallback: React.ReactNode = sectionFallback('min-h-[200px]');
 
 /** لوحة إشعارات — واجهة فورية أثناء lazy load */
-export function NotificationPanelLoadingFallback({ onClose }: { onClose?: () => void }) {
+export function NotificationPanelLoadingFallback({
+    onClose,
+    embedded = false,
+}: {
+    onClose?: () => void;
+    /** داخل shell الإشعارات — ليس full-screen ثانٍ */
+    embedded?: boolean;
+}) {
     useEffect(() => {
         if (!onClose) return;
         const onKey = (e: KeyboardEvent) => {
@@ -417,7 +353,11 @@ export function NotificationPanelLoadingFallback({ onClose }: { onClose?: () => 
 
     return (
         <div
-            className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-start sm:items-end sm:pt-[max(72px,env(safe-area-inset-top))] sm:pe-4 sm:pb-6"
+            className={
+                embedded
+                    ? 'hami-notif-root absolute inset-0 z-[1] flex flex-col justify-end sm:justify-start sm:items-end sm:pe-4 sm:pb-6'
+                    : 'hami-notif-root fixed inset-0 z-[100] flex flex-col justify-end sm:justify-start sm:items-end sm:pe-4 sm:pb-6'
+            }
             role="dialog"
             aria-label="الإشعارات"
             aria-busy="true"
@@ -447,48 +387,9 @@ export function NotificationPanelLoadingFallback({ onClose }: { onClose?: () => 
 
 export const NotificationPanelFallback: React.ReactNode = <NotificationPanelLoadingFallback />;
 
-/** الملف المهني — skeleton خفيف (Suspense fallback) */
+/** قشرة فورية أثناء تحميل chunk الملف — لا skeleton عام بلا هوية */
 export function LawyerProfileTabLoadingFallback({ onBack }: { onBack?: () => void }) {
-    useEffect(() => {
-        if (!onBack) return;
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key !== 'Escape') return;
-            e.preventDefault();
-            onBack();
-        };
-        window.addEventListener('keydown', onKey, true);
-        return () => window.removeEventListener('keydown', onKey, true);
-    }, [onBack]);
-
-    return (
-        <div
-            className="min-h-screen bg-[#05060D] text-white overflow-x-hidden pb-28"
-            data-testid="lawyer-profile-tab-loading"
-            aria-busy="true"
-            role="main"
-            aria-label="الملف المهني"
-        >
-            <div className="h-48 sm:h-56 bg-white/[0.04] animate-pulse" aria-hidden />
-            <div className="px-4 -mt-20 max-w-2xl mx-auto">
-                <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 space-y-4 animate-pulse">
-                    <div className="flex gap-4">
-                        <div className="w-24 h-24 rounded-2xl bg-white/[0.06] shrink-0" aria-hidden />
-                        <div className="flex-1 space-y-2 pt-2">
-                            <div className="h-5 w-40 rounded-lg bg-white/[0.06]" aria-hidden />
-                            <div className="h-4 w-28 rounded-lg bg-white/[0.05]" aria-hidden />
-                        </div>
-                    </div>
-                    <div className="flex gap-2">
-                        <div className="flex-1 h-10 rounded-xl bg-white/[0.05]" aria-hidden />
-                        <div className="flex-1 h-10 rounded-xl bg-white/[0.05]" aria-hidden />
-                    </div>
-                </div>
-            </div>
-            <div className="px-4 mt-8 max-w-2xl mx-auto flex justify-center">
-                <div className="text-[#E6C673]/45 text-xs font-bold animate-pulse">جاري فتح الملف المهني...</div>
-            </div>
-        </div>
-    );
+    return <ProfileInstantShell onBack={onBack} embedded={!onBack} chunkLoading />;
 }
 
 export const LawyerProfileFallback: React.ReactNode = <LawyerProfileTabLoadingFallback />;

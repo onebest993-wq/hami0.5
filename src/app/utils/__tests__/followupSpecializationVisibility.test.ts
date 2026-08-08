@@ -35,13 +35,13 @@ describe('followupSpecializationVisibility', () => {
         expect(flags.showFinancialGuarantorRequestOnly).toBe(true);
     });
 
-    it('hides personal coercive tab for eviction claims (employee or earner)', () => {
+    it('shows personal coercive tab for eviction claims (employee and earner)', () => {
         for (const claim of ['تخلية مأجور', 'تسليم عقار', 'تخلية المأجور/ تسليم عقار']) {
             expect(resolveFollowupSpecializationVisibility(claim, true).hidePersonalCoerciveFollowupTab).toBe(
-                true
+                false
             );
             expect(resolveFollowupSpecializationVisibility(claim, false).hidePersonalCoerciveFollowupTab).toBe(
-                true
+                false
             );
         }
         const earner = resolveFollowupSpecializationVisibility('تخلية مأجور', false);
@@ -72,6 +72,8 @@ describe('followupSpecializationVisibility', () => {
             expect(flags.hideEncroachmentEvictionProcedureItems).toBe(true);
             expect(flags.showEncroachmentRemovalRequestCards).toBe(true);
             expect(flags.hideFollowupCoerciveTab).toBe(false);
+            expect(flags.hideFollowupSeizureRequestsTab).toBe(true);
+            expect(flags.hideDossierFinancialTools).toBe(true);
             expect(flags.hideAllGuarantorPresence).toBe(true);
         }
     });
@@ -184,14 +186,14 @@ describe('followupSpecializationVisibility', () => {
         expect(visitationEarner.hideFollowupCoerciveTab).toBe(true);
         expect(visitationEarner.hidePersonalCoerciveFollowupTab).toBe(false);
         expect(visitationEarner.suppressHiddenPersonalCoerciveRequests).toBe(true);
-        expect(visitationEarner.hidePersonalJudgePresentation).toBe(true);
+        expect(visitationEarner.hidePersonalJudgePresentation).toBe(false);
     });
 
     it('hides financial tools, seizure tab, guarantor, and judge path for visitation claims only', () => {
         const flags = resolveFollowupSpecializationVisibility('مشاهدة', false);
         expect(flags.hideDossierFinancialTools).toBe(true);
         expect(flags.hideFollowupSeizureRequestsTab).toBe(true);
-        expect(flags.hidePersonalJudgePresentation).toBe(true);
+        expect(flags.hidePersonalJudgePresentation).toBe(false);
         expect(flags.hideAllGuarantorPresence).toBe(true);
         expect(flags.hideGuarantorSeizureSubTab).toBe(true);
         expect(flags.hideFollowupCoerciveTab).toBe(true);

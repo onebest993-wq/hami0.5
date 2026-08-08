@@ -1,7 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook } from '@testing-library/react';
 import { useLawyerDashboardHomeTab } from '@/app/hooks/lawyerDashboard/useLawyerDashboardHomeTab';
-import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 
 vi.mock('@/app/runtime/homeHubLoader', () => ({
     prefetchLawyerHomeTabModule: vi.fn(),
@@ -28,9 +27,8 @@ describe('useLawyerDashboardHomeTab', () => {
     });
 
     it('يسجّل open-request عند العودة للرئيسية', () => {
-        const setActiveTab = vi.fn();
         const { rerender } = renderHook(
-            ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab, setActiveTab }),
+            ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab }),
             { initialProps: { activeTab: 'schedule' as const } },
         );
 
@@ -43,10 +41,9 @@ describe('useLawyerDashboardHomeTab', () => {
         expect(markHomeHubPerfPhase).toHaveBeenCalledWith('open-request');
     });
 
-    it('يمسح علامات الأداء عند مغادرة الرئيسية', () => {
-        const setActiveTab = vi.fn();
+    it('لا يمسح علامات الأداء عند مغادرة الرئيسية — ثبات الكارت', () => {
         const { rerender } = renderHook(
-            ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab, setActiveTab }),
+            ({ activeTab }) => useLawyerDashboardHomeTab({ activeTab }),
             { initialProps: { activeTab: 'home' as const } },
         );
 
@@ -54,42 +51,6 @@ describe('useLawyerDashboardHomeTab', () => {
 
         rerender({ activeTab: 'schedule' });
 
-        expect(clearHomeHubPerfMarks).toHaveBeenCalledTimes(1);
-    });
-
-    it('يفتح وضع التخصيص ويغلقه', () => {
-        const setActiveTab = vi.fn();
-        const { result } = renderHook(() =>
-            useLawyerDashboardHomeTab({ activeTab: 'home', setActiveTab }),
-        );
-
-        act(() => {
-            result.current.enterHomeLayoutEdit();
-        });
-
-        expect(setActiveTab).toHaveBeenCalledWith('home');
-        expect(result.current.homeLayoutEditMode).toBe(true);
-
-        act(() => {
-            result.current.exitHomeLayoutEdit();
-        });
-
-        expect(result.current.homeLayoutEditMode).toBe(false);
-    });
-
-    it('يغلق وضع التخصيص عند dismiss-transient-overlays', () => {
-        const { result } = renderHook(() =>
-            useLawyerDashboardHomeTab({ activeTab: 'home', setActiveTab: vi.fn() }),
-        );
-
-        act(() => {
-            result.current.enterHomeLayoutEdit();
-        });
-
-        act(() => {
-            window.dispatchEvent(new CustomEvent(HAMI_DISMISS_OVERLAYS_EVENT, { detail: { except: 'vault' } }));
-        });
-
-        expect(result.current.homeLayoutEditMode).toBe(false);
+        expect(clearHomeHubPerfMarks).not.toHaveBeenCalled();
     });
 });

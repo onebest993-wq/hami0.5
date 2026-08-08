@@ -4,6 +4,7 @@ import React from 'react';
 import { QuantumTasksProvider } from '@/app/context/QuantumTasksProvider';
 import { useQuantumTasksActions, useQuantumTasksData } from '@/app/hooks/useQuantumTasksContext';
 import { QUANTUM_TASKS_STORAGE_KEY } from '@/app/utils/quantumTasksStorage';
+import { notifyBootContentReady } from '@/app/bootstrap/bootReveal';
 
 vi.mock('@/app/services/SecureStoreService', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/app/services/SecureStoreService')>();
@@ -40,6 +41,7 @@ describe('QuantumTasksProvider persistence', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         localStorage.clear();
+        notifyBootContentReady();
     });
 
     it('mirrors committed tasks to localStorage after hydration', async () => {
@@ -75,7 +77,7 @@ describe('QuantumTasksProvider persistence', () => {
 
         expect(getItemSync).not.toHaveBeenCalled();
         expect(setItemSync).not.toHaveBeenCalled();
-        expect(result.current.storageHydrated).toBe(false);
+        expect(result.current.storageHydrated).toBe(true);
 
         await waitFor(() => {
             expect(result.current.storageHydrated).toBe(true);

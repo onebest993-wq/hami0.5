@@ -115,7 +115,7 @@ export async function primeCriminalDossierForOpen(caseId: string): Promise<void>
                     .loadCriminalCasesCardIndexSync()
                     .find((entry) => String(entry.id ?? '').trim() === trimmed);
                 if (indexHit) {
-                    row = indexHit as typeof row;
+                    row = indexHit as unknown as typeof row;
                 }
             }
 

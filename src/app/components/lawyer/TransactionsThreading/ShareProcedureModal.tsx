@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useAuthSafe } from '@/app/context/AuthContext';
 import { ForumApiService } from '@/app/services/forumApiService';

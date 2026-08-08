@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { Phone, MapPin } from 'lucide-react';
+import { Phone, MapPin } from '@/app/components/ui/lucideIcons';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import {
     filterActionsForVisitor,

@@ -1,13 +1,12 @@
-// @ts-nocheck
-/** Phase C Slice 28 — omnibus executionData binding + dossier header metadata */
 import type { ExecutionFile } from '@/app/types/execution';
+import type { ExecutionFollowupOrchestratorMetadataSlice } from '../../orchestrators/executionFollowupOrchestratorTypes';
 import { useDossierHeaderMetadata } from '../useDossierHeaderMetadata';
 
 export function useExecutionDashboardCoreFileMetadataBinding(p: {
     executionData: ExecutionFile | null | undefined;
     viewExecutionData: ExecutionFile | null | undefined;
     parentExecutionFile: ExecutionFile | null;
-    followupOrchestrator: { evictionCaseExpenses: unknown };
+    followupOrchestrator: ExecutionFollowupOrchestratorMetadataSlice;
     activeCoerciveActions: string[];
     activeTimelineEvents: unknown[];
 }) {
@@ -104,8 +103,10 @@ export function useExecutionDashboardCoreFileMetadataBinding(p: {
     const parentCustodyWardNamesList = Array.isArray(parentExecutionFile?.custodyWardNames)
         ? parentExecutionFile.custodyWardNames
         : [];
-    const parentEvictionCaseExpenses = Array.isArray(parentExecutionFile?.evictionCaseExpenses)
-        ? parentExecutionFile.evictionCaseExpenses
+    const parentEvictionCaseExpenses = Array.isArray(
+        (parentExecutionFile as { evictionCaseExpenses?: unknown[] } | null)?.evictionCaseExpenses,
+    )
+        ? ((parentExecutionFile as unknown as { evictionCaseExpenses: unknown[] }).evictionCaseExpenses)
         : [];
 
     const {

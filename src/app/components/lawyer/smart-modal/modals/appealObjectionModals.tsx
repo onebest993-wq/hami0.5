@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bell, Calendar, Check, Gavel, X } from 'lucide-react';
+import { Bell, Calendar, Check, Gavel, Shield, X } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { addCalendarDaysYmd } from '@/app/utils/employeeSummonsAssignment';
 import { AppealTransitionModal } from '../AppealTransitionModal';
@@ -226,6 +226,7 @@ export const AbsentJudgmentNotificationModal = ({
     onClose,
     onConfirm,
 }: AbsentJudgmentNotificationModalProps) => {
+    const { T, required, isPearl } = useSmartModalAccent();
     const [notificationDate, setNotificationDate] = useState(getLocalTodayYmd());
 
     React.useEffect(() => {
@@ -240,31 +241,32 @@ export const AbsentJudgmentNotificationModal = ({
 
     if (!isOpen) return null;
 
+    const hintClass = isPearl ? 'text-[#ECE8E2]/80' : 'text-white/60';
+
     return (
-        <MoroccanGlassShell onOverlayClick={onClose}>
-            <div className={GLASS_MODAL_HEADER}>
-                <h3 className="font-bold text-[14px] text-white/95">
-                    التبليغ بالحكم الغيابي
-                </h3>
-                <MoroccanCloseButton onClick={onClose} />
-                <MoroccanHeaderDivider />
-            </div>
-            <div className="p-5 space-y-4">
-                <p className="text-xs text-white/50 leading-relaxed">
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-lg">
+            <SmartModalHeader icon={Bell} title="التبليغ بالحكم الغيابي" onClose={onClose} />
+            <div className={T.body}>
+                <p className={`text-xs leading-relaxed ${hintClass}`}>
                     سجّل تاريخ التبليغ الرسمي للحكم الغيابي. تُحتسب مهلة الاعتراض (10 أيام) من هذا التاريخ.
                 </p>
                 <div>
-                    <label className="block text-[11px] font-bold text-white/50 mb-1.5">
-                        تاريخ التبليغ <span className="text-red-400">*</span>
+                    <label className={T.label}>
+                        تاريخ التبليغ <span className={required}>*</span>
                     </label>
                     <input
                         type="date"
                         value={notificationDate}
                         onChange={(e) => setNotificationDate(e.target.value)}
-                        className={GLASS_FIELD}
+                        className={T.field}
                     />
                 </div>
-                <button type="button" onClick={handleSubmit} disabled={!notificationDate} className={GLASS_BTN}>
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!notificationDate}
+                    className={`${T.btn} ${T.btnDisabled}`}
+                >
                     حفظ التبليغ
                 </button>
             </div>
@@ -347,70 +349,66 @@ export const OpponentAbsentObjectionModal = ({
 
 
 export const ObjectionRegistrationModal = ({ isOpen, onClose, onConfirm }: ObjectionRegistrationModalProps) => {
+    const { T, required } = useSmartModalAccent();
     const [objectionDate, setObjectionDate] = useState(getLocalTodayYmd());
     const [sessionDate, setSessionDate] = useState('');
-    const [receiptNumber, setReceiptNumber] = useState('');
 
     React.useEffect(() => {
         if (isOpen) {
             setObjectionDate(getLocalTodayYmd());
             setSessionDate('');
-            setReceiptNumber('');
         }
     }, [isOpen]);
 
     const handleSubmit = () => {
         if (!objectionDate || !sessionDate) return;
-        onConfirm({ objectionDate, sessionDate, receiptNumber });
+        onConfirm({ objectionDate, sessionDate, receiptNumber: '' });
         onClose();
     };
 
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 font-['Tajawal']">
-            <div className="bg-[#1A1E2E] border border-white/10 rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="bg-gradient-to-r from-teal-500 to-emerald-600 p-4 text-white flex justify-between items-center">
-                    <h3 className="font-bold">
-                        تسجيل اعتراض غيابي
-                    </h3>
-                    <button type="button" onClick={onClose} className="hover:bg-black/10 rounded-full p-1 text-white/80 hover:text-white">
-                        <X size={18} />
-                    </button>
+        <MoroccanGlassShell onOverlayClick={onClose} maxWidth="max-w-sm">
+            <SmartModalHeader icon={Shield} title="تسجيل اعتراض غيابي" onClose={onClose} />
+            <div className={`${T.body} space-y-4`}>
+                <p className="text-xs text-white/50 leading-relaxed">
+                    سيتم فتح سجل جديد لمرافعة الاعتراض الغيابي وتجميد الحكم السابق لحين حسم الاعتراض.
+                </p>
+
+                <div>
+                    <label className={T.label}>تاريخ تقديم الاعتراض</label>
+                    <input
+                        type="date"
+                        value={objectionDate}
+                        onChange={(e) => setObjectionDate(e.target.value)}
+                        className={T.field}
+                    />
                 </div>
-                
-                <div className="p-5 space-y-4">
-                    <div className="bg-teal-500/10 border border-teal-500/20 rounded-lg p-3 text-xs text-teal-200">
-                        <p className="leading-relaxed opacity-80">
-                            سيتم فتح سجل جديد لمرافعة الاعتراض الغيابي وتجميد الحكم السابق لحين حسم الاعتراض.
-                        </p>
-                    </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">تاريخ تقديم الاعتراض</label>
-                        <input type="date" value={objectionDate} onChange={e => setObjectionDate(e.target.value)} className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-teal-500 [color-scheme:dark]" />
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">موعد الجلسة الأولى <span className="text-teal-500">*</span></label>
-                        <input type="date" value={sessionDate} onChange={e => setSessionDate(e.target.value)} className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-teal-500 [color-scheme:dark]" autoFocus />
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-white/60 mb-1.5">رقم وصل الرسوم (اختياري)</label>
-                        <input type="text" value={receiptNumber} onChange={e => setReceiptNumber(e.target.value)} className="w-full bg-[#0F172A] border border-white/10 rounded-lg p-3 text-sm text-white outline-none focus:border-teal-500" placeholder="مثال: 45879" />
-                    </div>
-
-                    <button type="button" 
-                        onClick={handleSubmit} 
-                        disabled={!objectionDate || !sessionDate} 
-                        className="w-full bg-gradient-to-r from-teal-500 to-emerald-600 text-white py-3 rounded-lg font-bold text-sm hover:from-teal-600 hover:to-emerald-700 transition-all shadow-lg shadow-teal-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        بدء مرافعة الاعتراض
-                    </button>
+                <div>
+                    <label className={T.label}>
+                        موعد الجلسة الأولى <span className={required}>*</span>
+                    </label>
+                    <input
+                        type="date"
+                        value={sessionDate}
+                        onChange={(e) => setSessionDate(e.target.value)}
+                        className={T.field}
+                        autoFocus
+                    />
                 </div>
+
+                <button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!objectionDate || !sessionDate}
+                    className={`${T.btn} ${T.btnDisabled}`}
+                >
+                    بدء مرافعة الاعتراض
+                </button>
             </div>
-        </div>
+        </MoroccanGlassShell>
     );
 };
 

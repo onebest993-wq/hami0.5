@@ -1,6 +1,7 @@
 import React from 'react';
 import type { CriminalTrashItem } from '../../criminalCaseTrash';
 import { criminalTrashItemKindLabel } from '../../criminalCaseTrash';
+import { CRIMINAL_DOSSIER_TEST_IDS } from '../../criminalDossierTestIds';
 
 export type CriminalCaseTrashModalProps = {
     open: boolean;
@@ -26,6 +27,7 @@ export const CriminalCaseTrashModal = ({
             className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 overflow-hidden shadow-2xl max-h-[min(88vh,720px)] flex flex-col"
             role="dialog"
             aria-modal="true"
+            data-testid={CRIMINAL_DOSSIER_TEST_IDS.trashModal}
         >
                 <div className="px-4 py-3 border-b border-slate-700 bg-slate-800/50 flex items-center justify-between gap-3 shrink-0">
                     <div>

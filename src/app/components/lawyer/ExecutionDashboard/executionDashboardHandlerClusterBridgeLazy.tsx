@@ -16,8 +16,8 @@ const executionHandlerClusterFollowupDossierControlsBridgeImport = () =>
     }));
 
 const executionHandlerClusterFollowupOtherPartyBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge,
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterFollowupOtherPartyBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterFollowupOtherPartyBridge,
     }));
 
 const executionHandlerClusterFollowupOtherPartyDebtorBridgeImport = () =>
@@ -31,8 +31,8 @@ const executionHandlerClusterDossierSupportBridgeImport = () =>
     }));
 
 const executionHandlerClusterSeizureHeavyBridgeImport = () =>
-    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureRequestsBridge').then((m) => ({
-        default: m.ExecutionDashboardHandlerClusterSeizureRequestsBridge,
+    import('./hooks/executionDashboardCore/ExecutionDashboardHandlerClusterSeizureHeavyBridge').then((m) => ({
+        default: m.ExecutionDashboardHandlerClusterSeizureHeavyBridge,
     }));
 
 const executionHandlerClusterThirdPartySeizureBridgeImport = () =>
@@ -155,12 +155,20 @@ export function prefetchExecutionHandlerClusterLightBridge(): void {
     void executionHandlerClusterLightBridgeImport().catch(() => undefined);
 }
 
+export function prefetchExecutionHandlerClusterFollowupDossierControlsBridge(): void {
+    void executionHandlerClusterFollowupDossierControlsBridgeImport().catch(() => undefined);
+}
+
+export async function loadExecutionHandlerClusterFollowupDossierControlsBridge(): Promise<void> {
+    await executionHandlerClusterFollowupDossierControlsBridgeImport();
+}
+
 export function prefetchExecutionHandlerClusterFollowupAdminSpecialBridge(): void {
     void executionHandlerClusterFollowupAdminSpecialBridgeImport().catch(() => undefined);
 }
 
-export function prefetchExecutionHandlerClusterFollowupDossierControlsBridge(): void {
-    void executionHandlerClusterFollowupDossierControlsBridgeImport().catch(() => undefined);
+export async function loadExecutionHandlerClusterFollowupAdminSpecialBridge(): Promise<void> {
+    await executionHandlerClusterFollowupAdminSpecialBridgeImport();
 }
 
 export function prefetchExecutionHandlerClusterFollowupOtherPartyBridge(): void {

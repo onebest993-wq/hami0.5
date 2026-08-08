@@ -46,6 +46,15 @@ describe('shouldMaskLawyerDashboardTabStack', () => {
         ).toBe(false);
     });
 
+    it('does not mask home when lawsuits workspace is open (overlay above painted home)', () => {
+        expect(
+            shouldMaskLawyerDashboardTabStack({
+                ...base,
+                showLawsuitsWorkspace: true,
+            }),
+        ).toBe(false);
+    });
+
     it('masks when transactions hub is open', () => {
         expect(
             shouldMaskLawyerDashboardTabStack({

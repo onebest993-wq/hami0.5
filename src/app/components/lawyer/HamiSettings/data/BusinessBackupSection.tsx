@@ -1,5 +1,5 @@
 import React from 'react';
-import { Database } from 'lucide-react';
+import { Database } from '@/app/components/ui/lucideIcons';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import {
     mintSensitiveConfirmChallenge,
@@ -57,14 +57,14 @@ export function BusinessBackupSection({ backup }: { backup: BackupVm }) {
                             <button
                                 type="button"
                                 onClick={backup.toggleBackupPanel}
-                                className="text-[#E6C673] text-xs font-bold"
+                                className="text-[#E6C673] text-xs font-bold min-h-[44px] px-2 touch-manipulation inline-flex items-center"
                             >
                                 إعداد
                             </button>
                             <button
                                 type="button"
                                 onClick={openImportPicker}
-                                className="text-white/50 text-xs hover:text-white"
+                                className="text-white/60 text-xs hover:text-white min-h-[44px] px-2 touch-manipulation inline-flex items-center"
                             >
                                 استيراد
                             </button>

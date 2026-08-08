@@ -8,12 +8,15 @@ import {
 } from '@/app/runtime/hamiSettingsLoader';
 import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
+import { readPersistedSettingsSection } from '@/app/components/lawyer/HamiSettings/settingsSectionPersistence';
+import { loadSettingsSection } from '@/app/components/lawyer/HamiSettings/settingsSectionLoader';
 
 export const SETTINGS_SHELL_HYDRATED_EVENT = 'hami:settings-shell-hydrated';
 /** pointerdown على زر الإعدادات — يركّب Host مخفياً قبل الـ click */
 export const SETTINGS_PRIME_HOST_EVENT = 'hami:settings-prime-host';
 
-let sectionsHydrated = false;
+let persistedSectionHydrated = false;
+let allSectionsHydrated = false;
 let hydrateInflight: Promise<boolean> | null = null;
 let bootHydratorArmed = false;
 let coldBootPrefetchStarted = false;
@@ -37,8 +40,33 @@ async function hydrateDelayMs(): Promise<number> {
     return 0;
 }
 
+/** جاهز للفتح التفاعلي — التبويب المحفوظ + shell */
 export function isSettingsShellFullyHydrated(): boolean {
-    return isHamiSettingsModuleResolved() && sectionsHydrated;
+    return isHamiSettingsModuleResolved() && persistedSectionHydrated;
+}
+
+function scheduleRemainingSectionsIdle(): void {
+    if (allSectionsHydrated || typeof window === 'undefined') return;
+    queueMicrotask(() => {
+        void import('@/app/components/lawyer/HamiSettings/settingsSectionRegistry')
+            .then((m) => m.preloadAllSettingsSectionComponents())
+            .then(() => {
+                allSectionsHydrated = true;
+            })
+            .catch(() => undefined);
+    });
+    scheduleIdleWork(
+        () => {
+            if (allSectionsHydrated) return;
+            void import('@/app/components/lawyer/HamiSettings/settingsSectionRegistry')
+                .then((m) => m.preloadAllSettingsSectionComponents())
+                .then(() => {
+                    allSectionsHydrated = true;
+                })
+                .catch(() => undefined);
+        },
+        { minDelayMs: 0, timeoutMs: 6_000 },
+    );
 }
 
 function dispatchHydratedOnce(): void {
@@ -63,7 +91,7 @@ export function prefetchSettingsAfterBootReveal(): void {
 }
 
 /**
- * تحميل shell الإعدادات + التبويبات.
+ * تحميل shell الإعدادات + التبويب المحفوظ فوراً؛ باقي التبويبات idle.
  * @param force — عند الفتح من المستخدم: يتجاوز تعطيل prefetch الخلفي
  */
 export function hydrateSettingsShellForInstantOpen(force = false): Promise<boolean> {
@@ -71,24 +99,23 @@ export function hydrateSettingsShellForInstantOpen(force = false): Promise<boole
         if (!force && !(await settingsPrefetchAllowed())) return false;
         if (isSettingsShellFullyHydrated()) {
             dispatchHydratedOnce();
+            scheduleRemainingSectionsIdle();
             return true;
         }
         if (hydrateInflight) return hydrateInflight;
 
+        const persisted = readPersistedSettingsSection();
         hydrateInflight = Promise.all([
             loadHamiSettingsModule(),
+            loadSettingsSection(persisted),
             import('@/app/components/lawyer/HamiSettings/settingsSectionRegistry').then((m) =>
                 m.preloadAllSettingsSectionComponents(),
             ),
-            import('@/app/components/lawyer/HamiSettings/settingsSectionPersistence').then((p) =>
-                import('@/app/components/lawyer/HamiSettings/settingsSectionLoader').then((l) =>
-                    l.loadSettingsSection(p.readPersistedSettingsSection()),
-                ),
-            ),
         ])
             .then(() => {
-                sectionsHydrated = true;
+                persistedSectionHydrated = true;
                 dispatchHydratedOnce();
+                scheduleRemainingSectionsIdle();
                 return true;
             })
             .catch(() => false)
@@ -113,7 +140,7 @@ export function bindSettingsBootHydrator(): () => void {
     };
 
     const scheduleHydrate = () => {
-        prefetchSettingsAfterBootReveal();
+        if (isSettingsShellFullyHydrated()) return;
         void hydrateDelayMs().then((delay) => {
             if (delay < 0) return;
             cancelIdle?.();
@@ -148,7 +175,8 @@ export function bindSettingsBootHydrator(): () => void {
 
 /** للاختبارات */
 export function resetSettingsBootHydratorForTests(): void {
-    sectionsHydrated = false;
+    persistedSectionHydrated = false;
+    allSectionsHydrated = false;
     hydrateInflight = null;
     bootHydratorArmed = false;
     coldBootPrefetchStarted = false;

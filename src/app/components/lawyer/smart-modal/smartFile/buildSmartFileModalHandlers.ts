@@ -34,12 +34,14 @@ export type SmartFileModalHandlerSources = {
     handleMaterialErrorCorrection: (...args: unknown[]) => void;
     handleJudgeRecusal: (...args: unknown[]) => void;
     handleTransferJurisdiction: (...args: unknown[]) => void;
+    handleCourtReferralAcceptance: (...args: unknown[]) => void;
     handleCaseConsolidation: (...args: unknown[]) => void;
     handleCaseLinkExternal: (...args: unknown[]) => void;
     handleCorrespondence: (...args: unknown[]) => void;
     handleQuickAction: (...args: unknown[]) => void;
     handleAbandonment: (...args: unknown[]) => void;
     handleInterruptionToggle: (...args: unknown[]) => void;
+    handleResumeAbandonment: (...args: unknown[]) => void;
     handleResume: (...args: unknown[]) => void;
     handleAppealBriefOutcome: (...args: unknown[]) => void;
 };
@@ -82,12 +84,14 @@ export function buildSmartFileModalHandlers(
         handleMaterialErrorCorrection: src.handleMaterialErrorCorrection,
         handleJudgeRecusal: src.handleJudgeRecusal,
         handleTransferJurisdiction: src.handleTransferJurisdiction,
+        handleCourtReferralAcceptance: src.handleCourtReferralAcceptance,
         handleCaseConsolidation: src.handleCaseConsolidation,
         handleCaseLinkExternal: src.handleCaseLinkExternal,
         handleCorrespondence: src.handleCorrespondence,
         handleQuickAction: src.handleQuickAction,
         handleAbandonment: src.handleAbandonment,
         handleInterruptionToggle: src.handleInterruptionToggle,
+        handleResumeAbandonment: src.handleResumeAbandonment,
         handleResume: src.handleResume,
         handleAppealBriefOutcome: src.handleAppealBriefOutcome,
     };

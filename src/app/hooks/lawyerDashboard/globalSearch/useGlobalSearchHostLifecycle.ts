@@ -33,7 +33,7 @@ export function useGlobalSearchHostLifecycle({
     const restoredWarmRef = useRef(false);
 
     useLayoutEffect(() => {
-        if (!isRealSignedIn(userId)) return;
+        if (!isRealSignedIn(userId)) return undefined;
         prefetchGlobalSearchOverlayChunk();
         if (isLitePerformanceActive()) {
             const armLite = () => {
@@ -53,11 +53,12 @@ export function useGlobalSearchHostLifecycle({
         warmGlobalSearchOnHover();
         void loadGlobalSearchOverlayModule().catch(() => undefined);
         void hydrateGlobalSearchShellForInstantOpen(true).catch(() => undefined);
+        return undefined;
     }, [userId, setSearchHostMounted]);
 
     useLayoutEffect(() => {
         prefetchGlobalSearchOverlayChunk();
-        if (isLitePerformanceActive()) return;
+        if (isLitePerformanceActive()) return undefined;
         return onDashboardInteractive(() => {
             warmGlobalSearchOnHover();
             void hydrateGlobalSearchShellForInstantOpen(true)
@@ -75,7 +76,7 @@ export function useGlobalSearchHostLifecycle({
     }, []);
 
     useEffect(() => {
-        if (!isRealSignedIn(userId) || isLitePerformanceActive()) return;
+        if (!isRealSignedIn(userId) || isLitePerformanceActive()) return undefined;
         const armHost = () => {
             if (isGlobalSearchOverlayModuleResolved()) {
                 setSearchHostMounted(true);

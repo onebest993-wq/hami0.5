@@ -52,12 +52,20 @@ describe('wave7l foundation seal push honesty', () => {
         expect(t).not.toContain("from '@/app/utils/lazyComponentsIntent'");
     });
 
-    it('AppLockOverlay يُحمَّل lazy من Shell', () => {
-        const t = fs.readFileSync(
+    it('AppLockOverlay يُركَّب متزامناً على body-portal فوق الطبقات', () => {
+        const shell = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardShell.tsx'),
             'utf8',
         );
-        expect(t).toContain('LazyAppLockOverlay');
-        expect(t).not.toMatch(/import \{ AppLockOverlay \} from/);
+        const overlay = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/AppLockOverlay.tsx'),
+            'utf8',
+        );
+        const lockHook = fs.readFileSync(path.join(root, 'src/app/hooks/useAppLock.ts'), 'utf8');
+        expect(shell).toContain('AppLockOverlay');
+        expect(shell).not.toContain('LazyAppLockOverlay');
+        expect(overlay).toContain('createPortal');
+        expect(overlay).toContain('hami-app-lock-overlay');
+        expect(lockHook).toContain('snapAppLockOpen');
     });
 });

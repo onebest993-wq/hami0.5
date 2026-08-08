@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, FileImage, FileText, ChevronDown } from 'lucide-react';
+import { X, FileImage, FileText, ChevronDown } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { getRepositoryMediaKind, inferRepositoryMimeType, repositoryMediaLabel } from './repositoryMedia';

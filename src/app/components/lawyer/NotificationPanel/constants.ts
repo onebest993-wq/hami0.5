@@ -7,7 +7,7 @@ import {
     Settings,
     AlertTriangle,
     type LucideIcon,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { NotificationTab, TimeBucket } from '@/app/components/lawyer/NotificationPanel/types';
 
 export type CategoryThemeKey = 'forum' | 'system' | 'document' | 'ai';

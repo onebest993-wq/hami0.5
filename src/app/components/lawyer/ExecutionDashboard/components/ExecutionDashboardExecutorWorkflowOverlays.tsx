@@ -24,7 +24,14 @@ export function ExecutionDashboardExecutorWorkflowOverlays(
         breakInventoryFurnitureModalOpen,
         judicialCustodianModalOpen,
         executionReportPrompt,
+        judicialCustodiansResolved,
     } = props;
+
+    const judicialCustodianExistingNames = Array.isArray(judicialCustodiansResolved)
+        ? (judicialCustodiansResolved as Array<{ fullName?: string }>)
+              .map((c) => String(c?.fullName || '').trim())
+              .filter(Boolean)
+        : [];
 
     if (
         !executorScheduleModalOpen &&
@@ -40,6 +47,7 @@ export function ExecutionDashboardExecutorWorkflowOverlays(
         <Suspense fallback={EXEC_OVERLAY_LAZY_FALLBACK}>
             <LazyExecutorWorkflowPortalModals
                 {...(props as unknown as ExecutorWorkflowPortalModalsProps)}
+                judicialCustodianExistingNames={judicialCustodianExistingNames}
             />
         </Suspense>
     );

@@ -32,8 +32,8 @@ import {
     canSendPushNotifications,
     getLawyerSettingsSnapshot,
     isNotificationChannelAllowed,
-    pushNotificationOptionsFromSettings,
 } from '@/app/services/settings/settingsRuntime';
+import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
 
 // =====================================================
 // Types
@@ -242,26 +242,28 @@ export class PushNotificationService {
   static async notifyNewExecution(caseNo: string): Promise<void> {
     const settings = getLawyerSettingsSnapshot();
     if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('execution')) return;
-    await this.showNotification(
-      pushNotificationOptionsFromSettings(settings, {
+    await showHamiNotification(
+      'execution',
+      {
         title: '📩 ملف تنفيذ جديد',
         body: `تم إضافة ملف تنفيذ رقم ${caseNo}`,
         tag: 'new-execution',
         data: { type: 'execution', caseNo },
-      }),
+      },
     );
   }
 
   static async notifyNewLawsuit(caseNo: string): Promise<void> {
     const settings = getLawyerSettingsSnapshot();
     if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('lawsuits')) return;
-    await this.showNotification(
-      pushNotificationOptionsFromSettings(settings, {
+    await showHamiNotification(
+      'lawsuits',
+      {
         title: '📩 ملف دعوى جديد',
         body: `تم إضافة ملف دعوى رقم ${caseNo}`,
         tag: 'new-lawsuit',
         data: { type: 'lawsuit', caseNo },
-      }),
+      },
     );
   }
 
@@ -273,13 +275,14 @@ export class PushNotificationService {
   }): Promise<void> {
     const settings = getLawyerSettingsSnapshot();
     if (!canSendPushNotifications(settings) || !isNotificationChannelAllowed('community')) return;
-    await this.showNotification(
-      pushNotificationOptionsFromSettings(settings, {
+    await showHamiNotification(
+      'community',
+      {
         title: notif.title,
         body: notif.message,
         tag: `forum-${notif.type ?? 'activity'}-${notif.postId ?? 'general'}`,
         data: { type: 'forum', postId: notif.postId, forumType: notif.type },
-      }),
+      },
     );
   }
 

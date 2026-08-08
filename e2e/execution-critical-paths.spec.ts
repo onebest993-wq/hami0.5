@@ -2,8 +2,19 @@
  * E2E: 10 مسارات حرجة — ExecutionDashboard (بدون ReferenceError / GlobalErrorBoundary)
  */
 import { test, expect, type Page } from '@playwright/test';
+import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import {
+    collectFatalBootPageErrors,
+    bootToLawyerHome,
+} from './helpers/bootFixtures';
+import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
+import { seedExecutionStorageForFile } from './helpers/executionStorageFixtures';
+import {
+    closeExecutionDossierE2E,
+    expectExecutionArchiveConfirmDialog,
+    expectExecutionTrashConfirmHeading,
+} from './helpers/executionE2EFixtures';
 
-const EXECUTION_FILES_KEY = 'executionFiles';
 const E2E_EXEC_ID = 'e2e-exec-critical-1';
 
 const MINIMAL_EXECUTION_FILE = {
@@ -26,61 +37,20 @@ const MINIMAL_EXECUTION_FILE = {
     updatedAt: new Date().toISOString(),
 };
 
-async function seedExecutionFiles(page: Page) {
-    await page.evaluate(
-        ({ storageKey, file }) => {
-            const payload = JSON.stringify([file]);
-            const keys = [
-                storageKey,
-                'hami-execution-files',
-                'execution_files',
-                'lawyer_execution_files',
-            ];
-            for (const k of keys) {
-                localStorage.setItem(k, payload);
-            }
-        },
-        { storageKey: EXECUTION_FILES_KEY, file: MINIMAL_EXECUTION_FILE },
-    );
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-    if (await devBypass.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await devBypass.click();
-    }
-    await expect(page.getByText(/جاري التحميل/i).first())
-        .toBeHidden({ timeout: 25_000 })
-        .catch(() => undefined);
-}
-
 async function bootLawyerShell(page: Page) {
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => pageErrors.push(err.message));
 
-    await page.addInitScript(
-        ({ storageKey, file }) => {
-            const payload = JSON.stringify([file]);
-            for (const k of [storageKey, 'hami-execution-files', 'execution_files', 'lawyer_execution_files']) {
-                localStorage.setItem(k, payload);
-            }
-        },
-        { storageKey: EXECUTION_FILES_KEY, file: MINIMAL_EXECUTION_FILE },
-    );
+    await prepareProductivityE2E(page);
+    await seedLawyerFiles(page);
+    await seedExecutionStorageForFile(page, MINIMAL_EXECUTION_FILE);
 
     await page.goto('/');
-    await page.waitForLoadState('domcontentloaded');
+    await ensureLawyerDashboard(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
 
-    const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-    if (await devBypass.isVisible({ timeout: 8_000 }).catch(() => false)) {
-        await devBypass.click();
-    }
-
-    await expect(page.getByText(/جاري التحميل/i).first())
-        .toBeHidden({ timeout: 25_000 })
-        .catch(() => undefined);
-
-    await seedExecutionFiles(page);
-
-    return pageErrors;
+    return collectFatalBootPageErrors(pageErrors);
 }
 
 async function openExecutionArchive(page: Page) {
@@ -91,22 +61,18 @@ async function openExecutionArchive(page: Page) {
 }
 
 /** بعد إغلاق الإضبارة تبقى طبقة مخزن التنفيذ (وليس بطاقة Home) */
-async function expectExecutionArchiveLayer(page: Page) {
-    await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
-        timeout: 25_000,
-    });
-    await expect(page.getByTestId('execution-archive-search')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText(/مديرية تنفيذ E2E|2026\/تنفيذ\/101/).first()).toBeVisible({
-        timeout: 25_000,
-    });
-}
-
-async function waitForExecutionDossierClosed(page: Page) {
-    await expect(page.getByTestId('execution-dashboard-dossier')).toHaveCount(0, { timeout: 25_000 });
+async function ensureExecutionDossierClosed(page: Page) {
+    const dossier = page.getByTestId('execution-dashboard-dossier');
+    await expect(async () => {
+        const count = await dossier.count();
+        if (count === 0) return;
+        const visible = await dossier.isVisible().catch(() => false);
+        expect(visible).toBeFalsy();
+    }).toPass({ timeout: 25_000 });
 }
 
 async function openFirstExecutionDossier(page: Page) {
-    await waitForExecutionDossierClosed(page);
+    await ensureExecutionDossierClosed(page);
     const row = page.getByText(/مديرية تنفيذ E2E|2026\/تنفيذ\/101/).first();
     await expect(row).toBeVisible({ timeout: 25_000 });
     await row.scrollIntoViewIfNeeded();
@@ -116,17 +82,8 @@ async function openFirstExecutionDossier(page: Page) {
 }
 
 async function closeExecutionDossier(page: Page) {
-    const dossier = page.getByTestId('execution-dashboard-dossier');
-    if (await dossier.isVisible().catch(() => false)) {
-        const closeBtn = dossier.getByTestId('execution-dashboard-close');
-        if (await closeBtn.isVisible().catch(() => false)) {
-            await closeBtn.click();
-        } else {
-            await page.keyboard.press('Escape');
-        }
-        await waitForExecutionDossierClosed(page);
-    }
-    await expectExecutionArchiveLayer(page);
+    await closeExecutionDossierE2E(page);
+    await openExecutionArchive(page);
 }
 
 function assertNoScopeReferenceErrors(pageErrors: string[]) {
@@ -140,6 +97,7 @@ function assertNoScopeReferenceErrors(pageErrors: string[]) {
 }
 
 test.describe('Execution critical paths', () => {
+    test.describe.configure({ timeout: 120_000, mode: 'serial' });
     test('1 — lawyer boot without scope ReferenceError', async ({ page }) => {
         const errors = await bootLawyerShell(page);
         assertNoScopeReferenceErrors(errors);
@@ -290,9 +248,7 @@ test.describe('Execution critical paths', () => {
         await openExecutionArchive(page);
 
         await page.getByTestId('execution-smart-card-archive').first().click();
-        const dialog = page.getByTestId('execution-archive-confirm-dialog');
-        await expect(dialog).toBeVisible({ timeout: 8_000 });
-        await expect(dialog.getByRole('heading', { name: /تأكيد الأرشفة/i })).toBeVisible();
+        const dialog = await expectExecutionArchiveConfirmDialog(page);
         await dialog.getByRole('button', { name: /إلغاء/i }).click();
         await expect(dialog).toBeHidden({ timeout: 8_000 });
     });
@@ -302,11 +258,9 @@ test.describe('Execution critical paths', () => {
         await openExecutionArchive(page);
 
         await page.getByTestId('execution-smart-card-trash').first().click();
-        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeVisible({
-            timeout: 8_000,
-        });
+        await expectExecutionTrashConfirmHeading(page);
         await page.getByRole('button', { name: /إلغاء/i }).click();
-        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
+        await expect(page.getByRole('dialog', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
             timeout: 8_000,
         });
     });

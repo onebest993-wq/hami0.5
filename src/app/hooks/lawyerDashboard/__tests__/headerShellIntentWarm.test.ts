@@ -44,6 +44,10 @@ vi.mock('@/app/runtime/settingsBootHydrator', () => ({
     hydrateSettingsShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
 }));
 
+vi.mock('@/app/runtime/notificationBootHydrator', () => ({
+    hydrateNotificationShellForInstantOpen: vi.fn(() => Promise.resolve(true)),
+}));
+
 vi.mock('@/app/runtime/notificationPanelLoader', () => ({
     loadNotificationPanelModule: vi.fn(() => Promise.resolve({})),
     prefetchNotificationPanel: vi.fn(),
@@ -86,6 +90,7 @@ import {
     prefetchNotificationPanel,
 } from '@/app/runtime/notificationPanelLoader';
 import { hydrateSettingsShellForInstantOpen } from '@/app/runtime/settingsBootHydrator';
+import { hydrateNotificationShellForInstantOpen } from '@/app/runtime/notificationBootHydrator';
 import {
     loadGlobalSearchOverlayWithEngine,
     prefetchGlobalSearchOverlayChunk,
@@ -175,12 +180,15 @@ describe('headerShellIntentWarm', () => {
         await vi.waitFor(() => {
             expect(warmSettingsOnHover).toHaveBeenCalled();
         });
-        expect(warmSettingsOnOpen).not.toHaveBeenCalled();
+        expect(warmSettingsOnOpen).toHaveBeenCalled();
         await vi.waitFor(() => {
             expect(hydrateSettingsShellForInstantOpen).toHaveBeenCalled();
         });
         await vi.waitFor(() => {
             expect(loadNotificationPanelModule).toHaveBeenCalled();
+        });
+        await vi.waitFor(() => {
+            expect(hydrateNotificationShellForInstantOpen).toHaveBeenCalledWith(true);
         });
         await vi.waitFor(() => {
             expect(loadGlobalSearchOverlayWithEngine).toHaveBeenCalled();

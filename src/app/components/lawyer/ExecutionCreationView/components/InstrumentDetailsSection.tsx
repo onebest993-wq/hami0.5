@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Calendar, Zap, ChevronDown, FileText, Scale } from 'lucide-react';
+import { AlertTriangle, Calendar, Zap, ChevronDown, FileText, Scale } from '@/app/components/ui/lucideIcons';
 import { ecg } from './executionCreationGlassUi';
 import { ExecutionCreationSection } from './ExecutionCreationSection';
 import { SmartAlimonyCalculator } from './SmartAlimonyCalculator';
@@ -79,6 +79,8 @@ interface InstrumentDetailsSectionProps {
     alimonyChildrenCount: string;
     onAlimonyChildrenCountChange: (v: string) => void;
     calculatedAlimonyNew: AlimonyCalculationResult | null | undefined;
+    judgmentDate?: string;
+    alimonyIncludesPastCalc?: boolean;
     alimonyPastLawSystem: 'قانون الأحوال الشخصية 1959' | 'الفقه الجعفري';
     onAlimonyPastLawSystemChange: (v: 'قانون الأحوال الشخصية 1959' | 'الفقه الجعفري') => void;
     alimonyPastStartDate: string;
@@ -175,6 +177,8 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
     alimonyChildrenCount,
     onAlimonyChildrenCountChange,
     calculatedAlimonyNew,
+    judgmentDate = '',
+    alimonyIncludesPastCalc = false,
     alimonyPastLawSystem,
     onAlimonyPastLawSystemChange,
     alimonyPastStartDate,
@@ -226,6 +230,12 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
                     onWifeMonthlyChange={onAlimonyWifeMonthlyChange}
                     onChildrenMonthlyChange={onAlimonyChildrenMonthlyChange}
                     onChildrenCountChange={onAlimonyChildrenCountChange}
+                    judgmentDate={judgmentDate}
+                    docType={docType}
+                    claimType={claimType}
+                    activeClaimTypes={effectiveClaimTypes}
+                    includesPastCalc={alimonyIncludesPastCalc}
+                    alimonyPastStartDate={alimonyPastStartDate}
                 />
             );
         }
@@ -552,6 +562,12 @@ export const InstrumentDetailsSection: React.FC<InstrumentDetailsSectionProps> =
                         onWifeMonthlyChange={onAlimonyWifeMonthlyChange}
                         onChildrenMonthlyChange={onAlimonyChildrenMonthlyChange}
                         onChildrenCountChange={onAlimonyChildrenCountChange}
+                        judgmentDate={judgmentDate}
+                        docType={docType}
+                        claimType={claimType}
+                        activeClaimTypes={effectiveClaimTypes}
+                        includesPastCalc={alimonyIncludesPastCalc}
+                        alimonyPastStartDate={alimonyPastStartDate}
                     />
                 )}
 

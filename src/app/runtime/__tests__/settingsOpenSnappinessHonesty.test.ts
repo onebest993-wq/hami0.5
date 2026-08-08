@@ -42,10 +42,10 @@ describe('settings open snappiness honesty', () => {
         );
         expect(shell).toContain('isSettingsOverlayInteractionArmed');
         expect(shell).toContain('onPointerDown');
-        expect(shell).toContain('requestClose(event)');
+        expect(shell).toContain('requestCloseInstant');
     });
 
-    it('Appearance sync — بلا تحميل داخلي عند فتح المركز', () => {
+    it('كل التبويبات sync — بلا تحميل داخلي عند فتح المركز', () => {
         const registry = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/HamiSettings/settingsSectionRegistry.ts'),
             'utf8',
@@ -55,8 +55,15 @@ describe('settings open snappiness honesty', () => {
             'utf8',
         );
         expect(registry).toContain("resolved.set('appearance'");
+        expect(registry).toContain("resolved.set('security'");
+        expect(registry).toContain("resolved.set('data'");
         expect(index).not.toContain('panelsLive');
         expect(index).not.toContain('settings-panels-deferred');
+        const router = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/HamiSettings/SettingsSectionRouter.tsx'),
+            'utf8',
+        );
+        expect(router).not.toContain('settings-section-loading');
     });
 
     it('ثابت كبح إعادة الفتح مُصدَّر وقصير للتبديل السريع', () => {
@@ -66,11 +73,12 @@ describe('settings open snappiness honesty', () => {
         );
         expect(paint).toContain('export const SETTINGS_REOPEN_SUPPRESS_MS');
         expect(paint).toMatch(/SETTINGS_REOPEN_SUPPRESS_MS\s*=\s*90/);
+        expect(paint).toContain('applySettingsOpaqueChrome');
         const fixtures = fs.readFileSync(
             path.join(root, 'e2e/helpers/settingsFixtures.ts'),
             'utf8',
         );
-        expect(fixtures).toContain('SETTINGS_REOPEN_SUPPRESS_MS');
+        expect(fixtures).toContain('SETTINGS_PERF_BUDGET');
         const host = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/HamiSettings/HamiSettingsHost.tsx'),
             'utf8',

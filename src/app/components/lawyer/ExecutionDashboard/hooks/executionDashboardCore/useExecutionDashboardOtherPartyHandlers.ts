@@ -1,12 +1,17 @@
 // @ts-nocheck
 import { useCallback, useEffect, useMemo, useRef, type MutableRefObject, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import SecureStoreService from '@/app/services/SecureStoreService';
 import { appendSpecialFollowupRequest } from '@/app/utils/specialFollowupDecisionQueue';
 import {
     resolveCreditorOtherPartyTrackDecision,
     submitCreditorOtherPartyTrackToDecisions,
 } from '@/app/utils/otherPartyCreditorTrackDecisionUtils';
 import { buildTimelineEventsFromOtherPartyActionLog } from '@/app/utils/otherPartyActionLogTimeline';
+import {
+    buildOtherPartyActionLogEntry,
+    persistOtherPartyActionLogEntry,
+} from '@/app/application/execution/followup/otherPartyActionLogPersist';
 
 type UseExecutionDashboardOtherPartyHandlersParams = {
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
@@ -81,12 +86,29 @@ export function useExecutionDashboardOtherPartyHandlers({
                 content,
                 appealRequestOrigin: 'debtor_side',
                 decisionTitle: 'تحرك الطرف الآخر — قيد البت',
+                executionData: executionDataRef.current as Record<string, unknown> | null,
+                otherPartyFollowup: true,
             });
             if (!decisionId) {
-                showToast('يوجد طلب مماثل قيد البت لدى المنفذ.', 'warning', { decisionsLink: true });
+                showToast('تعذّر حفظ التحرك — أعد المحاولة', 'warning', { decisionsLink: true });
                 return { ok: false };
             }
+            try {
+                SecureStoreService.flushHeavyPersistPending();
+            } catch {
+                /* ignore */
+            }
             const now = new Date().toISOString();
+            const logEntry = buildOtherPartyActionLogEntry({
+                date: d,
+                content,
+                decisionRowId: decisionId,
+            });
+            const persisted = persistOtherPartyActionLogEntry(
+                persistExecutionMerge,
+                executionDataRef.current?.other_party_actions_log,
+                logEntry,
+            );
             pushTimelineEvent({
                 id: nextTimelineId(),
                 date: d,
@@ -97,10 +119,23 @@ export function useExecutionDashboardOtherPartyHandlers({
                 source: 'محضر المتابعة',
                 metadata: { timelineThreadKey: `executor_decision:${decisionId}`, decisionRowId: decisionId },
             });
-            showToast('تم حفظ التحرك في السجل.', 'success');
-            return { ok: true, decisionId };
+            showToast(
+                persisted
+                    ? 'تم حفظ التحرك في السجل.'
+                    : 'تم إنشاء بطاقة القرار — أعد المحاولة إن لم يظهر السجل.',
+                persisted ? 'success' : 'warning',
+                persisted ? undefined : { decisionsLink: true },
+            );
+            return { ok: true, decisionId, logEntryId: logEntry.id };
         },
-        [decisionsStorageExecutionId, nextTimelineId, pushTimelineEvent, showToast],
+        [
+            decisionsStorageExecutionId,
+            executionDataRef,
+            nextTimelineId,
+            persistExecutionMerge,
+            pushTimelineEvent,
+            showToast,
+        ],
     );
 
     const handleCreditorTrackSubmit = useCallback(
@@ -113,6 +148,8 @@ export function useExecutionDashboardOtherPartyHandlers({
                 optionId: input.optionId,
                 label: input.label,
                 requestDate: input.date,
+                executionData: executionDataRef.current as Record<string, unknown> | null,
+                otherPartyFollowup: true,
             });
             if (!res.ok) {
                 showToast('تعذّر إنشاء البطاقة — قد يوجد طلب مماثل قيد البت.', 'warning', {

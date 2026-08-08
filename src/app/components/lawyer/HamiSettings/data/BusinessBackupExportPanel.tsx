@@ -1,12 +1,23 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useMobileKeyboardInset } from '@/app/hooks/useMobileKeyboardInset';
 import type { useBusinessBackup } from '../hooks/useBusinessBackup';
 import { Toggle } from '../settings-ui';
 
 type BackupVm = ReturnType<typeof useBusinessBackup>;
 
 export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
+    const keyboardInset = useMobileKeyboardInset(backup.backupPanelOpen);
+
+    const onDateFocus = useCallback((event: React.FocusEvent<HTMLInputElement>) => {
+        event.currentTarget.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, []);
+
     return (
-        <div className="px-4 pb-4 border-b border-white/[0.04]" data-testid="business-backup-export-panel">
+        <div
+            className="px-4 pb-4 border-b border-white/[0.04]"
+            data-testid="business-backup-export-panel"
+            style={keyboardInset > 0 ? { paddingBottom: keyboardInset + 16 } : undefined}
+        >
             <div className="text-[11px] text-white/50 mb-2">اختر ما تريد تصديره مع نطاق زمني اختياري</div>
             <div className="grid grid-cols-2 gap-2 mb-3">
                 {(
@@ -40,14 +51,16 @@ export function BusinessBackupExportPanel({ backup }: { backup: BackupVm }) {
                     type="date"
                     value={backup.backupFrom}
                     onChange={(e) => backup.setBackupFrom(e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
+                    onFocus={onDateFocus}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
                     aria-label="من تاريخ"
                 />
                 <input
                     type="date"
                     value={backup.backupTo}
                     onChange={(e) => backup.setBackupTo(e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
+                    onFocus={onDateFocus}
+                    className="flex-1 bg-white/5 border border-white/10 rounded-xl min-h-[44px] py-2 px-3 text-xs text-white outline-none focus:border-[#E6C673]/50"
                     aria-label="إلى تاريخ"
                 />
             </div>

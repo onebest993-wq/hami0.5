@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarClock } from 'lucide-react';
+import { CalendarClock } from '@/app/components/ui/lucideIcons';
 import { formatTrialSessionIsoDate } from '../trialSessionsEngine';
 import { CRIMINAL_DOSSIER_TEST_IDS } from '../criminalDossierTestIds';
 

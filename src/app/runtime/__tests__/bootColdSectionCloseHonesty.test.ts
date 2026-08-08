@@ -6,11 +6,9 @@ const root = process.cwd();
 
 describe('boot cold section close honesty', () => {
     it('index يسخّن Shell + Gate + ttfi-mark + LD بعد App/React وقبل createRoot', () => {
-        const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
-        const mount = index.match(/async function mountApplication[\s\S]*?^}/m)?.[0];
-        expect(mount).toBeTruthy();
-        const promiseAllIdx = mount!.indexOf('Promise.all');
-        const createRootIdx = mount!.indexOf('createRoot(rootElement)');
+        const mount = fs.readFileSync(path.join(root, 'src/boot/mountApplication.ts'), 'utf8');
+        const promiseAllIdx = mount.indexOf('Promise.all');
+        const createRootIdx = mount.indexOf('createRoot(rootElement)');
         expect(promiseAllIdx).toBeGreaterThan(-1);
         expect(createRootIdx).toBeGreaterThan(promiseAllIdx);
         for (const needle of [
@@ -19,7 +17,7 @@ describe('boot cold section close honesty', () => {
             "import('@/app/bootstrap/dashboardInteractiveMark')",
             'preloadLawyerDashboardChunk',
         ]) {
-            const idx = mount!.indexOf(needle);
+            const idx = mount.indexOf(needle);
             expect(idx, needle).toBeGreaterThan(promiseAllIdx);
             expect(idx, needle).toBeLessThan(createRootIdx);
         }
@@ -27,15 +25,12 @@ describe('boot cold section close honesty', () => {
 
     it('مهام الخلفية الثقيلة بعد mountApplication لا قبل interactive', () => {
         const index = fs.readFileSync(path.join(root, 'src/index.tsx'), 'utf8');
-        expect(index).toContain('runBackgroundBootTasks');
-        expect(index).toMatch(
-            /void mountApplication\(\)\.finally\(\(\)\s*=>\s*\{\s*runBackgroundBootTasks\(\);/,
-        );
-        expect(index).toContain('SecureStoreService.kickoffBootShellSync');
-        const bg = index.slice(index.indexOf('function runBackgroundBootTasks'));
-        const mountCall = index.indexOf('void mountApplication()');
-        expect(index.indexOf('function runBackgroundBootTasks')).toBeLessThan(mountCall);
-        expect(bg).toContain("import('@/app/bootstrap/deferredBoot')");
+        expect(index).toContain("import('@/boot/mountApplication')");
+        expect(index).toContain('startApplicationBoot');
+        const mount = fs.readFileSync(path.join(root, 'src/boot/mountApplication.ts'), 'utf8');
+        expect(mount).toContain('runBackgroundBootTasks');
+        expect(mount).toMatch(/startApplicationBoot[\s\S]*runBackgroundBootTasks/);
+        expect(mount).toContain("import('@/app/bootstrap/deferredBoot')");
     });
 
     it('QuantumShell رقيق — Provider بعد mark داخل InnerRuntime', () => {
@@ -59,13 +54,9 @@ describe('boot cold section close honesty', () => {
         expect(runtime).toMatch(/<QuantumTasksProvider/);
     });
 
-    it('vite: ttfi-mark معزول عن boot-reveal وpreload داخل vendor-react', () => {
+    it('vite: modulePreload يحمّل vendor-react و boot-runtime فقط (vendor-misc عند الطلب)', () => {
         const viteCfg = fs.readFileSync(path.join(root, 'vite.config.mts'), 'utf8');
-        expect(viteCfg).toContain('dashboardInteractiveMark');
-        expect(viteCfg).toContain('app-ttfi-mark');
-        expect(viteCfg.indexOf('app-ttfi-mark')).toBeLessThan(
-            viteCfg.indexOf("return 'app-boot-reveal'"),
-        );
-        expect(viteCfg).toMatch(/vite\/preload-helper[\s\S]*?return 'vendor-react'/);
+        expect(viteCfg).toMatch(/resolveDependencies[\s\S]*?vendor-react\|boot-runtime/);
+        expect(viteCfg).toContain("return 'vendor-react'");
     });
 });

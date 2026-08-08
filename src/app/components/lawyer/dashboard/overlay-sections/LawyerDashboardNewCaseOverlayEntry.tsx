@@ -18,6 +18,8 @@ export function LawyerDashboardNewCaseOverlayEntry({
         newCaseModalKey,
         newCasePresetType,
         isCriminalSeveranceRedirect,
+        dossierNewCaseElevated,
+        incidentalSpawnContext,
         onNewCaseOpenCriminalDashboard,
         handleNewCaseSave,
     } = newCase;
@@ -57,6 +59,8 @@ export function LawyerDashboardNewCaseOverlayEntry({
             presetSelectedType={newCasePresetType}
             criminalSeveranceFormMode={isCriminalSeveranceRedirect}
             consolidationNavActive={dossier.consolidationNavActive}
+            dossierNewCaseElevated={dossierNewCaseElevated}
+            incidentalSpawnContext={incidentalSpawnContext}
             onClose={closeNewCaseModal}
             onOpenCriminalDashboard={onNewCaseOpenCriminalDashboardFromHub}
             onSave={handleNewCaseSaveFromHub}

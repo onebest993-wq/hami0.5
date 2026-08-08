@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Lock } from 'lucide-react';
+import { Lock } from '@/app/components/ui/lucideIcons';
 
 import type { TimelineEvent } from '@/app/types/execution';
 

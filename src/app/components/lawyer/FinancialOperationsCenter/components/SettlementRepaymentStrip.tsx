@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { ArrowDownCircle, ChevronDown, Wallet } from 'lucide-react';
+import { ArrowDownCircle, ChevronDown, Wallet } from '@/app/components/ui/lucideIcons';
 import { formatNumberInput } from '../utils';
 
 export interface SettlementRepaymentStripProps {

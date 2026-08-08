@@ -1,9 +1,9 @@
 import React, { useLayoutEffect, useRef } from 'react';
-import { Database, Palette, Shield, User, X, type LucideIcon } from 'lucide-react';
+import { Database, Palette, Shield, User, X, type LucideIcon } from '@/app/components/ui/lucideIcons';
 import { useLawyerSettingsAppearance } from '@/app/context/LawyerSettingsContext';
 import { SETTINGS_NAV, type SettingsSectionId } from '@/app/services/settings';
-import '@/app/components/lawyer/dashboard/lawyerHomeFx.css';
-import { resolveSettingsShellStyle } from './settingsShellStyle';
+import { useHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
+import { SETTINGS_SHELL_CHROME } from './settingsShellStyle';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useSettingsShellFocusTrap } from './hooks/useSettingsShellFocusTrap';
 import { useSettingsMobileSuspend } from './hooks/useSettingsMobileSuspend';
@@ -11,9 +11,11 @@ import { prefetchSettingsSection } from './settingsSectionLoader';
 import {
     clearSettingsForceVisible,
     concealSettingsWarmShell,
+    getSettingsShellRevealedAt,
     isSettingsForceVisible,
     isSettingsOverlayInteractionArmed,
     scheduleSettingsOverlayInteractionArm,
+    SETTINGS_INTERACT_ARM_MS,
 } from '@/app/runtime/settingsInstantPaint';
 
 export type SettingsShellProps = {
@@ -26,6 +28,8 @@ export type SettingsShellProps = {
 };
 
 const SECTION_IDS = SETTINGS_NAV.map((item) => item.id);
+
+export const SETTINGS_SECTION_ORDER: readonly SettingsSectionId[] = SECTION_IDS;
 
 const TAB_ICON: Record<SettingsSectionId, LucideIcon> = {
     appearance: Palette,
@@ -55,8 +59,14 @@ export function SettingsShell({
     useSettingsMobileSuspend(visible);
 
     const appearance = useLawyerSettingsAppearance();
-    const { shellBg } = resolveSettingsShellStyle(appearance);
     const shellDir = appearance.language === 'en' ? 'ltr' : 'rtl';
+
+    const { swipeHandlers: sectionSwipeHandlers } = useHorizontalTabSwipe({
+        order: SETTINGS_SECTION_ORDER,
+        activeId: activeSection,
+        onChange: onSectionChange,
+        enabled: visible,
+    });
 
     useLayoutEffect(() => {
         if (visible) {
@@ -88,18 +98,25 @@ export function SettingsShell({
 
     const canCloseNow = () => {
         if (!visible && !isSettingsForceVisible()) return false;
-        /* حارس إيماءة الفتح على زر X فقط — بعده إغلاق فوري */
-        return isSettingsOverlayInteractionArmed();
+        if (isSettingsOverlayInteractionArmed()) return true;
+        const revealed = getSettingsShellRevealedAt();
+        if (revealed != null) {
+            const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            if (now - revealed >= SETTINGS_INTERACT_ARM_MS) return true;
+        }
+        return false;
     };
 
-    const requestClose = (event?: React.SyntheticEvent) => {
+    const requestCloseInstant = (event?: React.SyntheticEvent) => {
+        event?.preventDefault();
+        event?.stopPropagation();
+        onClose();
+    };
+
+    const requestCloseGuarded = (event?: React.SyntheticEvent) => {
         event?.preventDefault();
         event?.stopPropagation();
         if (!canCloseNow()) return;
-        /*
-         * onClose أولاً (flushSync) ثم conceal — لا تُخفِ الطبقة قبل تحديث React
-         * حتى لا يومض هيدر اللوحة تحت فراغ الإعدادات.
-         */
         onClose();
     };
 
@@ -109,7 +126,7 @@ export function SettingsShell({
             data-settings-root
             data-open={visible ? 'true' : 'false'}
             className="absolute inset-0 flex flex-col overflow-hidden font-sans"
-            style={{ backgroundColor: shellBg || '#0B1021' }}
+            style={{ backgroundColor: SETTINGS_SHELL_CHROME }}
             data-hami-settings-shell=""
             data-testid="hami-settings-shell"
             data-settings-hydrated={hydrated || visible ? 'true' : 'false'}
@@ -129,7 +146,6 @@ export function SettingsShell({
                     <div className="hami-settings-header-inner">
                         <div className="flex items-center justify-between gap-3 mb-3.5">
                             <div className="min-w-0">
-                                <p className="hami-settings-kicker">لوحة التحكم</p>
                                 <h1 className="hami-settings-title">مركز الإعدادات</h1>
                             </div>
                             <button
@@ -139,20 +155,13 @@ export function SettingsShell({
                                 style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
                                 aria-label="إغلاق الإعدادات"
                                 onPointerDown={(event) => {
-                                    /*
-                                     * إغلاق على pointerdown = خروج لحظي.
-                                     * closeSettings يكبح إعادة الفتح الشبحي (suppressSettingsReopen).
-                                     */
                                     if (typeof event.button === 'number' && event.button !== 0) return;
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    requestClose(event);
+                                    requestCloseInstant(event);
                                 }}
                                 onClick={(event) => {
-                                    /* احتياطي لوحة مفاتيح / إن لم يُلتَقط pointerdown */
                                     event.preventDefault();
                                     event.stopPropagation();
-                                    requestClose(event);
+                                    requestCloseGuarded(event);
                                 }}
                             >
                                 <X size={18} strokeWidth={2.25} aria-hidden />
@@ -207,7 +216,9 @@ export function SettingsShell({
                     id="settings-section-panel"
                     role="tabpanel"
                     aria-labelledby={`settings-tab-${activeSection}`}
-                    className="hami-settings-scroll-panel flex-1 overflow-y-auto px-5 pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain"
+                    className="hami-settings-scroll-panel flex-1 overflow-y-auto px-5 pb-[max(5rem,env(safe-area-inset-bottom))] scrollbar-hide overscroll-contain touch-pan-y"
+                    data-testid="settings-section-panel"
+                    {...sectionSwipeHandlers}
                 >
                     {children}
                 </div>

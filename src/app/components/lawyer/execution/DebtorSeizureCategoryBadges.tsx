@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Briefcase, Car, EyeOff, Home, Pin } from 'lucide-react';
+import { Briefcase, Car, EyeOff, Home, Pin } from '@/app/components/ui/lucideIcons';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import {
     BADGE_POPOVER_Z_INDEX,
@@ -13,7 +13,7 @@ import {
     PARTY_BADGE_ICON_SIZE,
     PARTY_BADGE_PILL_CLASS,
 } from './partyBadgeShell';
-import type { LucideProps } from 'lucide-react';
+import type { LucideProps } from '@/app/components/ui/lucideIcons';
 import type {
     RealEstateSeizureAsset,
     SeizedAsset,

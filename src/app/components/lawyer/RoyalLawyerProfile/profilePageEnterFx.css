@@ -26,15 +26,28 @@
     animation: hami-tab-fade-in 0.22s ease-out both;
 }
 
+/* إقلاع — اللوحة تظهر كاملة بلا وميض تبويب */
+html[data-hami-initial-boot] .hami-dashboard-tab-reveal.is-active {
+    animation: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
 /*
  * keepAlive: الطبقة تبقى في مكانها مرسومة تحت غطاء الرئيسية (z-index فقط).
  * لا translate/opacity — كانا سبب الإحساس غير اللحظي على WebView.
  */
 .hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) {
     opacity: 1;
-    visibility: visible;
+    visibility: hidden;
     pointer-events: none !important;
     z-index: 1;
+}
+
+.hami-dashboard-tab-preserve[data-testid='lawyer-dashboard-profile-surface']:not(
+        .hami-dashboard-tab-preserve--active
+    ) {
+    visibility: hidden;
 }
 
 .hami-dashboard-tab-preserve:not(.hami-dashboard-tab-preserve--active) * {
@@ -53,7 +66,7 @@
     position: absolute;
     inset: 0;
     z-index: 3;
-    background-color: #0a0f1c;
+    background-color: var(--hami-board-surface-bg, #0a0f1c);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -123,6 +136,7 @@ html[data-hami-profile-open='1'] [data-lawyer-profile-root][data-profile-page-hi
 html[data-hami-profile-open='1'] [data-testid='lawyer-profile-back'] {
     visibility: visible !important;
     pointer-events: auto !important;
+    z-index: 210 !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

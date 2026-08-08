@@ -1,35 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-
     computePersonalStatusStageOptions,
-
     getPersonalStatusRoleForSide,
-
     getPersonalUnderlyingStageOptions,
-
     validatePersonalStatusForm,
-
-    PERSONAL_STATUS_STAGE_OPTIONS,
-
+    PERSONAL_STATUS_FORM_STAGE_OPTIONS,
 } from './personalStatusValidation';
 
 
 
 describe('personalStatusValidation', () => {
 
-    it('exposes personal stages without بداءة or استئناف', () => {
-
+    it('exposes personal form stages without بداءة or استئناف or تمييز', () => {
         const options = computePersonalStatusStageOptions('محكمة الأحوال الشخصية');
-
-        expect(options).toEqual([...PERSONAL_STATUS_STAGE_OPTIONS]);
-
+        expect(options).not.toContain('تمييز');
         expect(options.some((s) => s.includes('بداءة'))).toBe(false);
-
         expect(options.some((s) => s.includes('استئناف'))).toBe(false);
-
+        expect(options).toContain('أحوال شخصية');
         expect(options).toContain('إعادة المحاكمة');
-
     });
 
 

@@ -47,6 +47,7 @@ const CORE_ASSEMBLY_HANDLER_KEYS = [
     'executorApprovalActions',
     'otherPartyCreditorMirrorProps',
     'propertyInlineSaveCtx',
+    'movableInlineSaveCtx',
     'salarySeizureTabRows',
     'followupOrchestrator',
     'seizureOrchestrator',

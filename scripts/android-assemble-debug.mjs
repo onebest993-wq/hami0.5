@@ -10,6 +10,17 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const androidDir = path.join(root, 'android');
 
+function readJavaMajorVersion(javaHome) {
+    const javaExe = path.join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+    if (!fs.existsSync(javaExe)) return null;
+    const result = spawnSync(javaExe, ['-version'], { encoding: 'utf8' });
+    const text = `${result.stderr ?? ''}\n${result.stdout ?? ''}`;
+    const quoted = text.match(/version\s+"(\d+)/);
+    if (quoted) return Number(quoted[1]);
+    const legacy = text.match(/version\s+"1\.(\d+)/);
+    return legacy ? Number(legacy[1]) : null;
+}
+
 function findJavaHome() {
     if (process.env.JAVA_HOME && fs.existsSync(path.join(process.env.JAVA_HOME, 'bin', 'java.exe'))) {
         return process.env.JAVA_HOME;
@@ -34,10 +45,14 @@ function findAndroidSdk() {
 
 const javaHome = findJavaHome();
 const androidSdk = findAndroidSdk();
+const javaMajor = javaHome ? readJavaMajorVersion(javaHome) : null;
 
 if (!javaHome) {
     console.error('JAVA_HOME not found — install Android Studio JBR or JDK 17+');
     process.exit(1);
+}
+if (javaMajor && javaMajor >= 25) {
+    console.log(`[android-assemble] Java ${javaMajor} detected — requires Gradle 8.14.4+ (project wrapper upgraded)`);
 }
 if (!androidSdk) {
     console.error('Android SDK not found — install via Android Studio SDK Manager');

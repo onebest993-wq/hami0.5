@@ -2,8 +2,11 @@ import { useCallback, useLayoutEffect, useRef } from 'react';
 
 import {
     loadFieldTasksInstantPaint,
+    prefetchFieldTasksInstantPaint,
     type FieldTasksInstantPaintModule,
 } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports';
+
+prefetchFieldTasksInstantPaint();
 
 export function useFieldTasksInstantPaintRef() {
     const instantPaintRef = useRef<FieldTasksInstantPaintModule | null>(null);

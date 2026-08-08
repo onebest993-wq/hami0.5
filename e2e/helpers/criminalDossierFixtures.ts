@@ -13,6 +13,9 @@ const CRIMINAL_BRIDGE_ACTIVATE_EVENT = 'hami:criminal-dashboard-bridge-activate'
 export const CRIMINAL_E2E_TEST_IDS = {
     dossier: 'criminal-dashboard-dossier',
     back: 'criminal-dashboard-back',
+    exit: 'criminal-dashboard-exit',
+    headerTrash: 'criminal-header-trash',
+    trashModal: 'criminal-trash-modal',
     archiveTabCriminal: 'archive-tab-criminal',
     caseCard: (id: string) => `criminal-case-${id}`,
 } as const;

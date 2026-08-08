@@ -1,5 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
-import { Archive, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, Trash2 } from 'lucide-react';
+import { Archive, ChevronDown, LayoutGrid, List, Search, SlidersHorizontal, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { LawsuitJurisdictionTab } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 import { prefetchCriminalDashboard } from '@/app/utils/lazyComponentsIntent';
 import {

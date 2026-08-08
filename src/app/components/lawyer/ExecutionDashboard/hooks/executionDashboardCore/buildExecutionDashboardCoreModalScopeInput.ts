@@ -1,6 +1,8 @@
-// @ts-nocheck
 /** Phase C Slice 25 — مدخلات modal scope */
+// ModalStates في الـ store لا يشمل كل modals المحلية — يُبقى nocheck حتى توسيع النوع
+// @ts-nocheck
 import type { ModalStates } from '@/app/stores/executionDashboardStore';
+import type { ExecutionSeizureOrchestratorSlice } from '../../orchestrators/executionSeizureOrchestratorTypes';
 
 export function buildExecutionDashboardCoreModalScopeInput(p: {
     modals: ModalStates;
@@ -43,10 +45,10 @@ export function buildExecutionDashboardCoreModalScopeInput(p: {
         setShowSolidaryCoerciveTargetModal: (show: boolean) => void;
         setShowStayOfExecutionModal: (show: boolean) => void;
     };
-    seizureOrchestrator: {
-        setShowGuarantorDetailsModal: (show: boolean) => void;
-        setShowRealEstateSeizureModal: (show: boolean) => void;
-    };
+    seizureOrchestrator: Pick<
+        ExecutionSeizureOrchestratorSlice,
+        'setShowGuarantorDetailsModal' | 'setShowRealEstateSeizureModal'
+    >;
 }) {
     const { modals, followupOrchestrator, seizureOrchestrator } = p;
     return {

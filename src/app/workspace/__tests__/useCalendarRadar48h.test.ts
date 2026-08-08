@@ -11,13 +11,13 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
-import type { CalendarEvent } from '@/app/services/lawyer-cloud';
+import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarCloud';
 import { useCalendarRadar48h } from '../useCalendarRadar48h';
 
 const getEventsMock = vi.fn();
 
-vi.mock('@/app/services/lawyer-cloud', async (orig) => {
-    const real = (await orig<typeof import('@/app/services/lawyer-cloud')>());
+vi.mock('@/app/services/cloud/lawyerCalendarCloud', async (orig) => {
+    const real = (await orig<typeof import('@/app/services/cloud/lawyerCalendarCloud')>());
     return {
         ...real,
         CalendarDB: {
@@ -26,6 +26,10 @@ vi.mock('@/app/services/lawyer-cloud', async (orig) => {
         },
     };
 });
+
+vi.mock('@/app/services/alerts/homeHubRadarWarmCache', () => ({
+    peekHomeHubRadarCache: () => null,
+}));
 
 function baseEvent(over: Partial<CalendarEvent>): CalendarEvent {
     return {
@@ -134,32 +138,28 @@ describe('useCalendarRadar48h', () => {
         expect(getEventsMock).not.toHaveBeenCalled();
     });
 
-    it('8) ticker: تحديث whenLabel كل دقيقة دون إعادة جلب', async () => {
+    it('8) whenLabel ثابت (آخر موعد) دون ticker دوري', async () => {
         vi.useFakeTimers();
-        // الزمن الحالي لكي يضمن "موعد بعد ساعة" تماماً
         const baseTime = Date.parse('2026-05-25T10:00:00.000Z');
         vi.setSystemTime(baseTime);
 
-        getEventsMock.mockResolvedValue([
-            inHours(1, { id: 'soon' }), // باقي ساعة تقريباً
-        ]);
+        getEventsMock.mockResolvedValue([inHours(1, { id: 'soon' })]);
 
         const { result } = renderHook(() => useCalendarRadar48h('lawyer-1'));
         await vi.waitFor(() => {
             expect(result.current.events.length).toBe(1);
         });
         const initialLabel = result.current.events[0]!.whenLabel;
-        expect(initialLabel.length).toBeGreaterThan(0);
+        expect(initialLabel).not.toContain('آخر موعد');
+        expect(initialLabel).not.toContain('باقي');
+        expect(result.current.events[0]!.dateLabel).toBeTruthy();
+        expect(result.current.events[0]!.sourceModuleLabel).toBeTruthy();
         const initialCalls = getEventsMock.mock.calls.length;
 
-        // نُقدّم الوقت 30 دقيقة → الـ ticker يعمل مرة واحدة على الأقل
-        await vi.advanceTimersByTimeAsync(60_000);
+        await vi.advanceTimersByTimeAsync(120_000);
 
-        // whenLabel قد تغيّر — لكن لم تحدث إعادة جلب
         expect(getEventsMock.mock.calls.length).toBe(initialCalls);
-        // (whenLabel نفسه يعتمد على الـ Date.now() الجديد لذا يجب يختلف)
-        const newLabel = result.current.events[0]!.whenLabel;
-        expect(newLabel).toBeDefined();
+        expect(result.current.events[0]!.whenLabel).toBe(initialLabel);
 
         vi.useRealTimers();
     });

@@ -7,7 +7,7 @@ import { scanBufferForMalware } from '../../services/server/MalwareScanService.t
 import {
   ALLOWED_UPLOAD_CATEGORIES,
   buildCategoryObjectPath,
-  resolveUploadBucket,
+  resolveUploadBucketForCategory,
   SIGNED_URL_TTL_SEC,
 } from './uploadStorageUtils.ts';
 
@@ -108,7 +108,7 @@ export async function POST(request: Request): Promise<Response> {
       return json(500, { ok: false, error: 'Server storage client is not configured' });
     }
 
-    const bucket = resolveUploadBucket();
+    const bucket = resolveUploadBucketForCategory(category);
     const objectPath = buildCategoryObjectPath(userId, category, file.name);
 
     const { error } = await admin.storage.from(bucket).upload(objectPath, buffer, {

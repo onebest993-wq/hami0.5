@@ -13,7 +13,8 @@ export function syncOneExecutionFile(
     stats: DossierSyncStats,
     scope: SyncScope = {},
 ): void {
-    const includeTasks = scope.includeTasks !== false;
+    const whitelistOnly = scope.whitelistOnly === true;
+    const includeTasks = scope.includeTasks !== false && !whitelistOnly;
     const executionId = readEntityId(file);
     if (executionId === null) return;
     if (shouldExcludeExecutionFromCalendar(file)) return;

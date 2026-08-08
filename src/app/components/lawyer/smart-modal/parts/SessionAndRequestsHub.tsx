@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, memo } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, ChevronDown, Gavel, Hash, PenLine, Plus, Scale, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, Gavel, Hash, PenLine, Plus, Scale, X } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '../../LawyerShared';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
@@ -16,6 +16,7 @@ import {
 } from '../smartFile/judgeDecisionTemplates';
 import {
     computeNextSessionNumber,
+    isOpponentProceedingsEvent,
     isSessionTimelineEvent,
     parseSessionRecordEvent,
     suggestCurrentHearingDate,
@@ -28,10 +29,10 @@ import {
     type OnAddFastTrackFn,
 } from '../smartFile/requestTypes';
 import { SmartRequestsPanel } from './SmartRequestsPanel';
-import { personalPearlHubTheme } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
-import { PersonalStatusPearlTile } from '@/app/components/lawyer/personal-status/PersonalStatusMoroccanGlass';
+import { personalPearlHubTheme, PS_HERO_SESSION, PS_TOOLBAR_BTN } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { personalHubTheme as legacyPersonalHubTheme } from '@/app/components/lawyer/personal-status/personalStatusDossierTheme';
 import { registerSmartFileInlineOverlay } from '../smartFile/smartFileInlineOverlayRegistry';
+import { COMPACT_HUB_TRIGGER_GOLD } from '../smartFile/compactHubTrigger';
 
 export type { AttachmentShieldSummary, FastTrackPetitionSummary } from '../smartFile/requestTypes';
 
@@ -40,6 +41,7 @@ export interface SessionAndRequestsHubProps {
     onSubmitSessionRecord?: (data: SessionRecordFormData & { id?: string }) => void;
     editingSessionRecord?: TimelineEvent | null;
     onCancelEditSessionRecord?: () => void;
+    onEditSessionRecord?: (event: TimelineEvent) => void;
     onAddFastTrack?: OnAddFastTrackFn;
     petitions?: FastTrackPetitionSummary[];
     attachments?: AttachmentShieldSummary[];
@@ -53,6 +55,10 @@ export interface SessionAndRequestsHubProps {
     compose?: 'full' | 'session-only' | 'requests-only';
     /** personal-pearl يستخدم ثيم اللؤلؤي */
     layoutMode?: 'default' | 'personal-pearl';
+    /** زر محضر مضغوط في صف الأدوات */
+    compactSessionTrigger?: boolean;
+    /** بطاقة محضر بارزة — أحوال شخصية */
+    heroSessionTrigger?: boolean;
 }
 
 const GLASS_TRIGGER =
@@ -107,6 +113,7 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     onSubmitSessionRecord,
     editingSessionRecord = null,
     onCancelEditSessionRecord,
+    onEditSessionRecord,
     onAddFastTrack,
     petitions = [],
     attachments = [],
@@ -117,12 +124,21 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     visualVariant = 'civil',
     compose = 'full',
     layoutMode = 'default',
+    compactSessionTrigger = false,
+    heroSessionTrigger = false,
 }: SessionAndRequestsHubProps) {
     const isPearl = visualVariant === 'personal' && layoutMode === 'personal-pearl';
     const T = hubTheme(visualVariant, layoutMode);
     const isEditing = Boolean(editingSessionRecord?.id);
     const autoNextSession = useMemo(() => String(computeNextSessionNumber(timeline)), [timeline]);
     const autoHearingDate = useMemo(() => suggestCurrentHearingDate(timeline), [timeline]);
+    const sessionHistory = useMemo(
+        () =>
+            timeline
+                .filter((event) => isSessionTimelineEvent(event) && !isOpponentProceedingsEvent(event))
+                .sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? ''))),
+        [timeline],
+    );
 
     const [panelOpen, setPanelOpen] = useState(false);
     const [date, setDate] = useState(autoHearingDate);
@@ -130,8 +146,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     const [proceedings, setProceedings] = useState('');
     const [judgeDecisions, setJudgeDecisions] = useState('');
     const [nextHearingDate, setNextHearingDate] = useState('');
-    const [manualSessionNumber, setManualSessionNumber] = useState(false);
-    const [manualNextHearingDate, setManualNextHearingDate] = useState(false);
     const [customTemplates, setCustomTemplates] = useState<string[]>(() => loadJudgeDecisionTemplates());
     const [templateDraft, setTemplateDraft] = useState('');
     const prevEditingIdRef = useRef<string | undefined>(undefined);
@@ -151,8 +165,6 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 setProceedings(parsed.proceedings);
                 setJudgeDecisions(parsed.judgeDecisions);
                 setNextHearingDate(parsed.nextHearingDate);
-                setManualSessionNumber(true);
-                setManualNextHearingDate(Boolean(parsed.nextHearingDate));
             }
             prevEditingIdRef.current = editId;
             return;
@@ -165,27 +177,10 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
             setProceedings('');
             setJudgeDecisions('');
             setNextHearingDate(fresh.nextHearingDate);
-            setManualSessionNumber(false);
-            setManualNextHearingDate(false);
         }
 
         prevEditingIdRef.current = editId;
     }, [editingSessionRecord, autoNextSession, timeline]);
-
-    useEffect(() => {
-        if (isEditing || manualSessionNumber) return;
-        setSessionNumber(autoNextSession);
-    }, [autoNextSession, isEditing, manualSessionNumber]);
-
-    useEffect(() => {
-        if (isEditing || manualSessionNumber) return;
-        setDate(autoHearingDate);
-    }, [autoHearingDate, isEditing, manualSessionNumber]);
-
-    useEffect(() => {
-        if (isEditing || manualNextHearingDate) return;
-        setNextHearingDate(suggestNextHearingDate(timeline, date));
-    }, [timeline, date, isEditing, manualNextHearingDate]);
 
     const insertJudgeLine = (line: string) => {
         setJudgeDecisions((prev) => appendJudgeDecisionLine(prev, line));
@@ -267,10 +262,86 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
         }
         setProceedings('');
         setJudgeDecisions('');
-        setManualSessionNumber(false);
-        setManualNextHearingDate(false);
+        const fresh = emptyForm(timeline);
+        setSessionNumber(fresh.sessionNumber);
+        setDate(fresh.date);
+        setNextHearingDate(fresh.nextHearingDate);
         setPanelOpen(false);
     };
+
+    const readOnlySessionView =
+        readOnly
+        && editingSessionRecord
+        && isSessionTimelineEvent(editingSessionRecord)
+        && !isOpponentProceedingsEvent(editingSessionRecord)
+            ? parseSessionRecordEvent(editingSessionRecord)
+            : null;
+
+    const readOnlySessionPanel = readOnlySessionView
+        ? createPortal(
+              <div
+                  className={T.overlay}
+                  dir="rtl"
+                  role="dialog"
+                  aria-modal="true"
+                  onClick={(e) => {
+                      if (e.target === e.currentTarget) onCancelEditSessionRecord?.();
+                  }}
+              >
+                  <div className={T.shell} onClick={(e) => e.stopPropagation()}>
+                      <div className={T.header}>
+                          <div className="flex items-center gap-3 min-w-0">
+                              <Scale size={20} className="text-sky-300 shrink-0" aria-hidden />
+                              <h3 className="text-lg font-bold truncate text-sky-200">
+                                  محضر الجلسة — للاطلاع
+                              </h3>
+                          </div>
+                          <button
+                              type="button"
+                              onClick={() => onCancelEditSessionRecord?.()}
+                              className="p-2 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/50 hover:text-white hover:bg-white/10 transition-colors shrink-0"
+                              aria-label="إغلاق"
+                          >
+                              <X size={18} />
+                          </button>
+                      </div>
+                      <div className={`${T.body} space-y-4`}>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                              <div>
+                                  <p className={T.label}>تاريخ المرافعة</p>
+                                  <p className="text-white/85 tabular-nums">{readOnlySessionView.date?.slice(0, 10) || '—'}</p>
+                              </div>
+                              <div>
+                                  <p className={T.label}>رقم الجلسة</p>
+                                  <p className="text-white/85">{readOnlySessionView.sessionNumber || '—'}</p>
+                              </div>
+                              <div>
+                                  <p className={T.label}>المرافعة القادمة</p>
+                                  <p className="text-white/85 tabular-nums">
+                                      {readOnlySessionView.nextHearingDate?.slice(0, 10) || '—'}
+                                  </p>
+                              </div>
+                          </div>
+                          <div className={T.section}>
+                              <p className={T.label}>مجريات الدعوى</p>
+                              <p className="text-sm text-white/75 whitespace-pre-line leading-relaxed">
+                                  {readOnlySessionView.proceedings || '—'}
+                              </p>
+                          </div>
+                          {readOnlySessionView.judgeDecisions ? (
+                              <div className={T.section}>
+                                  <p className={T.label}>قرارات القاضي والطلبات</p>
+                                  <p className="text-sm text-white/75 whitespace-pre-line leading-relaxed">
+                                      {readOnlySessionView.judgeDecisions}
+                                  </p>
+                              </div>
+                          ) : null}
+                      </div>
+                  </div>
+              </div>,
+              document.body,
+          )
+        : null;
 
     const sessionPanel = panelOpen && !readOnly && onSubmitSessionRecord ? createPortal(
         <div
@@ -302,14 +373,11 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 <div className={T.body}>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:items-start">
                         <div className="min-w-0 flex flex-col">
-                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
+                            <div className="mb-2 flex h-8 items-center">
                                 <label className={`${T.label} mb-0`}>
                                     <CalendarDays size={12} className="inline ml-1 text-[#E6C673]/70" aria-hidden />
                                     تاريخ المرافعة
                                 </label>
-                                <span className="invisible text-[10px] font-bold px-2.5 py-1" aria-hidden>
-                                    —
-                                </span>
                             </div>
                             <input
                                 type="date"
@@ -321,72 +389,76 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                             <div className="mt-2 min-h-[1.25rem]" aria-hidden />
                         </div>
                         <div className="min-w-0 flex flex-col">
-                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
+                            <div className="mb-2 flex h-8 items-center">
                                 <label className={`${T.label} mb-0`}>
                                     <Hash size={12} className="inline ml-1 text-[#E6C673]/70" aria-hidden />
                                     رقم الجلسة
                                 </label>
-                                <button
-                                    type="button"
-                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordManualToggle}
-                                    onClick={() => setManualSessionNumber((v) => !v)}
-                                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md border transition-colors ${
-                                        manualSessionNumber
-                                            ? 'border-[#E6C673]/35 text-[#E6C673] bg-[#E6C673]/10'
-                                            : 'border-white/10 text-white/35 hover:text-white/55'
-                                    }`}
-                                >
-                                    {manualSessionNumber ? 'يدوي' : 'تلقائي'}
-                                </button>
                             </div>
                             <input
                                 type="text"
                                 inputMode="numeric"
                                 data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordNumber}
                                 value={sessionNumber}
-                                readOnly={!manualSessionNumber}
                                 onChange={(e) => setSessionNumber(e.target.value.replace(/\D/g, ''))}
-                                className={`${T.field} ${!manualSessionNumber ? `${T.accentText} cursor-default` : ''}`}
+                                className={T.field}
                                 placeholder="1"
                             />
                             <div className="mt-2 min-h-[1.25rem]" aria-hidden />
                         </div>
                         <div className="min-w-0 flex flex-col">
-                            <div className="mb-2 flex h-8 items-center justify-between gap-1">
+                            <div className="mb-2 flex h-8 items-center">
                                 <label className={`${T.label} mb-0`}>
                                     <CalendarDays size={12} className="inline ml-1 text-emerald-400/70" aria-hidden />
                                     تاريخ المرافعة القادمة
                                 </label>
-                                <button
-                                    type="button"
-                                    data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordNextManualToggle}
-                                    onClick={() => setManualNextHearingDate((v) => !v)}
-                                    className={`text-[10px] font-bold px-2.5 py-1 rounded-md border transition-colors ${
-                                        manualNextHearingDate
-                                            ? 'border-emerald-400/35 text-emerald-300 bg-emerald-500/10'
-                                            : 'border-white/10 text-white/35 hover:text-white/55'
-                                    }`}
-                                >
-                                    {manualNextHearingDate ? 'يدوي' : 'تلقائي'}
-                                </button>
                             </div>
                             <input
                                 type="date"
                                 data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordNextDate}
                                 value={nextHearingDate.slice(0, 10)}
-                                readOnly={!manualNextHearingDate}
                                 onChange={(e) => setNextHearingDate(e.target.value)}
-                                className={`${T.field} ${!manualNextHearingDate && nextHearingDate ? 'text-emerald-300/90 cursor-default' : ''}`}
+                                className={T.field}
                             />
-                            <div className="mt-2 min-h-[1.25rem]">
-                                {!nextHearingDate && !manualNextHearingDate ? (
-                                    <p className="text-[10px] text-white/30 leading-tight">
-                                        لا يوجد موعد قادم — يمكن تحديده يدوياً
-                                    </p>
-                                ) : null}
-                            </div>
+                            <div className="mt-2 min-h-[1.25rem]" aria-hidden />
                         </div>
                     </div>
+
+                    {sessionHistory.length > 0 ? (
+                        <div className={`${T.section} space-y-2`}>
+                            <p className="text-[11px] font-black text-[#E6C673]/85">سجل المحاضر السابقة</p>
+                            <div className="space-y-1.5 max-h-[min(28vh,220px)] overflow-y-auto pr-1">
+                                {sessionHistory.map((record) => {
+                                    const parsed = parseSessionRecordEvent(record);
+                                    const isActive = editingSessionRecord?.id === record.id;
+                                    return (
+                                        <button
+                                            key={record.id}
+                                            type="button"
+                                            onClick={() => {
+                                                onEditSessionRecord?.(record);
+                                                setPanelOpen(true);
+                                            }}
+                                            className={`w-full text-right rounded-xl border px-3 py-2.5 transition-colors ${
+                                                isActive
+                                                    ? 'border-[#E6C673]/35 bg-[#E6C673]/10'
+                                                    : 'border-white/[0.08] bg-white/[0.03] hover:border-[#E6C673]/22 hover:bg-white/[0.05]'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between gap-2">
+                                                <span className="text-[11px] font-bold text-white/85 truncate">
+                                                    {record.title || `محضر الجلسة ${parsed.sessionNumber}`}
+                                                </span>
+                                                <span className="shrink-0 text-[10px] text-white/35 tabular-nums">
+                                                    {String(record.date ?? '').slice(0, 10)}
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ) : null}
 
                     <div className={T.section}>
                         <label className={T.label}>
@@ -512,22 +584,57 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
     return (
         <div className={`${compose === 'requests-only' ? '' : 'mb-0'} print:hidden`} dir="rtl">
             {sessionPanel}
+            {readOnlySessionPanel}
 
             {compose !== 'requests-only' && !readOnly && onSubmitSessionRecord ? (
-                isPearl ? (
-                <PersonalStatusPearlTile
+                isPearl && heroSessionTrigger ? (
+                <button
+                    type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordOpen}
                     onClick={() => setPanelOpen(true)}
-                    className="w-full min-h-[3rem] px-2.5 py-2 flex items-center justify-end text-right"
+                    className={PS_HERO_SESSION}
                 >
-                    <span className={`font-black text-sm ${T.accentText}`}>محضر الجلسة</span>
-                </PersonalStatusPearlTile>
+                    <div
+                        className="pointer-events-none absolute -right-4 -top-4 h-20 w-20 rounded-full bg-[#F0A8B4]/15 blur-2xl"
+                        aria-hidden
+                    />
+                    <span className="relative z-[1] flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#F0A8B4]/35 bg-[#F5C6D0]/[0.18] shadow-[inset_0_1px_0_rgba(255,220,228,0.30)]">
+                        <Scale size={18} className="text-[#FFD4DC]" aria-hidden />
+                    </span>
+                    <div className="relative z-[1] min-w-0 flex-1 text-right">
+                        <span className="block text-[8px] font-black tracking-[0.18em] text-[#FFD4DC]/75 uppercase">
+                            الجلسة
+                        </span>
+                        <span className="block text-[13px] font-black text-[#FFFEF9] leading-tight">
+                            محضر الجلسة
+                        </span>
+                    </div>
+                    <ChevronDown size={15} className="relative z-[1] shrink-0 text-white/35" aria-hidden />
+                </button>
+                ) : isPearl ? (
+                <button
+                    type="button"
+                    data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordOpen}
+                    onClick={() => setPanelOpen(true)}
+                    className={
+                        compactSessionTrigger
+                            ? `${PS_TOOLBAR_BTN} border-[#F0A8B4]/26 bg-[#F5C6D0]/[0.08]`
+                            : `${T.trigger} w-full min-h-[3rem] px-2.5 py-2 flex items-center justify-end text-right`
+                    }
+                >
+                    <Scale size={14} className="text-[#FFD4DC]/85 shrink-0" aria-hidden />
+                    <span className={`font-bold text-[8px] leading-none ${T.accentText}`}>محضر</span>
+                </button>
                 ) : (
                 <button
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.sessionRecordOpen}
                     onClick={() => setPanelOpen(true)}
-                    className={`${T.trigger} mb-2`}
+                    className={
+                        compactSessionTrigger && visualVariant === 'civil'
+                            ? COMPACT_HUB_TRIGGER_GOLD
+                            : `${T.trigger} mb-2`
+                    }
                 >
                     {visualVariant === 'personal' ? (
                         <>
@@ -538,6 +645,14 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                                 <span className={`font-black text-sm block ${T.accentText}`}>محضر الجلسة</span>
                             </div>
                             <ChevronDown size={16} className="text-white/35 shrink-0" aria-hidden />
+                        </>
+                    ) : compactSessionTrigger ? (
+                        <>
+                            <div className="flex items-center gap-1.5 min-w-0">
+                                <Scale size={14} className={T.accentIcon} shrink-0 aria-hidden />
+                                <span className={`font-bold ${T.accentText} text-[11px] truncate`}>محضر الدعوى</span>
+                            </div>
+                            <ChevronDown size={14} className="text-white/35 shrink-0" aria-hidden />
                         </>
                     ) : (
                     <>
@@ -550,11 +665,42 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                     )}
                 </button>
                 )
-            ) : compose !== 'requests-only' && (readOnly || !onSubmitSessionRecord) ? (
+            ) : compose !== 'requests-only' && readOnly && sessionHistory.length > 0 ? (
+                <div className={`${T.section} mb-2 space-y-2`}>
+                    <p className="text-[11px] font-black text-sky-200/85">محاضر الجلسات — للاطلاع</p>
+                    <div className="space-y-1.5 max-h-[min(32vh,260px)] overflow-y-auto pr-1">
+                        {sessionHistory.map((record) => {
+                                const parsed = parseSessionRecordEvent(record);
+                                const isActive = editingSessionRecord?.id === record.id;
+                                return (
+                                    <button
+                                        key={record.id}
+                                        type="button"
+                                        onClick={() => onEditSessionRecord?.(record)}
+                                        className={`w-full text-right rounded-xl border px-3 py-2.5 transition-colors ${
+                                            isActive
+                                                ? 'border-sky-400/35 bg-sky-400/10'
+                                                : 'border-white/[0.08] bg-white/[0.03] hover:border-sky-400/22 hover:bg-white/[0.05]'
+                                        }`}
+                                    >
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-[11px] font-bold text-white/85 truncate">
+                                                {record.title || `محضر الجلسة ${parsed.sessionNumber}`}
+                                            </span>
+                                            <span className="shrink-0 text-[10px] text-white/35 tabular-nums">
+                                                {String(record.date ?? '').slice(0, 10)}
+                                            </span>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                    </div>
+                </div>
+            ) : compose !== 'requests-only' && !readOnly && !onSubmitSessionRecord ? (
                 <div className={`${isPearl ? 'min-h-[7.5rem] rounded-[1.25rem] border border-dashed border-[#E8DFD0]/15 bg-[#F7F4EE]/[0.03]' : 'min-h-[72px] rounded-xl border border-dashed border-white/10 bg-white/[0.02]'} mb-2`} />
             ) : null}
 
-            {compose !== 'session-only' ? (
+            {compose !== 'session-only' && (!readOnly || petitions.length > 0 || attachments.length > 0) ? (
             <SmartRequestsPanel
                 petitions={petitions}
                 attachments={attachments}
@@ -565,6 +711,7 @@ export const SessionAndRequestsHub = memo(function SessionAndRequestsHub({
                 readOnly={readOnly}
                 visualVariant={visualVariant}
                 embedMode={isPearl ? 'pearl-embed' : 'standalone'}
+                dense={visualVariant === 'civil' && compose === 'requests-only'}
             />
             ) : null}
         </div>

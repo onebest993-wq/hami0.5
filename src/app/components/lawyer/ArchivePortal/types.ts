@@ -52,6 +52,8 @@ export type SmartTimers = {
 export type ComputedSmartStatus = {
     type: string;
     label: string;
+    /** تلميح عند التمرير — للتفاصيل القانونية الكاملة */
+    title?: string;
     color: string;
     bgColor: string;
     borderColor: string;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, RotateCcw, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { ArchiveEnrichedRow } from '../types';
 import { lawsuitTrashDaysRemaining } from '@/app/utils/lawsuitTrash';
 import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
@@ -142,6 +142,7 @@ export const LawsuitArchiveCard: React.FC<LawsuitArchiveCardProps> = ({
 
     const statusBadge = {
         label: status.label,
+        title: status.title,
         className: `${status.bgColor} ${status.borderColor} ${status.color}`,
     };
 

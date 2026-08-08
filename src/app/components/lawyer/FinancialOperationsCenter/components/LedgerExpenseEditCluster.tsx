@@ -1,5 +1,5 @@
 import React from 'react';
-import { Wallet, PencilLine } from 'lucide-react';
+import { Wallet, PencilLine } from '@/app/components/ui/lucideIcons';
 
 interface LedgerExpenseEditClusterProps {
     onExpenses: () => void;

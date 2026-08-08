@@ -1,5 +1,5 @@
 import React, { lazy, memo, Suspense } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/app/components/ui/lucideIcons';
 import { VoiceRecorderErrorBoundary } from '@/app/components/lawyer/ActionModals/VoiceRecorderErrorBoundary';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
 import { SmartVaultDB } from '@/app/services/vault/smartVaultRuntime';

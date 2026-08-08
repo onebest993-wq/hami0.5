@@ -1,4 +1,4 @@
-/** Phase C Slice 25 — claim financials + ledger sync + seizure matrix + followup seizure tabs */
+/** Phase C Slice 25 — claim financials + ledger sync + seizure matrix */
 import { useMemo, useRef } from 'react';
 import type { MutableRefObject } from 'react';
 import type { ExecutionFile } from '@/app/types/execution';
@@ -13,11 +13,8 @@ import {
 import { useExecutionDashboardEvictionLawyerFeeBackfill } from './useExecutionDashboardDecisionAndEventSync';
 import { useExecutionDashboardSeizureLedgerOutcomeEffects } from './useExecutionDashboardSeizureLedgerOutcomeEffects';
 import { useExecutionDashboardLedgerSync } from './useExecutionDashboardLedgerSync';
-import {
-    useExecutionDashboardFollowupSeizureTabs,
-    type UseExecutionDashboardFollowupSeizureTabsParams,
-} from './useExecutionDashboardFollowupSeizureTabs';
 import { resolveSeizureMatrixFromExecution } from '@/app/utils/seizureMatrix';
+import type { UseExecutionDashboardFollowupSeizureTabsParams } from './useExecutionDashboardFollowupSeizureTabs';
 import { resolveIsPersonalStatusExecutionClaim } from './executionDashboardClaimFinancials';
 import type { ExecutionDashboardFollowupClusterInput } from './useExecutionDashboardFollowupCluster';
 import type { SeizureDecisionOutcomeContext } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureDecisionOutcomeHandler.types';
@@ -69,6 +66,7 @@ export type ExecutionDashboardCoreClaimFinancialLedgerPipelineInput = {
     focusSeizureThirdPartyInlineRef: SeizureDecisionOutcomeContext['focusSeizureThirdPartyInlineRef'];
     focusSeizureNoticeInlineRef: SeizureDecisionOutcomeContext['focusSeizureNoticeInlineRef'];
     openSeizureRequestsTabRef: SeizureDecisionOutcomeContext['openSeizureRequestsTabRef'];
+    openFollowupModalPersisted?: SeizureDecisionOutcomeContext['openFollowupModalPersisted'];
     setShowCoerciveActionForm: SeizureDecisionOutcomeContext['setShowCoerciveActionForm'];
     setSeizureDetailCompletion: SeizureDecisionOutcomeContext['setSeizureDetailCompletion'];
     setShowUnifiedExecutionModal: SeizureDecisionOutcomeContext['setShowUnifiedExecutionModal'];
@@ -216,6 +214,7 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(
         focusSeizureThirdPartyInlineRef: p.focusSeizureThirdPartyInlineRef,
         focusSeizureNoticeInlineRef: p.focusSeizureNoticeInlineRef,
         openSeizureRequestsTabRef: p.openSeizureRequestsTabRef,
+        openFollowupModalPersisted: p.openFollowupModalPersisted,
         setShowCoerciveActionForm: p.setShowCoerciveActionForm,
         setSeizureDetailCompletion: p.setSeizureDetailCompletion,
         setShowUnifiedExecutionModal: p.setShowUnifiedExecutionModal,
@@ -279,45 +278,10 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(
                 executionData: p.executionData,
                 docType: p.docType,
                 classification: p.classification,
-                activeDebtorEntityKind: p.activeDebtorEntityKind,
+                activeDebtorEntityKind: p.activeDebtorEntityKind ?? undefined,
             }),
         [p.claimType, p.classification, p.docType, p.executionData, p.activeDebtorEntityKind],
     );
-
-    const followupSeizureTabs = useExecutionDashboardFollowupSeizureTabs({
-        activeDebtorIsDeceased: p.activeDebtorIsDeceased,
-        activeDebtorIsEmployee: p.activeDebtorIsEmployee,
-        viewExecutionData: p.viewExecutionData,
-        followupSpecialization: p.followupSpecialization,
-        remainingBalanceForSeizure,
-        settlementGuarantorGate,
-        followupSectionTabOrder: p.followupSectionTabOrder,
-        followupModalTabs: p.followupModalTabs,
-        seizureMatrix,
-        followupTabsRestricted: p.followupTabsRestricted,
-        restrictedFollowupTabIds: p.restrictedFollowupTabIds,
-        openSeizureRequestsTabRef: p.openSeizureRequestsTabRef,
-        setUnifiedModalTab: p.setUnifiedModalTab,
-        showToast: p.showToast,
-        showUnifiedExecutionModal: p.showUnifiedExecutionModal,
-        unifiedModalTab: p.unifiedModalTab,
-        hideFollowupCoerciveTab: p.hideFollowupCoerciveTab,
-        hideCoerciveTabsForDebtorAgent: p.hideCoerciveTabsForDebtorAgent,
-        showPersonalCoerciveFollowupTab: p.showPersonalCoerciveFollowupTab,
-        setShowSolidaryCoerciveTargetModal: p.setShowSolidaryCoerciveTargetModal,
-        setSolidaryCoerciveActionPending: p.setSolidaryCoerciveActionPending,
-        followupModalChipTablistRef: p.followupModalChipTablistRef,
-        followupModalDebtorTabsRef: p.followupModalDebtorTabsRef,
-        isSolidaryLiability: p.isSolidaryLiability,
-        solidaryDebtorCount: p.allDebtorsUnified.length,
-    });
-
-    const {
-        showGuarantorInSeizureFollowupTab,
-        effectiveFollowupSectionTabOrder,
-        effectiveFollowupModalTabs,
-        openSeizureRequestsTab,
-    } = followupSeizureTabs;
 
     return {
         parsedDebtAmount,
@@ -360,10 +324,5 @@ export function useExecutionDashboardCoreClaimFinancialLedgerPipeline(
         settlementGuarantorGate,
         seizureMatrix,
         isPersonalStatusExecutionClaim,
-        followupSeizureTabs,
-        showGuarantorInSeizureFollowupTab,
-        effectiveFollowupSectionTabOrder,
-        effectiveFollowupModalTabs,
-        openSeizureRequestsTab,
     };
 }

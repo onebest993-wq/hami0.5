@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, X } from 'lucide-react';
+import { Camera, X } from '@/app/components/ui/lucideIcons';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 import { PROFILE_THEME } from '../profileThemeClasses';

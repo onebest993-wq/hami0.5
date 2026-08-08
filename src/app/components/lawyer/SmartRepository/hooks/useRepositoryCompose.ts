@@ -21,6 +21,15 @@ import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
 import { extractQuickTaskLines, sanitizeRichNoteHtml } from '../legalRichTextEditorUtils';
 import type { useSmartVault } from '@/app/components/lawyer/hooks/useSmartVault';
+import {
+    clearPendingMicrophoneStream,
+    setPendingMicrophoneStream,
+} from '@/app/services/platform/microphoneSession';
+import {
+    requestMicrophoneStream,
+    resolveMicrophoneAccessMessage,
+    type MicrophoneAccessErrorCode,
+} from '@/app/services/platform/requestMicrophoneStream';
 
 function stripHtml(text: string): string {
     return text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -262,8 +271,19 @@ export function useRepositoryCompose({
 
     const openVoiceRecorder = useCallback(() => {
         void import('@/app/components/lawyer/ActionModals/VoiceRecorderModal');
-        setVoiceRecorderKey((k) => k + 1);
-        setShowVoiceRecorder(true);
+        void (async () => {
+            try {
+                const stream = await requestMicrophoneStream();
+                setPendingMicrophoneStream(stream);
+            } catch (err) {
+                clearPendingMicrophoneStream();
+                const code = (err as { hamiCode?: MicrophoneAccessErrorCode }).hamiCode;
+                SmartToast.warning(resolveMicrophoneAccessMessage(err, code));
+            } finally {
+                setVoiceRecorderKey((k) => k + 1);
+                setShowVoiceRecorder(true);
+            }
+        })();
     }, []);
 
     return {

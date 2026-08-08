@@ -13,7 +13,8 @@ describe('personal-status structural closure', () => {
         const body = read('PersonalStatusDossierBody.tsx');
         expect(body).not.toContain('@ts-nocheck');
         expect(body).toContain('derivePersonalStatusDossierFlags');
-        expect(body).toContain('buildPersonalStatusSessionHubProps');
+        expect(body).toContain('PersonalStatusDossierPanel');
+        expect(body).toContain('onReviewIncidental');
     });
 
     it('PersonalStatusSmartFileChrome hides edit/trash when viewing archived', () => {

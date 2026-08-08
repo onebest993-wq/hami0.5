@@ -3,6 +3,7 @@ import type { TimelineEvent } from '@/app/types/execution';
 import {
     buildTimelineEventRowSignature,
     planTimelineDedupePersist,
+    reconcileCaseNotesLogState,
     reconcileTimelineEventsState,
     shouldEndGracePeriodFromExecutionStatus,
     shouldShowEvictionGraceReminderToast,
@@ -57,5 +58,16 @@ describe('executionDashboardTimelineAndGraceSync', () => {
         ] as TimelineEvent[];
         const merged = reconcileTimelineEventsState(local, incoming);
         expect(merged.map((e) => e.id)).toEqual(['1', '2']);
+    });
+
+    it('reconcileCaseNotesLog keeps local notes when incoming is empty', () => {
+        const local = [{ id: 'n1', title: 'ملاحظة', body: 'تفاصيل', createdAt: '2026-01-01' }];
+        expect(reconcileCaseNotesLogState(local, [], { forceReplace: false })).toEqual(local);
+    });
+
+    it('reconcileCaseNotesLog force-replaces on dossier context switch', () => {
+        const local = [{ id: 'n1', title: 'قديم', body: 'x', createdAt: '2026-01-01' }];
+        const incoming = [{ id: 'n2', title: 'جديد', body: 'y', createdAt: '2026-01-02' }];
+        expect(reconcileCaseNotesLogState(local, incoming, { forceReplace: true })).toEqual(incoming);
     });
 });

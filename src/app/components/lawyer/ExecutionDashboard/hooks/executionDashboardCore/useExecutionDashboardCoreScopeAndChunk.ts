@@ -193,7 +193,13 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         const followupSolidaryDebtorIndex = String(
             local.followupSolidaryDebtorIndex ?? rest.followupSolidaryDebtorIndex ?? '',
         );
-        return `${unifiedModalTab}|${executionDebtorTabIndex}|${followupSolidaryDebtorIndex}`;
+        const savedNotesSplit = (local.savedNotesSplit ?? rest.savedNotesSplit) as
+            | { notes?: unknown[] }
+            | undefined;
+        const savedNotesCount = Array.isArray(savedNotesSplit?.notes)
+            ? String(savedNotesSplit.notes.length)
+            : '0';
+        return `${unifiedModalTab}|${executionDebtorTabIndex}|${followupSolidaryDebtorIndex}|notes:${savedNotesCount}`;
     }, [
         p.scopeLocalFlat.unifiedModalTab,
         p.scopeRestFlat.unifiedModalTab,
@@ -201,6 +207,8 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         p.scopeRestFlat.executionDebtorTabIndex,
         p.scopeLocalFlat.followupSolidaryDebtorIndex,
         p.scopeRestFlat.followupSolidaryDebtorIndex,
+        p.scopeLocalFlat.savedNotesSplit,
+        p.scopeRestFlat.savedNotesSplit,
     ]);
 
     const overlayIntentUrgent = useMemo(() => {
@@ -210,6 +218,8 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
             executionModalFlags.showEditDossierMetaModal ||
                 local.showEditDossierMetaModal ||
                 rest.showEditDossierMetaModal ||
+                local.showExecutionTrashModal ||
+                rest.showExecutionTrashModal ||
                 local.editPartyTarget ||
                 rest.editPartyTarget ||
                 local.timelineEditDraft ||
@@ -223,6 +233,8 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         executionModalFlags.showEditDossierMetaModal,
         p.scopeLocalFlat.showEditDossierMetaModal,
         p.scopeRestFlat.showEditDossierMetaModal,
+        p.scopeLocalFlat.showExecutionTrashModal,
+        p.scopeRestFlat.showExecutionTrashModal,
         p.scopeLocalFlat.editPartyTarget,
         p.scopeRestFlat.editPartyTarget,
         p.scopeLocalFlat.timelineEditDraft,
@@ -363,14 +375,32 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         }
     }
 
-    const phoneBodyScopeSyncToken = String(phoneBodyScopeTokenRef.current);
-    const shellOverlayScopeSyncToken = String(shellOverlayScopeTokenRef.current);
+    const phoneBodyStorageSyncTick = String(
+        p.chunkSetupInput.fingerprintInput.executionStorageTick ?? 0,
+    );
+    const phoneBodyDecisionsSyncTick = String(
+        p.chunkSetupInput.fingerprintInput.decisionsReloadEpoch ?? 0,
+    );
+    const phoneBodyScopeSyncToken = `${phoneBodyScopeTokenRef.current}|${phoneBodyStorageSyncTick}|${phoneBodyDecisionsSyncTick}`;
+    const shellOverlayClusterEpoch = String(
+        p.chunkSetupInput.fingerprintInput.handlerClusterEpoch ?? 0,
+    );
+    const shellOverlayScopeSyncToken = `${shellOverlayScopeTokenRef.current}|${shellOverlayClusterEpoch}`;
 
     // أي نافذة مفتوحة تجعل تحميل الـ overlay scope فورياً — الانتظار حتى idle كان
     // يترك بيانات النوافذ العادية على snapshot ناقص حتى ~540ms بعد الفتح.
     const overlayAnyModalOpen = useMemo(
-        () => executionModalFlagsFingerprint.includes('1'),
-        [executionModalFlagsFingerprint],
+        () =>
+            executionModalFlagsFingerprint.includes('1') ||
+            Boolean(
+                (p.scopeLocalFlat as Record<string, unknown>).showExecutionTrashModal ??
+                    (p.scopeRestFlat as Record<string, unknown>).showExecutionTrashModal,
+            ),
+        [
+            executionModalFlagsFingerprint,
+            (p.scopeLocalFlat as Record<string, unknown>).showExecutionTrashModal,
+            (p.scopeRestFlat as Record<string, unknown>).showExecutionTrashModal,
+        ],
     );
 
     useEffect(() => {
@@ -417,6 +447,21 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
         };
     }, [overlayUrgent, overlayAnyModalOpen, overlayIntentUrgent, overlayScopeLoadFingerprint]);
 
+    const shellModalFlags = useMemo(
+        () => ({
+            ...executionModalFlags,
+            showExecutionTrashModal: Boolean(
+                (p.scopeLocalFlat as Record<string, unknown>).showExecutionTrashModal ??
+                    (p.scopeRestFlat as Record<string, unknown>).showExecutionTrashModal,
+            ),
+        }),
+        [
+            executionModalFlags,
+            (p.scopeLocalFlat as Record<string, unknown>).showExecutionTrashModal,
+            (p.scopeRestFlat as Record<string, unknown>).showExecutionTrashModal,
+        ],
+    );
+
     const {
         phoneBodyFingerprint,
         shellOverlayFingerprint,
@@ -427,7 +472,7 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
     } = useExecutionDashboardLazyChunkSetup({
         ...p.chunkSetupInput,
         chunkDataReady: Boolean(p.chunkSetupInput.chunkDataReady) && baseScopeReady,
-        modalFlags: executionModalFlags,
+        modalFlags: shellModalFlags,
         getScopeSources: () => scopeSourcesRef.current,
         phoneBodyScopeSyncToken,
         shellOverlayScopeSyncToken,
@@ -445,12 +490,12 @@ export function useExecutionDashboardCoreScopeAndChunk(p: {
     const directFollowupScopeSnapshot = useMemo(
         () =>
             buildExecutionDashboardDirectFollowupScopeSnapshot({
-                scopeSources: scopeSourcesRef.current,
+                scopeSources,
                 scopeLocalFlat: p.scopeLocalFlat,
                 scopeRestFlat: p.scopeRestFlat,
                 executionModalSetters,
             }),
-        [executionModalSetters, p.scopeLocalFlat, p.scopeRestFlat, shellOverlayScopeSyncToken],
+        [executionModalSetters, p.scopeLocalFlat, p.scopeRestFlat, scopeSources],
     );
 
     const followupModalSnapshot = useMemo(

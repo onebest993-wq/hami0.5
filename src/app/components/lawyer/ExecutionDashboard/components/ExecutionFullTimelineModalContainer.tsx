@@ -2,7 +2,7 @@ import React, { Suspense, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import type { Dispatch, ElementType, SetStateAction } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '@/app/types/execution';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';

@@ -1,6 +1,7 @@
 /** كشف/إخفاء لوحة الإشعارات فوراً في الـ DOM — مستقل عن إطار React */
 
 const LAYER_SELECTOR = '[data-notification-root]';
+const ATTR = 'data-hami-notifications-open';
 const INTERACT_CLASS = 'hami-notif-layer--interact';
 /** علامة توافق — منع الإغلاق الشبحي يتم بمهلة JS على الخلفية/الإغلاق، لا عبر PE:none. */
 const INTERACT_ARM_MS = 320;
@@ -107,6 +108,9 @@ function applyLayerVisible(root: HTMLElement, visible: boolean): void {
         root.setAttribute('data-open', 'true');
         root.removeAttribute('aria-hidden');
         root.removeAttribute('inert');
+        if (typeof document !== 'undefined') {
+            document.documentElement.setAttribute(ATTR, '1');
+        }
     } else {
         clearInteractArmSchedule();
         root.style.setProperty('opacity', '0');
@@ -117,6 +121,9 @@ function applyLayerVisible(root: HTMLElement, visible: boolean): void {
         root.setAttribute('data-open', 'false');
         root.setAttribute('aria-hidden', 'true');
         root.setAttribute('inert', '');
+        if (typeof document !== 'undefined') {
+            document.documentElement.removeAttribute(ATTR);
+        }
     }
     void root.offsetHeight;
 }

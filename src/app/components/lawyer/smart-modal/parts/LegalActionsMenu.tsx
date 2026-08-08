@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'motion/react';
-import {
+import { motion, AnimatePresence } from 'motion/react';import {
     Scale,
     Megaphone,
     Users,
@@ -13,8 +12,8 @@ import {
     Link2,
     Mail,
     type LucideIcon,
-} from 'lucide-react';
-import { HUB_DOSSIER_MODAL_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+} from '@/app/components/ui/lucideIcons';
+import { HUB_DOSSIER_ACTIONS_MENU_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import type { SmartFileParentData } from '../smartFile/parentDataInit';
 import { useSmartFileModalTheme } from '../smartFile/smartFileModalTheme';
 import type { CaseStage } from '../../LawyerShared';
@@ -23,7 +22,7 @@ import {
     findCassationStageIndex,
 } from '../smartFile/extraordinaryAppealGateway';
 import { isCassationStageName } from '../smartFile/judgmentTypes';
-
+import { prefetchLegalActionsModalChunks } from '../prefetchLegalActionsModalChunks';
 const EXTRAORDINARY_APPEAL_TYPES = {
     retrial: 'إعادة المحاكمة',
     cassation_correction: 'تصحيح القرار التمييزي',
@@ -55,15 +54,20 @@ type ActionItem = {
     danger?: boolean;
 };
 
-const SectionBlock = ({ title, children }: { title: string; children: React.ReactNode }) => {
-    const T = useSmartFileModalTheme();
-    return (
-        <section className="mb-3 last:mb-0">
-            <h4 className={T.sectionTitle}>{title}</h4>
-            <div className="space-y-1.5">{children}</div>
-        </section>
-    );
-};
+const SectionBlock = ({
+    title,
+    children,
+    sectionTitleClass,
+}: {
+    title: string;
+    children: React.ReactNode;
+    sectionTitleClass: string;
+}) => (
+    <section className="mb-3 last:mb-0">
+        <h4 className={sectionTitleClass}>{title}</h4>
+        <div className="space-y-1.5">{children}</div>
+    </section>
+);
 
 const ActionRow = ({
     label,
@@ -71,24 +75,21 @@ const ActionRow = ({
     iconClass,
     onClick,
     danger,
-}: Omit<ActionItem, 'key'>) => {
-    const T = useSmartFileModalTheme();
-    return (
-        <button type="button" onClick={onClick} className={danger ? T.actionRowDanger : T.actionRow}>
-            <div className={`${danger ? T.actionRowIconDanger : T.actionRowIcon} ${iconClass}`}>
-                <Icon size={17} strokeWidth={1.75} />
-            </div>
-            <span
-                className={`flex-1 text-[14px] font-semibold transition-colors ${
-                    danger ? 'text-rose-200/90 group-hover:text-rose-100' : T.variant === 'personal-pearl' ? 'text-[#FFFEF9]/90 group-hover:text-[#FFFEF9]' : 'text-white/85 group-hover:text-white'
-                }`}
-            >
-                {label}
-            </span>
-        </button>
-    );
-};
-
+    actionRowClass,
+    actionRowIconClass,
+    labelClass,
+}: Omit<ActionItem, 'key'> & {
+    actionRowClass: string;
+    actionRowIconClass: string;
+    labelClass: string;
+}) => (
+    <button type="button" onClick={onClick} className={actionRowClass}>
+        <div className={`${actionRowIconClass} ${iconClass}`}>
+            <Icon size={17} strokeWidth={1.75} />
+        </div>
+        <span className={labelClass}>{label}</span>
+    </button>
+);
 export const LegalActionsMenu = ({
     isOpen,
     onClose,
@@ -107,14 +108,31 @@ export const LegalActionsMenu = ({
 }: LegalActionsMenuProps) => {
     const T = useSmartFileModalTheme();
     const isPearl = T.variant === 'personal-pearl';
-    const isAppeal = currentStageName.includes('استئناف') || currentStageName.includes('Appeal');
-    const incidentalLabel = isAppeal ? 'شخص ثالث' : 'دعوى حادثة';
+
+    useEffect(() => {
+        if (!isOpen) return;
+        prefetchLegalActionsModalChunks();
+    }, [isOpen]);
+
+    const actionRowProps = {
+        actionRowClass: T.actionRow,
+        actionRowIconClass: T.actionRowIcon,
+        labelClass: `flex-1 text-[14px] font-semibold ${
+            isPearl ? 'text-[#FFFEF9]/90 group-hover:text-[#FFFEF9]' : 'text-white/85 group-hover:text-white'
+        }`,
+    };
+    const actionRowDangerProps = {
+        actionRowClass: T.actionRowDanger,
+        actionRowIconClass: T.actionRowIconDanger,
+        labelClass: 'flex-1 text-[14px] font-semibold text-rose-200/90 group-hover:text-rose-100',
+    };
+
+    const isAppeal = currentStageName.includes('استئناف') || currentStageName.includes('Appeal');    const incidentalLabel = isAppeal ? 'شخص ثالث' : 'دعوى حادثة';
 
     const wrap = (fn: () => void) => () => {
         fn();
         onClose();
     };
-
     const hasJudgment =
         displayStage?.finalDecision ||
         displayStage?.status === 'completed' ||
@@ -234,9 +252,9 @@ export const LegalActionsMenu = ({
                         key="legal-actions-backdrop"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
+                        exit={{ opacity: 0, pointerEvents: 'none' }}
                         onClick={onClose}
-                        className={`pointer-events-auto ${isPearl ? `fixed inset-0 bg-[#131211]/82 backdrop-blur-[4px] ${HUB_DOSSIER_MODAL_Z_CLASS}` : `fixed inset-0 bg-[#020309]/90 backdrop-blur-[7px] ${HUB_DOSSIER_MODAL_Z_CLASS}`}`}
+                        className={`pointer-events-auto ${isPearl ? `fixed inset-0 bg-[#131211]/82 backdrop-blur-[4px] ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS}` : `fixed inset-0 bg-[#020309]/90 backdrop-blur-[7px] ${HUB_DOSSIER_ACTIONS_MENU_Z_CLASS}`}`}
                     />
                     <motion.div
                         key="legal-actions-sheet"
@@ -253,36 +271,51 @@ export const LegalActionsMenu = ({
                             إجراءات الدعوى القانونية
                         </h3>
 
-                        <SectionBlock title="الإجراءات الأساسية">
-                            {coreActions.map(({ key, ...item }) => (
-                                <ActionRow key={key} {...item} />
+                        <SectionBlock title="الإجراءات الأساسية" sectionTitleClass={T.sectionTitle}>
+                            {coreActions.map(({ key, danger, ...item }) => (
+                                <ActionRow
+                                    key={key}
+                                    {...item}
+                                    {...(danger ? actionRowDangerProps : actionRowProps)}
+                                />
                             ))}
                         </SectionBlock>
 
                         {extraordinaryActions.length > 0 && (
-                            <SectionBlock title="الطعون الاستثنائية">
-                                {extraordinaryActions.map(({ key, ...item }) => (
-                                    <ActionRow key={key} {...item} />
+                            <SectionBlock title="الطعون الاستثنائية" sectionTitleClass={T.sectionTitle}>
+                                {extraordinaryActions.map(({ key, danger, ...item }) => (
+                                    <ActionRow
+                                        key={key}
+                                        {...item}
+                                        {...(danger ? actionRowDangerProps : actionRowProps)}
+                                    />
                                 ))}
                             </SectionBlock>
                         )}
 
                         {proceduralActions.length > 0 && (
-                            <SectionBlock title="المناورات الإجرائية">
-                                {proceduralActions.map(({ key, ...item }) => (
-                                    <ActionRow key={key} {...item} />
+                            <SectionBlock title="المناورات الإجرائية" sectionTitleClass={T.sectionTitle}>
+                                {proceduralActions.map(({ key, danger, ...item }) => (
+                                    <ActionRow
+                                        key={key}
+                                        {...item}
+                                        {...(danger ? actionRowDangerProps : actionRowProps)}
+                                    />
                                 ))}
                             </SectionBlock>
                         )}
 
                         {linkAndCommsActions.length > 0 && (
-                            <SectionBlock title="الربط والمراسلات">
-                                {linkAndCommsActions.map(({ key, ...item }) => (
-                                    <ActionRow key={key} {...item} />
+                            <SectionBlock title="الربط والمراسلات" sectionTitleClass={T.sectionTitle}>
+                                {linkAndCommsActions.map(({ key, danger, ...item }) => (
+                                    <ActionRow
+                                        key={key}
+                                        {...item}
+                                        {...(danger ? actionRowDangerProps : actionRowProps)}
+                                    />
                                 ))}
                             </SectionBlock>
                         )}
-
                     </motion.div>
                 </>
             )}

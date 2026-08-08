@@ -27,6 +27,13 @@ export function computeExecutionPhoneBodyFingerprint(input: {
     voluntaryEndOptimistic?: boolean;
     notificationCount?: number;
     showExecutionFinancialHub?: boolean;
+    showExecutionTrashModal?: boolean;
+    executionStorageTick?: number;
+    handlerClusterEpoch?: number;
+    decisionsReloadEpoch?: number;
+    financialPrincipalAmount?: number;
+    evictionGracePinned?: boolean;
+    evictionGraceHidden?: boolean;
 }): string {
     return [
         input.executionId ?? '',
@@ -52,6 +59,13 @@ export function computeExecutionPhoneBodyFingerprint(input: {
         input.voluntaryEndOptimistic ? 1 : 0,
         input.notificationCount ?? 0,
         input.showExecutionFinancialHub ? 1 : 0,
+        input.showExecutionTrashModal ? 1 : 0,
+        input.executionStorageTick ?? 0,
+        input.handlerClusterEpoch ?? 0,
+        input.decisionsReloadEpoch ?? 0,
+        input.financialPrincipalAmount ?? 0,
+        input.evictionGracePinned ? 1 : 0,
+        input.evictionGraceHidden ? 1 : 0,
     ].join('|');
 }
 

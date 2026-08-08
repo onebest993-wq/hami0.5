@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Pin, PinOff, Search, Trash2, X } from 'lucide-react';
+import { Pin, PinOff, Search, Trash2, X } from '@/app/components/ui/lucideIcons';
 import {
     groupRepositoryRoomsByInitial,
     REPOSITORY_PINNED_MAX,

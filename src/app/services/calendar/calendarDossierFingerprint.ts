@@ -1,6 +1,7 @@
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge/lite';
 import { fieldTaskHasExplicitUserDate } from '@/app/services/calendarAuthenticity';
+import { collectStageLegalCalendarSpecs } from '@/app/services/lawsuitTimelineCalendarMirror';
 
 function isRecord(v: unknown): v is Record<string, unknown> {
     return Boolean(v) && typeof v === 'object' && !Array.isArray(v);
@@ -15,9 +16,17 @@ function lawsuitFileFingerprint(file: Record<string, unknown>): string {
     const id = String(file.id ?? '');
     const status = String(file.status ?? '');
     const caseNo = readStr(file, 'caseNo');
-    const parts: string[] = [id, status, caseNo];
+    const parts: string[] = [
+        id,
+        status,
+        caseNo,
+        readStr(file, 'nextDate'),
+        readStr(file, 'stayReviewDate'),
+        readStr(file, 'firstHearingDate'),
+    ];
     const stages = Array.isArray(file.stages) ? file.stages : [];
-    for (const stage of stages) {
+    for (let si = 0; si < stages.length; si++) {
+        const stage = stages[si];
         if (!isRecord(stage)) continue;
         const timeline = Array.isArray(stage.timeline) ? stage.timeline : [];
         for (const ev of timeline) {
@@ -30,6 +39,14 @@ function lawsuitFileFingerprint(file: Record<string, unknown>): string {
             if (!isRecord(t)) continue;
             parts.push(`t:${t.id}:${readStr(t, 'dueDate')}:${t.isCompleted ? '1' : '0'}`);
         }
+        for (const spec of collectStageLegalCalendarSpecs(stage, si)) {
+            parts.push(`l:${spec.id}:${spec.date ?? ''}`);
+        }
+    }
+    const embeddedNotes = Array.isArray(file.notes) ? file.notes : [];
+    for (const n of embeddedNotes) {
+        if (!isRecord(n)) continue;
+        parts.push(`n:${n.id}:${readStr(n, 'apptDate')}`);
     }
     return parts.join(';');
 }
@@ -102,7 +119,11 @@ function buildCriminalFingerprint(criminalCases: unknown[]): string {
 }
 
 function buildFieldTasksFingerprint(fieldTasks: LegalTask[]): string {
-    return fieldTasks.map(fieldTaskFingerprint).sort().join('|');
+    return fieldTasks
+        .filter(fieldTaskHasExplicitUserDate)
+        .map(fieldTaskFingerprint)
+        .sort()
+        .join('|');
 }
 
 /** بصمة الإضابير — تُستخدم لمزامنة التقويم و reconcile الذكي */

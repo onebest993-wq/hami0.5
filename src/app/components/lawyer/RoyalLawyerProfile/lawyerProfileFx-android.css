@@ -37,25 +37,9 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-ro
     background-image: none !important;
 }
 
+/* طبقة خامة الصفحة — تُخفى على Android (غسلة جوزية + banding عمودي) */
 html[data-hami-native='1'][data-hami-platform='android'] [data-lawyer-profile-root] [data-profile-page-texture] {
-    background: color-mix(
-        in srgb,
-        var(--profile-accent, #e6c673) 7%,
-        var(--profile-page-bg, #020408)
-    ) !important;
-    background-image: none !important;
-    filter: none !important;
-}
-
-html[data-hami-native='1'][data-hami-platform='android']
-    [data-lawyer-profile-root][data-profile-material]
-    [data-profile-page-texture] {
-    background: color-mix(
-        in srgb,
-        var(--profile-accent, #e6c673) 7%,
-        var(--profile-page-bg, #020408)
-    ) !important;
-    background-image: none !important;
+    display: none !important;
 }
 
 /* لوحات — بلا backdrop-filter */
@@ -155,6 +139,7 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-testid='lawyer-pr
 }
 
 /* شريط التعديل (portal على body) */
+html[data-hami-native='1'][data-hami-platform='android'] .hami-profile-edit-chrome,
 html[data-hami-native='1'][data-hami-platform='android'] [data-profile-edit-bar-shell] {
     box-shadow: var(--hami-profile-android-elev) !important;
     backdrop-filter: none !important;
@@ -192,10 +177,16 @@ html[data-hami-render-idle='1'][data-hami-native='1'][data-hami-platform='androi
     animation-play-state: paused !important;
 }
 
-/* تمرير الملف — بلا ارتداد أسفل الشاشة */
+/* تمرير الملف — بلا ارتداد أسفل الشاشة ولا شريط تمرير جوزي */
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='lawyer-profile-tab-shell'] {
     overscroll-behavior: none;
     -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='lawyer-profile-tab-shell']::-webkit-scrollbar {
+    display: none;
 }
 
 /* ورقة الإعدادات / الاستوديو — بلا blur مكلف + ظل قصير (80px يسبب banding) */
@@ -251,6 +242,12 @@ html[data-hami-native='1'][data-hami-platform='android'] .profile-settings-portr
 html[data-hami-native='1'][data-hami-platform='android'] .profile-settings-portrait-frame-preview[data-frame] {
     box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
     filter: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .profile-settings-color-swatch__chip {
+    background-color: var(--accent-swatch-hex, #e6c673) !important;
+    background-image: none !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .profile-settings-scroll-panel,

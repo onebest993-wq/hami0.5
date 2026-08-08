@@ -22,6 +22,7 @@ vi.mock('@/app/bootstrap/lawyerDashboardChunk', () => ({
 
 vi.mock('@/app/runtime/lawyerDashboardLoader', () => ({
     resetLawyerDashboardModuleCache: vi.fn(),
+    getLawyerDashboardModuleSync: () => null,
 }));
 
 vi.mock('@/app/bootstrap/useBootReveal', () => ({
@@ -31,6 +32,7 @@ vi.mock('@/app/bootstrap/useBootReveal', () => ({
 vi.mock('@/app/bootstrap/bootStaticShell', () => ({
     removeStaticBootShell: vi.fn(),
     shouldMountReactBootOverlay: () => false,
+    shouldHideBootSuspenseFallback: () => false,
 }));
 
 vi.mock('@/app/bootstrap/bootReveal', async () => {
@@ -50,13 +52,12 @@ import { preloadLawyerDashboardChunk } from '@/app/bootstrap/lawyerDashboardChun
 describe('LawyerDashboardGate', () => {
     beforeEach(() => {
         suspendOnce = true;
-        vi.mocked(preloadLawyerDashboardChunk).mockClear();
     });
 
-    it('يُظهر fallback البوابة ثم chunk اللوحة — بلا preload مبكر إلزامي', async () => {
+    it('يُظهر fallback البوابة ثم chunk اللوحة — مع preload مبكر للوحة', async () => {
         render(<LawyerDashboardGate onLogout={vi.fn()} onAppNavigate={vi.fn()} />);
 
-        expect(preloadLawyerDashboardChunk).not.toHaveBeenCalled();
+        expect(preloadLawyerDashboardChunk).toHaveBeenCalled();
         expect(screen.getByTestId('lawyer-gate-content-fallback')).toBeInTheDocument();
 
         await waitFor(() => {

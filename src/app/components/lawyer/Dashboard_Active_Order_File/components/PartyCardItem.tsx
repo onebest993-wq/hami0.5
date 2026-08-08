@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pencil } from 'lucide-react';
+import { Pencil } from '@/app/components/ui/lucideIcons';
 import { getDynamicPartyLabels, ordinalOf } from '../utils/partyLabels';
 
 export type PartyCardItemProps = {

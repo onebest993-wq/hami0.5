@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useCallback, useRef, useState } from 'react';
-import { Mic, Save } from 'lucide-react';
+import { Mic, Save } from '@/app/components/ui/lucideIcons';
 import type { DossierNoteContext } from '@/app/services/dossier-notes/smartLawLinker';
 import { dossierNoteTimestampLabel } from '@/app/services/dossier-notes/dossierNoteTimestamp';
 import {
@@ -15,7 +15,15 @@ import {
     DossierLawArticleRichEditor,
     type DossierLawArticleRichEditorHandle,
 } from './DossierLawArticleRichEditor';
-import { REPO_BTN_GOLD, REPO_INPUT } from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
+import {
+    REPO_COMPOSE_CANCEL,
+    REPO_COMPOSE_FOOTER,
+    REPO_COMPOSE_ICON_BTN,
+    REPO_COMPOSE_META,
+    REPO_COMPOSE_SAVE,
+    REPO_COMPOSE_SHELL,
+    REPO_COMPOSE_TITLE,
+} from '@/app/components/lawyer/SmartRepository/smartRepositoryTheme';
 
 const VoiceRecorderModal = lazy(() =>
     import('@/app/components/lawyer/ActionModals/VoiceRecorderModal').then((mod) => ({
@@ -181,15 +189,16 @@ export function DossierFastNoteComposer({
 
     if (compact) {
         return (
-            <div className="space-y-2" data-testid="dossier-fast-note-composer">
+            <div className={`${REPO_COMPOSE_SHELL} mb-0`} data-testid="dossier-fast-note-composer">
                 {showTitle ? (
                     <input
                         type="text"
                         value={title}
                         onChange={(e) => onTitleChange(e.target.value)}
                         placeholder="عنوان مختصر (اختياري)"
-                        className="w-full rounded-xl border border-white/[0.10] bg-[#0A0F1C]/60 px-3 py-2 text-[12px] text-white placeholder:text-white/30 focus:border-[#E6C673]/45 focus:outline-none transition-colors"
+                        className={REPO_COMPOSE_TITLE}
                         data-testid="dossier-note-title"
+                        aria-label="عنوان الملاحظة"
                     />
                 ) : null}
                 <DossierLawArticleRichEditor
@@ -198,62 +207,63 @@ export function DossierFastNoteComposer({
                     onChange={onBodyChange}
                     context={context}
                     compact
+                    expanded={false}
                 />
-                <div className="flex items-center gap-2" dir="rtl">
-                    {onVoiceNote ? (
+                <footer className={REPO_COMPOSE_FOOTER}>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        {onVoiceNote ? (
+                            <button
+                                type="button"
+                                onClick={openVoiceRecorder}
+                                className={REPO_COMPOSE_ICON_BTN}
+                                data-testid="dossier-note-voice"
+                                aria-label="تسجيل صوتي"
+                                title="تسجيل صوتي"
+                            >
+                                <Mic size={16} aria-hidden />
+                            </button>
+                        ) : null}
+                    </div>
+                    <div className="flex flex-1 items-center justify-end gap-1.5 min-w-0">
+                        {onCancel ? (
+                            <button type="button" onClick={onCancel} className={REPO_COMPOSE_CANCEL}>
+                                إلغاء
+                            </button>
+                        ) : null}
                         <button
                             type="button"
-                            onClick={openVoiceRecorder}
-                            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.12] bg-white/[0.04] text-white/70 transition-colors hover:bg-white/[0.08] hover:text-[#E6C673] touch-manipulation"
-                            data-testid="dossier-note-voice"
-                            aria-label="تسجيل صوتي"
-                            title="تسجيل صوتي"
+                            disabled={saving || !hasContent}
+                            onClick={handleSave}
+                            className={REPO_COMPOSE_SAVE}
+                            data-testid="dossier-note-save"
                         >
-                            <Mic size={17} />
+                            <Save size={14} aria-hidden />
+                            {saveLabel}
                         </button>
-                    ) : null}
-                    <button
-                        type="button"
-                        disabled={saving || !hasContent}
-                        onClick={handleSave}
-                        className={`flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-xl px-4 text-[12px] font-bold transition-all touch-manipulation ${
-                            hasContent && !saving
-                                ? 'bg-gradient-to-l from-[#E6C673] to-[#D4AF37] text-[#0A0F1C] shadow-[0_0_18px_-8px_rgba(230,198,115,0.55)] hover:brightness-110'
-                                : 'cursor-not-allowed border border-white/[0.08] bg-white/[0.03] text-white/30'
-                        }`}
-                        data-testid="dossier-note-save"
-                    >
-                        <Save size={15} />
-                        {saveLabel}
-                    </button>
-                    {onCancel ? (
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="min-h-[44px] shrink-0 rounded-xl border border-white/[0.12] bg-white/[0.04] px-4 text-[12px] font-bold text-white/70 transition-colors hover:bg-white/[0.08] hover:text-white touch-manipulation"
-                        >
-                            إلغاء
-                        </button>
-                    ) : null}
-                </div>
+                    </div>
+                </footer>
                 {voiceRecorderPortal}
             </div>
         );
     }
 
     return (
-        <div className="space-y-3" data-testid="dossier-fast-note-composer">
-            <p className="text-[11px] text-white/45 select-none" aria-live="polite">
-                {openedAt}
-            </p>
+        <div className={`${REPO_COMPOSE_SHELL} mb-0`} data-testid="dossier-fast-note-composer">
+            <div className="flex items-center justify-between gap-2">
+                <span className={REPO_COMPOSE_META}>ملاحظة جديدة</span>
+                <time className={REPO_COMPOSE_META} aria-live="polite">
+                    {openedAt}
+                </time>
+            </div>
             {showTitle ? (
                 <input
                     type="text"
                     value={title}
                     onChange={(e) => onTitleChange(e.target.value)}
                     placeholder="عنوان مختصر (اختياري)"
-                    className={REPO_INPUT}
+                    className={REPO_COMPOSE_TITLE}
                     data-testid="dossier-note-title"
+                    aria-label="عنوان الملاحظة"
                 />
             ) : null}
             <DossierLawArticleRichEditor
@@ -261,40 +271,42 @@ export function DossierFastNoteComposer({
                 value={bodyHtml}
                 onChange={onBodyChange}
                 context={context}
-                expanded={expanded}
+                compact
+                expanded={false}
             />
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5" dir="rtl">
-                {onVoiceNote ? (
+            <footer className={REPO_COMPOSE_FOOTER}>
+                <div className="flex items-center gap-1.5 min-w-0">
+                    {onVoiceNote ? (
+                        <button
+                            type="button"
+                            onClick={openVoiceRecorder}
+                            className={REPO_COMPOSE_ICON_BTN}
+                            data-testid="dossier-note-voice"
+                            aria-label="تسجيل صوتي"
+                            title="تسجيل صوتي"
+                        >
+                            <Mic size={16} aria-hidden />
+                        </button>
+                    ) : null}
+                </div>
+                <div className="flex flex-1 items-center justify-end gap-1.5 min-w-0">
+                    {onCancel ? (
+                        <button type="button" onClick={onCancel} className={REPO_COMPOSE_CANCEL}>
+                            إلغاء
+                        </button>
+                    ) : null}
                     <button
                         type="button"
-                        onClick={openVoiceRecorder}
-                        className={`${REPO_BTN_GOLD} min-h-[48px] w-full justify-center whitespace-nowrap`}
-                        data-testid="dossier-note-voice"
+                        disabled={saving}
+                        onClick={handleSave}
+                        className={REPO_COMPOSE_SAVE}
+                        data-testid="dossier-note-save"
                     >
-                        <Mic size={16} />
-                        تسجيل صوتي
+                        <Save size={14} aria-hidden />
+                        {saveLabel}
                     </button>
-                ) : null}
-                <button
-                    type="button"
-                    disabled={saving}
-                    onClick={handleSave}
-                    className={`${REPO_BTN_GOLD} min-h-[48px] w-full justify-center whitespace-nowrap`}
-                    data-testid="dossier-note-save"
-                >
-                    <Save size={16} />
-                    {saveLabel}
-                </button>
-                {onCancel ? (
-                    <button
-                        type="button"
-                        onClick={onCancel}
-                        className="min-h-[48px] w-full rounded-xl border border-white/[0.12] bg-white/[0.04] px-5 py-2.5 text-sm font-bold text-white/80 transition-all hover:bg-white/[0.08] hover:text-white whitespace-nowrap"
-                    >
-                        إلغاء
-                    </button>
-                ) : null}
-            </div>
+                </div>
+            </footer>
             {voiceRecorderPortal}
         </div>
     );

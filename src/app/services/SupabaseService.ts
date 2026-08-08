@@ -2,6 +2,8 @@ import { supabase } from '@/app/lib/supabase-client';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { CryptoService } from '@/app/services/CryptoService';
 import { isBffAuthEnabled } from '@/app/utils/bffAuthFlags';
+import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
+import { probeSameOriginApi } from '@/app/runtime/sameOriginApiProbe';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object';
@@ -111,7 +113,10 @@ async function decryptJsonPayload(encryptedData: string): Promise<unknown> {
 export class SupabaseService {
   public static async checkUserAuth(): Promise<boolean> {
     try {
+      if (isShellAuthBypassed()) return true;
       if (isBffAuthEnabled()) {
+        const apiState = await probeSameOriginApi();
+        if (apiState !== 'available') return false;
         const res = await Promise.race([
           fetch('/api/auth/session', { method: 'GET', headers: { Accept: 'application/json' } }),
           new Promise<Response>((_, reject) => {

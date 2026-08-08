@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Car, FileText, FolderOpen, Gavel, Lock, TrendingUp, Wallet, X } from 'lucide-react';
+import { Car, FileText, FolderOpen, Gavel, Lock, TrendingUp, Wallet, X } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,

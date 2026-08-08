@@ -8,6 +8,8 @@ export type UseSmartFileDossierHeaderNavigationParams = {
     isTrashOpen: boolean;
     setIsTrashOpen: (open: boolean) => void;
     modalsPortal?: import('../layout/portal/smartFileModalsPortalTypes').SmartFileModalsPortalProps;
+    caseLinkViewOnly?: boolean;
+    onReturnFromCaseLinkBrowse?: () => void;
 };
 
 export function useSmartFileDossierHeaderNavigation({
@@ -16,6 +18,8 @@ export function useSmartFileDossierHeaderNavigation({
     isTrashOpen,
     setIsTrashOpen,
     modalsPortal,
+    caseLinkViewOnly = false,
+    onReturnFromCaseLinkBrowse,
 }: UseSmartFileDossierHeaderNavigationParams) {
     const handleDossierBack = useCallback(() => {
         if (isTrashOpen) {
@@ -28,8 +32,19 @@ export function useSmartFileDossierHeaderNavigation({
         ) {
             return;
         }
+        if (caseLinkViewOnly && onReturnFromCaseLinkBrowse) {
+            onReturnFromCaseLinkBrowse();
+            return;
+        }
         onClose();
-    }, [isTrashOpen, setIsTrashOpen, modalsPortal, onClose]);
+    }, [
+        isTrashOpen,
+        setIsTrashOpen,
+        modalsPortal,
+        caseLinkViewOnly,
+        onReturnFromCaseLinkBrowse,
+        onClose,
+    ]);
 
     const handleDossierExit = useCallback(() => {
         if (onExitToProfile) {
@@ -39,5 +54,8 @@ export function useSmartFileDossierHeaderNavigation({
         onClose();
     }, [onClose, onExitToProfile]);
 
-    return { handleDossierBack, handleDossierExit };
+    const dossierNestedNav =
+        isTrashOpen || (caseLinkViewOnly && Boolean(onReturnFromCaseLinkBrowse));
+
+    return { handleDossierBack, handleDossierExit, dossierNestedNav };
 }

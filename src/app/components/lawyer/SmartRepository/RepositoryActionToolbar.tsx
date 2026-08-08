@@ -1,5 +1,5 @@
 import React from 'react';
-import { FileText, ImageIcon, Mic, Plus, Scan } from 'lucide-react';
+import { FileText, ImageIcon, Mic, Plus, Scan } from '@/app/components/ui/lucideIcons';
 import { REPO_ACTION_BTN, REPO_ACTION_GRID } from './smartRepositoryTheme';
 
 type RepositoryActionToolbarProps = {

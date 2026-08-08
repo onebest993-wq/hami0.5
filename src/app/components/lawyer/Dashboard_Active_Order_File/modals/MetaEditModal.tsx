@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Info } from 'lucide-react';
+import { X, Check, Info } from '@/app/components/ui/lucideIcons';
 import { DatePickerField } from '../components/DatePickerField';
 
 export type MetaEditForm = {

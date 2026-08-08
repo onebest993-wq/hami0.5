@@ -1,4 +1,4 @@
-import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
+﻿import type { ExecutorRequestLifecycleSummary } from '@/app/utils/executorRequestLifecycle';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { inferExecutorApprovalDecisionType } from '@/app/utils/executorApprovalWorkflow';
 import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
@@ -33,12 +33,12 @@ function isMaritalFurnitureDeliveryHubRow(row: Record<string, unknown>): boolean
         evictionWorkflowKey: (row as { evictionWorkflowKey?: string }).evictionWorkflowKey,
     });
     if (branch === MARITAL_FURNITURE_DELIVERY_BRANCH) return true;
-    return /تسليم أثاث|أثاث زوجية|جرد وتسليم قطع/i.test(
+    return /╪ز╪│┘┘è┘à ╪ث╪س╪د╪س|╪ث╪س╪د╪س ╪▓┘ê╪ش┘è╪ر|╪ش╪▒╪» ┘ê╪ز╪│┘┘è┘à ┘é╪╖╪╣/i.test(
         String((row as { title?: string }).title || '')
     );
 }
 
-/** يعثر على صف تسليم الأثاث حتى لو فشلت فلاتر «الحاكم» — للعرض في محضر المتابعة */
+/** ┘è╪╣╪س╪▒ ╪╣┘┘ë ╪╡┘ ╪ز╪│┘┘è┘à ╪د┘╪ث╪س╪د╪س ╪ص╪ز┘ë ┘┘ê ┘╪┤┘╪ز ┘┘╪د╪ز╪▒ ┬س╪د┘╪ص╪د┘â┘à┬╗ ظ¤ ┘┘╪╣╪▒╪╢ ┘┘è ┘à╪ص╪╢╪▒ ╪د┘┘à╪ز╪د╪ذ╪╣╪ر */
 export function findMaritalFurnitureDeliveryRowLoose(
     all: Record<string, unknown>[]
 ): Record<string, unknown> | null {
@@ -71,7 +71,7 @@ export function mergeFollowupDecisionRows(
     return Array.from(byId.values());
 }
 
-/** قراءة موحّدة لقرارات محضر المتابعة — نفس منطق useExecutorDecisions */
+/** ┘é╪▒╪د╪ة╪ر ┘à┘ê╪ص┘ّ╪»╪ر ┘┘é╪▒╪د╪▒╪د╪ز ┘à╪ص╪╢╪▒ ╪د┘┘à╪ز╪د╪ذ╪╣╪ر ظ¤ ┘┘╪│ ┘à┘╪╖┘é useExecutorDecisions */
 export function readFollowupMergedExecutorDecisions(
     decisionsStorageExecutionId: string | undefined,
     executionData?: Record<string, unknown> | null,
@@ -106,10 +106,10 @@ export function resolveMaritalFurnitureDeliveryState(all: Record<string, unknown
             evictionWorkflowKey: MARITAL_FURNITURE_DELIVERY_WORKFLOW_KEY,
         }) ??
         getGoverningEvictionProcedureRowForMatch(all, {
-            title: '🛋️ طلب تسليم أثاث',
+            title: '≡اؤïي╕ ╪╖┘╪ذ ╪ز╪│┘┘è┘à ╪ث╪س╪د╪س',
         }) ??
         getGoverningEvictionProcedureRowForMatch(all, {
-            title: 'طلب تسليم أثاث',
+            title: '╪╖┘╪ذ ╪ز╪│┘┘è┘à ╪ث╪س╪د╪س',
         }) ??
         findMaritalFurnitureDeliveryRowLoose(all);
     if (unifiedRow?.id) {
@@ -126,7 +126,7 @@ export function resolveMaritalFurnitureDeliveryState(all: Record<string, unknown
     return { mode: 'none', unifiedRow: null, fieldVisitRow: null, breakInventoryRow: null };
 }
 
-/** اكتمال خطوة الموعد (منفصلة عن اكتمال المسار الكامل للصف الموحّد) */
+/** ╪د┘â╪ز┘à╪د┘ ╪«╪╖┘ê╪ر ╪د┘┘à┘ê╪╣╪» (┘à┘┘╪╡┘╪ر ╪╣┘ ╪د┘â╪ز┘à╪د┘ ╪د┘┘à╪│╪د╪▒ ╪د┘┘â╪د┘à┘ ┘┘╪╡┘ ╪د┘┘à┘ê╪ص┘ّ╪») */
 export function isMaritalDeliveryScheduleStepComplete(
     row: Record<string, unknown> | null | undefined
 ): boolean {
@@ -167,7 +167,7 @@ export function isMaritalFurnitureDeliveryWorkflowComplete(
     return false;
 }
 
-/** استخراج YMD من صف موعد الخروج الميداني */
+/** ╪د╪│╪ز╪«╪▒╪د╪ش YMD ┘à┘ ╪╡┘ ┘à┘ê╪╣╪» ╪د┘╪«╪▒┘ê╪ش ╪د┘┘à┘è╪»╪د┘┘è */
 export function readFieldVisitScheduleYmd(row: Record<string, unknown> | null | undefined): string {
     if (!row) return '';
     const explicit = String((row as { executorScheduleYmd?: string }).executorScheduleYmd || '').trim();
@@ -191,11 +191,11 @@ export function mergeMaritalDeliveryLifecycleSummaries(
     if (!fieldVisit && !breakInventory) return null;
     const fvEntries = (fieldVisit?.entries ?? []).map((e) => ({
         ...e,
-        outcomeLabel: `موعد تسليم · ${e.outcomeLabel}`,
+        outcomeLabel: `┘à┘ê╪╣╪» ╪ز╪│┘┘è┘à ┬╖ ${e.outcomeLabel}`,
     }));
     const biEntries = (breakInventory?.entries ?? []).map((e) => ({
         ...e,
-        outcomeLabel: `جرد تسليم · ${e.outcomeLabel}`,
+        outcomeLabel: `╪ش╪▒╪» ╪ز╪│┘┘è┘à ┬╖ ${e.outcomeLabel}`,
     }));
     const entries = [...fvEntries, ...biEntries].sort((a, b) =>
         b.submittedAt.localeCompare(a.submittedAt, undefined, { numeric: true })
@@ -212,7 +212,7 @@ export function mergeMaritalDeliveryLifecycleSummaries(
     };
 }
 
-/** مزامنة موعد التسليم من قرار المنفذ إلى blob الإضبارة إن وُجد في القرار فقط */
+/** ┘à╪▓╪د┘à┘╪ر ┘à┘ê╪╣╪» ╪د┘╪ز╪│┘┘è┘à ┘à┘ ┘é╪▒╪د╪▒ ╪د┘┘à┘┘╪░ ╪ح┘┘ë blob ╪د┘╪ح╪╢╪ذ╪د╪▒╪ر ╪ح┘ ┘ê┘╪ش╪» ┘┘è ╪د┘┘é╪▒╪د╪▒ ┘┘é╪╖ */
 export function buildMaritalFurnitureDeliveryScheduleBackfillPatch(
     executionData: Record<string, unknown> | null | undefined,
     decisions: Record<string, unknown>[],
@@ -235,7 +235,7 @@ export function buildMaritalFurnitureDeliveryScheduleBackfillPatch(
     if (!ymd && !label) return null;
     return {
         maritalFurnitureDeliveryScheduleYmd: ymd || storedYmd,
-        maritalFurnitureDeliveryScheduleLabel: label || storedLabel || (ymd ? `موعد التسليم: ${ymd}` : ''),
+        maritalFurnitureDeliveryScheduleLabel: label || storedLabel || (ymd ? `┘à┘ê╪╣╪» ╪د┘╪ز╪│┘┘è┘à: ${ymd}` : ''),
         maritalFurnitureDeliveryScheduledAt: new Date().toISOString(),
     };
 }

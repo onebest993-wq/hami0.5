@@ -108,6 +108,8 @@ describe('world-class repository close honesty', () => {
             ),
             'utf8',
         );
+        expect(escape).toContain('showVoiceRecorder');
+        expect(escape).toContain('onCloseVoice');
         expect(escape).toContain('pendingUploadOpen');
         expect(escape).toContain('fileViewerOpen');
         expect(escape).toContain('scannerOpen');

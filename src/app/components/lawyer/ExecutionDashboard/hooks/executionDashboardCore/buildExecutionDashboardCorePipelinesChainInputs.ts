@@ -1,7 +1,7 @@
-/** Phase C Slice 33 — builders for workspace/followup/claim/grace/persist chain inputs */
+﻿/** Phase C Slice 33 ظ¤ builders for workspace/followup/claim/grace/persist chain inputs */
 import type { UseExecutionDashboardClaimFinancialsParams } from './useExecutionDashboardClaimFinancials';
 
-/** Input shape for useExecutionDashboardCoreFollowupDebtorPipeline (exported locally — hook file is @ts-nocheck). */
+/** Input shape for useExecutionDashboardCoreFollowupDebtorPipeline (exported locally ظ¤ hook file is @ts-nocheck). */
 export type ExecutionDashboardCoreFollowupDebtorPipelineInput = Parameters<
     typeof import('./useExecutionDashboardCoreFollowupDebtorPipeline').useExecutionDashboardCoreFollowupDebtorPipeline
 >[0];

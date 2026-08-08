@@ -1,6 +1,6 @@
 import React, { useState, memo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckSquare, Plus, Clock, Check, Edit3 } from 'lucide-react';
+import { CheckSquare, Plus, Clock, Check, Edit3 } from '@/app/components/ui/lucideIcons';
 import type { Task } from '../../LawyerShared';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { filterCivilLawsuitVisibleTasks } from '../smartFile/civilLawsuitTaskFilter';
@@ -179,6 +179,7 @@ export const ToDoList = memo(function ToDoList({
     onAppealBriefOutcome,
     onCorrespondenceResponse,
     visualVariant = 'civil',
+    readOnly = false,
 }: {
     tasks: Task[];
     onAddTask: () => void;
@@ -188,12 +189,14 @@ export const ToDoList = memo(function ToDoList({
     onAppealBriefOutcome?: (taskId: string, outcome: 'quashed' | 'upheld') => void;
     onCorrespondenceResponse?: (taskId: string, received: boolean) => void;
     visualVariant?: 'civil' | 'personal' | 'personal-pearl';
+    readOnly?: boolean;
 }) {
     const [expandedAppealTaskId, setExpandedAppealTaskId] = useState<string | null>(null);
     const [expandedCorrespondenceTaskId, setExpandedCorrespondenceTaskId] = useState<string | null>(null);
     const sortedTasks = filterCivilLawsuitVisibleTasks(tasks).sort((a, b) => (a.isCompleted === b.isCompleted ? 0 : a.isCompleted ? 1 : -1));
 
     const handleTaskActivate = (task: Task) => {
+        if (readOnly) return;
         if (isAppealBriefTask(task) && !task.isCompleted) {
             setExpandedAppealTaskId((prev) => (prev === task.id ? null : task.id));
             return;
@@ -208,35 +211,49 @@ export const ToDoList = memo(function ToDoList({
     const isPearl = visualVariant === 'personal-pearl';
     const isPersonal = visualVariant === 'personal' || isPearl;
 
+    const pendingCount = sortedTasks.filter((t) => !t.isCompleted).length;
+    const completedCount = sortedTasks.length - pendingCount;
+
     return (
-        <div className={isPearl ? '' : 'mb-6'}>
+        <div className={isPearl ? '' : 'mb-2'}>
             {!isPearl ? (
-            <div className={`flex items-center justify-between rounded-xl border px-3 py-2 mb-2 ${isPersonal ? 'border-white/[0.07] bg-[#141214]' : 'bg-[#1A1E2E] border-white/10 shadow-sm'}`} dir="rtl">
-                <h3 className={`text-xs font-bold flex items-center gap-2 ${isPersonal ? 'text-[#C4A574]' : 'text-[#E6C673]'}`}>
-                    المهام الإدارية
-                    <CheckSquare size={14} className="text-[#E6C673]" />
-                </h3>
+            <div className={`flex items-center justify-between rounded-xl border px-3 py-2 mb-2 ${isPersonal ? 'border-white/[0.07] bg-[#141214]' : 'border-[#E6C673]/14 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.06),transparent_42%),linear-gradient(180deg,rgba(22,28,42,0.96),rgba(12,16,28,0.98))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'}`} dir="rtl">
+                <div className="flex items-center gap-2 min-w-0">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center border shrink-0 ${isPersonal ? 'bg-[#C4A574]/10 border-[#C4A574]/22' : 'bg-[#E6C673]/10 border-[#E6C673]/22'}`}>
+                        <CheckSquare size={13} className={isPersonal ? 'text-[#C4A574]' : 'text-[#E6C673]'} />
+                    </div>
+                    <div className="min-w-0">
+                        <h3 className={`text-[11px] font-bold leading-tight ${isPersonal ? 'text-[#C4A574]' : 'text-[#E6C673]'}`}>
+                            المهام الإدارية
+                        </h3>
+                        {sortedTasks.length > 0 ? (
+                            <p className="text-[9px] text-white/40 mt-0.5 tabular-nums">
+                                {pendingCount} قيد التنفيذ
+                                {completedCount > 0 ? ` · ${completedCount} منجزة` : ''}
+                            </p>
+                        ) : (
+                            <p className="text-[9px] text-white/35 mt-0.5">لا مهام — اضغط + للإضافة</p>
+                        )}
+                    </div>
+                </div>
+                {!readOnly ? (
                 <button
                     type="button"
                     data-testid={CIVIL_LAWSUIT_TEST_IDS.taskAdd}
                     onClick={onAddTask}
-                    className="w-6 h-6 flex items-center justify-center rounded-full bg-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-all"
-                    title="إضافة مهمة جديد"
+                    className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-lg border border-[#E6C673]/20 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/18 hover:border-[#E6C673]/30 transition-colors shrink-0"
+                    title="إضافة مهمة جديدة"
+                    aria-label="إضافة مهمة جديدة"
                 >
-                    <Plus size={14} />
+                    <Plus size={15} />
                 </button>
+                ) : null}
             </div>
             ) : null}
 
-            <div className="space-y-0 relative">
+            <div className="space-y-1.5 relative">
                 <AnimatePresence>
-                    {sortedTasks.length === 0 ? (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                            <p className={`${isPearl ? 'text-[10px] text-[#9C9890] py-0.5' : 'text-center py-4 text-[10px] text-white/20'}`}>
-                                {isPearl ? 'لا مهام' : 'لا توجد مهام مسجلة'}
-                            </p>
-                        </motion.div>
-                    ) : (
+                    {sortedTasks.length === 0 ? null : (
                         sortedTasks.map((task, idx) => {
                             const appealTask = isAppealBriefTask(task);
                             const correspondenceTask = isCorrespondenceTask(task);
@@ -254,12 +271,15 @@ export const ToDoList = memo(function ToDoList({
                                     initial={{ opacity: 0, y: -5 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, height: 0 }}
-                                    className={`flex items-start gap-2 ${isPearl ? 'py-1.5' : 'py-3 px-2'} group ${idx !== sortedTasks.length - 1 ? `border-b ${isPearl ? 'border-[#C9B89A]/08' : 'border-white/[0.03]'}` : ''}`}
+                                    className={`flex items-start gap-3 ${isPearl ? 'py-1.5' : 'py-2.5 px-2.5 rounded-xl border border-white/[0.05] bg-white/[0.02] hover:border-[#E6C673]/12 hover:bg-white/[0.035] transition-colors'} group ${idx !== sortedTasks.length - 1 && isPearl ? `border-b ${isPearl ? 'border-[#C9B89A]/08' : ''}` : ''}`}
                                 >
                                     <button
                                         type="button"
                                         onClick={() => handleTaskActivate(task)}
+                                        disabled={readOnly}
                                         className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center transition-all mt-0.5 shrink-0 ${
+                                            readOnly ? 'cursor-default opacity-80' : ''
+                                        } ${
                                             task.isCompleted
                                                 ? isPearl
                                                     ? 'bg-[#C9B89A] border-[#C9B89A] text-[#131211]'
@@ -308,7 +328,7 @@ export const ToDoList = memo(function ToDoList({
                                             </span>
                                         ) : null}
 
-                                        {appealTask && onAppealBriefFile && onAppealBriefOutcome
+                                        {appealTask && onAppealBriefFile && onAppealBriefOutcome && !readOnly
                                             ? (appealExpanded || task.isCompleted || task.appealBriefFiled) && (
                                                   <AppealBriefPanel
                                                       task={task}
@@ -317,7 +337,7 @@ export const ToDoList = memo(function ToDoList({
                                                   />
                                               )
                                             : null}
-                                        {correspondenceTask && onCorrespondenceResponse
+                                        {correspondenceTask && onCorrespondenceResponse && !readOnly
                                             ? (correspondenceExpanded ||
                                                   task.isCompleted ||
                                                   task.correspondenceResponseReceived !== null) && (
@@ -329,14 +349,17 @@ export const ToDoList = memo(function ToDoList({
                                             : null}
                                     </div>
 
+                                    {!readOnly ? (
                                     <button
                                         type="button"
                                         onClick={() => onEditTask(task)}
-                                        className="text-slate-400 hover:text-amber-500 transition-colors ml-2 opacity-0 group-hover:opacity-100"
+                                        className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-white/35 hover:text-[#E6C673] hover:bg-[#E6C673]/10 border border-transparent hover:border-[#E6C673]/20 transition-colors shrink-0 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
                                         title="تعديل المهمة"
+                                        aria-label="تعديل المهمة"
                                     >
                                         <Edit3 className="w-3.5 h-3.5" />
                                     </button>
+                                    ) : null}
                                 </motion.div>
                             );
                         })

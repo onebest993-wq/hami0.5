@@ -82,14 +82,17 @@ describe('criminalCasesStorage', () => {
             }),
         );
 
+        setItemSpy.mockClear();
+
         const ok = patchCriminalCaseRecord('c1', (row) => ({
             ...row,
             location: { nextHearingDate: '2028-09-20' },
         }));
 
         expect(ok).toBe(true);
-        // الجذر يُكتب sync؛ فهرس البطاقات يُحدَّث عبر setItemSync (يُجدول setItem async لنفس المفتاح فقط)
-        expect(setItemSpy).toHaveBeenCalledTimes(1);
+        // الجذر + فهرس البطاقات يُكتبان عبر setItemSync → setItem (مرتين)
+        expect(setItemSpy).toHaveBeenCalledTimes(2);
+        expect(setItemSpy).toHaveBeenCalledWith(CRIMINAL_STORE_KEY, expect.any(String));
         expect(setItemSpy).toHaveBeenCalledWith(CRIMINAL_CARD_INDEX_KEY, expect.any(String));
         expect(eventSpy).toHaveBeenCalledTimes(1);
 

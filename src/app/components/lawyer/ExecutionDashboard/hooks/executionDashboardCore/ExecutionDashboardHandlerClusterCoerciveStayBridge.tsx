@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
     handlerClusterSourceBags,
     pickHandlerClusterKeys,
@@ -6,6 +5,10 @@ import {
 } from './handlerClusterContextShared';
 import { useExecutionDashboardStayHandlers } from './useExecutionDashboardStayHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 type StayHandlersInput = Parameters<typeof useExecutionDashboardStayHandlers>[0];
 
@@ -47,9 +50,13 @@ export function ExecutionDashboardHandlerClusterCoerciveStayBridge({
         setExecutionPaused: c.setExecutionPaused,
     });
 
-    useEffect(() => {
-        onCluster({ stayHandlers });
-    }, [onCluster, stayHandlers]);
+    const cluster: Record<string, unknown> = { stayHandlers };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        handlerBagKeyFingerprint(stayHandlers as Record<string, unknown>),
+        onCluster,
+    );
 
     return null;
 }

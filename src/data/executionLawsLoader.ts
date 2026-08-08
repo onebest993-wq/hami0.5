@@ -1,6 +1,8 @@
 /**
- * تحميل كسول لمواد قانون التنفيذ 45 — خارج مسار فتح الإضبارة.
+ * تحميل كسول لمواد قانون التنفيذ 45 — من static-law-data (خارج حزمة JS).
  */
+import { lawNameForBundleSlug } from '@/app/constants/iraqiLawBundleRegistry';
+import { loadBundledLawArticles } from '@/app/utils/bundledIraqiLawLoader';
 import { resolveExecutionLawLeaf } from './executionLawHierarchy';
 import type { ExecutionLawArticle } from './executionLaws';
 import { executionArticles } from './executionLawsSeeds';
@@ -35,15 +37,25 @@ function mapArticlesJson(
     });
 }
 
-/** مواد قانون التنفيذ من ملف JSON — chunk مستقل عند أول طلب */
+/** مواد قانون التنفيذ من /static-law-data — لا dynamic import لـ JSON داخل assets */
 export async function loadExecutionLawSeedData(): Promise<ExecutionLawArticle[]> {
     if (cachedSeedData) return cachedSeedData;
     if (inflightSeed) return inflightSeed;
 
     inflightSeed = (async () => {
-        const mod = await import('./executionLaws.articles.json');
-        const raw = (mod.default ?? mod) as Array<{ number: number; title?: string; content?: string }>;
-        cachedSeedData = mapArticlesJson(Array.isArray(raw) ? raw : []);
+        const bundled = await loadBundledLawArticles(lawNameForBundleSlug('execution'));
+        const mapped = bundled
+            .map((article) => {
+                const number = Number.parseInt(String(article.article_number ?? '').trim(), 10);
+                if (!Number.isFinite(number) || number <= 0) return null;
+                return {
+                    number,
+                    title: '',
+                    content: String(article.content ?? ''),
+                };
+            })
+            .filter((item): item is { number: number; title: string; content: string } => item !== null);
+        cachedSeedData = mapArticlesJson(mapped);
         return cachedSeedData;
     })();
 

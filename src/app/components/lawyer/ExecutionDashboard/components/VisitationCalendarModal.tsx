@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import type { VisitationScheduleConfig, VisitationSession } from '@/app/types/visitationSchedule';
 import { VisitationCalendarPanel } from './VisitationCalendarPanel';
 

@@ -6,6 +6,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import { EXECUTION_GATE_E2E_SPECS } from './execution-gate-manifest.mjs';
 
 let failed = false;
 
@@ -77,18 +78,16 @@ run('execution-legal-subset', 'npx', [
     '--reporter=dot',
 ]);
 
-const e2eSpecs = [
-    'e2e/executionDashboard.spec.ts',
-    'e2e/execution-critical-paths.spec.ts',
-    'e2e/execution-storage-persist.spec.ts',
-    'e2e/execution-console-hygiene.spec.ts',
-    'e2e/decisions-storage-persist.spec.ts',
-];
+const e2eSpecs = EXECUTION_GATE_E2E_SPECS;
 
 for (const spec of e2eSpecs) {
     if (!existsSync(spec)) fail(`missing e2e ${spec}`);
     else ok(`e2e spec ${spec}`);
 }
+
+run('build:e2e', 'npm', ['run', 'build:e2e']);
+
+run('execution-probes-gate', 'npm', ['run', 'gate:execution:probes']);
 
 run('execution-e2e-suite', 'npx', [
     'playwright',

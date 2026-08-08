@@ -1,4 +1,4 @@
-import type { SeizedProperty, SeizedPropertyStatus } from '@/app/types/execution';
+﻿import type { SeizedProperty, SeizedPropertyStatus } from '@/app/types/execution';
 import {
     normalizePropertySeizureStatus,
     propertyWorkflowActiveStepIndex,

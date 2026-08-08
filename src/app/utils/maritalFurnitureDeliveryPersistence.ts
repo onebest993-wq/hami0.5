@@ -529,7 +529,7 @@ export function runPersistMaritalFurnitureItemDeliveryOutcome(
 
 
 
-    if (input.outcome === 'failed') {
+    if (deliveryRecorded) {
         notifyMaritalFurnitureFinancialLedgerUpdated();
     }
 

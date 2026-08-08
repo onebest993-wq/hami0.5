@@ -8,8 +8,10 @@ import { getPersonalCoerciveSubtypeOutcome } from '@/app/utils/executorSeizureDe
 import type { TimelineEvent, SeizedAsset, RealEstateSeizureAsset, ThirdPartySeizureAsset, StandaloneExecutionMark, ExecutionFile } from '@/app/types/execution';
 import { defaultEvictionEarnerFeeCollectionSM, type EvictionEarnerFeeCollectionSM } from '@/app/utils/evictionEarnerFeeCollectionMachine';
 import type { ScheduledDateSavePayload } from '@/app/components/lawyer/ExecutionDashboard/types';
-import type { BreakInventoryFurnitureSavePayload } from '@/app/components/lawyer/ExecutionDashboard/components/BreakInventoryFurnitureModal';
-import type { JudicialCustodianSavePayload } from '@/app/components/lawyer/ExecutionDashboard/components/JudicialCustodianModal';
+import type {
+    BreakInventoryFurnitureSavePayload,
+    JudicialCustodianSavePayload,
+} from '@/app/utils/executorApprovalWorkflow';
 import { useTodayYmd } from '../useTodayYmd';
 import { useToastSystem } from '../useToastSystem';
 import { useMergedTimelineEvents } from '../useMergedTimelineEvents';

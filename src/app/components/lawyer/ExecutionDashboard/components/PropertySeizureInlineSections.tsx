@@ -191,6 +191,10 @@ export const PropertySeizureInlineSections: React.FC<PropertySeizureInlineSectio
     ).trim();
 
     const requiredExperts = readExpertCommitteeSize(p);
+    const hasExpertReportSaved =
+        Boolean(String(p.expertReportDateYmd || '').trim()) &&
+        ((p.expertEstimatedAmountIqd != null && Number(p.expertEstimatedAmountIqd) > 0) ||
+            (p.estimatedPriceIqd != null && Number(p.estimatedPriceIqd) > 0));
 
     const expertNamesRawForSave = React.useCallback((): string => {
         if (requiredExperts <= 1) {
@@ -212,7 +216,7 @@ export const PropertySeizureInlineSections: React.FC<PropertySeizureInlineSectio
 
     return (
         <div className="relative z-[2] space-y-0 pointer-events-auto">
-            {showMark && (!hasMark || section === 'mark') ? (
+            {showMark && (!hasMark || (!embedded && section === 'mark')) ? (
                 <InlineSectionShell
                     embedded={embedded}
                     sectionId="mark"
@@ -258,7 +262,12 @@ export const PropertySeizureInlineSections: React.FC<PropertySeizureInlineSectio
                 </InlineSectionShell>
             ) : null}
 
-            {showExperts && (embedded ? Boolean(expertDecision) : expertDecision || focusKey === 'experts') ? (
+            {showExperts &&
+            !hasExpertReportSaved &&
+            (embedded
+                ? Boolean(expertDecision) ||
+                  (section === 'experts' && Boolean(expertDecisionId))
+                : expertDecision || focusKey === 'experts') ? (
                 <InlineSectionShell
                     embedded={embedded}
                     sectionId="experts"

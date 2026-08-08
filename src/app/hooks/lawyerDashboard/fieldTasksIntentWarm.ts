@@ -3,9 +3,8 @@ import {
     prefetchTasksManagerModule,
 } from '@/app/runtime/fieldTasksHubLoader';
 import { hydrateFieldTasksShellForInstantOpen } from '@/app/runtime/fieldTasksBootHydrator';
-import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
-/** Entry + ستارة — يمنع waterfall Suspense على أول ضغط (مثل المعاملات) */
+/** Entry + ستارة — يمنع waterfall Suspense على أول ضغط */
 function prefetchFieldTasksOpenChain(): void {
     prefetchFieldTasksSheetModule();
     void import(
@@ -13,20 +12,37 @@ function prefetchFieldTasksOpenChain(): void {
     ).catch(() => undefined);
 }
 
-/** مدير الأجندة بعد الخمول — لا يسرق عرض التنزيل من فتح الستارة */
-function warmTasksManagerIdle(): void {
-    scheduleIdleWork(() => prefetchTasksManagerModule(), { minDelayMs: 0, timeoutMs: 5_000 });
+function warmQuantumTasksDiskRead(): void {
+    void import('@/app/utils/quantumTasksStorage')
+        .then((m) => m.warmQuantumTasksDiskRead())
+        .catch(() => undefined);
 }
 
-/** hover/idle: prefetch Entry + chunk الستارة + تهيئة للفتح الفوري */
+/** مسار تسخين الستارة فقط — لا يتنافس مع chunk الأجندة على أول فتح */
+function warmFieldTasksSheetPipeline(forceHydrate: boolean): void {
+    warmQuantumTasksDiskRead();
+    prefetchFieldTasksOpenChain();
+    void hydrateFieldTasksShellForInstantOpen(forceHydrate);
+}
+
+function deferManagerPrefetch(): void {
+    if (typeof window === 'undefined') return;
+    queueMicrotask(() => prefetchTasksManagerModule());
+}
+
+/** hover/لمس الدوك — ستارة + بيانات فقط؛ الأجندة عند «إدارة الكل» */
 export function warmFieldTasksOnHover(): void {
-    prefetchFieldTasksOpenChain();
-    void hydrateFieldTasksShellForInstantOpen();
+    warmFieldTasksSheetPipeline(false);
 }
 
-/** عند فتح مهام الميدان — Entry + الستارة فوراً؛ المدير على idle */
+/** فتح ستارة الميدان — ستارة أولاً؛ الأجندة بعد commit بلا منافسة على الشبكة */
 export function warmFieldTasksOnOpen(): void {
-    prefetchFieldTasksOpenChain();
-    void hydrateFieldTasksShellForInstantOpen(true);
-    warmTasksManagerIdle();
+    warmFieldTasksSheetPipeline(true);
+    deferManagerPrefetch();
+}
+
+/** فتح مدير الأجندة — المسار الكامل */
+export function warmFieldTasksManagerOnOpen(): void {
+    warmFieldTasksSheetPipeline(true);
+    prefetchTasksManagerModule();
 }

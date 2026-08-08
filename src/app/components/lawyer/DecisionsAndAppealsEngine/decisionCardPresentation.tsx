@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale, ShieldCheck, ShieldX, Clock, RotateCcw, Ban, Archive } from 'lucide-react';
+import { Scale, ShieldCheck, ShieldX, Clock, RotateCcw, Ban, Archive } from '@/app/components/ui/lucideIcons';
 import type { DecisionCardEnforcementVisual } from './decisionCardGlassShell';
 import type { DecisionHubStatusPillTone, ExecutorRequestFollowupBlock } from './utils';
 import type { Decision } from './types';

@@ -81,7 +81,15 @@ describe('useProfileSettingsBlockOps upload gens', () => {
             );
         });
 
-        expect(resolvers.length).toBe(2);
+        await act(async () => {
+            result.current.ops.triggerCanvasBg(textId!);
+            void result.current.ops.onCanvasBgSelected(
+                new File(['c'], 'c.jpg', { type: 'image/jpeg' }),
+            );
+        });
+
+        expect(result.current.ops.canvasBgEditor?.blockId).toBe(textId);
+        expect(uploadProfileMedia).toHaveBeenCalledTimes(1);
 
         await act(async () => {
             resolvers[0]!({
@@ -93,6 +101,15 @@ describe('useProfileSettingsBlockOps upload gens', () => {
 
         expect(SmartToast.success).toHaveBeenCalledWith('تم رفع الصورة');
         expect(result.current.ops.uploadingBlockId).toBeNull();
+
+        await act(async () => {
+            void result.current.ops.confirmCanvasBgEditor(
+                new File(['c'], 'c-edited.jpg', { type: 'image/jpeg' }),
+            );
+        });
+
+        expect(uploadProfileMedia).toHaveBeenCalledTimes(2);
+        expect(resolvers.length).toBe(2);
 
         await act(async () => {
             resolvers[1]!({

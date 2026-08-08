@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 
 type MoroccanGlassOverlayProps = {
     className?: string;
@@ -15,7 +15,7 @@ const MOROCCAN_GLASS_TILE = encodeURIComponent(`
   </g>
 </svg>`.trim());
 
-/** نقش zellige خفيف — طبقة زخرفية للزجاج */
+/** ┘┘é╪┤ zellige ╪«┘┘è┘ ظ¤ ╪╖╪ذ┘é╪ر ╪▓╪«╪▒┘┘è╪ر ┘┘╪▓╪ش╪د╪ش */
 export function MoroccanGlassOverlay({ className = '', opacity = 0.07 }: MoroccanGlassOverlayProps) {
     return (
         <div
@@ -34,15 +34,15 @@ type MoroccanGlassFrameProps = {
     children: React.ReactNode;
     className?: string;
     patternOpacity?: number;
-    /** false = لا يقص العناصر البارزة (مثل الصورة الشخصية) */
+    /** false = ┘╪د ┘è┘é╪╡ ╪د┘╪╣┘╪د╪╡╪▒ ╪د┘╪ذ╪د╪▒╪▓╪ر (┘à╪س┘ ╪د┘╪╡┘ê╪▒╪ر ╪د┘╪┤╪«╪╡┘è╪ر) */
     clip?: boolean;
-    /** يفعّل أنماط خامة صفحة الملف الشخصي */
+    /** ┘è┘╪╣┘ّ┘ ╪ث┘┘à╪د╪╖ ╪«╪د┘à╪ر ╪╡┘╪ص╪ر ╪د┘┘à┘┘ ╪د┘╪┤╪«╪╡┘è */
     profilePanel?: boolean;
-    /** نقش zellige — فقط مع خامة «زخرفي» */
+    /** ┘┘é╪┤ zellige ظ¤ ┘┘é╪╖ ┘à╪╣ ╪«╪د┘à╪ر ┬س╪▓╪«╪▒┘┘è┬╗ */
     ornatePattern?: boolean;
 };
 
-/** إطار زجاجي شفاف مع نقش مغربي اختياري */
+/** ╪ح╪╖╪د╪▒ ╪▓╪ش╪د╪ش┘è ╪┤┘╪د┘ ┘à╪╣ ┘┘é╪┤ ┘à╪║╪▒╪ذ┘è ╪د╪«╪ز┘è╪د╪▒┘è */
 export function MoroccanGlassFrame({
     children,
     className = '',

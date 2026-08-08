@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -7,22 +6,18 @@ import {
     openSettingsFromShell,
     SETTINGS_SHELL_FEATURE,
 } from '@/app/services/settings/settingsShellNavigation';
-import {
-    primeSettingsShellForOpen,
-    warmSettingsOnHover,
-    warmSettingsOnOpen,
-} from '@/app/hooks/lawyerDashboard/settingsIntentWarm';
-import { dismissTransientOverlays } from '@/app/utils/bodyScrollLock';
 import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
-import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import {
     clearSettingsForceVisible,
     concealSettingsWarmShell,
-    hasSettingsOverlayHost,
+    getSettingsShellRevealedAt,
+    isSettingsForceVisible,
+    isSettingsOverlayInteractionArmed,
     isSettingsReopenSuppressed,
-    paintSettingsInstantChrome,
     registerSettingsInstantCloseHandler,
     removeSettingsInstantBridge,
+    SETTINGS_INTERACT_ARM_MS,
     suppressSettingsReopen,
 } from '@/app/runtime/settingsInstantPaint';
 import {
@@ -30,15 +25,45 @@ import {
     readInitialSettingsSession,
 } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
-import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import {
     clearSettingsPerfMarks,
     markSettingsPerfPhase,
 } from '@/app/services/settings/settingsPerfMetrics';
-import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
+import { commitSettingsShellOpen } from '@/app/hooks/lawyerDashboard/settings/settingsShellOpenFlow';
+import {
+    primeSettingsHostMount,
+    useSettingsHostLifecycle,
+} from '@/app/hooks/lawyerDashboard/settings/useSettingsHostLifecycle';
 
 function loadSettingsBootHydrator() {
     return import('@/app/runtime/settingsBootHydrator');
+}
+
+let settingsOpenWarmInflight: Promise<void> | null = null;
+
+/** للاختبارات — يمنع تسرب inflight بين الحالات */
+export function resetSettingsOpenWarmForTests(): void {
+    settingsOpenWarmInflight = null;
+}
+
+function runSettingsOpenWarm(markChunkReady: () => void): Promise<void> {
+    if (settingsOpenWarmInflight) return settingsOpenWarmInflight;
+    settingsOpenWarmInflight = loadSettingsBootHydrator()
+        .then((m) => {
+            if (m.isSettingsShellFullyHydrated()) {
+                markChunkReady();
+                return undefined;
+            }
+            void ensureDeferredFeatureStylesLoaded();
+            return m.hydrateSettingsShellForInstantOpen(true).then(() => {
+                markChunkReady();
+            });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+            settingsOpenWarmInflight = null;
+        });
+    return settingsOpenWarmInflight;
 }
 
 function persistSettingsSessionDeferred(open: boolean): void {
@@ -50,51 +75,48 @@ function persistSettingsSessionDeferred(open: boolean): void {
 }
 
 /**
- * مسار فتح/إغلاق لحظي للتبديل السريع:
- * - Host دافئ: paint DOM فوراً ثم flushSync خفيف (open فقط)
- * - كبح إعادة الفتح إيمائي ≤90ms وليس 280ms
- * - لا hydrate/warm ثقيل على كل إغلاق
+ * مسار فتح/إغلاق — نمط الإشعارات:
+ * - فتح: paint فوري → rAF commit (أو flushSync عند أول تركيب)
+ * - إغلاق: conceal فوري → setState بلا flushSync
  */
 export function useLawyerDashboardSettings(userId: string | null) {
     const [initialSession] = useState(() => readInitialSettingsSession());
+    const signedIn = isRealSignedIn(userId);
     const [showSettings, setShowSettings] = useState(() => initialSession.open);
     const [settingsHostMounted, setSettingsHostMounted] = useState(() => initialSession.open);
     const [settingsSessionKey, setSettingsSessionKey] = useState(0);
     const showSettingsRef = useRef(initialSession.open);
+    const settingsHostMountedRef = useRef(initialSession.open);
     const openInFlightRef = useRef(false);
     showSettingsRef.current = showSettings;
 
-    const armSettingsHost = useCallback(() => {
+    const ensureSettingsHostMounted = useCallback(() => {
+        if (settingsHostMountedRef.current) return;
+        settingsHostMountedRef.current = true;
         setSettingsHostMounted(true);
-        void ensureDeferredFeatureStylesLoaded();
-        primeSettingsShellForOpen();
     }, []);
 
-    /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة ترس */
-    useLayoutEffect(() => {
-        if (!isRealSignedIn(userId)) return;
-        setSettingsHostMounted(true);
-        prefetchSettingsOverlayEntry();
-        warmSettingsOnHover();
-        void ensureDeferredFeatureStylesLoaded();
-        primeSettingsShellForOpen();
-    }, [userId]);
+    useSettingsHostLifecycle({
+        signedIn,
+        initialSessionOpen: initialSession.open,
+        ensureSettingsHostMounted,
+    });
 
     const closeSettings = useCallback(() => {
         openInFlightRef.current = false;
         suppressSettingsReopen();
         showSettingsRef.current = false;
-        /*
-         * flushSync أولاً — وإلا conceal يزيل --visible ثم React (open ما زال true)
-         * يعيدها في الإطار التالي فيبدو الإغلاق متأخراً.
-         */
-        flushSync(() => {
-            setShowSettings(false);
+        executeOverlaySnapClose({
+            conceal: () => {
+                concealSettingsWarmShell();
+                clearSettingsForceVisible();
+                removeSettingsInstantBridge();
+            },
+            commit: () => {
+                setShowSettings(false);
+                persistSettingsSessionDeferred(false);
+            },
         });
-        concealSettingsWarmShell();
-        clearSettingsForceVisible();
-        removeSettingsInstantBridge();
-        persistSettingsSessionDeferred(false);
     }, []);
 
     useEffect(() => {
@@ -103,27 +125,22 @@ export function useLawyerDashboardSettings(userId: string | null) {
     }, [closeSettings]);
 
     useEffect(() => {
-        if (isRealSignedIn(userId)) return;
+        if (signedIn) return;
         openInFlightRef.current = false;
         showSettingsRef.current = false;
+        settingsHostMountedRef.current = false;
         setShowSettings(false);
         setSettingsHostMounted(false);
         concealSettingsWarmShell();
         clearSettingsForceVisible();
         removeSettingsInstantBridge();
         persistSettingsSessionOpen(false);
-    }, [userId]);
+    }, [signedIn]);
 
     const primeSettingsShellMount = useCallback(() => {
-        warmSettingsOnHover();
-        prefetchSettingsOverlayEntry();
-        flushSync(() => {
-            setSettingsHostMounted(true);
-        });
+        primeSettingsHostMount(ensureSettingsHostMounted);
         void ensureDeferredFeatureStylesLoaded();
-        primeSettingsShellForOpen();
-        void loadSettingsBootHydrator().then((m) => m.dispatchSettingsPrimeHost());
-    }, []);
+    }, [ensureSettingsHostMounted]);
 
     const resetSettingsShell = useCallback(() => {
         setSettingsSessionKey((k) => k + 1);
@@ -134,65 +151,12 @@ export function useLawyerDashboardSettings(userId: string | null) {
     }, [closeSettings]);
 
     useEffect(() => {
-        let unbind: (() => void) | undefined;
-        void loadSettingsBootHydrator().then((m) => {
-            unbind = m.bindSettingsBootHydrator();
-        });
-        return () => unbind?.();
-    }, []);
-
-    useEffect(() => {
         persistSettingsSessionDeferred(showSettings);
     }, [showSettings]);
 
-    /**
-     * بعد interactive: prefetch + تركيب Host مخفي فوراً
-     */
-    useLayoutEffect(() => {
-        if (isLitePerformanceActive()) return;
-        return onDashboardInteractive(() => {
-            prefetchSettingsOverlayEntry();
-            warmSettingsOnHover();
-            setSettingsHostMounted(true);
-            void ensureDeferredFeatureStylesLoaded();
-            primeSettingsShellForOpen();
-            void loadSettingsBootHydrator()
-                .then((m) => m.hydrateSettingsShellForInstantOpen(false))
-                .catch(() => undefined);
-        });
-    }, []);
-
-    useEffect(() => {
-        if (!showSettings || !isRealSignedIn(userId)) return;
-        armSettingsHost();
-        warmSettingsOnOpen();
-        void loadSettingsBootHydrator()
-            .then((m) => {
-                if (m.isSettingsShellFullyHydrated()) return undefined;
-                return m.hydrateSettingsShellForInstantOpen(true);
-            })
-            .catch(() => undefined);
-    }, [armSettingsHost, showSettings, userId]);
-
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
-        const onPrime = () => {
-            armSettingsHost();
-            warmSettingsOnHover();
-            void loadSettingsBootHydrator()
-                .then((m) => {
-                    if (m.isSettingsShellFullyHydrated()) return undefined;
-                    return m.hydrateSettingsShellForInstantOpen(true);
-                })
-                .catch(() => undefined);
-        };
-        window.addEventListener('hami:settings-prime-host', onPrime);
-        return () => window.removeEventListener('hami:settings-prime-host', onPrime);
-    }, [armSettingsHost]);
-
     const openSettings = useCallback(() => {
         openSettingsFromShell({
-            signedIn: isRealSignedIn(userId),
+            signedIn,
             onSignedOut: () =>
                 SmartToast.error(`يرجى تسجيل الدخول أولاً لاستخدام ${SETTINGS_SHELL_FEATURE}`),
             onOpen: () => {
@@ -209,54 +173,24 @@ export function useLawyerDashboardSettings(userId: string | null) {
                         /* ignore */
                     }
 
-                    showSettingsRef.current = true;
-                    const hostReady = hasSettingsOverlayHost();
-
-                    if (hostReady) {
-                        /* دافئ: اكشف DOM فوراً ثم زامن React — أرخص من تركيب شجرة */
-                        paintSettingsInstantChrome();
-                        flushSync(() => {
-                            setSettingsHostMounted(true);
-                            setShowSettings(true);
-                        });
-                    } else {
-                        flushSync(() => {
-                            setSettingsHostMounted(true);
-                            setShowSettings(true);
-                        });
-                        paintSettingsInstantChrome();
-                    }
-                    removeSettingsInstantBridge();
-                    persistSettingsSessionDeferred(true);
-                    markSettingsPerfPhase('first-paint');
-
-                    queueMicrotask(() => {
-                        if (!showSettingsRef.current) return;
-                        clearSettingsForceVisible();
-                        dismissTransientOverlays('settings');
-                        void loadSettingsBootHydrator()
-                            .then((m) => {
-                                if (m.isSettingsShellFullyHydrated()) {
+                    commitSettingsShellOpen({
+                        showSettingsRef,
+                        ensureSettingsHostMounted,
+                        setShowSettings,
+                        onAfterCommit: () => {
+                            void runSettingsOpenWarm(() => {
+                                if (showSettingsRef.current) {
                                     markSettingsPerfPhase('chunk-ready');
-                                    return undefined;
                                 }
-                                warmSettingsOnOpen();
-                                void ensureDeferredFeatureStylesLoaded();
-                                return m.hydrateSettingsShellForInstantOpen(true).then(() => {
-                                    if (showSettingsRef.current) {
-                                        markSettingsPerfPhase('chunk-ready');
-                                    }
-                                });
-                            })
-                            .catch(() => undefined);
+                            });
+                        },
                     });
                 } finally {
-                    /* ارفع in-flight فوراً — التبديل السريع لا ينتظر microtask */
                     openInFlightRef.current = false;
                 }
             },
         });
-    }, [userId]);
+    }, [closeSettings, ensureSettingsHostMounted, signedIn]);
 
     return {
         showSettings,
@@ -268,4 +202,4 @@ export function useLawyerDashboardSettings(userId: string | null) {
         resetSettingsShell,
         openSettings,
     };
-}
+};

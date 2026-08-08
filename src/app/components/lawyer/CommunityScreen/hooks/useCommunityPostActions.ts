@@ -4,6 +4,7 @@ import { flushSync } from 'react-dom';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import { ForumApiService } from '@/app/services/forumApiService';
+import { publishForumComment } from '@/lib/forumService.js';
 import { NotificationDB } from '@/app/services/notifications/notificationForumStorage';
 import { buildCommunityPostShareUrl, setCommunityPostHash } from '../communityDeepLink';
 import { checkForumRateLimit } from '../forumRateLimit';
@@ -157,7 +158,7 @@ export function useCommunityPostActions({
                 }),
             );
             try {
-                const saved = await ForumApiService.addComment(postId, newComment);
+                const saved = await publishForumComment(postId, newComment);
                 updatePostList(postId, (prev) => prev.map((p) => (p.id === postId ? saved : p)));
                 onThreadSubscribed?.(postId);
                 SmartToast.success('تم نشر التعليق');

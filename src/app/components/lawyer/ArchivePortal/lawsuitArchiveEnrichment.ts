@@ -1,22 +1,12 @@
-import type { ArchiveEnrichedRow, ComputedSmartStatus, LooseArchiveFile } from './types';
+import type { ArchiveEnrichedRow, LooseArchiveFile } from './types';
+import { computeLawsuitSmartStatus } from './lawsuitArchiveSmartStatus';
 
-const DEFAULT_ARCHIVE_SMART_STATUS: ComputedSmartStatus = {
-    type: 'active',
-    label: 'مستمرة',
-    color: 'text-green-400',
-    bgColor: 'bg-green-500/10',
-    borderColor: 'border-green-500/30',
-    timers: null,
-};
-
-/** Enrichment خفيف لمسار الدعاوى — بلا utils/SecureStore/تنفيذ. */
+/** Enrichment خفيف لمسار الدعاوى — يستنتج الحالة من الملف والمرحلة النشطة. */
 export function computeLawsuitArchiveEnrichedFiles(
     filesToEnrich: unknown[],
 ): ArchiveEnrichedRow[] {
-    return filesToEnrich.map(
-        (file): ArchiveEnrichedRow => ({
-            ...(file as LooseArchiveFile),
-            smartStatus: DEFAULT_ARCHIVE_SMART_STATUS,
-        }),
-    );
+    return filesToEnrich.map((file) => ({
+        ...(file as LooseArchiveFile),
+        smartStatus: computeLawsuitSmartStatus(file as LooseArchiveFile),
+    }));
 }

@@ -13,6 +13,7 @@ import {
     persistQuantumTasksBackground,
     persistQuantumTasksSync,
     QUANTUM_TASKS_STORAGE_KEY,
+    readQuantumTasksFromDiskSync,
 } from '@/app/utils/quantumTasksStorage';
 import { QUANTUM_TASKS_CHANGED_EVENT } from '@/app/utils/quantumTasksEvents';
 import {
@@ -31,9 +32,10 @@ const ASYNC_PERSIST_DEBOUNCE_MS = 500;
 
 /** Provider فقط — الـ hook في `useQuantumTasksContext.ts` لتوافق Fast Refresh */
 export function QuantumTasksProvider({ children }: { children: React.ReactNode }) {
-    /** إقلاع فارغ — القرص يُقرأ async أدناه (لا SecureStore sync على أول رسم للوحة). */
-    const bootTasksRef = useRef<LegalTask[]>([]);
-    const [storageHydrated, setStorageHydrated] = useState(false);
+    /** قراءة localStorage فوراً — بلا SecureStore على المسار البارد */
+    const bootTasksRef = useRef<LegalTask[]>(readQuantumTasksFromDiskSync());
+    /** المهام متاحة من القراءة المتزامنة — لا انتظار SecureStore لعرض الستارة */
+    const [storageHydrated, setStorageHydrated] = useState(true);
     const agendaDayRef = useRef(new Date().toDateString());
     const tasksRef = useRef<LegalTask[]>([]);
     const asyncPersistTimerRef = useRef<number | null>(null);
@@ -113,6 +115,7 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
             deleteTask: value.deleteTask,
             completeTask: value.completeTask,
             reopenTask: value.reopenTask,
+            postponeTask: value.postponeTask,
             toggleTaskFatalDeadline: value.toggleTaskFatalDeadline,
             toggleTaskPinnedToFieldCurtain: value.toggleTaskPinnedToFieldCurtain,
             setTaskLocation: value.setTaskLocation,
@@ -140,6 +143,7 @@ export function QuantumTasksProvider({ children }: { children: React.ReactNode }
             value.deleteTask,
             value.completeTask,
             value.reopenTask,
+            value.postponeTask,
             value.toggleTaskFatalDeadline,
             value.toggleTaskPinnedToFieldCurtain,
             value.setTaskLocation,

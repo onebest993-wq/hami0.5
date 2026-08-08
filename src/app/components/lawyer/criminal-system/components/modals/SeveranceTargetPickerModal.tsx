@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Scissors } from 'lucide-react';
+import { Scissors } from '@/app/components/ui/lucideIcons';
 import type { CriminalDefendant, JudicialSeveranceDraft } from '../../criminalStore';
 import { resolveDefendantFullName } from '../../criminalUnknownDefendant';
 import {

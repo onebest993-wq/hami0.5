@@ -12,6 +12,13 @@ import { loadExecutionFilesRaw, saveExecutionFilesRaw, EXECUTION_FILES_STORAGE_K
 import { executionStorageKey } from '@/app/utils/executionStorageKeys';
 import { storageCache } from '@/app/utils/storageCache';
 import { createSecureJSONStorage } from '@/app/services/securePersistStorage';
+import {
+    EXECUTION_DASHBOARD_PERSIST_VERSION,
+    EXECUTION_DASHBOARD_STORE_KEY,
+    migrateExecutionDashboardPersistState,
+    normalizeExecutionDashboardPersistSlice,
+} from '@/app/infrastructure/persistence/executionDashboardStorePersist';
+import { createPersistRehydrateReporter } from '@/app/infrastructure/persistence/zustandPersistFoundation';
 
 const secureStateStorage = createSecureJSONStorage();
 
@@ -832,7 +839,10 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
                     };
                     const root = String(id).trim();
                     const result: ExecutionFile[] = allFiles.filter(
-                        (f: any) => f && normalizeParentId(f.parentId) === root
+                        (f: any) =>
+                            f &&
+                            !isInabaSubFileId(f.id) &&
+                            normalizeParentId(f.parentId) === root
                     );
                     return result;
                 } catch {
@@ -909,8 +919,19 @@ export const useExecutionDashboardStore = create<ExecutionDashboardState>()(
             }),
         }),
         {
-            name: 'execution-dashboard-storage',
+            name: EXECUTION_DASHBOARD_STORE_KEY,
+            version: EXECUTION_DASHBOARD_PERSIST_VERSION,
             storage: secureStateStorage,
+            migrate: migrateExecutionDashboardPersistState,
+            merge: (persisted, current) => ({
+                ...current,
+                ...normalizeExecutionDashboardPersistSlice(persisted),
+            }),
+            onRehydrateStorage: createPersistRehydrateReporter({
+                area: 'execution-dashboard-store',
+                storageKey: EXECUTION_DASHBOARD_STORE_KEY,
+                version: EXECUTION_DASHBOARD_PERSIST_VERSION,
+            }),
             partialize: (state) => ({
                 ui: state.ui,
                 noteForm: state.noteForm,

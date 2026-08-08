@@ -1,9 +1,13 @@
 import {
+    LAWYER_WALLPAPER_CHROME_BG,
     LAWYER_THEME_TOKENS,
     resolveLawyerSurfaceBaseColor,
     resolveWallpaperSrc,
     type AppSettingsState,
 } from '@/app/services/settings';
+
+/** سطح ثابت لمركز الإعدادات — لا يتبع ثيم اللوحة (يمنع وميض بني/ذهبي عند الفتح) */
+export const SETTINGS_SHELL_CHROME = LAWYER_WALLPAPER_CHROME_BG;
 
 export function hexToRgba(hex: string, alpha: number): string {
     const raw = hex.replace('#', '');

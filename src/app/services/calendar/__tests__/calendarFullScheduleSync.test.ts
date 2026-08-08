@@ -35,15 +35,15 @@ vi.mock('@/app/services/calendar/bridge', async () => {
 });
 
 describe('CALENDAR_SYNC_RULES completeness', () => {
-    it('يفعّل المسارات الشاملة المتبقية', () => {
-        expect(CALENDAR_SYNC_RULES.active.transaction).toBeDefined();
-        expect(CALENDAR_SYNC_RULES.active.note).toBeDefined();
-        expect(CALENDAR_SYNC_RULES.active.lawsuit.some((r) => r.includes('dueDate'))).toBe(true);
-        expect(CALENDAR_SYNC_RULES.active.execution.some((r) => r.includes('caseTasksPending'))).toBe(
+    it('يفصل المسار الحيّ عن مسارات reconcile المعطّلة', () => {
+        expect(CALENDAR_SYNC_RULES.active.threading).toBeDefined();
+        expect(CALENDAR_SYNC_RULES.active.lawsuit?.some((r) => r.includes('appointment'))).toBe(true);
+        expect(CALENDAR_SYNC_RULES.active.execution?.some((r) => r.includes('appointment'))).toBe(
             true,
         );
-        expect((CALENDAR_SYNC_RULES.disabled as { transaction?: unknown }).transaction).toBeUndefined();
-        expect((CALENDAR_SYNC_RULES.disabled as { note?: unknown }).note).toBeUndefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { lawsuitLegacy?: unknown }).lawsuitLegacy).toBeDefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { executionTasks?: unknown }).executionTasks).toBeDefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { note?: unknown }).note).toBeDefined();
     });
 });
 
@@ -114,6 +114,48 @@ describe('syncOneLawsuitFile — مهام ومُهل', () => {
             { includeTasks: true },
         );
         expect(syncLawsuitTask).not.toHaveBeenCalled();
+    });
+
+    it('whitelistOnly: مواعيد timeline فقط بلا مهام ولا مهل legacy', () => {
+        const stats = EMPTY_STATS();
+        syncOneLawsuitFile(
+            {
+                id: 12,
+                caseNo: '2026/2',
+                nextDate: '2026-08-01',
+                stages: [
+                    {
+                        id: 'st1',
+                        appealDeadline: '2026-07-30',
+                        timeline: [
+                            {
+                                id: 'appt1',
+                                type: 'appointment',
+                                date: '2026-07-15',
+                                title: 'جلسة',
+                            },
+                        ],
+                        tasks: [{ id: 'tk1', title: 'لائحة', dueDate: '2026-07-22', isCompleted: false }],
+                    },
+                ],
+            },
+            'lawyer-1',
+            stats,
+            { whitelistOnly: true, includeTasks: false },
+        );
+
+        expect(syncLawsuitAppointment).toHaveBeenCalledWith(
+            expect.objectContaining({ timelineEventId: 'appt1' }),
+        );
+        expect(syncLawsuitTask).not.toHaveBeenCalled();
+        expect(
+            syncLawsuitAppointment.mock.calls.some(
+                (call) => call[0]?.timelineEventId === LAWSUIT_CAL_APPT.appealDeadline('st1'),
+            ),
+        ).toBe(false);
+        expect(stats.lawsuitTasks).toBe(0);
+        expect(stats.lawsuitDeadlines).toBe(0);
+        expect(stats.lawsuitAppointments).toBe(1);
     });
 });
 

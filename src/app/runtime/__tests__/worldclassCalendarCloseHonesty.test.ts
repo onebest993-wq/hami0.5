@@ -38,6 +38,7 @@ describe('world-class calendar close honesty', () => {
         );
         expect(openFlow).toMatch(/clearCalendarPerfMarks\(\)/);
         expect(openFlow).toMatch(/markCalendarPerfPhase\('open-request'\)/);
+        expect(openFlow).toContain('warmScheduleOnOpen');
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardScheduleTab.ts'),
             'utf8',
@@ -83,16 +84,25 @@ describe('world-class calendar close honesty', () => {
         expect(warmBlock).not.toContain('armScheduleHost');
     });
 
-    it('C8: InstantShell طارئ على Host أثناء تحميل chunk عند الفتح فقط', () => {
+    it('C8: InstantShell طارئ يحافظ على مرساة الإضافة بنفس التخطيط', () => {
+        const shell = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/schedule/ScheduleInstantShell.tsx',
+            ),
+            'utf8',
+        );
+        expect(shell).toContain('RadarAddEventDockPlaceholder');
+
         const host = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/dashboard/schedule/ScheduleTabHost.tsx'),
             'utf8',
         );
-        expect(host).toContain('ScheduleInstantShell');
-        expect(host).toContain('schedule-tab-load-error');
-        expect(host).toContain('schedule-tab-retry');
+        expect(host).toContain('LawyerDashboardScheduleTab');
+        expect(host).toMatch(
+            /import \{ LawyerDashboardScheduleTab \} from/,
+        );
         expect(host).toContain('keepAlive');
-        expect(host).toContain('/* تسخين صامت — بلا InstantShell فوق اللوحة */');
     });
 
     it('C4: طبقات Escape متدرجة — نموذج ثم رجوع', () => {
@@ -129,7 +139,7 @@ describe('world-class calendar close honesty', () => {
         expect(radar).toContain('scheduleConflict={scheduleConflict}');
     });
 
-    it('C10: InstantShell يربط Cap back أثناء التحميل بلا نبض تحميل', () => {
+    it('C10: InstantShell هيكل ثابت بلا أحداث كاش ولا نبض تحميل', () => {
         const shell = fs.readFileSync(
             path.join(
                 root,
@@ -138,9 +148,12 @@ describe('world-class calendar close honesty', () => {
             'utf8',
         );
         expect(shell).toContain('registerNativeBackHandler');
-        expect(shell).toContain('min-h-[44px]');
+        expect(shell).toContain('RADAR_BACK_BTN');
+        expect(shell).toContain("touchAction: 'manipulation'");
+        expect(shell).not.toContain('getCachedCalendarEvents');
+        expect(shell).not.toContain('schedule-boot-event');
         expect(shell).not.toContain('animate-pulse');
-        expect(shell).not.toContain('aria-busy');
-        expect(shell).not.toContain('جاري تجهيز التقويم');
+        expect(shell).toContain('aria-busy');
+        expect(shell).toContain('RadarAddEventDockPlaceholder');
     });
 });

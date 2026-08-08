@@ -5,12 +5,16 @@ import {
     BOOT_EXIT_MS,
     BOOT_REVEAL_DONE_EVENT,
     getBootRevealMinMs,
-    BOOT_REVEAL_MAX_MS,
+    getBootRevealMaxMs,
     isBootContentReady,
     isBootRevealDone,
     markBootRevealDone,
 } from '@/app/bootstrap/bootReveal';
-import { removeStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import { removeStaticBootShell, hasStaticBootShell } from '@/app/bootstrap/bootStaticShell';
+import {
+    HOME_MAIN_GRID_PAINTED_EVENT,
+    isHomeMainGridPainted,
+} from '@/app/bootstrap/homeMainGridPaintGate';
 import type { HamiBootOverlayPhase } from '@/app/bootstrap/HamiBootOverlay';
 
 export type BootRevealState = {
@@ -39,6 +43,39 @@ export function useBootReveal(): BootRevealState {
     const contentReadyRef = useRef(isBootContentReady());
     const exitStartedRef = useRef(bootAlreadyRevealed || exitAlreadyStarted);
     const waitTimerRef = useRef<number | null>(null);
+    const shellFallbackTimerRef = useRef<number | null>(null);
+
+    const clearShellFallbackTimer = useCallback(() => {
+        if (shellFallbackTimerRef.current != null) {
+            window.clearTimeout(shellFallbackTimerRef.current);
+            shellFallbackTimerRef.current = null;
+        }
+    }, []);
+
+    const finalizeStaticShellIfNeeded = useCallback((opts?: { force?: boolean }) => {
+        if (!hasStaticBootShell()) return;
+        if (!opts?.force && !isHomeMainGridPainted()) return;
+        removeStaticBootShell({ force: opts?.force, instant: true });
+        if (!isBootRevealDone()) {
+            markBootRevealDone();
+            window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
+        }
+    }, []);
+
+    const scheduleShellFallbackAfterContentReady = useCallback(() => {
+        if (!hasStaticBootShell()) return;
+        clearShellFallbackTimer();
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (!hasStaticBootShell() || isHomeMainGridPainted()) return;
+                shellFallbackTimerRef.current = window.setTimeout(() => {
+                    shellFallbackTimerRef.current = null;
+                    finalizeStaticShellIfNeeded({ force: true });
+                }, 320);
+            });
+        });
+    }, [clearShellFallbackTimer, finalizeStaticShellIfNeeded]);
+
     const maxTimerRef = useRef<number | null>(null);
 
     const clearWaitTimers = useCallback(() => {
@@ -50,14 +87,14 @@ export function useBootReveal(): BootRevealState {
             window.clearTimeout(maxTimerRef.current);
             maxTimerRef.current = null;
         }
-    }, []);
+        clearShellFallbackTimer();
+    }, [clearShellFallbackTimer]);
 
-    /** تطبيق الخروج — flush فقط خارج useLayoutEffect (مسار rAF/timer). */
+    /** تطبيق الخروج — overlay React فقط؛ #hami-static-boot يُزال عند paint الشبكة */
     const applyExitGone = useCallback((opts?: { flush?: boolean }) => {
         if (typeof window !== 'undefined') {
             window.__hamiBootExitStarted__ = true;
         }
-        markBootRevealDone();
         if (opts?.flush) {
             flushSync(() => {
                 setOverlayPhase('gone');
@@ -65,8 +102,11 @@ export function useBootReveal(): BootRevealState {
         } else {
             setOverlayPhase('gone');
         }
-        removeStaticBootShell();
-        window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
+        if (!hasStaticBootShell()) {
+            markBootRevealDone();
+            removeStaticBootShell({ instant: true });
+            window.dispatchEvent(new Event(BOOT_REVEAL_DONE_EVENT));
+        }
     }, []);
 
     const finishExit = useCallback(() => {
@@ -79,18 +119,11 @@ export function useBootReveal(): BootRevealState {
         if (typeof window !== 'undefined') {
             window.__hamiBootExitStarted__ = true;
         }
-
-        // انتظر paint إضافي تحت الطبقة المعتمة ثم اقطع فوراً
-        const cut = () => {
-            if (BOOT_EXIT_MS > 0) {
-                window.setTimeout(finishExit, BOOT_EXIT_MS);
-            } else {
-                finishExit();
-            }
-        };
-
-        /* إطار واحد كان يطيل wall بعد first-tab — microtask كافٍ والطلاء تحت الشعار تم */
-        queueMicrotask(cut);
+        if (BOOT_EXIT_MS > 0) {
+            window.setTimeout(finishExit, BOOT_EXIT_MS);
+        } else {
+            finishExit();
+        }
     }, [finishExit]);
 
     const tryStartExit = useCallback(() => {
@@ -110,42 +143,73 @@ export function useBootReveal(): BootRevealState {
     }, [startExit]);
 
     useLayoutEffect(() => {
-        if (isBootRevealDone()) {
+        const shellPresent = hasStaticBootShell();
+
+        if (isBootRevealDone() && !shellPresent) {
             markBootRevealDone();
-            removeStaticBootShell();
             setOverlayPhase('gone');
             return undefined;
         }
 
-        if (readExitStarted()) {
-            // داخل layout — بلا flushSync
+        if (readExitStarted() && !shellPresent) {
             applyExitGone({ flush: false });
             return undefined;
+        }
+
+        if (isBootRevealDone() && shellPresent) {
+            if (isHomeMainGridPainted()) {
+                removeStaticBootShell({ instant: true });
+            }
+            setOverlayPhase('gone');
+            return undefined;
+        }
+
+        if (readExitStarted() && shellPresent) {
+            /* warm reload: shell باقي — انتظر content-ready ثم أزل */
         }
 
         shownAtRef.current = Date.now();
         contentReadyRef.current = isBootContentReady();
 
+        const onGridPainted = () => {
+            clearShellFallbackTimer();
+            finalizeStaticShellIfNeeded();
+        };
+
         const onContentReady = () => {
             contentReadyRef.current = true;
             tryStartExit();
+            scheduleShellFallbackAfterContentReady();
         };
 
         window.addEventListener(BOOT_CONTENT_READY_EVENT, onContentReady);
+        window.addEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onGridPainted);
         if (isBootContentReady()) {
             onContentReady();
+        }
+        if (isHomeMainGridPainted()) {
+            onGridPainted();
         }
         maxTimerRef.current = window.setTimeout(() => {
             maxTimerRef.current = null;
             contentReadyRef.current = true;
             tryStartExit();
-        }, BOOT_REVEAL_MAX_MS);
+            finalizeStaticShellIfNeeded({ force: true });
+        }, getBootRevealMaxMs());
 
         return () => {
             window.removeEventListener(BOOT_CONTENT_READY_EVENT, onContentReady);
+            window.removeEventListener(HOME_MAIN_GRID_PAINTED_EVENT, onGridPainted);
             clearWaitTimers();
         };
-    }, [applyExitGone, clearWaitTimers, tryStartExit]);
+    }, [
+        applyExitGone,
+        clearShellFallbackTimer,
+        clearWaitTimers,
+        finalizeStaticShellIfNeeded,
+        scheduleShellFallbackAfterContentReady,
+        tryStartExit,
+    ]);
 
     return {
         overlayPhase,

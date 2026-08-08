@@ -3,20 +3,11 @@ import {
     useEffect,
     useLayoutEffect,
     useRef,
-    useState,
-    type Dispatch,
-    type SetStateAction,
 } from 'react';
 
 import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
-import {
-    clearHomeHubPerfMarks,
-    markHomeHubPerfPhase,
-} from '@/app/services/alerts/homeHubPerfMetrics';
-import {
-    dismissTransientOverlays,
-} from '@/app/utils/bodyScrollLock';
-import { registerDashboardOverlayCloser } from '@/app/hooks/lawyerDashboard/dashboardOverlayCoordinator';
+import { prefetchLawyerHomeHubCardModule } from '@/app/runtime/homeHubCardLoader';
+import { markHomeHubPerfPhase } from '@/app/services/alerts/homeHubPerfMetrics';
 import type { LawyerDashboardTab } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
 function loadHomeIntentWarm() {
@@ -25,30 +16,31 @@ function loadHomeIntentWarm() {
 
 export type UseLawyerDashboardHomeTabParams = {
     activeTab: LawyerDashboardTab;
-    setActiveTab: Dispatch<SetStateAction<LawyerDashboardTab>>;
 };
 
-export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyerDashboardHomeTabParams) {
-    const [homeLayoutEditMode, setHomeLayoutEditMode] = useState(false);
+export function useLawyerDashboardHomeTab({ activeTab }: UseLawyerDashboardHomeTabParams) {
     const wasHomeTabVisibleRef = useRef(false);
 
     const primeHomeTabMount = useCallback(() => {
         prefetchLawyerHomeTabModule();
+        prefetchLawyerHomeHubCardModule();
         void loadHomeIntentWarm()
             .then((m) => m.warmHomeOnOpen())
             .catch(() => undefined);
     }, []);
 
     useEffect(() => {
+        prefetchLawyerHomeHubCardModule();
+    }, []);
+
+    useEffect(() => {
         if (activeTab !== 'home') return;
         prefetchLawyerHomeTabModule();
+        prefetchLawyerHomeHubCardModule();
     }, [activeTab]);
 
     useLayoutEffect(() => {
         const isHome = activeTab === 'home';
-        if (!isHome && wasHomeTabVisibleRef.current) {
-            clearHomeHubPerfMarks();
-        }
         if (isHome && !wasHomeTabVisibleRef.current) {
             markHomeHubPerfPhase('open-request');
             primeHomeTabMount();
@@ -56,37 +48,7 @@ export function useLawyerDashboardHomeTab({ activeTab, setActiveTab }: UseLawyer
         wasHomeTabVisibleRef.current = isHome;
     }, [activeTab, primeHomeTabMount]);
 
-    useEffect(() => {
-        return registerDashboardOverlayCloser('home-layout-edit', () => {
-            setHomeLayoutEditMode(false);
-        });
-    }, []);
-
-    const exitHomeLayoutEdit = useCallback(() => {
-        setHomeLayoutEditMode(false);
-    }, []);
-
-    const enterHomeLayoutEdit = useCallback(() => {
-        dismissTransientOverlays('home-layout-edit');
-        setActiveTab('home');
-        setHomeLayoutEditMode(true);
-    }, [setActiveTab]);
-
-    useEffect(() => {
-        if (!import.meta.env.DEV || typeof window === 'undefined') return;
-        const w = window as Window & {
-            __hamiE2eEnterHomeLayoutEdit?: () => void;
-        };
-        w.__hamiE2eEnterHomeLayoutEdit = () => enterHomeLayoutEdit();
-        return () => {
-            delete w.__hamiE2eEnterHomeLayoutEdit;
-        };
-    }, [enterHomeLayoutEdit]);
-
     return {
-        homeLayoutEditMode,
-        enterHomeLayoutEdit,
-        exitHomeLayoutEdit,
         primeHomeTabMount,
         homeTabSessionKey: 0,
         homeDockChromeSessionKey: 0,

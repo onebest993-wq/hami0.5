@@ -14,11 +14,13 @@ export type UseExecutionResidentialGraceClearedListenerParams = {
     setEvictionResidentialGraceManuallyEndedAt: (v: string | null) => void;
     setEvictionExecutorVacateGrantApproved: (v: boolean) => void;
     setGraceModalAllowResave: (v: boolean) => void;
-    caseTasksPendingRef: React.MutableRefObject<Array<{ id: string }>>;
-    setCaseTasksPending: React.Dispatch<React.SetStateAction<Array<{ id: string }>>>;
+    caseTasksPendingRef: React.MutableRefObject<NonNullable<ExecutionFile['caseTasksPending']>>;
+    setCaseTasksPending: React.Dispatch<
+        React.SetStateAction<NonNullable<ExecutionFile['caseTasksPending']>>
+    >;
     setTimelineEvents: React.Dispatch<React.SetStateAction<TimelineEvent[]>>;
     persistExecutionMergeRef: React.MutableRefObject<
-        ((patch: Partial<ExecutionFile>) => void) | undefined
+        ((patch: Record<string, unknown>) => void) | null
     >;
 };
 

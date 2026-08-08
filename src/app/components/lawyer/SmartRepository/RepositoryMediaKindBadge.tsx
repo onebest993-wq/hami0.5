@@ -1,5 +1,5 @@
 import React from 'react';
-import { File, FileText, ImageIcon, Music2 } from 'lucide-react';
+import { File, FileText, ImageIcon, Music2 } from '@/app/components/ui/lucideIcons';
 import type { VaultMediaKind } from '@/app/services/vault/vaultDocUtils';
 import { vaultMediaKindLabel } from '@/app/services/vault/vaultDocUtils';
 import {

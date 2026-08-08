@@ -1,9 +1,14 @@
-import { useCallback, type Dispatch, MutableRefObject, SetStateAction } from 'react';
-import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
+import { useCallback } from 'react';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
+import { resolveExecutionDataForDomainGate } from '@/app/utils/executionDomainIsolation';
 import { EVICTION_TIMELINE_ACTION_IDS } from '@/app/utils/executionModuleStrategies';
 import { formatDateToLocalYmd } from '@/app/utils/executionStateMachine';
 import { patchExecutorDecisionRowReliable } from '@/app/utils/executorSeizureDecisionQueue';
 import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChunkScope';
+import {
+    openFollowupCoerciveModal,
+    type OpenFollowupModalPersistedFn,
+} from '../../utils/followupModalOpen';
 
 export type PendingCaseTask = {
     id: string;
@@ -165,6 +170,7 @@ export type UseExecutionDashboardPoliceAssistanceHandlersParams = {
     setPoliceAssistanceModalOpen: Dispatch<SetStateAction<boolean>>;
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
     setShowDecisionsModal: (show: boolean) => void;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     setUnifiedModalTab: Dispatch<SetStateAction<string>>;
     setFollowupExpandProcedureKey: Dispatch<SetStateAction<string | null>>;
@@ -190,6 +196,7 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
     setPoliceAssistanceModalOpen,
     executionDataRef,
     setShowDecisionsModal,
+    openFollowupModalPersisted,
     setShowUnifiedExecutionModal,
     setUnifiedModalTab,
     setFollowupExpandProcedureKey,
@@ -213,11 +220,14 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
         (input: { decisionId: string; requestTitle: string }) => {
             void input;
             setShowDecisionsModal(false);
-            setShowUnifiedExecutionModal(true);
-            setUnifiedModalTab('coercive');
+            openFollowupCoerciveModal(openFollowupModalPersisted, {
+                setShowUnifiedExecutionModal,
+                setUnifiedModalTab,
+            });
             setFollowupExpandProcedureKey('police');
         },
         [
+            openFollowupModalPersisted,
             setFollowupExpandProcedureKey,
             setShowDecisionsModal,
             setShowUnifiedExecutionModal,
@@ -227,9 +237,13 @@ export function useExecutionDashboardPoliceAssistanceHandlers({
 
     const savePoliceAssistanceEntry = useCallback(
         (input: SavePoliceAssistanceEntryInput) => {
-            const storageId = String(
-                decisionsStorageExecutionId || executionData?.id || executionId || '',
-            ).trim();
+            const storageId = resolveDecisionsStorageExecutionId(
+                String(decisionsStorageExecutionId || executionId || '').trim() || undefined,
+                resolveExecutionDataForDomainGate(
+                    String(executionId || decisionsStorageExecutionId || '').trim() || undefined,
+                    executionData as Record<string, unknown> | null,
+                ),
+            );
             runSavePoliceAssistanceEntry({
                 input,
                 evictionProcedureLocked,

@@ -106,8 +106,8 @@ function sanitizeDossierMetaFields(patch: Record<string, unknown>): ExecutionPer
                 ),
             },
         );
-        if (!validation.ok) {
-            return { ok: false, reason: validation.message };
+        if (!validation?.ok) {
+            return { ok: false, reason: validation?.message ?? 'بيانات الإضبارة غير صالحة' };
         }
     }
     return { ok: true, patch };

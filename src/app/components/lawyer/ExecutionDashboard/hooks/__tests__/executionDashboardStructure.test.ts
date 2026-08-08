@@ -29,20 +29,20 @@ const coerciveLifecycleBridgePath = path.join(
 );
 
 describe('ExecutionDashboard structural splits', () => {
-    it('keeps extracted phone-body section modules composed (ScrollContent owns Secondary+Deferred)', () => {
+    it('keeps phone body on live scope ref without orphaned scroll-content split', () => {
         const phoneBody = fs.readFileSync(phoneBodyPath, 'utf8');
         const scrollContentPath = path.join(
             root,
             'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardPhoneBodyScrollContent.tsx',
         );
-        const scrollContent = fs.readFileSync(scrollContentPath, 'utf8');
-        // ScrollContent is the extracted live module; PhoneBody still reads scope inline
-        // during staged cutover — verify extraction composition here.
-        expect(scrollContent).toContain('ExecutionDashboardPhoneBodySecondarySections');
-        expect(scrollContent).toContain('ExecutionDashboardPhoneBodyDeferredPanels');
-        expect(scrollContent).not.toContain('LazyExecutionDashboardPhoneBodySecondarySections');
-        expect(scrollContent).not.toContain('LazyExecutionDashboardPhoneBodyDeferredPanels');
-        expect(phoneBody).toContain('useExecutionPhoneBodyScopeRef');
+        expect(fs.existsSync(scrollContentPath)).toBe(false);
+        expect(phoneBody).toContain('useExecutionDashboardPhoneBodyScope');
+        expect(phoneBody).toContain('ExecutionDashboardPhoneBodySecondarySections');
+        expect(phoneBody).toContain('ExecutionDashboardPhoneBodyQuaternaryPanels');
+        expect(phoneBody).toContain('ExecutionDashboardPhoneBodyTertiaryPanels');
+        expect(phoneBody).toContain('includeCustodyRemoval={false}');
+        expect(phoneBody).not.toContain('LazyActionGridSection');
+        expect(phoneBody).not.toContain('LazyExecutionFinancialHubPortal');
     });
 
     it('uses grouped handler cluster boundaries and lazy phone body inside the chunk host', () => {
@@ -61,17 +61,18 @@ describe('ExecutionDashboard structural splits', () => {
         const shellSource = fs.readFileSync(viewPath, 'utf8');
         const resolvedSource = fs.readFileSync(resolvedViewPath, 'utf8');
         const runtimeSurfaceSource = fs.readFileSync(runtimeSurfacePath, 'utf8');
+        const corePath = path.join(
+            root,
+            'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts',
+        );
         expect(shellSource).toContain("ExecutionDashboardViewResolved");
         expect(shellSource).not.toContain('LazyExecutionDashboardViewResolved');
         expect(resolvedSource).toContain("ExecutionDashboardResolvedRuntimeSurface");
         expect(resolvedSource).not.toContain('LazyExecutionDashboardResolvedRuntimeSurface');
-        expect(runtimeSurfaceSource).toContain('useExecutionDashboardRuntimeAssembly');
+        expect(resolvedSource).toContain('useExecutionDashboardCore');
+        expect(runtimeSurfaceSource).toContain('useExecutionDashboardCore');
         expect(runtimeSurfaceSource).toContain('ExecutionDashboardChunkHost');
-        // المسار الحيّ: Core يجمّع؛ Surface لا يستدعي Assembly كـ hook (يمنع double-hook)
-        expect(runtimeSurfaceSource).toContain('void useExecutionDashboardRuntimeAssembly');
-        expect(runtimeSurfaceSource).not.toMatch(
-            /useExecutionDashboardRuntimeAssembly\s*\(\s*vm/,
-        );
+        expect(runtimeSurfaceSource).not.toContain('useExecutionDashboardRuntimeAssembly');
         expect(runtimeSurfaceSource).not.toContain('LazyExecutionDashboardChunkHost');
         expect(runtimeSurfaceSource).toContain(
             'loadSeizureRequestsHandlerCluster: runtimeVm.loadSeizureRequestsHandlerCluster',
@@ -79,6 +80,15 @@ describe('ExecutionDashboard structural splits', () => {
         expect(runtimeSurfaceSource).toContain(
             'loadSeizureLogHandlerCluster: runtimeVm.loadSeizureLogHandlerCluster',
         );
+        expect(fs.existsSync(corePath)).toBe(true);
+        expect(
+            fs.existsSync(
+                path.join(
+                    root,
+                    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardRuntimeAssembly.ts',
+                ),
+            ),
+        ).toBe(false);
     });
 
     it('splits coercive lifecycle into dedicated lazy bridges', () => {
@@ -93,10 +103,6 @@ describe('ExecutionDashboard structural splits', () => {
             root,
             'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts',
         );
-        const runtimeAssemblyPath = path.join(
-            root,
-            'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardRuntimeAssembly.ts',
-        );
         const partyLifecycleBridgePath = path.join(
             root,
             'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterCoercivePartyLifecycleBridge.tsx',
@@ -106,19 +112,42 @@ describe('ExecutionDashboard structural splits', () => {
             'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/ExecutionDashboardHandlerClusterPartyDeathBridge.tsx',
         );
         const coreSource = fs.readFileSync(corePath, 'utf8');
-        const runtimeAssembly = fs.readFileSync(runtimeAssemblyPath, 'utf8');
         const partyLifecycleBridge = fs.readFileSync(partyLifecycleBridgePath, 'utf8');
         const partyDeathBridge = fs.readFileSync(partyDeathBridgePath, 'utf8');
-        // المسار الحيّ: Core يملك الفتحات الخفيفة
         expect(coreSource).toContain('useExecutionDashboardPartyDeathOpeners(');
         expect(coreSource).toContain('partyDeathHandlers');
         expect(coreSource).toContain('loadPartyDeathHandlerCluster');
         expect(coreSource).not.toContain('useExecutionDashboardPartyDeathHandlers(');
-        // التوأم التاريخي Assembly يحتفظ بنفس العقد (لا يُستدعى من Surface الحيّ)
-        expect(runtimeAssembly).toContain('useExecutionDashboardPartyDeathOpeners(');
-        // الجسر الحقيقي يحمل الـ hook
         expect(partyDeathBridge).toContain('useExecutionDashboardPartyDeathHandlers');
-        // منع عودة النسخة المكررة داخل جسر lifecycle
         expect(partyLifecycleBridge).not.toContain('useExecutionDashboardPartyDeathHandlers');
+    });
+
+    it('does not keep superseded monolithic handler-cluster bridges', () => {
+        const coreDir = path.join(
+            root,
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore',
+        );
+        const removed = [
+            'ExecutionDashboardHandlerClusterCoerciveHeavyBridge.tsx',
+            'ExecutionDashboardHandlerClusterSeizureLogBridge.tsx',
+            'ExecutionDashboardHandlerClusterSeizureRequestsBridge.tsx',
+            'ExecutionDashboardHandlerClusterFollowupOtherPartyCreditorBridge.tsx',
+            'useExecutionDashboardCoreHandlerClusterCoerciveHeavy.ts',
+        ];
+        for (const file of removed) {
+            expect(fs.existsSync(path.join(coreDir, file))).toBe(false);
+        }
+
+        const groupsPath = path.join(
+            root,
+            'src/app/components/lawyer/ExecutionDashboard/components/ExecutionDashboardHandlerClusterGroups.tsx',
+        );
+        const groupsSource = fs.readFileSync(groupsPath, 'utf8');
+        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureHeavyBridge');
+        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureLogAssetModalBridge');
+        expect(groupsSource).toContain('LazyExecutionDashboardHandlerClusterSeizureLogResolutionBridge');
+        expect(groupsSource).not.toContain('SeizureRequestsBridge');
+        expect(groupsSource).not.toContain('SeizureLogBridge');
+        expect(groupsSource).not.toContain('CoerciveHeavyBridge');
     });
 });

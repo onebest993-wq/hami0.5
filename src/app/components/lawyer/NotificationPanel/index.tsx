@@ -1,16 +1,14 @@
 /**
- * NotificationPanel — إشعارات المنتدى والنظام
- *
- * سجل النشاطات (audit_log) أُزيل من المنتج.
- * التبويبات: المنتدى | النظام — وارد حقيقي فقط (لا إجراءات ذاتية).
+ * NotificationPanel — إشعارات المنتدى والنظام (موبايل أولاً)
  */
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import type { NotificationPanelProps } from '@/app/components/lawyer/NotificationPanel/types';
 import { useNotificationPanel } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanel';
 import { useNotificationFocusTrap } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationFocusTrap';
 import { useNotificationPanelChrome } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationPanelChrome';
 import { NotificationHeader } from '@/app/components/lawyer/NotificationPanel/components/NotificationHeader';
+import { NotificationAlertControls } from '@/app/components/lawyer/NotificationPanel/components/NotificationAlertControls';
 import { NotificationTabs } from '@/app/components/lawyer/NotificationPanel/components/NotificationTabs';
 import { NotificationEmptyState } from '@/app/components/lawyer/NotificationPanel/components/NotificationEmptyState';
 import { NotificationList } from '@/app/components/lawyer/NotificationPanel/components/NotificationList';
@@ -19,16 +17,31 @@ import { NotificationErrorBoundary } from '@/app/components/lawyer/NotificationP
 import { CaseShareIncomingSection } from '@/app/components/lawyer/NotificationPanel/components/CaseShareIncomingSection';
 import { NotificationArrivalAnnouncer } from '@/app/components/lawyer/NotificationPanel/components/NotificationArrivalAnnouncer';
 import { useNotificationLifecycle } from '@/app/components/lawyer/NotificationPanel/hooks/useNotificationLifecycle';
+import { useMinDisplayedLoading } from '@/app/components/lawyer/NotificationPanel/hooks/useMinDisplayedLoading';
 import {
     isNotificationHeaderBusy,
     isNotificationPanelColdLoading,
 } from '@/app/components/lawyer/NotificationPanel/utils/notificationHeaderBusy';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { inertProps } from '@/app/utils/inertProps';
+import { useHorizontalTabSwipe } from '@/app/utils/horizontalTabSwipe';
+import { useLawyerSettings, useLawyerSettingsActions } from '@/app/context/lawyerSettings/lawyerSettingsHooks';
+import {
+    normalizeNotificationSettings,
+    patchNotificationSettings,
+    sessionMuteUntilMs,
+} from '@/app/services/settings/notificationSettings';
+import { isSessionMuted } from '@/app/services/notifications/notificationAlertPolicy';
+import { stopHamiLegalReminderAlarm } from '@/app/services/calendar/calendarReminderAlarmSound';
+import './notificationPanel.css';
+
+export const NOTIFICATION_TAB_ORDER = ['forum', 'system'] as const;
 
 export type { NotificationPanelProps } from '@/app/components/lawyer/NotificationPanel/types';
 
 function NotificationPanelInner({
     isOpen,
+    keepAlive = false,
     onClose,
     userId,
     onNavigate,
@@ -52,6 +65,7 @@ function NotificationPanelInner({
         unreadCount,
         isLoading,
         hasCachedNotifications,
+        hasHydratedOnce,
         visibleNotifications,
         groupedByTime,
         tabCounts,
@@ -65,21 +79,208 @@ function NotificationPanelInner({
         hasCaseShareContent,
     } = useNotificationPanel(isOpen, userId, panelSessionKey, onClose, onNavigate);
 
+    const { settings } = useLawyerSettings();
+    const { patchSettings } = useLawyerSettingsActions();
+    const [alertControlsOpen, setAlertControlsOpen] = useState(false);
+    const isAlertsMuted = isSessionMuted(settings);
+
+    const handleQuickMute = () => {
+        stopHamiLegalReminderAlarm();
+        patchSettings((prev) => ({
+            ...prev,
+            notifications: patchNotificationSettings(
+                normalizeNotificationSettings(prev.notifications),
+                {
+                    sessionMutedUntil: sessionMuteUntilMs(60),
+                },
+            ),
+        }));
+    };
+
     useNotificationLifecycle(isOpen);
 
     const panelRef = useRef<HTMLDivElement>(null);
     const { onKeyDownCapture } = useNotificationFocusTrap(isOpen, panelRef, onClose);
 
-    const showHeaderBusy = isNotificationHeaderBusy(isLoading, hasCachedNotifications);
+    const sheetDragEnabled = isOpen && !isDesktop && !reduceMotion;
+
+    const showHeaderBusy = isNotificationHeaderBusy(
+        isLoading,
+        hasCachedNotifications || hasHydratedOnce,
+    );
     const showListLoading = useMemo(
         () =>
             isNotificationPanelColdLoading(
                 isLoading,
                 visibleNotifications.length,
                 hasCaseShareContent,
+                hasHydratedOnce,
             ),
-        [hasCaseShareContent, isLoading, visibleNotifications.length],
+        [hasCaseShareContent, hasHydratedOnce, isLoading, visibleNotifications.length],
     );
+    const displayListLoading = useMinDisplayedLoading(
+        showListLoading,
+        hasHydratedOnce || hasCachedNotifications ? 80 : 360,
+    );
+
+    const { swipeHandlers: tabSwipeHandlers } = useHorizontalTabSwipe({
+        order: NOTIFICATION_TAB_ORDER,
+        activeId: activeTab,
+        onChange: setActiveTab,
+        enabled: isOpen,
+    });
+
+    const mounted = isOpen || keepAlive;
+    if (!mounted) {
+        return null;
+    }
+
+    const panelContent = (
+        <>
+            <motion.button
+                type="button"
+                aria-label="إغلاق الإشعارات"
+                className="hami-notif-overlay-btn absolute inset-0"
+                initial={reduceMotion || keepAlive ? false : { opacity: 0 }}
+                animate={{ opacity: isOpen ? 1 : 0 }}
+                exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: 'none' as const }}
+                transition={overlayTransition}
+                onClick={onClose}
+            />
+
+            <motion.div
+                ref={panelRef}
+                role="dialog"
+                aria-label="الإشعارات"
+                aria-modal={isOpen ? 'true' : undefined}
+                aria-busy={showListLoading || undefined}
+                data-testid="notification-panel"
+                onKeyDownCapture={onKeyDownCapture}
+                drag={sheetDragEnabled ? 'y' : false}
+                dragConstraints={{ top: 0, bottom: 0 }}
+                dragElastic={{ top: 0, bottom: 0.38 }}
+                onDragEnd={(
+                    _event: unknown,
+                    info: { offset: { y: number }; velocity: { y: number } },
+                ) => {
+                    if (info.offset.y > 108 || info.velocity.y > 620) onClose();
+                }}
+                initial={keepAlive && !isOpen ? false : sheetInitial}
+                animate={{ x: 0, y: 0, opacity: isOpen ? 1 : 0 }}
+                exit={sheetExit}
+                transition={sheetEnterTransition}
+                style={{ marginBottom: !isDesktop && keyboardInset > 0 ? keyboardInset : undefined }}
+                className="hami-notif-sheet relative w-full sm:max-w-[420px] flex flex-col overflow-hidden touch-pan-y pb-[max(12px,env(safe-area-inset-bottom))]"
+                onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+                <div
+                    className="hami-notif-fx-orb pointer-events-none absolute -top-24 start-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-[#E6C673]/[0.06] blur-3xl"
+                    aria-hidden
+                />
+
+                <NotificationHeader
+                    unreadCount={unreadCount}
+                    showHeaderBusy={showHeaderBusy}
+                    isMarkingAllRead={isMarkingAllRead}
+                    onMarkAllRead={handleMarkAllRead}
+                    onClose={onClose}
+                    showDragHandle={!isDesktop}
+                    alertControlsOpen={alertControlsOpen}
+                    isAlertsMuted={isAlertsMuted}
+                    onToggleAlertControls={() => setAlertControlsOpen((v) => !v)}
+                    onQuickMute={handleQuickMute}
+                />
+
+                <NotificationAlertControls
+                    open={alertControlsOpen}
+                    onClose={() => setAlertControlsOpen(false)}
+                />
+
+                <NotificationArrivalAnnouncer />
+
+                <NotificationTabs
+                    activeTab={activeTab}
+                    onTabChange={setActiveTab}
+                    tabCounts={tabCounts}
+                />
+
+                <div
+                    id="notification-panel-tabpanel"
+                    role="tabpanel"
+                    aria-labelledby={`notification-tab-${activeTab}`}
+                    className="hami-notif-scroll flex-1 min-h-0 overflow-y-auto overscroll-contain px-4 py-3 touch-pan-y"
+                    data-testid="notification-panel-tabpanel"
+                    {...tabSwipeHandlers}
+                >
+                    <CaseShareIncomingSection
+                        userId={userId}
+                        shares={caseShareIncoming}
+                        onChanged={refreshCaseShares}
+                    />
+                    <AnimatePresence mode="wait" initial={false}>
+                        {displayListLoading ? (
+                            <motion.div
+                                key="notif-loading"
+                                initial={reduceMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={reduceMotion ? undefined : { opacity: 0 }}
+                                transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                            >
+                                <NotificationLoadingState />
+                            </motion.div>
+                        ) : visibleNotifications.length === 0 ? (
+                            <motion.div
+                                key="notif-empty"
+                                initial={reduceMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={reduceMotion ? undefined : { opacity: 0 }}
+                                transition={{ duration: reduceMotion ? 0 : 0.22 }}
+                            >
+                                <NotificationEmptyState tab={activeTab} />
+                            </motion.div>
+                        ) : (
+                            <motion.div
+                                key="notif-list"
+                                initial={reduceMotion ? false : { opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={reduceMotion ? undefined : { opacity: 0 }}
+                                transition={{ duration: reduceMotion ? 0 : 0.18 }}
+                            >
+                                <NotificationList
+                                    groupedByTime={groupedByTime}
+                                    onTap={handleTap}
+                                    onScan={handleScan}
+                                    onClientRequest={handleClientRequest}
+                                />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </motion.div>
+        </>
+    );
+
+    if (keepAlive) {
+        return (
+            <div
+                className="hami-notif-root fixed inset-0 z-[100] flex flex-col justify-end sm:justify-start sm:items-end sm:pe-4 sm:pb-6 overscroll-none"
+                role="presentation"
+                aria-hidden={!isOpen}
+                {...inertProps(!isOpen)}
+                style={
+                    isOpen
+                        ? undefined
+                        : {
+                              opacity: 0,
+                              visibility: 'hidden',
+                              pointerEvents: 'none',
+                          }
+                }
+            >
+                {panelContent}
+            </div>
+        );
+    }
 
     return (
         <AnimatePresence>
@@ -89,86 +290,10 @@ function NotificationPanelInner({
                     animate={{ opacity: 1 }}
                     exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: 'none' as const }}
                     transition={overlayTransition}
-                    className="fixed inset-0 z-[100] flex flex-col justify-end sm:justify-start sm:items-end sm:px-0 sm:pt-[max(72px,env(safe-area-inset-top))] sm:pe-4 sm:pb-6 overscroll-none"
+                    className="hami-notif-root fixed inset-0 z-[100] flex flex-col justify-end sm:justify-start sm:items-end sm:pe-4 sm:pb-6 overscroll-none"
                     role="presentation"
                 >
-                    <motion.button
-                        type="button"
-                        aria-label="إغلاق الإشعارات"
-                        className="absolute inset-0 bg-[#010308]/70 backdrop-blur-xl sm:bg-[#010308]/55"
-                        initial={reduceMotion ? false : { opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={reduceMotion ? undefined : { opacity: 0, pointerEvents: 'none' as const }}
-                        transition={overlayTransition}
-                        onClick={onClose}
-                    />
-
-                    <motion.div
-                        ref={panelRef}
-                        role="dialog"
-                        aria-label="الإشعارات"
-                        aria-modal="true"
-                        aria-busy={showListLoading || undefined}
-                        data-testid="notification-panel"
-                        onKeyDownCapture={onKeyDownCapture}
-                        initial={sheetInitial}
-                        animate={{ x: 0, y: 0, opacity: 1 }}
-                        exit={sheetExit}
-                        transition={sheetEnterTransition}
-                        style={{ marginBottom: !isDesktop && keyboardInset > 0 ? keyboardInset : undefined }}
-                        className="relative w-full sm:max-w-[420px] max-h-[88dvh] sm:max-h-[min(82dvh,720px)] flex flex-col rounded-t-[28px] sm:rounded-3xl overflow-hidden border-t border-x border-[#E6C673]/15 sm:border bg-[#080D18]/96 backdrop-blur-3xl shadow-[0_-16px_64px_rgba(0,0,0,0.7),0_0_56px_rgba(230,198,115,0.06)] sm:shadow-[0_24px_80px_rgba(0,0,0,0.65),0_0_48px_rgba(230,198,115,0.08)] pb-[max(12px,env(safe-area-inset-bottom))]"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div
-                            className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-[#E6C673]/[0.05] blur-3xl"
-                            aria-hidden
-                        />
-                        <div
-                            className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#E6C673]/[0.04] to-transparent"
-                            aria-hidden
-                        />
-
-                        <NotificationHeader
-                            unreadCount={unreadCount}
-                            showHeaderBusy={showHeaderBusy}
-                            isMarkingAllRead={isMarkingAllRead}
-                            onMarkAllRead={handleMarkAllRead}
-                            onClose={onClose}
-                        />
-
-                        <NotificationArrivalAnnouncer />
-
-                        <NotificationTabs
-                            activeTab={activeTab}
-                            onTabChange={setActiveTab}
-                            tabCounts={tabCounts}
-                        />
-
-                        <div
-                            id="notification-panel-tabpanel"
-                            role="tabpanel"
-                            aria-labelledby={`notification-tab-${activeTab}`}
-                            className="flex-1 overflow-y-auto px-4 py-3 custom-scrollbar min-h-0 overscroll-contain"
-                        >
-                            <CaseShareIncomingSection
-                                userId={userId}
-                                shares={caseShareIncoming}
-                                onChanged={refreshCaseShares}
-                            />
-                            {showListLoading ? (
-                                <NotificationLoadingState />
-                            ) : visibleNotifications.length === 0 ? (
-                                <NotificationEmptyState tab={activeTab} />
-                            ) : (
-                                <NotificationList
-                                    groupedByTime={groupedByTime}
-                                    onTap={handleTap}
-                                    onScan={handleScan}
-                                    onClientRequest={handleClientRequest}
-                                />
-                            )}
-                        </div>
-                    </motion.div>
+                    {panelContent}
                 </motion.div>
             ) : null}
         </AnimatePresence>

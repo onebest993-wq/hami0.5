@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Send, Users } from 'lucide-react';
+import { Send, Users } from '@/app/components/ui/lucideIcons';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 import { SharedDossierViewer } from '@/app/components/lawyer/caseShare/SharedDossierViewer';
 import { useCaseShareIncoming } from '../hooks/useCaseShareIncoming';

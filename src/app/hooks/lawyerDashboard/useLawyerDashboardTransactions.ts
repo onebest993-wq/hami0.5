@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatc
 import { flushSync } from 'react-dom';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 import {
     openTransactionsFromShell,
@@ -24,6 +25,10 @@ import {
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { subscribeOpenTransactionsHub } from '@/app/services/transactions/procedureGuideNavigation';
+import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
+import {
+    warmTransactionsThreadingStore,
+} from '@/app/modules/transactionsThreading/store';
 
 function loadTransactionsIntentWarm() {
     return import('@/app/hooks/lawyerDashboard/transactionsIntentWarm');
@@ -56,9 +61,11 @@ export function useLawyerDashboardTransactions({
 
     const closeTransactionsHub = useCallback(() => {
         showTransactionsRef.current = false;
-        flushSync(() => {
-            setShowTransactions(false);
-            setTransactionsFocusId(undefined);
+        executeOverlaySnapClose({
+            commit: () => {
+                setShowTransactions(false);
+                setTransactionsFocusId(undefined);
+            },
         });
         persistTransactionsSessionOpen(false);
     }, []);
@@ -70,18 +77,21 @@ export function useLawyerDashboardTransactions({
     }, []);
 
     const primeTransactionsHubMount = useCallback(() => {
+        warmTransactionsDiskRead(userId);
         void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(userId));
         armTransactionsHost();
     }, [armTransactionsHost, userId]);
 
     /** ركّب Host مخفياً فور وجود هوية — قبل أول لمسة معاملات (مثل الإعدادات) */
     useLayoutEffect(() => {
-        if (!isRealSignedIn(userId)) return;
+        const uid = userId?.trim();
+        if (!uid || !isRealSignedIn(uid)) return;
+        warmTransactionsDiskRead(uid);
         armTransactionsHost();
-        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(userId));
+        void loadTransactionsIntentWarm().then((m) => m.warmTransactionsOnHover(uid));
         void loadTransactionsHubLoader().then((m) => m.loadTransactionsHubModule()).catch(() => undefined);
         void import('@/app/modules/transactionsThreading/store')
-            .then((m) => m.warmTransactionsThreadingStore(userId))
+            .then((m) => m.warmTransactionsThreadingStore(uid))
             .catch(() => undefined);
     }, [armTransactionsHost, userId]);
 
@@ -170,7 +180,13 @@ export function useLawyerDashboardTransactions({
                 onOpen: () => {
                     if (showTransactionsRef.current) {
                         if (focusId !== undefined) setTransactionsFocusId(focusId);
+                        else setTransactionsFocusId(undefined);
                         return;
+                    }
+
+                    warmTransactionsDiskRead(userId);
+                    if (userId) {
+                        void warmTransactionsThreadingStore(userId);
                     }
 
                     flushSync(() => {
@@ -181,13 +197,6 @@ export function useLawyerDashboardTransactions({
                         setShowTransactions(true);
                     });
                     persistTransactionsSessionOpen(true);
-
-                    /* مخزن البطاقات مع إطار الفتح — لا تنتظر microtask */
-                    if (userId) {
-                        void import('@/app/modules/transactionsThreading/store')
-                            .then((m) => m.warmTransactionsThreadingStore(userId))
-                            .catch(() => undefined);
-                    }
 
                     queueMicrotask(() => {
                         dismissTransientOverlays('transactions');

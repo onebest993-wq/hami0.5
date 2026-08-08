@@ -33,7 +33,7 @@ export const ProceduralAddChildModal = ({ open, onClose, onPick }: ProceduralAdd
                             onClick={() => onPick(opt.kind)}
                             className="w-full rounded-xl border border-slate-600/60 bg-slate-800/40 px-3 py-3 text-right hover:border-[#E6C673]/50 transition"
                         >
-                            <div className="text-white font-black text-sm">➕ {opt.label}</div>
+                            <div className="text-white font-black text-sm">{opt.label}</div>
                             <div className="text-white/50 text-[10px] font-bold mt-0.5">{opt.hint}</div>
                         </button>
                     ))}

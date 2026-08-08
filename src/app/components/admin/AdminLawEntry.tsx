@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { cn } from "@/app/components/ui/utils";
 import { SmartDialog } from "@/app/components/ui/SmartDialog";
 import { SecureAPIClient, SecureFetchError } from "@/app/services/SecureAPIClient";
-import { Pin, Scale } from "lucide-react";
+import { Pin, Scale } from '@/app/components/ui/lucideIcons';
 import { IRAQI_LAW_CANONICAL_NAMES, CIVIL_LAW_CANONICAL_NAMES, EXECUTION_LAW_CANONICAL_NAME, isAllowedIraqiLawName, resolveLawCodeTypeFromName, resolveCivilLawCodeTypeFromName } from "@/app/constants/iraqiLawCatalog";
 import { invalidateLegalCodeArticlesCache } from "@/app/components/lawyer/criminal-system/legalCodes/legalCodesDataCache";
 import { invalidateExecutionLawRemoteCache } from "@/app/utils/executionLawRemoteCache";

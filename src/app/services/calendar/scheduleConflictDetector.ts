@@ -2,6 +2,7 @@
  * كاشف تعارضات/إثقال عبر أقسام الجدول ليوم محدد.
  * يوحّد الجلسات والمعاملات والمهام، ويستبعد المكتمل، ويستخدم المحكمة كاحتياطي موقع.
  */
+import { resolveExplicitCalendarEventDurationMinutes } from '@/app/services/calendar/calendarDurationUtils';
 
 export type ScheduleItemSource = 'HEARING' | 'TRANSACTION' | 'TASK';
 
@@ -12,6 +13,7 @@ export type UnifiedScheduleItem = {
     location?: string;
     time?: string;
     source: ScheduleItemSource;
+    durationMinutes?: number;
 };
 
 export type CrossSectionConflictInput = {
@@ -69,6 +71,20 @@ export type CrossSectionConflictResult = {
 
 const OVERLOAD_THRESHOLD = 3;
 const TRAVEL_GAP_MINUTES = 60;
+const DEFAULT_DURATION_MINUTES: Record<ScheduleItemSource, number> = {
+    HEARING: 60,
+    TRANSACTION: 45,
+    TASK: 30,
+};
+
+export function resolveScheduleItemDurationMinutes(
+    source: ScheduleItemSource,
+    explicitMinutes?: number | null,
+): number {
+    const raw = Number(explicitMinutes);
+    if (Number.isFinite(raw) && raw > 0) return Math.round(raw);
+    return DEFAULT_DURATION_MINUTES[source];
+}
 
 const EMPTY_SOURCE_COUNTS = (): SourceCounts => ({
     HEARING: 0,
@@ -109,6 +125,7 @@ function pushSource(
               location?: string;
               time?: string;
               isCompleted?: boolean;
+              durationMinutes?: number;
           }>
         | undefined,
     source: ScheduleItemSource,
@@ -132,6 +149,7 @@ function pushSource(
             location,
             time,
             source,
+            durationMinutes: row.durationMinutes,
         });
     }
 }
@@ -164,7 +182,11 @@ function findTravelConflict(items: UnifiedScheduleItem[]): TravelConflictDetail 
     for (let i = 1; i < timed.length; i++) {
         const prev = timed[i - 1];
         const curr = timed[i];
-        const gap = curr.minutes - prev.minutes;
+        const prevDuration =
+            prev.item.durationMinutes != null
+                ? resolveScheduleItemDurationMinutes(prev.item.source, prev.item.durationMinutes)
+                : 0;
+        const gap = curr.minutes - (prev.minutes + prevDuration);
         const prevLoc = normalizeLocation(prev.item.location);
         const currLoc = normalizeLocation(curr.item.location);
         if (
@@ -298,6 +320,8 @@ export type CalendarLikeEvent = {
     location?: string;
     court?: string;
     time?: string;
+    endTime?: string;
+    durationMinutes?: number;
     type?: string;
     source?: string;
     isCompleted?: boolean;
@@ -324,6 +348,7 @@ export function detectConflictsFromUnifiedEvents(
         );
         const location =
             normalizeLocation(ev.location) || normalizeLocation(ev.court) || undefined;
+        const explicitDuration = resolveExplicitCalendarEventDurationMinutes(ev);
         const row = {
             id: ev.id,
             title: ev.title,
@@ -331,6 +356,7 @@ export function detectConflictsFromUnifiedEvents(
             location,
             time: ev.time,
             isCompleted: false,
+            durationMinutes: explicitDuration ?? undefined,
         };
         if (source === 'TRANSACTION') transactions!.push(row);
         else if (source === 'TASK') tasks!.push(row);

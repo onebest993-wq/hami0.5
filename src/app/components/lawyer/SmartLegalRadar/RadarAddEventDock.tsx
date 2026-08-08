@@ -1,7 +1,7 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import { prefetchRadarEventForm } from '@/app/runtime/radarWidgetLoader';
-import { RADAR_ADD_DOCK, RADAR_BTN_GOLD } from './radarTheme';
+import { RADAR_ADD_DOCK, RADAR_BTN_ADD } from './radarTheme';
 
 type RadarAddEventDockProps = {
     selectedDate: string;
@@ -22,6 +22,36 @@ function formatSelectedDayLabel(selectedDate: string): string {
     }
 }
 
+function RadarAddEventDockChrome({
+    children,
+    ariaHidden,
+}: {
+    children: React.ReactNode;
+    ariaHidden?: boolean;
+}) {
+    return (
+        <div className={RADAR_ADD_DOCK} data-testid="radar-day-actions" aria-hidden={ariaHidden}>
+            {children}
+        </div>
+    );
+}
+
+/** هيكل مرساة الإضافة — يمنع قفزة التخطيط قبل اكتمال chunk الرادار */
+export function RadarAddEventDockPlaceholder(): React.ReactElement {
+    return (
+        <RadarAddEventDockChrome ariaHidden>
+            <div
+                className={`${RADAR_BTN_ADD} pointer-events-none select-none`}
+                data-testid="radar-add-event"
+                aria-hidden
+            >
+                <Plus size={16} aria-hidden />
+                إضافة موعد
+            </div>
+        </RadarAddEventDockChrome>
+    );
+}
+
 /** زر إضافة الموعد فقط — بدون شريط/حاوية ضخمة */
 export const RadarAddEventDock = React.memo(function RadarAddEventDock({
     selectedDate,
@@ -30,19 +60,19 @@ export const RadarAddEventDock = React.memo(function RadarAddEventDock({
     const dayLabel = formatSelectedDayLabel(selectedDate);
 
     return (
-        <div className={RADAR_ADD_DOCK} data-testid="radar-day-actions">
+        <RadarAddEventDockChrome>
             <button
                 type="button"
                 onClick={onAddEvent}
                 onPointerEnter={prefetchRadarEventForm}
                 onPointerDown={prefetchRadarEventForm}
                 data-testid="radar-add-event"
-                className={`${RADAR_BTN_GOLD} w-full`}
+                className={RADAR_BTN_ADD}
                 aria-label={`إضافة موعد ليوم ${dayLabel}`}
             >
                 <Plus size={16} aria-hidden />
                 إضافة موعد
             </button>
-        </div>
+        </RadarAddEventDockChrome>
     );
 });

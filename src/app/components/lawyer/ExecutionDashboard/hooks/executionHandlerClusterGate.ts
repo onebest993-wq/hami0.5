@@ -2,6 +2,10 @@
 import { readHandlerClusterContextValue } from './executionDashboardCore/handlerClusterContextShared';
 
 export type ExecutionHandlerClusterGateInput = {
+    /** إضبارة تنفيذ مفتوحة — تسخّن جسور الحجز دون انتظار فتح محضر/سجل */
+    hasOpenExecutionDossier?: boolean;
+    /** إضبارة إخلاء — شارات المدين (مهلة إخلاء، شرطة، كسر) تحتاج جسور جبري */
+    isEvictionExecutionModule?: boolean;
     showUnifiedExecutionModal: boolean;
     showUnifiedSummonsModal: boolean;
     unifiedModalTab?: string | null;
@@ -12,8 +16,9 @@ export type ExecutionHandlerClusterGateInput = {
     showPaymentModal: boolean;
     showNotificationModal: boolean;
     showNotesModal: boolean;
-    showCoerciveActionForm: boolean;
+    showCoerciveActionForm: string | null;
     showEditDossierMetaModal: boolean;
+    editPartyTarget?: unknown;
     partyDeathModalParty: 'creditor' | 'debtor' | null;
     dossierLifecyclePanelOpen: boolean;
     isHeaderExpanded: boolean;
@@ -33,7 +38,7 @@ export function shouldLoadExecutionHandlerClusterLight(input: ExecutionHandlerCl
 
 /**
  * عند فتح الإضبارة: يُفضَّل تحميل light فوراً حتى لو لم تُفتح نوافذ بعد.
- * تُستخدم من RuntimeAssembly مع وجود executionData.
+ * تُستخدم من Core مع وجود executionData.
  */
 export function shouldPreferLightHandlerClusterOnDossierMount(hasExecutionData: boolean): boolean {
     return Boolean(hasExecutionData);
@@ -50,6 +55,8 @@ export function shouldLoadExecutionHandlerClusterFollowupHeavy(input: ExecutionH
 export function shouldLoadExecutionHandlerClusterFollowupAdminSpecial(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
+    // سخّن جسر نماذج الطلبات طوال فتح المحضر — كما أدوات الإضبارة وطلبات الحجز
+    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'admin-special';
 }
 
@@ -63,12 +70,16 @@ export function shouldLoadExecutionHandlerClusterFollowupControlsOtherParty(
 export function shouldLoadExecutionHandlerClusterFollowupDossierControls(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
+    // سخّن جسر أدوات الإضبارة طوال فتح المحضر — كما طلبات الحجز
+    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'dossier-controls';
 }
 
 export function shouldLoadExecutionHandlerClusterFollowupOtherParty(
     input: ExecutionHandlerClusterGateInput,
 ): boolean {
+    // سخّن جسر تحركات الطرف الآخر طوال فتح المحضر
+    if (input.showUnifiedExecutionModal) return true;
     return resolveExecutionHandlerClusterFollowupMode(input) === 'other-party';
 }
 
@@ -91,8 +102,12 @@ export function shouldLoadExecutionHandlerClusterCoerciveHeavy(input: ExecutionH
 }
 
 export function shouldLoadExecutionHandlerClusterDossierSupport(input: ExecutionHandlerClusterGateInput): boolean {
-    // توسيع الهيدر = نية تعديل بيانات الإضبارة — حمّل الدعم قبل أن يضغط المستخدم الزر على stub
-    return Boolean(input.showEditDossierMetaModal || input.isHeaderExpanded);
+    // توسيع الهيدر أو فتح تعديل طرف — حمّل الدعم قبل أن يضغط المستخدم على stub
+    return Boolean(
+        input.showEditDossierMetaModal ||
+            input.isHeaderExpanded ||
+            input.editPartyTarget != null,
+    );
 }
 
 export function resolveExecutionHandlerClusterFollowupMode(
@@ -121,6 +136,10 @@ export function resolveExecutionHandlerClusterFollowupMode(
 export function resolveExecutionHandlerClusterHeavyMode(
     input: ExecutionHandlerClusterGateInput,
 ): ExecutionHandlerClusterHeavyMode {
+    if (input.hasOpenExecutionDossier && input.isEvictionExecutionModule) {
+        return 'coercive';
+    }
+
     if (
         input.showCoerciveModal ||
         input.showCoerciveActionForm ||
@@ -179,6 +198,10 @@ export function resolveExecutionHandlerClusterSeizureMode(
         return 'requests';
     }
 
+    if (input.hasOpenExecutionDossier) {
+        return 'requests';
+    }
+
     return 'none';
 }
 
@@ -211,14 +234,11 @@ export function shouldLoadExecutionEmployeeAssignmentBridge(
     );
 }
 
+/** مفتاح إعادة mount للجسور — لا يتضمن epoch القرارات (يُبقي المعالجات الحية بعد الموافقة) */
 export function buildExecutionHandlerClusterMountKey(p: {
     executionId: string | undefined;
-    activeTabId: string;
-    decisionsReloadEpoch: number;
+    activeTabId?: string;
     activeFollowupDebtorKey: string | undefined;
 }): string {
-    return [
-        p.executionId ?? '',
-        p.activeFollowupDebtorKey ?? '',
-    ].join(':');
+    return [p.executionId ?? '', p.activeFollowupDebtorKey ?? '', p.activeTabId ?? ''].join(':');
 }

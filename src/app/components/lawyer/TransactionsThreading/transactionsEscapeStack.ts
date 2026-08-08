@@ -26,6 +26,7 @@ export type TransactionsEscapeAction =
     | 'close-task-complete'
     | 'close-task-edit'
     | 'close-task-delete'
+    | 'close-share-procedure'
     | 'close-add-transaction'
     | 'back-to-list'
     | 'exit-hub';
@@ -39,6 +40,7 @@ const CLOSED_DETAILS: TransactionsDetailsEscapeSnapshot = {
     taskCompleteOpen: false,
     taskEditOpen: false,
     taskDeleteOpen: false,
+    shareProcedureOpen: false,
 };
 
 export function emptyTransactionsDetailsEscape(): TransactionsDetailsEscapeSnapshot {
@@ -81,6 +83,9 @@ export function applyTransactionsEscapeAction(
         case 'close-task-delete':
             handlers.onCloseDetailsOverlay({ taskDeleteOpen: false });
             break;
+        case 'close-share-procedure':
+            handlers.onCloseDetailsOverlay({ shareProcedureOpen: false });
+            break;
         case 'close-add-transaction':
             handlers.onCloseListAddSheet();
             break;
@@ -104,6 +109,7 @@ export function resolveTransactionsEscapeAction(
         if (d.completeOpen) return 'close-complete';
         if (d.saveTemplateOpen) return 'close-save-template';
         if (d.templatesOpen) return 'close-templates';
+        if (d.shareProcedureOpen) return 'close-share-procedure';
         if (d.taskDeleteOpen) return 'close-task-delete';
         if (d.taskEditOpen) return 'close-task-edit';
         if (d.taskCompleteOpen) return 'close-task-complete';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell } from 'lucide-react';
+import { Bell } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile } from '@/app/types/execution';
 import {
     formatGuarantorIqdForDisplay,

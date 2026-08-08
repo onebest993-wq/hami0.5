@@ -8,8 +8,8 @@ import { AppealTransitionModal } from '../../AppealTransitionModal';
 import { CrossAppealModal } from '../../CrossAppealModal';
 import {
     LazyAddProvisionalOrderModal,
-    LazyJudicialNotificationModal,
 } from '../../lazySmartFileModalChunks';
+import { JudicialNotificationModal } from '../../modals/appealObjectionModals';
 
 export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps) {
     const {
@@ -33,6 +33,7 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
         parentData,
         handlers: h,
         appealRoute,
+        lawsuitFile,
     } = props;
 
     const crossAppealEligibility = resolveCrossAppealEligibility({
@@ -80,8 +81,11 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                 judgmentForm={currentStage.judgmentForm}
                 lastJudgmentType={currentStage.lastJudgmentType}
                 stageName={currentStage.stageName}
+                finalDecision={currentStage.finalDecision}
                 incidentalCases={currentStage.incidentalCases}
                 appealRoute={appealRoute}
+                stages={stages}
+                lawsuitFile={lawsuitFile}
             />
             <AppealTransitionModal
                 key="appeal-transition"
@@ -94,10 +98,22 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                 currentParties={partiesForLegacyModals(currentStage.parties)}
                 representedParty={parentData.representedParty ?? ''}
                 judgmentType={tempJudgmentData?.judgmentType as string | undefined}
-                judgmentForm={tempJudgmentData?.judgmentForm as string | undefined}
+                judgmentForm={
+                    (tempJudgmentData?.judgmentForm as string | undefined) ??
+                    currentStage.judgmentForm ??
+                    currentStage.lastJudgmentType
+                }
+                lastJudgmentType={
+                    (tempJudgmentData?.lastJudgmentType as string | undefined) ??
+                    currentStage.lastJudgmentType ??
+                    currentStage.judgmentForm
+                }
                 stageName={currentStage.stageName}
+                finalDecision={currentStage.finalDecision}
                 incidentalCases={currentStage.incidentalCases}
                 appealRoute={appealRoute}
+                stages={stages}
+                lawsuitFile={lawsuitFile}
             />
             <CrossAppealModal
                 key="cross-appeal"
@@ -119,14 +135,12 @@ export function SmartFileModalsJudgmentSection(props: SmartFileModalsPortalProps
                     currentParties={partiesForLegacyModals(currentStage.parties)}
                 />
             ) : null}
-            {showNotificationModal ? (
-                <LazyJudicialNotificationModal
-                    key="notification"
-                    isOpen={showNotificationModal}
-                    onClose={() => setShowNotificationModal(false)}
-                    onConfirm={h.handleSaveNotification}
-                />
-            ) : null}
+            <JudicialNotificationModal
+                key="notification"
+                isOpen={showNotificationModal}
+                onClose={() => setShowNotificationModal(false)}
+                onConfirm={h.handleSaveNotification}
+            />
         </>
     );
 }

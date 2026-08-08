@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, CheckCircle, Newspaper, UserCheck } from 'lucide-react';
+import { Bell, CheckCircle, Newspaper, UserCheck } from '@/app/components/ui/lucideIcons';
 import type { SummonsHubActiveSnapshot, SummonsHubKind } from '../summonsHubActiveLocks';
 import { countActiveSummonsPaths } from '../summonsHubActiveLocks';
 

@@ -1,5 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useGlobalSearch } from '@/app/components/lawyer/GlobalSearchOverlay/useGlobalSearch';
 import type { GlobalSearchOverlayProps } from '@/app/components/lawyer/GlobalSearchOverlay/types';
 import { GlobalSearchErrorBoundary } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchErrorBoundary';
@@ -9,6 +8,7 @@ import { GlobalSearchRuntimeProvider } from '@/app/components/lawyer/GlobalSearc
 import { isSearchHeaderBusy } from '@/app/components/lawyer/GlobalSearchOverlay/utils/searchHeaderBusy';
 import { useGlobalSearchLifecycle } from '@/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchLifecycle';
 import { GlobalSearchOverlayStaticShell } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayStaticShell';
+import type { GlobalSearchOverlayShellContentProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 import {
     filterGroupedResultsByScope,
     type GlobalSearchScopeId,
@@ -31,8 +31,12 @@ function GlobalSearchOverlayInner({
     initialQuery = '',
     indexVersion = 0,
     searchSessionKey = 0,
+    headless = false,
+    onShellContent,
+    shellOverlayRef,
+    shellInputRef,
+    focusArmed = true,
 }: GlobalSearchOverlayProps) {
-    useBodyScrollLock(open);
     useGlobalSearchLifecycle(open);
 
     const [searchScope, setSearchScope] = useState<GlobalSearchScopeId>('all');
@@ -79,12 +83,70 @@ function GlobalSearchOverlayInner({
         onKeyDownCapture,
         keyboardInset,
         resultsMaxHeight,
-    } = useGlobalSearchOverlayChrome(open, scopedResults, onClose, handleResultClick);
+    } = useGlobalSearchOverlayChrome(open, scopedResults, onClose, handleResultClick, {
+        overlayRef: shellOverlayRef,
+        inputRef: shellInputRef,
+        keyboardInsetEnabled: open,
+    });
 
     const scanIndexForPreview = useSearchScanIndex(files, executionFiles, criminalCases, pinLookup);
 
     const showEmptyState = !query.trim();
     const headerBusy = isSearchHeaderBusy(query, isSearching, isLoadingIndex);
+
+    const shellContent = useMemo<GlobalSearchOverlayShellContentProps>(
+        () => ({
+            onKeyDownCapture,
+            keyboardInset,
+            resultsMaxHeight,
+            query,
+            setQuery,
+            showEmptyState,
+            headerBusy,
+            isEnrichingIndex,
+            recentSearches,
+            clearRecent,
+            isSearching,
+            isLoadingIndex,
+            results: scopedResults,
+            flatResults,
+            pick,
+            pinLookup,
+            scanIndexForPreview,
+            activeIndex,
+            setActiveIndex,
+            searchScope,
+            onSearchScopeChange: setSearchScope,
+        }),
+        [
+            onKeyDownCapture,
+            focusArmed,
+            keyboardInset,
+            resultsMaxHeight,
+            query,
+            setQuery,
+            showEmptyState,
+            headerBusy,
+            isEnrichingIndex,
+            recentSearches,
+            clearRecent,
+            isSearching,
+            isLoadingIndex,
+            scopedResults,
+            flatResults,
+            pick,
+            pinLookup,
+            scanIndexForPreview,
+            activeIndex,
+            setActiveIndex,
+            searchScope,
+        ],
+    );
+
+    useLayoutEffect(() => {
+        if (!headless || !onShellContent) return;
+        onShellContent(shellContent);
+    }, [headless, onShellContent, shellContent]);
 
     const shellProps = {
         open,
@@ -93,27 +155,8 @@ function GlobalSearchOverlayInner({
         onClose,
         overlayRef,
         inputRef,
-        onKeyDownCapture,
-        keyboardInset,
-        resultsMaxHeight,
-        query,
-        setQuery,
-        showEmptyState,
-        headerBusy,
-        isEnrichingIndex,
-        recentSearches,
-        clearRecent,
-        isSearching,
-        isLoadingIndex,
-        results: scopedResults,
-        flatResults,
-        pick,
-        pinLookup,
-        scanIndexForPreview,
-        activeIndex,
-        setActiveIndex,
-        searchScope,
-        onSearchScopeChange: setSearchScope,
+        focusArmed,
+        ...shellContent,
     };
 
     /*
@@ -121,6 +164,10 @@ function GlobalSearchOverlayInner({
      * (يمنع وميض الخلفية/اللوحة عند أول فتح بارد).
      */
     if (!open && !keepWarm) {
+        return null;
+    }
+
+    if (headless) {
         return null;
     }
 
@@ -132,6 +179,7 @@ export function GlobalSearchOverlay(props: GlobalSearchOverlayProps) {
         open = true,
         files,
         executionFiles,
+        lawsuitLifecycleIndex,
         globalNotes,
         notifications,
         criminalCases,
@@ -147,6 +195,7 @@ export function GlobalSearchOverlay(props: GlobalSearchOverlayProps) {
             warmIndex={open}
             files={files}
             executionFiles={executionFiles}
+            lawsuitLifecycleIndex={lawsuitLifecycleIndex}
             globalNotes={globalNotes}
             notifications={notifications}
             criminalCases={criminalCases}

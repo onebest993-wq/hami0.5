@@ -1,5 +1,5 @@
 import React from 'react';
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 import { CaseShareIncomingCard } from './CaseShareIncomingCard';
 

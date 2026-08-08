@@ -16,6 +16,17 @@ export const ARABIC_WEEKDAY_LABELS = [
     'السبت',
 ] as const;
 
+/** اختصارات أيام الأسبوع — للتقويم والبطاقات المدمجة */
+export const ARABIC_WEEKDAY_SHORT_LABELS = [
+    'أحد',
+    'إثن',
+    'ثل',
+    'أرب',
+    'خم',
+    'جم',
+    'سب',
+] as const;
+
 function escapeVisitationPrintHtml(value: string): string {
     return value
         .replace(/&/g, '&amp;')
@@ -174,6 +185,13 @@ export function formatDateLongAr(ymd: string): string {
     return `${ARABIC_WEEKDAY_LABELS[d.getDay()]} الموافق ${d.getDate()} ${IRAQI_ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
+/** تاريخ مختصر للبطاقات — بدون سنة عند الحاجة للإيجاز */
+export function formatDateCompactAr(ymd: string): string {
+    const d = parseYmdToLocalDate(ymd);
+    if (!d) return ymd;
+    return `${ARABIC_WEEKDAY_SHORT_LABELS[d.getDay()]} ${d.getDate()} ${IRAQI_ARABIC_MONTHS[d.getMonth()]}`;
+}
+
 /** يضيف أياماً تقويمية إلى YYYY-MM-DD */
 export function addCalendarDaysToYmd(ymd: string, days: number): string | null {
     const d = parseYmdToLocalDate(ymd);
@@ -251,6 +269,61 @@ export function describeVisitationSessionTiming(
 export function computeSleepoverReturnYmd(pickupYmd: string, sleepoverNights: number): string | null {
     const nights = Math.max(1, Number(sleepoverNights) || 1);
     return addCalendarDaysToYmd(pickupYmd, nights);
+}
+
+/** تاريخ إرجاع الطفل بعد المبيت — null إذا ليس وضع مبيت */
+export function computeVisitationSessionReturnYmd(
+    config: VisitationScheduleConfig,
+    pickupYmd: string,
+): string | null {
+    if (config.decisionMode !== 'viewing_pickup_sleepover') return null;
+    const nights = Math.max(1, Number(config.sleepoverNights) || 1);
+    return addCalendarDaysToYmd(pickupYmd, nights);
+}
+
+export type VisitationAppointmentSummary = {
+    mode: VisitationDecisionMode;
+    location: string;
+    pickupTime: string;
+    endTime?: string;
+    returnDateYmd?: string | null;
+    returnTime?: string;
+    nightsLabel?: string;
+};
+
+/** ملخص مدمج لعرض بطاقة الموعد دون ازدحام */
+export function summarizeVisitationAppointment(
+    config: VisitationScheduleConfig,
+    sessionDateYmd: string,
+): VisitationAppointmentSummary {
+    const location = String(config.location || '').trim() || '—';
+    const pickupTime = formatVisitationClock(config.startTime);
+    const base: VisitationAppointmentSummary = {
+        mode: config.decisionMode,
+        location,
+        pickupTime,
+    };
+
+    if (config.decisionMode === 'viewing_only') {
+        return {
+            ...base,
+            endTime: formatVisitationClock(config.endTime),
+        };
+    }
+    if (config.decisionMode === 'viewing_pickup') {
+        return {
+            ...base,
+            endTime: formatVisitationClock(config.endTime),
+        };
+    }
+
+    const nights = Math.max(1, Number(config.sleepoverNights) || 1);
+    return {
+        ...base,
+        returnDateYmd: computeVisitationSessionReturnYmd(config, sessionDateYmd),
+        returnTime: formatVisitationClock(config.returnTime),
+        nightsLabel: nights === 1 ? 'ليلة واحدة' : `${nights} ليالي`,
+    };
 }
 
 /** أول تاريخ ≥ executionStartDate يطابق أيام الأسبوع وترتيب أسابيع الشهر */
@@ -401,19 +474,87 @@ export function sessionCalendarLabel(
     return 'مجدول';
 }
 
-export type VisitationCalendarCellTone = 'empty' | 'scheduled' | 'overdue' | 'documented_success' | 'documented_absence';
+export type VisitationCalendarCellTone =
+    | 'empty'
+    | 'scheduled'
+    | 'overdue'
+    | 'documented_success'
+    | 'documented_absence'
+    | 'return_scheduled'
+    | 'return_overdue'
+    | 'return_documented_success'
+    | 'return_documented_absence';
 
-export function resolveVisitationCalendarCellTone(
-    session: VisitationSession | undefined,
-    todayYmd: string
-): VisitationCalendarCellTone {
-    if (!session) return 'empty';
+export type VisitationCalendarDayRole = 'pickup' | 'return';
+
+export type VisitationCalendarDayMarker = {
+    session: VisitationSession;
+    role: VisitationCalendarDayRole;
+};
+
+export function buildVisitationCalendarDayMarkers(
+    config: VisitationScheduleConfig,
+    sessions: VisitationSession[],
+): Map<string, VisitationCalendarDayMarker[]> {
+    const map = new Map<string, VisitationCalendarDayMarker[]>();
+    const push = (ymd: string, marker: VisitationCalendarDayMarker) => {
+        const list = map.get(ymd) ?? [];
+        list.push(marker);
+        map.set(ymd, list);
+    };
+    for (const session of sessions) {
+        push(session.date, { session, role: 'pickup' });
+        const returnYmd = computeVisitationSessionReturnYmd(config, session.date);
+        if (returnYmd && returnYmd !== session.date) {
+            push(returnYmd, { session, role: 'return' });
+        }
+    }
+    return map;
+}
+
+function resolvePickupCalendarTone(session: VisitationSession, todayYmd: string): VisitationCalendarCellTone {
     if (isVisitationSessionDocumented(session)) {
         return session.status === 'completed' ? 'documented_success' : 'documented_absence';
     }
     const today = String(todayYmd || '').trim();
     if (today && session.date < today) return 'overdue';
     return 'scheduled';
+}
+
+function resolveReturnCalendarTone(
+    session: VisitationSession,
+    returnYmd: string,
+    todayYmd: string,
+): VisitationCalendarCellTone {
+    if (isVisitationSessionDocumented(session)) {
+        return session.status === 'completed'
+            ? 'return_documented_success'
+            : 'return_documented_absence';
+    }
+    const today = String(todayYmd || '').trim();
+    if (today && returnYmd < today) return 'return_overdue';
+    return 'return_scheduled';
+}
+
+export function resolveVisitationCalendarCellToneForDate(
+    markers: VisitationCalendarDayMarker[] | undefined,
+    dateYmd: string,
+    todayYmd: string,
+): VisitationCalendarCellTone {
+    if (!markers?.length) return 'empty';
+    const pickup = markers.find((m) => m.role === 'pickup');
+    if (pickup) return resolvePickupCalendarTone(pickup.session, todayYmd);
+    const ret = markers.find((m) => m.role === 'return');
+    if (ret) return resolveReturnCalendarTone(ret.session, dateYmd, todayYmd);
+    return 'empty';
+}
+
+export function resolveVisitationCalendarCellTone(
+    session: VisitationSession | undefined,
+    todayYmd: string,
+): VisitationCalendarCellTone {
+    if (!session) return 'empty';
+    return resolvePickupCalendarTone(session, todayYmd);
 }
 
 export function normalizeVisitationConfig(
@@ -736,12 +877,9 @@ export function openVisitationBreachMemoPrint(input: VisitationBreachMemoInput):
     const html = buildVisitationBreachMemoHtml(input);
     const w = window.open('', '_blank', 'noopener,noreferrer,width=820,height=960');
     if (!w) return;
-    const doc = w.document;
-    doc.open();
-    doc.close();
-
-    const parsed = new DOMParser().parseFromString(html, 'text/html');
-    doc.documentElement.replaceWith(doc.importNode(parsed.documentElement, true));
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
     w.focus();
     w.setTimeout(() => {
         try {

@@ -20,6 +20,7 @@ export function useNotificationPanel(
     const notifications = useNotificationStore((s) => s.notifications);
     const unreadCount = useNotificationStore((s) => s.unreadCount);
     const isLoading = useNotificationStore((s) => s.isLoading);
+    const hasHydratedOnce = useNotificationStore((s) => s.hasHydratedOnce);
     const markAsRead = useNotificationStore((s) => s.markAsRead);
     const markAllAsRead = useNotificationStore((s) => s.markAllAsRead);
 
@@ -95,6 +96,7 @@ export function useNotificationPanel(
         unreadCount: combinedUnreadCount,
         isLoading,
         hasCachedNotifications: notifications.length > 0,
+        hasHydratedOnce,
         visibleNotifications,
         groupedByTime,
         tabCounts,

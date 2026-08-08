@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } from 'react';
 
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { HUB_NESTED_OVERLAY_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
+import { HUB_NESTED_OVERLAY_Z_CLASS, HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
 import { getLegalRole } from './LawyerShared';
 const LazyCriminalNewCase = React.lazy(() =>
     import('./criminal-system/CriminalNewCase').then((m) => ({ default: m.CriminalNewCase })),
@@ -40,8 +40,49 @@ import {
     validateForm,
     getLabels,
 } from './LawyerNewCase/validation';
-import { consumePendingLawyerNewCaseJurisdiction, getPendingLawyerNewCaseJurisdiction } from '@/app/runtime/lawyerNewCaseLoader';
+import {
+    consumePendingLawyerNewCaseJurisdiction,
+    getPendingIncidentalSpawnContext,
+    getPendingLawyerNewCaseJurisdiction,
+} from '@/app/runtime/lawyerNewCaseLoader';
+import {
+    buildIncidentalSpawnPrefill,
+    validateIncidentalSpawnSave,
+    type IncidentalSpawnContextEnriched,
+    type IncidentalSpawnPartySelection,
+} from '@/app/domain/lawsuit/incidentalSpawnPrefill';
+function defaultCaseDetails() {
+    return {
+        number: '',
+        court: '',
+        type: '',
+        judge: '',
+        firstHearingDate: '',
+        stage: '',
+        claimValue: '',
+        totalAgreedFees: '',
+        retrialTargetStage: '',
+    };
+}
 
+function defaultParty(side: 1 | 2): Party {
+    return { id: side === 1 ? 'p1_1' : 'p2_1', name: '', status: '', isClient: false, phone: '', address: '' };
+}
+
+function resolveIncidentalSpawnContext(
+    prop: IncidentalSpawnContextEnriched | null | undefined,
+): IncidentalSpawnContextEnriched | null {
+    if (prop?.parent) return prop;
+    const pending = getPendingIncidentalSpawnContext();
+    return pending?.parent ? pending : null;
+}
+
+function resolveInitialIncidentalPrefill(
+    prop: IncidentalSpawnContextEnriched | null | undefined,
+) {
+    const ctx = resolveIncidentalSpawnContext(prop);
+    return ctx ? buildIncidentalSpawnPrefill(ctx) : null;
+}
 function resolveInitialCaseType(preset?: string | null): CaseType {
     const pending = getPendingLawyerNewCaseJurisdiction();
     return (preset as CaseType) ?? pending ?? 'civil';
@@ -54,6 +95,8 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     presetSelectedType,
     criminalSeveranceFormMode = false,
     consolidationNavActive = false,
+    dossierNewCaseElevated = false,
+    incidentalSpawnContext = null,
 }) => {
     const debug = (window as unknown as Record<string, { log: (...args: unknown[]) => void }>).debug || { log: (...args: unknown[]) => console.log(...args) };
     const [step, setStep] = useState<'gateway' | 'form'>('form');
@@ -79,8 +122,19 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
         );
     }, [selectedType, criminalSeveranceFormMode]);
 
-    const [parties1, setParties1] = useState<Party[]>([{ id: 'p1_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
-    const [parties2, setParties2] = useState<Party[]>([{ id: 'p2_1', name: '', status: '', isClient: false, phone: '', address: '' }]);
+    const effectiveSpawnContext = useMemo(
+        () => resolveIncidentalSpawnContext(incidentalSpawnContext),
+        [incidentalSpawnContext],
+    );
+
+    const [parties1, setParties1] = useState<Party[]>(() => {
+        const prefill = resolveInitialIncidentalPrefill(incidentalSpawnContext);
+        return prefill?.parties1 ?? [defaultParty(1)];
+    });
+    const [parties2, setParties2] = useState<Party[]>(() => {
+        const prefill = resolveInitialIncidentalPrefill(incidentalSpawnContext);
+        return prefill?.parties2 ?? [defaultParty(2)];
+    });
 
     const [isThirdPartyModalOpen, setIsThirdPartyModalOpen] = useState(false);
     const [thirdParties, setThirdParties] = useState<ThirdParty[]>([]);
@@ -90,17 +144,68 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const [applicableLaw, setApplicableLaw] = useState<PersonalApplicableLaw | ''>('');
     const [errorMap, setErrorMap] = useState<Record<string, string>>({});
 
-    const [caseDetails, setCaseDetails] = useState({
-        number: '',
-        court: '',
-        type: '',
-        judge: '',
-        firstHearingDate: '',
-        stage: '',
-        claimValue: '',
-        totalAgreedFees: '',
-        retrialTargetStage: '',
+    const [caseDetails, setCaseDetails] = useState(() => {
+        const prefill = resolveInitialIncidentalPrefill(incidentalSpawnContext);
+        return prefill?.caseDetails ?? defaultCaseDetails();
     });
+    const [incidentalFilingPartyId, setIncidentalFilingPartyId] = useState<string | null>(() => {
+        const prefill = resolveInitialIncidentalPrefill(incidentalSpawnContext);
+        if (!prefill) return null;
+        return prefill.requiresFilingPartyPick
+            ? null
+            : prefill.filingPartyCandidates[0]?.id ?? null;
+    });
+    const [incidentalOpposingPartyId, setIncidentalOpposingPartyId] = useState<string | null>(() => {
+        const prefill = resolveInitialIncidentalPrefill(incidentalSpawnContext);
+        if (!prefill) return null;
+        return prefill.requiresOpposingPartyPick
+            ? null
+            : prefill.opposingPartyCandidates[0]?.id ?? null;
+    });
+
+    const applyIncidentalSpawnPrefill = useCallback(
+        (ctx: IncidentalSpawnContextEnriched, selection: IncidentalSpawnPartySelection = {}) => {
+            const prefill = buildIncidentalSpawnPrefill(ctx, selection);
+            setCaseDetails(prefill.caseDetails);
+            setParties1(prefill.parties1);
+            setParties2(prefill.parties2);
+            setIncidentalFilingPartyId(
+                prefill.requiresFilingPartyPick
+                    ? selection.filingPartyId ?? null
+                    : prefill.filingPartyCandidates[0]?.id ?? null,
+            );
+            setIncidentalOpposingPartyId(
+                prefill.requiresOpposingPartyPick
+                    ? selection.opposingPartyId ?? null
+                    : prefill.opposingPartyCandidates[0]?.id ?? null,
+            );
+            setSelectedType('civil');
+            setMainCategory('lawsuit');
+            setStep('form');
+        },
+        [],
+    );
+
+    const incidentalPartySelection = useMemo(
+        () => ({
+            filingPartyId: incidentalFilingPartyId,
+            opposingPartyId: incidentalOpposingPartyId,
+        }),
+        [incidentalFilingPartyId, incidentalOpposingPartyId],
+    );
+
+    const spawnPrefill = useMemo(
+        () =>
+            effectiveSpawnContext
+                ? buildIncidentalSpawnPrefill(effectiveSpawnContext, incidentalPartySelection)
+                : null,
+        [effectiveSpawnContext, incidentalPartySelection],
+    );
+
+    useLayoutEffect(() => {
+        if (!effectiveSpawnContext?.parent) return;
+        applyIncidentalSpawnPrefill(effectiveSpawnContext, incidentalPartySelection);
+    }, [effectiveSpawnContext, incidentalPartySelection, applyIncidentalSpawnPrefill]);
 
     const topFormRef = useRef<HTMLDivElement>(null);
     const courtRef = useRef<HTMLInputElement>(null);
@@ -110,10 +215,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const retrialTargetRef = useRef<HTMLButtonElement>(null);
 
 
-    const stageOptions = useMemo(
-        () => computeStageOptions(caseDetails.court),
-        [caseDetails.court],
-    );
+    const stageOptions = useMemo(() => {
+        if (spawnPrefill) return spawnPrefill.stageOptions;
+        return computeStageOptions(caseDetails.court);
+    }, [spawnPrefill, caseDetails.court]);
     const valuePlaceholder = useMemo(
         () => getValuePlaceholder(caseDetails.type || ''),
         [caseDetails.type],
@@ -136,11 +241,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const isPersonalCase = selectedType === 'personal';
 
     useEffect(() => {
-        setIsFixedFee(isFixedFeeType(caseDetails.type || ''));
     }, [caseDetails.type]);
 
     useEffect(() => {
-        if (isPersonalCase) return;
+        if (effectiveSpawnContext || isPersonalCase) return;
         if (!isExtraordinaryProcedureStage(caseDetails.stage)) return;
         setIsUndeterminedValue(false);
         setIsFixedFee(false);
@@ -154,13 +258,13 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             }
             return next;
         });
-    }, [caseDetails.stage, isPersonalCase]);
+    }, [caseDetails.stage, isPersonalCase, effectiveSpawnContext]);
 
     useEffect(() => {
-        if (isPersonalCase) return;
+        if (effectiveSpawnContext || isPersonalCase) return;
         if (isExtraordinaryProcedureStage(caseDetails.stage)) return;
         setCaseDetails((prev) => (prev.retrialTargetStage ? { ...prev, retrialTargetStage: '' } : prev));
-    }, [caseDetails.stage, isPersonalCase]);
+    }, [caseDetails.stage, isPersonalCase, effectiveSpawnContext]);
 
     useEffect(() => {
         if (isPersonalCase) {
@@ -224,7 +328,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     }, [caseDetails.court, caseDetails.type, caseDetails.stage, caseDetails.retrialTargetStage, selectedType, isPersonalCase, applicableLaw]);
 
     useEffect(() => {
-        if (isPersonalCase) return;
+        if (effectiveSpawnContext || isPersonalCase) return;
 
         setCaseDetails((prev) => {
             if (isExtraordinaryProcedureStage(prev.stage)) return prev;
@@ -263,9 +367,11 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
 
             return prev;
         });
-    }, [caseDetails.claimValue, caseDetails.type, isFixedFee, isUndeterminedValue, isPersonalCase]);
+    }, [caseDetails.claimValue, caseDetails.type, isFixedFee, isUndeterminedValue, isPersonalCase, effectiveSpawnContext]);
 
     useEffect(() => {
+        if (effectiveSpawnContext || isPersonalCase) return;
+
         const stage = caseDetails.stage;
         if (isPersonalCase) {
             if (!stage) return;
@@ -308,7 +414,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             if (prev.length > 0 && prev[0].status === role) return prev;
             return prev.map(p => ({ ...p, status: role }));
         });
-    }, [caseDetails.stage, parties1.length, parties2.length, isPersonalCase]);
+    }, [caseDetails.stage, parties1.length, parties2.length, isPersonalCase, effectiveSpawnContext]);
 
 
     const scrollToElement = (ref: React.RefObject<HTMLInputElement | HTMLButtonElement | null>) => {
@@ -400,6 +506,28 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             return;
         }
 
+        if (effectiveSpawnContext) {
+            const incidentalErr = validateIncidentalSpawnSave(
+                effectiveSpawnContext,
+                incidentalPartySelection,
+            );
+            if (incidentalErr) {
+                const key = incidentalErr.includes('المدعى عليه') || incidentalErr.includes('المدعي')
+                    ? 'incidental_opposing_party'
+                    : 'incidental_filing_party';
+                setErrorMap((prev) => ({ ...prev, [key]: incidentalErr }));
+                SmartToast.error(incidentalErr);
+                return;
+            }
+        }
+
+        const filingCandidate = spawnPrefill?.filingPartyCandidates.find(
+            (p) => p.id === incidentalFilingPartyId,
+        );
+        const opposingCandidate = spawnPrefill?.opposingPartyCandidates.find(
+            (p) => p.id === incidentalOpposingPartyId,
+        );
+
         setIsAnalyzing(true);
         onSave({
             mainCategory: mainCategory || 'lawsuit',
@@ -410,6 +538,14 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
             isUndeterminedValue,
             isFixedFee,
             details: { ...caseDetails },
+            incidentalSpawnMeta: effectiveSpawnContext
+                ? {
+                      filingPartyId: incidentalFilingPartyId ?? undefined,
+                      filingPartyName: filingCandidate?.name,
+                      opposingPartyId: incidentalOpposingPartyId ?? undefined,
+                      opposingPartyName: opposingCandidate?.name,
+                  }
+                : undefined,
         });
         setIsAnalyzing(false);
     };
@@ -417,9 +553,10 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     const getDefaultStatus = (side: 1 | 2) => '';
 
     useEffect(() => {
+        if (effectiveSpawnContext) return;
         setParties1(prev => prev.map(p => ({ ...p, status: getDefaultStatus(1) })));
         setParties2(prev => prev.map(p => ({ ...p, status: getDefaultStatus(2) })));
-    }, [mainCategory]);
+    }, [mainCategory, effectiveSpawnContext]);
 
     const addParty = (side: 1 | 2) => {
         const newParty: Party = {
@@ -617,7 +754,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
     return (
         <div
             ref={topFormRef}
-            className={`fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex min-h-0 flex-col bg-[#080c14] font-['Tajawal'] ${consolidationNavActive ? 'pt-12' : ''}`}
+            className={`fixed inset-0 ${consolidationNavActive || dossierNewCaseElevated ? HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS : HUB_NESTED_OVERLAY_Z_CLASS} flex min-h-0 flex-col bg-[#080c14] font-['Tajawal'] ${consolidationNavActive ? 'pt-12' : ''}`}
         >
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_-10%,rgba(230,198,115,0.07),transparent_52%)]" aria-hidden />
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_100%_100%,rgba(90,120,180,0.06),transparent_48%)]" aria-hidden />
@@ -634,6 +771,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                     step={step}
                     onClose={onClose}
                     selectedType={selectedType}
+                    incidentalBadge={spawnPrefill?.headerBadge}
                 />
             )}
 
@@ -730,6 +868,7 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     stageRef={stageRef}
                                     numberRef={numberRef as React.RefObject<HTMLInputElement | null>}
                                     retrialTargetRef={retrialTargetRef}
+                                    lockParentFields={Boolean(effectiveSpawnContext)}
                                     parties1={parties1}
                                     parties2={parties2}
                                     thirdParties={thirdParties}
@@ -741,6 +880,32 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                                     onAddThirdParty={() => setIsThirdPartyModalOpen(true)}
                                     onRemoveThirdParty={removeThirdParty}
                                     onUpdateThirdParty={updateThirdParty}
+                                    incidentalSpawnType={effectiveSpawnContext?.type}
+                                    incidentalFilingPartyCandidates={spawnPrefill?.filingPartyCandidates ?? []}
+                                    incidentalOpposingPartyCandidates={spawnPrefill?.opposingPartyCandidates ?? []}
+                                    incidentalFilingPartyId={incidentalFilingPartyId}
+                                    incidentalOpposingPartyId={incidentalOpposingPartyId}
+                                    onIncidentalFilingPartySelect={(id) => {
+                                        setIncidentalFilingPartyId(id);
+                                        setErrorMap((prev) => {
+                                            if (!prev.incidental_filing_party) return prev;
+                                            const next = { ...prev };
+                                            delete next.incidental_filing_party;
+                                            return next;
+                                        });
+                                    }}
+                                    onIncidentalOpposingPartySelect={(id) => {
+                                        setIncidentalOpposingPartyId(id);
+                                        setErrorMap((prev) => {
+                                            if (!prev.incidental_opposing_party) return prev;
+                                            const next = { ...prev };
+                                            delete next.incidental_opposing_party;
+                                            return next;
+                                        });
+                                    }}
+                                    incidentalFilingPartyError={errorMap.incidental_filing_party}
+                                    incidentalOpposingPartyError={errorMap.incidental_opposing_party}
+                                    lockIncidentalParties={Boolean(effectiveSpawnContext)}
                                 />
                             )}
                             </>
@@ -750,14 +915,16 @@ export const LawyerNewCase: React.FC<LawyerNewCaseProps> = ({
                     )}
             </div>
 
-            {step === 'form' && selectedType !== 'criminal' && (
-                <SaveButton
-                    isAnalyzing={isAnalyzing}
-                    hasCriminalError={Boolean(errorMap['criminal_error'])}
-                    onSave={handleSave}
-                    variant={isPersonalCase ? 'personal' : 'civil'}
-                />
-            )}
+            {step === 'form' && selectedType !== 'criminal' ? (
+                <>
+                    <SaveButton
+                        isAnalyzing={isAnalyzing}
+                        hasCriminalError={Boolean(errorMap['criminal_error'])}
+                        onSave={handleSave}
+                        variant={isPersonalCase ? 'personal' : 'civil'}
+                    />
+                </>
+            ) : null}
         </div>
     );
 };

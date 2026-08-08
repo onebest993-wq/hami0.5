@@ -1,5 +1,5 @@
-import React from 'react';
-import { ChevronRight, X } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { ChevronRight, X } from '@/app/components/ui/lucideIcons';
 import { CaseInfoSection } from './CriminalNewCase/CaseInfoSection';
 import { ComplainantSection } from './CriminalNewCase/ComplainantSection';
 import { CriminalNewCaseFooter } from './CriminalNewCase/CriminalNewCaseFooter';
@@ -7,6 +7,8 @@ import { DefendantSection } from './CriminalNewCase/DefendantSection';
 import { SeveranceReasonBar } from './CriminalNewCase/SeveranceReasonBar';
 import { useCriminalNewCaseForm } from './CriminalNewCase/useCriminalNewCaseForm';
 import type { CriminalNewCaseProps } from './CriminalNewCase/types';
+import { buildCriminalCreationSparkContext } from '@/app/spark/context/criminalCreationSparkContext';
+import { SparkCriminalCreationNudgeHost } from '@/app/spark/ui/SparkCriminalCreationNudgeHost';
 
 export type { CriminalNewCaseProps } from './CriminalNewCase/types';
 
@@ -18,6 +20,40 @@ export const CriminalNewCase = ({
     embeddedOverlay = false,
 }: CriminalNewCaseProps) => {
     const form = useCriminalNewCaseForm({ severanceFormMode, onCreated });
+
+    const criminalCreationSparkCtx = useMemo(
+        () =>
+            buildCriminalCreationSparkContext({
+                draft: form.draft,
+                stage: form.stage,
+                isSeveranceMode: form.isSeveranceMode,
+                isReferralStage: form.isReferralStage,
+                isPublicProsecutionComplainant: form.isPublicProsecutionComplainant,
+                investigationPartyMix: form.investigationPartyMix,
+                investigationLocationIncomplete: form.investigationLocationIncomplete,
+                identifiedDefendantSaveIncomplete: form.identifiedDefendantSaveIncomplete,
+                complainantGuardianDataIncomplete: form.complainantGuardianDataIncomplete,
+                mixedUnknownWithIdentified: form.mixedUnknownWithIdentified,
+                allDefendantsUnknownOnly: form.allDefendantsUnknownOnly,
+                pendingSeveranceReason: form.pendingSeveranceReason,
+                pendingSeveranceReasonDetail: form.pendingSeveranceReasonDetail,
+            }),
+        [
+            form.allDefendantsUnknownOnly,
+            form.complainantGuardianDataIncomplete,
+            form.draft,
+            form.identifiedDefendantSaveIncomplete,
+            form.investigationLocationIncomplete,
+            form.investigationPartyMix,
+            form.isPublicProsecutionComplainant,
+            form.isReferralStage,
+            form.isSeveranceMode,
+            form.mixedUnknownWithIdentified,
+            form.pendingSeveranceReason,
+            form.pendingSeveranceReasonDetail,
+            form.stage,
+        ],
+    );
 
     return (
         <div
@@ -131,6 +167,8 @@ export const CriminalNewCase = ({
                     setDraftArticleIncludesPublicRight={form.setDraftArticleIncludesPublicRight}
                 />
             </div>
+
+            <SparkCriminalCreationNudgeHost ctx={criminalCreationSparkCtx} />
 
             <CriminalNewCaseFooter
                 embeddedOverlay={embeddedOverlay}

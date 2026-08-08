@@ -1,6 +1,6 @@
 import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
 import { ensureDeferredAppStylesLoaded } from '@/app/runtime/deferredAppStyles';
-import { prefetchProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { prefetchProfileHubModule, loadProfileHubModule } from '@/app/runtime/profileHubLoader';
 
 /** Matches profileBootHydrator.ts PROFILE_PRIME_HOST_EVENT — local to avoid sync stem pull. */
 export const PROFILE_PRIME_HOST_EVENT = 'hami:profile-prime-host';
@@ -21,14 +21,5 @@ export function prefetchProfileShellChunks(): void {
     void ensureDeferredFeatureStylesLoaded();
     void ensureDeferredAppStylesLoaded().catch(() => undefined);
     prefetchProfileHubModule();
-}
-
-export function warmProfileOpenSideEffects(userId: string | null): void {
-    void loadProfileIntentWarm().then((m) => m.warmProfileOnOpen(userId));
-    void loadProfileWarmCache()
-        .then((m) => m.ensureProfilePaintReady(userId))
-        .catch(() => undefined);
-    void loadProfileBootHydrator()
-        .then((m) => m.hydrateProfileShellForInstantOpenWithData(userId, true))
-        .catch(() => undefined);
+    void loadProfileHubModule().catch(() => undefined);
 }

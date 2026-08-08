@@ -30,6 +30,7 @@ export type UseLawyerDashboardRuntimeEffectsParams = {
     user: User | null;
     authUser: User | null | undefined;
     files: FileData[];
+    lawsuitLifecycleIndex?: import('@/app/domain/lawsuit/lawsuitLifecycleIndex').LawsuitLifecycleIndex;
     executionFiles: ExecutionFile[];
     globalNotes: GlobalNote[];
     searchNotifications: Array<{ id: string; title: string; message: string; type: string }>;
@@ -56,6 +57,7 @@ export function useLawyerDashboardRuntimeEffects({
     user,
     authUser,
     files,
+    lawsuitLifecycleIndex,
     executionFiles,
     globalNotes,
     searchNotifications,
@@ -119,6 +121,7 @@ export function useLawyerDashboardRuntimeEffects({
         ? {
               userId: shellAuthUserId,
               files,
+              lawsuitLifecycleIndex,
               executionFiles,
               globalNotes,
               notifications: searchNotifications,
@@ -131,7 +134,7 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!uid) return;
-        let unbind = () => undefined;
+        let unbind: () => void = () => undefined;
         void loadDashboardPostInteractiveWarm().then((m) => {
             unbind = m.bindDashboardPostInteractiveWarm(uid);
         });
@@ -146,11 +149,11 @@ export function useLawyerDashboardRuntimeEffects({
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!uid) return;
         let cancelled = false;
-        let unbindExec = () => undefined;
-        let unbindCriminal = () => undefined;
-        let unbindSmart = () => undefined;
+        let unbindExec: () => void = () => undefined;
+        let unbindCriminal: () => void = () => undefined;
+        let unbindSmart: () => void = () => undefined;
         let delayTimer: number | null = null;
-        let cancelIdle = () => undefined;
+        let cancelIdle: () => void = () => undefined;
 
         const bindHydrators = () => {
             if (cancelled) return;
@@ -167,10 +170,10 @@ export function useLawyerDashboardRuntimeEffects({
         };
 
         const scheduleAfterReveal = () => {
-            const delayMs = isCapacitorNativePlatform() ? 400 : 800;
+            const delayMs = isCapacitorNativePlatform() ? 200 : 400;
             delayTimer = window.setTimeout(() => {
                 delayTimer = null;
-                cancelIdle = scheduleIdleWork(bindHydrators, import.meta.env.DEV ? 400 : 800);
+                cancelIdle = scheduleIdleWork(bindHydrators, import.meta.env.DEV ? 200 : 400);
             }, delayMs);
         };
 
@@ -209,7 +212,7 @@ export function useLawyerDashboardRuntimeEffects({
     useEffect(() => {
         const uid = resolveShellAuthUserId(authUser?.id, user?.id);
         if (!isRealSignedIn(uid)) return;
-        let cancelIdle = () => undefined;
+        let cancelIdle: () => void = () => undefined;
         const timerId = window.setTimeout(() => {
             cancelIdle = scheduleIdleWork(() => {
                 if (typeof document !== 'undefined' && document.hidden) return;
@@ -228,7 +231,7 @@ export function useLawyerDashboardRuntimeEffects({
         if (!backgroundRuntimeEnabled) return;
         const uid = resolveCalendarUserId(user?.id ?? authUser?.id ?? null);
         if (!isRealSignedIn(uid)) return;
-        let cancelIdle = () => undefined;
+        let cancelIdle: () => void = () => undefined;
         const timerId = window.setTimeout(() => {
             cancelIdle = scheduleIdleWork(() => {
                 if (typeof document !== 'undefined' && document.hidden) return;
@@ -330,7 +333,7 @@ export function useLawyerDashboardRuntimeEffects({
 
     useEffect(() => {
         if (!showLawsuitsWorkspace) return;
-        let cancelIdle = () => undefined;
+        let cancelIdle: () => void = () => undefined;
         let cancelled = false;
         void import('@/app/utils/lazyComponentsIntent')
             .then((m) => {

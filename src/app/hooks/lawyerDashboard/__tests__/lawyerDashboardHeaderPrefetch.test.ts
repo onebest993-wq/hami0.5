@@ -63,6 +63,11 @@ vi.mock('@/app/runtime/profileBootHydrator', () => ({
 
 vi.mock('@/app/runtime/profileHubLoader', () => ({
     prefetchProfileHubModule: vi.fn(),
+    loadProfileHubModule: vi.fn(() => Promise.resolve([])),
+}));
+
+vi.mock('@/app/runtime/profileTabModuleLoader', () => ({
+    loadProfileTabModule: vi.fn(() => Promise.resolve({})),
 }));
 
 import { loadHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
@@ -75,6 +80,8 @@ import { loadRoyalLawyerProfileModule } from '@/app/runtime/royalLawyerProfileLo
 import { warmGlobalSearchOnHover, warmGlobalSearchOnOpen } from '@/app/hooks/lawyerDashboard/globalSearchIntentWarm';
 import { dispatchSettingsPrimeHost } from '@/app/runtime/settingsBootHydrator';
 import { dispatchProfilePrimeHost } from '@/app/runtime/profileBootHydrator';
+import { loadProfileHubModule } from '@/app/runtime/profileHubLoader';
+import { loadProfileTabModule } from '@/app/runtime/profileTabModuleLoader';
 
 describe('createLawyerDashboardHeaderPrefetch', () => {
     beforeEach(() => {
@@ -95,7 +102,7 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(primeProfileTabMount).toHaveBeenCalledTimes(1);
     });
 
-    it('عند pointer down: prime خفيف فقط — بلا warmOnOpen/loadRoyal (لا ينافس فتح التبويب)', async () => {
+    it('عند pointer down: prime + load hub — بلا warmOnOpen/loadRoyal المباشر', async () => {
         const primeProfileTabMount = vi.fn();
         const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-2', {
             primeProfileTabMount,
@@ -106,9 +113,27 @@ describe('createLawyerDashboardHeaderPrefetch', () => {
         expect(primeProfileTabMount).toHaveBeenCalledTimes(1);
         expect(warmProfileOnOpen).not.toHaveBeenCalled();
         expect(loadRoyalLawyerProfileModule).not.toHaveBeenCalled();
+        expect(loadProfileHubModule).toHaveBeenCalledTimes(1);
+        expect(loadProfileTabModule).toHaveBeenCalledTimes(1);
         await vi.waitFor(() => {
             expect(dispatchProfilePrimeHost).toHaveBeenCalled();
         });
+    });
+
+    it('لا يسخّن الملف عند الإغلاق (profileIsOpen)', () => {
+        const primeProfileTabMount = vi.fn();
+        const prefetch = createLawyerDashboardHeaderPrefetch('lawyer-3', {
+            primeProfileTabMount,
+            profileIsOpen: true,
+        });
+
+        prefetch.onProfilePointerEnter();
+        prefetch.onProfilePointerDown();
+
+        expect(warmProfileOnHover).not.toHaveBeenCalled();
+        expect(primeProfileTabMount).not.toHaveBeenCalled();
+        expect(loadProfileHubModule).not.toHaveBeenCalled();
+        expect(loadProfileTabModule).not.toHaveBeenCalled();
     });
 
     it('يسخّن الملف خفيفاً عند hover', async () => {

@@ -70,6 +70,7 @@ export type ExecutionDashboardCorePersistHandlerPipelineInput = {
     paidClientFees: number;
     earnerFeeCollectionSm: unknown;
     followupOrchestrator: Record<string, unknown>;
+    openFollowupModalPersisted?: import('../../utils/followupModalOpen').OpenFollowupModalPersistedFn;
     file: ExecutionDashboardProps['file'];
     currentFileId: string;
     isMaritalFurnitureClaim: boolean;

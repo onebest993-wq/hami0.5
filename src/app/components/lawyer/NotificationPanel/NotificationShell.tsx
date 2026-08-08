@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useLayoutEffect } from 'react';
 import { NotificationPanelHost } from '@/app/components/lawyer/NotificationPanel/NotificationPanelHost';
 import { IncomingNotificationPopups } from '@/app/components/lawyer/NotificationPanel/components/IncomingNotificationPopups';
 import { useIncomingNotificationPopups } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
@@ -6,6 +6,7 @@ import { useNotificationShellLifecycle } from '@/app/hooks/lawyerDashboard/useNo
 import { useNotificationMobileSuspend } from '@/app/hooks/lawyerDashboard/useNotificationMobileSuspend';
 import { useNotificationStore } from '@/app/stores/notificationStore';
 import { inertProps } from '@/app/utils/inertProps';
+import { reconcileClosedOverlayLayers } from '@/app/runtime/overlayLayerHygiene';
 import './notificationPanel.css';
 
 export type NotificationShellProps = {
@@ -39,6 +40,11 @@ function NotificationShellInner({
     useNotificationShellLifecycle(isOpen, userId, hasLocalCache);
     useNotificationMobileSuspend(isOpen);
 
+    useLayoutEffect(() => {
+        if (isOpen) return;
+        reconcileClosedOverlayLayers();
+    }, [isOpen]);
+
     const handlePopupOpen = (id: string) => {
         dismiss(id);
         onOpenPanel();
@@ -62,9 +68,10 @@ function NotificationShellInner({
                 aria-hidden={!isOpen}
                 {...inertProps(!isOpen)}
             >
-                {userId && isOpen ? (
+                {userId && (hostMounted || isOpen) ? (
                     <NotificationPanelHost
                         key={`notification-panel-${panelSessionKey}`}
+                        keepAlive={hostMounted}
                         isOpen={isOpen}
                         panelSessionKey={panelSessionKey}
                         onClose={onClose}

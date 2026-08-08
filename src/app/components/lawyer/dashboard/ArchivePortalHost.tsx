@@ -1,9 +1,9 @@
 import React, { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import type { ArchivePortalProps } from '@/app/types/common';
 import type { ArchiveDossierViewMode } from '@/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar';
-import { ArchivePortalExecutionSurface } from '@/app/components/lawyer/ArchivePortal/ArchivePortalExecutionSurface';
 import {
     getCachedArchivePortal,
+    getCachedExecutionSurface,
     getLawsuitFileGridReady,
     invalidateArchivePortalModuleCache,
     loadArchivePortalModule,
@@ -11,6 +11,7 @@ import {
     prefetchLawsuitArchiveContent,
     prefetchExecutionArchiveContent,
     subscribeArchivePortalCache,
+    subscribeExecutionSurfaceReady,
     subscribeLawsuitFileGridReady,
     type ArchivePortalComponent,
 } from '@/app/runtime/hubArchiveLoader';
@@ -75,6 +76,11 @@ export function ArchivePortalHost({
         subscribeLawsuitFileGridReady,
         getLawsuitFileGridReady,
         () => false,
+    );
+    const executionSurface = useSyncExternalStore(
+        subscribeExecutionSurfaceReady,
+        getCachedExecutionSurface,
+        () => null,
     );
     const [loadFailed, setLoadFailed] = useState(false);
     const [loadGeneration, setLoadGeneration] = useState(0);
@@ -162,8 +168,27 @@ export function ArchivePortalHost({
     const Component: ArchivePortalComponent | null = cachedComponent;
 
     if (type === 'executions') {
+        const Surface = executionSurface;
+        if (!Surface) {
+            if (loadFailed) {
+                return (
+                    <ArchiveHubLoadError
+                        message="تعذّر تحميل الأرشيف"
+                        onRetry={retryLoad}
+                        onBack={onClose}
+                    />
+                );
+            }
+            return (
+                <ArchiveHubInstantShell
+                    onBack={onClose}
+                    title={title}
+                    testId="archive-hub-loading"
+                />
+            );
+        }
         return (
-            <ArchivePortalExecutionSurface
+            <Surface
                 embedded={embedded}
                 onClose={onClose}
                 type={type}

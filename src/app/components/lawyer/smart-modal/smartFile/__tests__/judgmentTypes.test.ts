@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     addDaysYmd,
+    isSubjectMatterJudgmentType,
     isSulhJudgmentType,
+    JUDGMENT_TYPE_FULL_WIN,
     JUDGMENT_TYPE_SULH,
     JUDGMENT_TYPE_SULH_LEGACY,
     parseJudgmentDateInput,
@@ -31,5 +33,11 @@ describe('judgmentTypes helpers', () => {
         expect(isSulhJudgmentType(JUDGMENT_TYPE_SULH)).toBe(true);
         expect(isSulhJudgmentType(JUDGMENT_TYPE_SULH_LEGACY)).toBe(true);
         expect(isSulhJudgmentType('إبطال')).toBe(false);
+    });
+
+    it('isSubjectMatterJudgmentType covers first-instance merit outcomes', () => {
+        expect(isSubjectMatterJudgmentType(JUDGMENT_TYPE_FULL_WIN)).toBe(true);
+        expect(isSubjectMatterJudgmentType('رد الدعوى كلياً')).toBe(true);
+        expect(isSubjectMatterJudgmentType('تصديق الحكم')).toBe(false);
     });
 });

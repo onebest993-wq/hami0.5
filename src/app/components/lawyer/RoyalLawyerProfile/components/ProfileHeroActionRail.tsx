@@ -1,10 +1,9 @@
 import React, { memo } from 'react';
-import { Pencil, Sparkles, UserCheck, UserPlus } from 'lucide-react';
+import { Pencil, Sparkles, UserCheck, UserPlus } from '@/app/components/ui/lucideIcons';
 import type { ForumProfileFollowState } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfilePageAccess } from '@/app/services/profile/profilePageTypes';
 import {
     ProfilePageAccessControl,
-    getProfilePageAccessLegend,
 } from './ProfilePageAccessControl';
 
 export type ProfileHeroActionRailProps = {
@@ -38,8 +37,6 @@ export const ProfileHeroActionRail = memo(function ProfileHeroActionRail({
     onStudioPointerCancel,
     onStudioWarm,
 }: ProfileHeroActionRailProps) {
-    const privacyLegend = pageAccess ? getProfilePageAccessLegend(pageAccess) : '';
-
     return (
         <div className="hami-profile-sigil-deck" data-testid="lawyer-profile-action-rail">
             {showForumSocial && forumFollow ? (
@@ -112,14 +109,6 @@ export const ProfileHeroActionRail = memo(function ProfileHeroActionRail({
                             <span className="hami-profile-sigil-micro">تعديل</span>
                         </div>
                     </div>
-
-                    {pageAccess ? (
-                        <p className="hami-profile-sigil-legend" aria-live="polite">
-                            <span className="hami-profile-sigil-legend-dot" data-page-access={pageAccess} aria-hidden />
-                            <span>{privacyLegend}</span>
-                            <span className="hami-profile-sigil-legend-hint">· اضغط الختم للتبديل</span>
-                        </p>
-                    ) : null}
                 </>
             ) : null}
         </div>

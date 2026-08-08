@@ -6,6 +6,7 @@ import {
     addExternalConsolidationRef,
     listConsolidationCandidates,
     mergeLawsuitFilesForConsolidation,
+    resolveConsolidationMergedOpenTarget,
     resolveOpenLawsuitFileIdentity,
 } from '../caseConsolidationLinking';
 
@@ -132,6 +133,69 @@ describe('caseConsolidationLinking', () => {
             activeStageIndex: 0,
         } as FileData;
         expect(assertConsolidationStageCompatibility(primary, secondary).ok).toBe(false);
+    });
+
+    it('merges notes, images, and history from both dossiers', () => {
+        const primary = {
+            ...base(1, '11/ب/100'),
+            notes: [{ id: 1, text: 'ملاحظة أ', meta: '', stageCtx: '', date: '2026-01-02' }],
+            images: [{ url: '/a.png', name: 'a' }],
+            history: [{ id: 1, stage: 'بداءة', result: 'جلسة', date: '2026-01-01' }],
+            stages: [
+                {
+                    id: 's1',
+                    stageName: 'البداءة',
+                    timeline: [{ id: 't1', type: 'note', date: '2026-01-01', title: 'أ' }],
+                },
+            ],
+            activeStageIndex: 0,
+        } as FileData;
+        const secondary = {
+            ...base(2, '11/ب/200'),
+            notes: [{ id: 2, text: 'ملاحظة ب', meta: '', stageCtx: '', date: '2026-01-03' }],
+            images: [{ url: '/b.png', name: 'b' }],
+            history: [{ id: 2, stage: 'بداءة', result: 'حكم', date: '2026-02-01' }],
+            stages: [
+                {
+                    id: 's2',
+                    stageName: 'البداءة',
+                    timeline: [{ id: 't2', type: 'note', date: '2026-02-01', title: 'ب' }],
+                },
+            ],
+            activeStageIndex: 0,
+        } as FileData;
+
+        const mergeResult = mergeLawsuitFilesForConsolidation(primary, secondary, {
+            consolidationDate: '2026-06-01',
+        });
+        expect('error' in mergeResult).toBe(false);
+        if ('error' in mergeResult) return;
+        const { mergedPrimary, archivedSecondary } = mergeResult;
+
+        expect(mergedPrimary.notes).toHaveLength(2);
+        expect(mergedPrimary.images).toHaveLength(2);
+        expect(mergedPrimary.history).toHaveLength(2);
+        expect(mergedPrimary.stages?.[0]?.timeline).toHaveLength(3);
+        expect(archivedSecondary.status).toBe('archived');
+        expect(archivedSecondary.consolidationMergedInto).toBe(1);
+    });
+
+    it('redirects open target from archived merged dossier to unified primary', () => {
+        const files = [
+            {
+                ...base(1, '11/ب/100'),
+                consolidationSecondaryRefs: [{ id: 'c1', caseNo: '11/ب/200', isExternal: false }],
+            },
+            {
+                ...base(2, '11/ب/200'),
+                status: 'archived',
+                consolidationMergedInto: 1,
+            },
+        ] as FileData[];
+
+        const redirected = resolveConsolidationMergedOpenTarget(files, files[1]!);
+        expect(redirected.id).toBe(1);
+        expect(redirected.caseNo).toBe('11/ب/100');
     });
 
     it('adds external consolidation ref without changing primary identity', () => {

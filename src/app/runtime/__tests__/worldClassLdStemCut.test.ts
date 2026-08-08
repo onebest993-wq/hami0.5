@@ -39,7 +39,8 @@ describe('LD MainView overlay mount policy — live truth', () => {
         /* Repository: sync عمداً — فتح الدوك بلا Suspense (استثناء stem-cut مثل Settings) */
         expect(src).toContain('LawyerDashboardRepositoryOverlayEntry');
         expect(src).not.toContain('LazyRepositoryOverlayEntry');
-        expect(src).toContain('LazySmartFileOverlayEntry');
+        expect(src).toContain('LawyerDashboardSmartFileOverlayEntry');
+        expect(src).not.toContain('LazySmartFileOverlayEntry');
         expect(src).toContain('LazyNewCaseOverlayEntry');
         expect(src).toContain('LazyNonExecArchiveOverlayEntry');
         expect(src).toContain('LazyCriminalOverlayEntry');

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
+import { useNotificationStore } from '@/app/stores/notificationStore';
 import {
     loadNotificationBootHydrator,
     loadNotificationIntentWarm,
@@ -32,6 +33,10 @@ export function useNotificationHostLifecycle({
     useLayoutEffect(() => {
         return onDashboardInteractive(() => {
             setNotificationHostMounted(true);
+            const uid = userId?.trim();
+            if (uid) {
+                useNotificationStore.getState().hydrateFromLocalPeek(uid);
+            }
             if (!isLitePerformanceActive()) {
                 void loadNotificationIntentWarm()
                     .then((m) => m.warmNotificationsOnHover())
@@ -41,7 +46,7 @@ export function useNotificationHostLifecycle({
                 .then((m) => m.hydrateNotificationShellForInstantOpen(true))
                 .catch(() => undefined);
         });
-    }, [setNotificationHostMounted]);
+    }, [setNotificationHostMounted, userId]);
 
     useEffect(() => {
         if (!initialSessionOpen || restoredWarmRef.current) return;

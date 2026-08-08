@@ -5,9 +5,8 @@ import {
     AlertCircle,
     FileInput,
     Send,
-} from 'lucide-react';
-import { storageCache } from '@/app/utils/storageCache';
-import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+} from '@/app/components/ui/lucideIcons';
+import { loadExecutionFilesRaw } from '@/app/utils/executionFilesStorage';
 import { purgeExpiredExecutionsFromTrash, isExecutionInTrash } from '@/app/utils/executionTrash';
 import type { ExecutionFile } from '@/app/types/execution';
 import type { DossierActionPayload, DossierActionType } from './DossierActionsModal';
@@ -44,7 +43,7 @@ export function useDossierActionForm(
     const availableDossiers = useMemo(() => {
         if (!active || actionType !== 'unify') return [] as ExecutionFile[];
         try {
-            const cached = storageCache.get(EXECUTION_FILES_STORAGE_KEY);
+            const cached = loadExecutionFilesRaw();
             const allFiles: ExecutionFile[] = Array.isArray(cached) ? (cached as ExecutionFile[]) : [];
             const cleanFiles = purgeExpiredExecutionsFromTrash(allFiles);
             const currentId = String(currentFileId || '').trim();

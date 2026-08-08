@@ -1,10 +1,10 @@
 import React, { useCallback, useMemo } from 'react';
-import { Pin } from 'lucide-react';
+import { Pin } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { GlobalNote } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { buildNoteWorkspacePin } from '@/app/workspace/workspacePinBuilders';
-import { REPO_CARD_ICON_BTN } from './smartRepositoryTheme';
+import { REPO_CARD_ICON_BTN, REPO_CARD_ICON_BTN_ACTIVE } from './smartRepositoryTheme';
 
 type RepositoryNotePinButtonProps = {
     note: GlobalNote;
@@ -49,11 +49,7 @@ export function RepositoryNotePinButton({ note, onSyncNotePinned }: RepositoryNo
             type="button"
             onClick={handleClick}
             onPointerDown={(e) => e.stopPropagation()}
-            className={`${REPO_CARD_ICON_BTN} border ${
-                pinned
-                    ? 'border-[#E6C673]/35 text-[#E6C673]'
-                    : 'border-white/10 text-white/45'
-            }`}
+            className={pinned ? REPO_CARD_ICON_BTN_ACTIVE : REPO_CARD_ICON_BTN}
             aria-label={pinned ? 'إلغاء التثبيت من الواجهة' : 'تثبيت في بطاقة التثبيت'}
             title={
                 pinned

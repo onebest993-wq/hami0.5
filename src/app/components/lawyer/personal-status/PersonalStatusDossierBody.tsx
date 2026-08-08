@@ -2,25 +2,20 @@ import React from 'react';
 import type { SmartFileMainPanelProps } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelTypes';
 import { useSmartFileMainPanelLayout } from '@/app/components/lawyer/smart-modal/layout/mainPanel/useSmartFileMainPanelLayout';
 import { SmartFileStatusBanners } from '@/app/components/lawyer/smart-modal/layout/mainPanel/SmartFileStatusBanners';
-import { SessionAndRequestsHub } from '@/app/components/lawyer/smart-modal/parts/SessionAndRequestsHub';
-import { ToDoList } from '@/app/components/lawyer/smart-modal/parts/ToDoList';
-import { TimelineFeed } from '@/app/components/lawyer/smart-modal/parts/TimelineFeed';
+import { PersonalStatusDossierPanel } from '@/app/components/lawyer/personal-status/PersonalStatusDossierPanel';
 import { PersonalStatusIdentityFolio } from '@/app/components/lawyer/personal-status/PersonalStatusIdentityFolio';
 import { PersonalStatusPleadingActions } from '@/app/components/lawyer/personal-status/PersonalStatusPleadingActions';
-import { PersonalStatusActionDock } from '@/app/components/lawyer/personal-status/PersonalStatusActionDock';
-import { PersonalStatusPearlSection } from '@/app/components/lawyer/personal-status/PersonalStatusPearlSection';
 import { PersonalStatusWaitingSections } from '@/app/components/lawyer/personal-status/PersonalStatusWaitingSections';
-import { PersonalStatusStageFooterBar, PersonalStatusOpponentAppealPanel } from '@/app/components/lawyer/personal-status/PersonalStatusStageFooterBar';
+import { PersonalStatusStageFooterBar, PersonalStatusOpponentAppealPanel, FOOTER_SHELL } from '@/app/components/lawyer/personal-status/PersonalStatusStageFooterBar';
 import { PersonalStatusCassationOutcomePanel } from '@/app/components/lawyer/personal-status/PersonalStatusCassationOutcomePanel';
 import type { PersonalApplicableLaw } from '@/app/components/lawyer/personal-status/personalStatusValidation';
-import { PS_BTN_PEARL, PS_PAGE } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
+import { PS_PAGE } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import { derivePersonalStatusDossierFlags } from '@/app/components/lawyer/personal-status/usePersonalStatusDossierDerivedState';
-import {
-    buildPersonalStatusHeaderFormData,
-    buildPersonalStatusSessionHubProps,
-} from '@/app/components/lawyer/personal-status/buildPersonalStatusDossierProps';
-import { Plus } from 'lucide-react';
-import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
+import { buildPersonalStatusHeaderFormData } from '@/app/components/lawyer/personal-status/buildPersonalStatusDossierProps';
+import { ArrowRightLeft } from '@/app/components/ui/lucideIcons';
+import { CaseLinkUnlinkButton } from '@/app/components/lawyer/smart-modal/parts/CaseLinkUnlinkButton';
+import { SparkLawsuitNudgeSlot } from '@/app/spark/ui/SparkLawsuitNudgeSlot';
+import { SparkVaultDocOpenBridge } from '@/app/spark/ui/SparkVaultDocOpenBridge';
 
 export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
     const {
@@ -30,11 +25,16 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         displayStage,
         displayTimeline,
         parentData,
+        stages,
+        onAbsentJudgmentNotification,
+        onOpponentAbsentObjection,
+        setShowDocModal,
         onTouchStart,
         onTouchMove,
         onTouchEnd,
-        handleResumeAbandonment,
-        handleResume,
+        setShowPauseResumeModal,
+        setShowAbandonmentRenewalModal,
+        interruptionData,
         handleQuickAction,
         setIsActionsMenuOpen,
         setShowTaskModal,
@@ -65,7 +65,11 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         activeStageIndex,
         setShowAppealModal,
         setShowJudgmentModal,
+        setShowIncidentalModal,
         handleCassationDecision,
+        isCaseLinkViewOnly,
+        onOpenLinkedFile,
+        onUnlinkCaseLink,
     } = p;
 
     const {
@@ -77,7 +81,12 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         showPetitionVoidFooter,
         absentJudgmentFooterPanel,
         petitionVoidFooterPanel,
+        showOpponentAppealBtnEffective,
+        internalCaseLink,
+        externalCaseLinks,
     } = useSmartFileMainPanelLayout(p);
+
+    const interactionLocked = isViewingArchived || Boolean(isCaseLinkViewOnly);
 
     const flags = derivePersonalStatusDossierFlags({
         status,
@@ -85,8 +94,10 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         displayStage,
         viewingStageIndex,
         activeStageIndex,
+        representedParty: parentData.representedParty,
         showAbsentJudgmentFooterFromLayout: showAbsentJudgmentFooter,
         showPetitionVoidFooterFromLayout: showPetitionVoidFooter,
+        showOpponentAppealBtnEffectiveFromLayout: showOpponentAppealBtnEffective,
     });
 
     const headerFormData = buildPersonalStatusHeaderFormData({
@@ -98,12 +109,10 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
         primaryDocType,
     });
 
-    const sessionHubProps = buildPersonalStatusSessionHubProps(p, isViewingArchived);
-
     return (
         <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-[#101018]">
             <div
-                className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide px-2.5 pb-28 sm:px-3 sm:pb-32 print:overflow-visible ${PS_PAGE}`}
+                className={`flex-1 min-h-0 overflow-y-auto overscroll-y-contain touch-pan-y scrollbar-hide px-2.5 pb-4 sm:px-3 sm:pb-5 print:overflow-visible ${PS_PAGE}`}
                 onTouchStart={onTouchStart}
                 onTouchMove={onTouchMove}
                 onTouchEnd={onTouchEnd}
@@ -112,11 +121,28 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                     <SmartFileStatusBanners
                         displayStage={displayStage}
                         status={status}
-                        isViewingArchived={isViewingArchived}
-                        handleResumeAbandonment={handleResumeAbandonment}
-                        setShowResumeInterruptionModal={setShowResumeInterruptionModal}
-                        handleResume={handleResume}
+                        interruptionData={interruptionData}
                     />
+
+                    <SparkLawsuitNudgeSlot
+                        file={file}
+                        parentData={parentData}
+                        displayStage={displayStage}
+                        stages={stages}
+                        displayTimeline={displayTimeline}
+                        status={status}
+                        disabled={interactionLocked}
+                        onAbsentJudgmentNotification={onAbsentJudgmentNotification}
+                        onOpponentAbsentObjection={onOpponentAbsentObjection}
+                        onAbandonmentRenewal={() => setShowAbandonmentRenewalModal(true)}
+                        onAttachDocument={() => setShowDocModal(true)}
+                        onOpenAppeal={() => setShowAppealModal(true)}
+                        onResumeInterruption={() => setShowResumeInterruptionModal(true)}
+                        onResumePause={() => setShowPauseResumeModal(true)}
+                        onReviewPetitionVoid={() => setShowJudgmentModal(true)}
+                        onReviewIncidental={() => setShowIncidentalModal(true)}
+                    />
+                    <SparkVaultDocOpenBridge enabled={!interactionLocked} />
 
                     <PersonalStatusIdentityFolio
                         formData={headerFormData}
@@ -124,6 +150,75 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                         file={file}
                         representedParty={parentData.representedParty ?? file?.representedParty}
                     />
+
+                    {!isCaseLinkViewOnly && internalCaseLink && onOpenLinkedFile ? (
+                        <div
+                            className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-white/[0.10] bg-white/[0.03] px-2.5 py-2 backdrop-blur-sm print:hidden"
+                            dir="rtl"
+                        >
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <span
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#F0A8B4]/22 bg-[#F5C6D0]/[0.10]"
+                                >
+                                    <ArrowRightLeft size={14} className="text-[#FFD4DC]" aria-hidden />
+                                </span>
+                                <div className="min-w-0 text-right">
+                                    <p className="text-[8px] font-bold tracking-wide text-[#9894A0]">
+                                        إضبارة مربوطة
+                                    </p>
+                                    <p className="text-[11px] font-bold text-[#FFFEF9] truncate">
+                                        {internalCaseLink.peerCaseNo || '—'}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (
+                                            internalCaseLink.peerDossierKind === 'criminal' &&
+                                            internalCaseLink.peerCriminalId
+                                        ) {
+                                            onOpenLinkedFile(0, internalCaseLink.peerCriminalId);
+                                            return;
+                                        }
+                                        if (internalCaseLink.peerFileId != null) {
+                                            onOpenLinkedFile(internalCaseLink.peerFileId);
+                                        }
+                                    }}
+                                    className="rounded-lg border border-[#F0A8B4]/28 bg-[#F5C6D0]/[0.10] px-3 py-1.5 text-[10px] font-bold text-[#FFFEF9] hover:bg-[#F5C6D0]/[0.16] transition-colors touch-manipulation min-h-[36px]"
+                                >
+                                    اطلاع
+                                </button>
+                                {onUnlinkCaseLink ? (
+                                    <CaseLinkUnlinkButton
+                                        peerCaseNo={internalCaseLink.peerCaseNo}
+                                        originCaseNo={primaryCaseNo}
+                                        peerFileId={internalCaseLink.peerFileId}
+                                        peerCriminalId={internalCaseLink.peerCriminalId}
+                                        onConfirm={onUnlinkCaseLink}
+                                        compact
+                                        label="فك الربط"
+                                        className="flex items-center justify-center gap-1 rounded-lg border border-rose-400/28 bg-rose-500/10 px-2.5 py-1.5 text-[10px] font-bold text-rose-100 hover:bg-rose-500/15 touch-manipulation min-h-[36px]"
+                                    />
+                                ) : null}
+                            </div>
+                        </div>
+                    ) : externalCaseLinks.length > 0 ? (
+                        <div className="mb-3 flex flex-wrap gap-2 print:hidden">
+                            {externalCaseLinks.map((link) => (
+                                <div
+                                    key={link.id}
+                                    className="inline-flex min-w-[10rem] max-w-xs flex-col rounded-lg border border-dashed border-white/[0.14] bg-white/[0.03] px-3 py-1.5 text-right"
+                                >
+                                    <p className="text-[8px] font-bold text-[#9894A0]">دعوى مربوطة</p>
+                                    <p className="text-[11px] font-bold text-[#FFFEF9] truncate">
+                                        {link.peerCaseNo}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : null}
 
                     {!isViewingArchived && !flags.isCassationStage ? (
                         flags.isWaitingView ? (
@@ -138,140 +233,61 @@ export function PersonalStatusDossierBody(p: SmartFileMainPanelProps) {
                                     setShowAttachmentModal(true);
                                 }}
                             />
-                        ) : (
-                            <div className="grid grid-cols-[3.25rem_1fr] gap-2.5 items-stretch mb-3 print:hidden">
-                                <PersonalStatusActionDock
-                                    variant={quickActionsVariant}
-                                    onAction={handleQuickAction}
-                                    onOpenLegalActions={() => setIsActionsMenuOpen(true)}
-                                    applicableLaw={file.applicableLaw as PersonalApplicableLaw | '' | undefined}
-                                    showLawReference={!isViewingArchived}
-                                    caseFlow={{
-                                        onInterrupt: handleInterruptionToggle,
-                                        onPause: () => setShowPauseModal(true),
-                                        onResume: handleResume,
-                                        onAbandon: handleAbandonment,
-                                        flowStage: displayStage,
-                                        isPaused,
-                                        isInterrupted,
-                                    }}
-                                />
-
-                                <div className="flex flex-col gap-2.5 min-w-0 h-full min-h-full">
-                                    {flags.showWorkSections ? (
-                                        <SessionAndRequestsHub
-                                            {...sessionHubProps}
-                                            compose="session-only"
-                                        />
-                                    ) : null}
-
-                                    {flags.showWorkSections ? (
-                                        <div className="grid grid-cols-2 gap-2 min-w-0 flex-1 min-h-0 items-stretch">
-                                            <PersonalStatusPearlSection
-                                                label="طلبات"
-                                                variant="beige"
-                                                className="h-full flex flex-col"
-                                                bodyClassName="flex-1 min-h-0"
-                                                action={
-                                                    !isViewingArchived ? (
-                                                        <button
-                                                            type="button"
-                                                            data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHubAdd}
-                                                            onClick={() => {
-                                                                setEditingFastTrack(null);
-                                                                setShowFastTrackModal(true);
-                                                            }}
-                                                            className={PS_BTN_PEARL}
-                                                            title="طلب جديد"
-                                                        >
-                                                            <Plus size={11} aria-hidden />
-                                                        </button>
-                                                    ) : null
-                                                }
-                                            >
-                                                <SessionAndRequestsHub
-                                                    {...sessionHubProps}
-                                                    compose="requests-only"
-                                                />
-                                            </PersonalStatusPearlSection>
-
-                                            <PersonalStatusPearlSection
-                                                label="مهام"
-                                                variant="elephant"
-                                                className="h-full flex flex-col"
-                                                bodyClassName="flex-1 min-h-0"
-                                                action={
-                                                    <button
-                                                        type="button"
-                                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.taskAdd}
-                                                        onClick={() => setShowTaskModal(true)}
-                                                        className={PS_BTN_PEARL}
-                                                        title="إضافة مهمة"
-                                                    >
-                                                        <Plus size={11} aria-hidden />
-                                                    </button>
-                                                }
-                                            >
-                                                <ToDoList
-                                                    tasks={displayStage?.tasks || []}
-                                                    visualVariant="personal-pearl"
-                                                    onAddTask={() => setShowTaskModal(true)}
-                                                    onToggleTask={handleToggleTask}
-                                                    onAppealBriefFile={handleAppealBriefFile}
-                                                    onAppealBriefOutcome={handleAppealBriefOutcome}
-                                                    onCorrespondenceResponse={handleCorrespondenceResponse}
-                                                    onEditTask={(task) => setEditingTask(task)}
-                                                />
-                                            </PersonalStatusPearlSection>
-                                        </div>
-                                    ) : null}
-                                </div>
-                            </div>
-                        )
+                        ) : null
                     ) : null}
 
-                    <PersonalStatusPearlSection
-                        label="سجل"
-                        variant="glass"
-                        className="mb-1 print:block"
-                        bodyClassName="p-2 pt-1.5"
-                    >
-                        <TimelineFeed
-                            events={displayTimeline}
-                            visualVariant="personal-pearl"
-                            onDelete={!isViewingArchived ? handleDeleteEvent : undefined}
-                        />
-                    </PersonalStatusPearlSection>
+                    <PersonalStatusDossierPanel
+                        p={p}
+                        displayTimeline={displayTimeline}
+                        isViewingArchived={isViewingArchived}
+                        displayStage={displayStage}
+                        quickActionsVariant={quickActionsVariant as 'full' | 'notes-only'}
+                        showWorkToolbar={
+                            !isViewingArchived && !flags.isCassationStage && flags.showWorkSections && !flags.isWaitingView
+                        }
+                        onOpenLegalActions={() => setIsActionsMenuOpen(true)}
+                        applicableLaw={file.applicableLaw as PersonalApplicableLaw | '' | undefined}
+                        caseFlow={{
+                            onInterrupt: handleInterruptionToggle,
+                            onPause: () => setShowPauseModal(true),
+                            onResume: () => setShowPauseResumeModal(true),
+                            onAbandon: handleAbandonment,
+                            flowStage: displayStage,
+                            isPaused,
+                            isInterrupted,
+                        }}
+                    />
 
-                    {flags.showCassationOutcomePanel ? (
-                        <div className="sticky bottom-0 z-40 -mx-2.5 sm:-mx-3 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] mt-3 border-t border-[#F0A8B4]/22 bg-[#101018]/97 backdrop-blur-xl shadow-[0_-10px_40px_rgba(240,168,180,0.12)] print:hidden">
-                            <PersonalStatusCassationOutcomePanel
-                                onRatify={() => handleCassationDecision('ratified')}
-                                onQuash={() => handleCassationDecision('quashed')}
-                            />
-                        </div>
-                    ) : flags.showPersonalOpponentAppeal ? (
-                        <div className="sticky bottom-0 z-40 -mx-2.5 sm:-mx-3 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] mt-3 border-t border-[#F0A8B4]/22 bg-[#101018]/97 backdrop-blur-xl shadow-[0_-10px_40px_rgba(240,168,180,0.12)] print:hidden">
-                            <PersonalStatusOpponentAppealPanel onRegister={() => setShowAppealModal(true)} />
-                        </div>
-                    ) : flags.showPersonalPleadingFooter ? (
-                        <div className="sticky bottom-0 z-40 -mx-2.5 sm:-mx-3 px-2.5 sm:px-3 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] mt-3 border-t border-[#F0A8B4]/22 bg-[#101018]/97 backdrop-blur-xl shadow-[0_-10px_40px_rgba(240,168,180,0.12)] print:hidden">
-                            <PersonalStatusPleadingActions
-                                placement="footer"
-                                isPleadingsClosed={displayStage?.isPleadingsClosed}
-                                showCloseJudgment={flags.showCloseJudgment}
-                                onClosePleadings={
-                                    !displayStage?.isPleadingsClosed ? handleClosePleadings : undefined
-                                }
-                                onReopenPleadings={
-                                    displayStage?.isPleadingsClosed ? handleReopenPleadings : undefined
-                                }
-                                onOpenJudgment={() => setShowJudgmentModal(true)}
-                            />
-                        </div>
-                    ) : null}
                 </div>
             </div>
+
+            {flags.showCassationOutcomePanel ? (
+                <div className={FOOTER_SHELL}>
+                    <PersonalStatusCassationOutcomePanel
+                        onRatify={() => handleCassationDecision('ratified')}
+                        onQuash={() => handleCassationDecision('quashed')}
+                    />
+                </div>
+            ) : flags.showPersonalOpponentAppeal ? (
+                <div className={FOOTER_SHELL}>
+                    <PersonalStatusOpponentAppealPanel onRegister={() => setShowAppealModal(true)} />
+                </div>
+            ) : flags.showPersonalPleadingFooter ? (
+                <div className={FOOTER_SHELL}>
+                    <PersonalStatusPleadingActions
+                        placement="footer"
+                        isPleadingsClosed={displayStage?.isPleadingsClosed}
+                        showCloseJudgment={flags.showCloseJudgment}
+                        onClosePleadings={
+                            !displayStage?.isPleadingsClosed ? handleClosePleadings : undefined
+                        }
+                        onReopenPleadings={
+                            displayStage?.isPleadingsClosed ? handleReopenPleadings : undefined
+                        }
+                        onOpenJudgment={() => setShowJudgmentModal(true)}
+                    />
+                </div>
+            ) : null}
 
             {flags.showStageFooterBar ? (
                 <PersonalStatusStageFooterBar

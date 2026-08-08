@@ -17,6 +17,12 @@ import {
 } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { openExecutionDossierWithContract } from '@/app/runtime/executionOpenContract';
 import { openLawsuitDossierWithContract } from '@/app/runtime/lawsuitOpenContract';
+import type { OpenRepositoryOptions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRepository';
+import {
+    openRepositoryFromShell,
+    REPOSITORY_SHELL_FEATURE,
+} from '@/app/services/repository/repositoryShellNavigation';
+import { SPARK_REPOSITORY_SESSION_ROUTE } from '@/app/spark/engine/homeSparkRoutes';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
 
 import { getQuantumPendingSnapshot } from '@/app/utils/quantumTasksMetrics';
@@ -57,6 +63,7 @@ export type UseLawyerDashboardNavigationParams = {
     openScheduleTab: (opts?: { date?: string; eventId?: string }) => void;
     openCriminalCase: (caseId: string, options?: OpenCriminalCaseOptions) => void;
     openTasksManager: (focusTaskId?: string) => void;
+    openRepository: (opts?: OpenRepositoryOptions) => void;
 };
 
 export function useLawyerDashboardNavigation({
@@ -79,6 +86,7 @@ export function useLawyerDashboardNavigation({
     openScheduleTab,
     openCriminalCase,
     openTasksManager,
+    openRepository,
 }: UseLawyerDashboardNavigationParams) {
     const handleNotificationRouting = useCallback(
         (path: string, payload: Record<string, unknown> | null) => {
@@ -246,6 +254,17 @@ export function useLawyerDashboardNavigation({
                 openScheduleTab();
                 return;
             }
+            if (routePath === SPARK_REPOSITORY_SESSION_ROUTE) {
+                openRepositoryFromShell({
+                    signedIn: isRealSignedIn(userId),
+                    onSignedOut: () =>
+                        SmartToast.error(
+                            `يرجى تسجيل الدخول أولاً لاستخدام ${REPOSITORY_SHELL_FEATURE}`,
+                        ),
+                    onOpen: () => openRepository(),
+                });
+                return;
+            }
             const parsed = parseWorkspaceRoute(routePath);
             if (!parsed) return;
             switch (parsed.type) {
@@ -326,6 +345,7 @@ export function useLawyerDashboardNavigation({
             openNotepad,
             openUrgentInLawsuitsWorkspace,
             userId,
+            openRepository,
         ],
     );
 

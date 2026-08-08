@@ -60,13 +60,36 @@ describe('ProfileCustomBlocks drag commit', () => {
             configurable: true,
         });
 
-        fireEvent.pointerDown(handle, { pointerId: 7, clientX: 100, clientY: 100, button: 0 });
-        fireEvent.pointerMove(canvas, { pointerId: 7, clientX: 120, clientY: 140 });
-        fireEvent.pointerUp(canvas, { pointerId: 7, clientX: 120, clientY: 140 });
+        fireEvent.pointerDown(handle, { pointerId: 7, clientX: 100, clientY: 100, button: 0, pointerType: 'mouse' });
+        fireEvent.pointerMove(document, { pointerId: 7, clientX: 112, clientY: 112 });
+        fireEvent.pointerMove(document, { pointerId: 7, clientX: 120, clientY: 140 });
+        fireEvent.pointerUp(document, { pointerId: 7, clientX: 120, clientY: 140 });
 
         expect(onBlocksLayoutChange).toHaveBeenCalledTimes(1);
         const next = onBlocksLayoutChange.mock.calls[0]![0] as ProfileCustomBlock[];
         const moved = next.find((b) => b.id === 'a');
         expect(moved?.order).toBe(2);
+    });
+
+    it('لا يبدأ السحب على اللمس إلا من المقبض وبعد تجاوز العتبة', () => {
+        const onBlocksLayoutChange = vi.fn();
+        const { container } = render(
+            <ProfileCustomBlocks blocks={blocks} editable onBlocksLayoutChange={onBlocksLayoutChange} />,
+        );
+
+        const blockItem = container.querySelector('[data-profile-block-item]') as HTMLDivElement;
+        expect(blockItem).toBeTruthy();
+
+        fireEvent.pointerDown(blockItem, {
+            pointerId: 3,
+            clientX: 50,
+            clientY: 50,
+            button: 0,
+            pointerType: 'touch',
+        });
+        fireEvent.pointerMove(document, { pointerId: 3, clientX: 55, clientY: 80 });
+        fireEvent.pointerUp(document, { pointerId: 3 });
+
+        expect(onBlocksLayoutChange).not.toHaveBeenCalled();
     });
 });

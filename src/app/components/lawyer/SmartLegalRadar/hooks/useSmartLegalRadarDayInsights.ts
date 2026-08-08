@@ -2,6 +2,18 @@ import { useMemo } from 'react';
 import { timeValue } from '@/app/components/lawyer/SmartLegalRadar/utils';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 import { detectConflictsFromUnifiedEvents } from '@/app/services/calendar/scheduleConflictDetector';
+import {
+    resolveExplicitCalendarEventDurationMinutes,
+} from '@/app/services/calendar/calendarDurationUtils';
+
+const TRAVEL_GAP_MINUTES = 60;
+
+function travelGapMinutes(prev: UnifiedEvent, curr: UnifiedEvent): number {
+    const prevStart = timeValue(prev.time);
+    const currStart = timeValue(curr.time);
+    const prevDuration = resolveExplicitCalendarEventDurationMinutes(prev) ?? 0;
+    return currStart - (prevStart + prevDuration);
+}
 
 export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
     const scheduleConflict = useMemo(
@@ -17,9 +29,9 @@ export function useSmartLegalRadarDayInsights(selectedEvents: UnifiedEvent[]) {
         for (let i = 1; i < timed.length; i++) {
             const prev = timed[i - 1];
             const curr = timed[i];
-            const gap = timeValue(curr.time) - timeValue(prev.time);
+            const gap = travelGapMinutes(prev, curr);
             if (
-                gap < 60 &&
+                gap < TRAVEL_GAP_MINUTES &&
                 gap >= 0 &&
                 prev.location &&
                 curr.location &&

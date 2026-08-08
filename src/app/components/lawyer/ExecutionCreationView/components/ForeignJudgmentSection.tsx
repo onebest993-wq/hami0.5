@@ -1,5 +1,5 @@
 import React from 'react';
-import { Globe } from 'lucide-react';
+import { Globe } from '@/app/components/ui/lucideIcons';
 import { ecg } from './executionCreationGlassUi';
 
 export interface ForeignJudgmentData {

@@ -22,6 +22,8 @@ export function partiesForLegacyModals(
 
 export type SmartFileModalsPortalProps = {
     isViewingArchived: boolean;
+    /** دعوى مربوطة للاطلاع — نوافذ المحتوى للقراءة فقط */
+    isCaseLinkViewOnly?: boolean;
     isActionsMenuOpen: boolean;
     setIsActionsMenuOpen: (v: boolean) => void;
     isPaused: boolean;
@@ -52,6 +54,10 @@ export type SmartFileModalsPortalProps = {
     setShowInterruptionModal: (v: boolean) => void;
     showResumeInterruptionModal: boolean;
     setShowResumeInterruptionModal: (v: boolean) => void;
+    showAbandonmentRenewalModal: boolean;
+    setShowAbandonmentRenewalModal: (v: boolean) => void;
+    showPauseResumeModal: boolean;
+    setShowPauseResumeModal: (v: boolean) => void;
     showInterlocutoryModal: boolean;
     setShowInterlocutoryModal: (v: boolean) => void;
     showObjectionRegistrationModal: boolean;
@@ -112,6 +118,7 @@ export type SmartFileModalsPortalProps = {
     activeStageIndex: number;
     viewingStageIndex: number;
     parentData: SmartFileParentData;
+    lawsuitFile?: { lawsuitJurisdiction?: string; selectedType?: string };
     displayStageName?: string;
     consolidationCurrentFileId: number;
     consolidationCurrentCaseNo: string;

@@ -26,7 +26,7 @@ export function useNotificationPanelChrome() {
     const isDesktop = useDesktopPanelLayout();
 
     const overlayTransition = useMemo(
-        () => (reduceMotion ? { duration: 0 } : { duration: 0.12, ease: FAST_EASE }),
+        () => (reduceMotion ? { duration: 0 } : { duration: 0.09, ease: FAST_EASE }),
         [reduceMotion],
     );
 
@@ -34,8 +34,13 @@ export function useNotificationPanelChrome() {
         () =>
             reduceMotion
                 ? { duration: 0 }
-                : { type: 'spring' as const, stiffness: 520, damping: 40, mass: 0.72 },
-        [reduceMotion],
+                : {
+                      type: 'spring' as const,
+                      stiffness: isDesktop ? 520 : 660,
+                      damping: isDesktop ? 40 : 34,
+                      mass: isDesktop ? 0.72 : 0.54,
+                  },
+        [isDesktop, reduceMotion],
     );
 
     const sheetExitTransition = useMemo(
@@ -45,7 +50,7 @@ export function useNotificationPanelChrome() {
 
     const sheetInitial = useMemo(() => {
         if (reduceMotion) return false;
-        return isDesktop ? { x: 48, opacity: 0, y: 0 } : { y: '100%', opacity: 0.55, x: 0 };
+        return isDesktop ? { x: 48, opacity: 0, y: 0 } : { y: '100%', opacity: 1, x: 0 };
     }, [isDesktop, reduceMotion]);
 
     const sheetExit = useMemo(() => {

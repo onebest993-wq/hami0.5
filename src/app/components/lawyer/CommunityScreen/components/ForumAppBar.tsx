@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowRight, Search, Bell, ChevronDown, Users } from 'lucide-react';
+import { ArrowRight, Search, Bell, ChevronDown, Users } from '@/app/components/ui/lucideIcons';
 import { AnimatePresence } from 'motion/react';
 import { ForumCategoryPanel } from './ForumCategoryPanel';
 import { RepositoryFilterPanel } from './RepositoryFilterPanel';

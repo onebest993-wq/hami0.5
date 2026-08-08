@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { ExtraordinaryAppealModalProps } from '../smartFile/modalFormTypes';
 import { GLASS_CLOSE } from '../smartFile/moroccanGlassShell';

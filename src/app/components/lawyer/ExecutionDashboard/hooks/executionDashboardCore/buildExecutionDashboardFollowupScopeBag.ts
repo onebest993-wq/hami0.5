@@ -198,6 +198,7 @@ export function buildExecutionDashboardFollowupScopeBag(
         totalOwed: input.totalOwed,
         tryOpenPendingBreakInventoryLedger: input.tryOpenPendingBreakInventoryLedger,
         tryOpenPendingCustodianDetails: input.tryOpenPendingCustodianDetails,
+        saveJudicialCustodianEntry: input.saveJudicialCustodianEntry,
         unifiedModalTab: input.unifiedModalTab,
         viewExecutionData: input.viewExecutionData,
         voluntaryAttendanceCount: input.voluntaryAttendanceCount,

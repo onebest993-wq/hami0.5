@@ -5,17 +5,19 @@ import {
     Edit2,
     Trash2,
     Lock,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { buildChromeStageStripItems } from '../smartFile/stepperPipeline';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { CaseFlowActionsPanel } from '../parts/CaseFlowActionsPanel';
 import { ColleagueConsultationHeaderButton } from '@/app/components/lawyer/caseShare/ColleagueConsultationHeaderButton';
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 
 export type SmartFileChromeProps = {
     onClose: () => void;
     onDossierBack?: () => void;
     onDossierExit?: () => void;
+    dossierNestedNav?: boolean;
     setShowEditInfoModal: (v: boolean) => void;
     isTrashOpen: boolean;
     setIsTrashOpen: (v: boolean) => void;
@@ -52,6 +54,7 @@ export function SmartFileChrome({
     onClose,
     onDossierBack,
     onDossierExit,
+    dossierNestedNav = false,
     setShowEditInfoModal,
     isTrashOpen,
     setIsTrashOpen,
@@ -78,27 +81,32 @@ export function SmartFileChrome({
     const stageStripItems = buildChromeStageStripItems(stages, activeStageIndex, viewingStageIndex);
     const dossierBack = onDossierBack ?? onClose;
     const dossierExit = onDossierExit ?? onClose;
+    const navVisibility = resolveDossierHeaderNavVisibility(dossierNestedNav || isTrashOpen);
 
     return (
         <>
-            <div className="sticky top-0 z-50 w-full shrink-0 bg-slate-950/90 border-b border-white/10 print:hidden overflow-visible">
-                <div className="flex items-center justify-between px-3 py-3.5 overflow-visible">
-                    <div className="flex items-center gap-3">
+            <div className="sticky top-0 z-50 w-full shrink-0 bg-slate-950/90 border-b border-white/10 print:hidden overflow-hidden">
+                <div className="flex items-center justify-between gap-2 px-3 py-2.5 min-w-0">
+                    <div className="flex items-center gap-2 shrink-0">
                         <DossierHeaderNavButtons
                             onBack={dossierBack}
                             onExit={dossierExit}
+                            showBack={navVisibility.showBack}
+                            showExit={navVisibility.showExit}
                             backTestId={CIVIL_LAWSUIT_TEST_IDS.dossierBack}
                             exitTestId={CIVIL_LAWSUIT_TEST_IDS.dossierExit}
                         />
                     </div>
 
-                    <div className="flex items-center justify-center flex-1 gap-2">
-                        <h2 className="font-bold text-lg text-white/90 tracking-wide whitespace-nowrap">
+                    <div className="flex items-center justify-center flex-1 gap-1.5 min-w-0 overflow-x-auto scrollbar-hide">
+                        <h2 className="font-bold text-base sm:text-lg text-white/90 tracking-wide whitespace-nowrap shrink-0">
                             اضبارة الدعوى
                         </h2>
-                        <ColleagueConsultationHeaderButton />
+                        <ColleagueConsultationHeaderButton iconOnly />
                         {!isViewingArchived && !hideCaseFlowActions && (
                             <CaseFlowActionsPanel
+                                variant="dock"
+                                compactDock
                                 onInterrupt={onInterrupt}
                                 onPause={onPause}
                                 onResume={onResume}

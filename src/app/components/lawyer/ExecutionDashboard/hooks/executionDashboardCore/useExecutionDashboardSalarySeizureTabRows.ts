@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import { buildSalarySeizureTabRows } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 
 export type UseExecutionDashboardSalarySeizureTabRowsParams = {
     salarySeizureRegistryAssets: SeizedAsset[];
@@ -23,7 +24,11 @@ export function useExecutionDashboardSalarySeizureTabRows({
                 registryAssets: salarySeizureRegistryAssets,
                 seizureDraftsByDecisionId,
                 executionData: executionData ?? null,
-                executionId: String(decisionsStorageExecutionId ?? executionId ?? '').trim(),
+                executionId: requireDecisionsStorageExecutionId({
+                    decisionsStorageExecutionId,
+                    executionId,
+                    executionData: executionData as Record<string, unknown> | null,
+                }),
             }),
         [
             salarySeizureRegistryAssets,

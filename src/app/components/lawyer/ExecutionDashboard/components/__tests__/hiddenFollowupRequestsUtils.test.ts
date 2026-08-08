@@ -47,6 +47,28 @@ const guarantorCtx = {
 };
 
 describe('hiddenFollowupRequestsUtils', () => {
+    it('shows buried personal coercive when personal tab is visible but locked for employee', () => {
+        const lockedEmployeeFlags = {
+            ...baseFlags,
+            showPersonalCoerciveFollowupTab: true,
+            personalTabLockedForEmployee: true,
+            showHiddenExecutiveDossierPresentation: true,
+        };
+        const catalog = listHiddenPersonalCoerciveCatalog(lockedEmployeeFlags);
+        expect(catalog.some((item) => item.key === 'travel_ban')).toBe(true);
+        expect(catalog.some((item) => item.key === 'arrest_warrant_investigation')).toBe(true);
+    });
+
+    it('hides buried personal coercive when personal tab is visible and unlocked', () => {
+        const unlockedFlags = {
+            ...baseFlags,
+            showPersonalCoerciveFollowupTab: true,
+            personalTabLockedForEmployee: false,
+        };
+        const catalog = listHiddenPersonalCoerciveCatalog(unlockedFlags);
+        expect(catalog.some((item) => item.key === 'travel_ban')).toBe(false);
+    });
+
     it('allows detention paths for employee on custody removal only', () => {
         expect(
             isEmployeeCoerciveDetentionRestricted({

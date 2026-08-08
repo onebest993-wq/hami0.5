@@ -1,6 +1,8 @@
 import { prefetchScheduleHubModule } from '@/app/runtime/scheduleHubLoader';
+import { prefetchRadarEventForm, prefetchRadarCalendarGrid, prefetchRadarWidgets } from '@/app/runtime/radarWidgetLoader';
 import { hydrateScheduleShellForInstantOpenWithData } from '@/app/runtime/scheduleBootHydrator';
 import { fetchCalendarEvents, prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudRuntime';
+import { requestCalendarDossierSyncNow } from '@/app/services/calendar/requestCalendarDossierSyncNow';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { setCachedCalendarEvents } from '@/app/services/calendar/calendarEventsCache';
 import type { CalendarEvent } from '@/app/services/cloud/lawyerCalendarTypes';
@@ -17,7 +19,14 @@ export function registerScheduleWarmUserId(userId: string | null | undefined): (
     };
 }
 
-/** تحميل مسبق لأحداث التقويم في الذاكرة — idle على الرئيسية */
+/** ينتظر جلب الأحداث الجاري إن وُجد — يمنع fetch مكرر عند فتح الرادار */
+export function awaitCalendarWarmIfInflight(userId: string | null | undefined): Promise<void> {
+    const uid = resolveCalendarUserId(userId ?? registeredWarmUserId ?? null);
+    if (!uid || warmForUserId !== uid || !warmInflight) return Promise.resolve();
+    return warmInflight.then(() => undefined).catch(() => undefined);
+}
+
+/** تحميل مسبق لأحداث التقويم في الذاكرة */
 export function warmCalendarEventsCache(userId: string | null | undefined): Promise<CalendarEvent[]> {
     if (typeof window === 'undefined') return Promise.resolve([]);
     const uid = resolveCalendarUserId(userId ?? registeredWarmUserId ?? null);
@@ -37,19 +46,24 @@ export function warmCalendarEventsCache(userId: string | null | undefined): Prom
     return warmInflight;
 }
 
-/** عند hover/لمس التقويم: prefetch للـ chunks + تجهيز mount */
-export function warmScheduleOnHover(userId?: string | null): void {
-    const resolvedUserId = userId ?? registeredWarmUserId;
+/** مسار تسخين موحّد: chunks + أحداث + جسر إضابير — قبل أول فتح */
+function warmSchedulePipeline(userId: string | null | undefined, forceHydrate: boolean): void {
     prefetchScheduleHubModule();
     prefetchCalendarCloudModule();
-    void hydrateScheduleShellForInstantOpenWithData(resolvedUserId).catch(() => undefined);
+    prefetchRadarEventForm();
+    prefetchRadarCalendarGrid();
+    prefetchRadarWidgets();
+    requestCalendarDossierSyncNow();
+    void warmCalendarEventsCache(userId).catch(() => undefined);
+    void hydrateScheduleShellForInstantOpenWithData(userId, forceHydrate).catch(() => undefined);
+}
+
+/** عند hover/لمس التقويم: كل ما يلزم للفتح الفوري */
+export function warmScheduleOnHover(userId?: string | null): void {
+    warmSchedulePipeline(userId ?? registeredWarmUserId, false);
 }
 
 /** عند فتح التقويم — يتجاوز تعطيل prefetch الخلفي */
 export function warmScheduleOnOpen(userId?: string | null): void {
-    const resolvedUserId = userId ?? registeredWarmUserId;
-    prefetchScheduleHubModule();
-    prefetchCalendarCloudModule();
-    void warmCalendarEventsCache(resolvedUserId).catch(() => undefined);
-    void hydrateScheduleShellForInstantOpenWithData(resolvedUserId, true).catch(() => undefined);
+    warmSchedulePipeline(userId ?? registeredWarmUserId, true);
 }

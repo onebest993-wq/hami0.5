@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Check, Plus, X } from 'lucide-react';
+import { Check, Plus, X } from '@/app/components/ui/lucideIcons';
 import {
     countDocsInCategory,
     countRepositoryCategoryItems,

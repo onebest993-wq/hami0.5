@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
 import { useExecutionDashboardOtherPartyDebtorHandlers } from './useExecutionDashboardOtherPartyDebtorHandlers';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridgeProps = {
     input: FollowupOtherPartyHandlerClusterInput;
@@ -25,13 +28,22 @@ export function ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge({
         setTimelineEvents: input.setTimelineEvents,
     });
 
-    useEffect(() => {
-        onCluster({
-            pushTimelineEventBinding,
+    const cluster = {
+        pushTimelineEventBinding,
+        pushTimelineEvent,
+        dossierFollowupHandlers,
+    };
+
+    const pushBinding = pushTimelineEventBinding as Record<string, unknown> | undefined;
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
+            pushBinding?.pushTimelineEvent,
             pushTimelineEvent,
-            dossierFollowupHandlers,
-        });
-    }, [dossierFollowupHandlers, onCluster, pushTimelineEvent, pushTimelineEventBinding]);
+            ...handlerBagKeyFingerprint(dossierFollowupHandlers as Record<string, unknown>),
+        ],
+        onCluster,
+    );
 
     return null;
 }

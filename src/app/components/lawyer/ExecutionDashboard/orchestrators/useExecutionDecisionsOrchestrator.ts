@@ -1,5 +1,5 @@
 import { useExecutionDecisionsModalController } from '../hooks/useExecutionDecisionsModalController';
-import type { ExecutionOrchestratorSlice } from './executionOrchestratorTypes';
+import type { ExecutionDecisionsOrchestratorSlice } from './executionDecisionsOrchestratorTypes';
 
 export type UseExecutionDecisionsOrchestratorInput = {
     showDecisionsModal: boolean;
@@ -10,6 +10,6 @@ export type UseExecutionDecisionsOrchestratorInput = {
 export function useExecutionDecisionsOrchestrator({
     showDecisionsModal,
     setShowDecisionsModal,
-}: UseExecutionDecisionsOrchestratorInput): ExecutionOrchestratorSlice {
+}: UseExecutionDecisionsOrchestratorInput): ExecutionDecisionsOrchestratorSlice {
     return useExecutionDecisionsModalController({ showDecisionsModal, setShowDecisionsModal });
 }

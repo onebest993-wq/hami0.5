@@ -29,6 +29,8 @@ export type DossierSyncStats = {
 export type SyncScope = {
     /** عند false: لا تُزامَن مهام الاستحقاق تلقائياً (تجنّب مواعيد «مختلقة» من مهام النظام) */
     includeTasks?: boolean;
+    /** مسار حيّ — فقط نقاط الدخول الأربع في CALENDAR_SYNC_RULES.active */
+    whitelistOnly?: boolean;
 };
 
 /** لقطة حية من الذاكرة — تُدمج مع التخزين عند التنظيف لتفادي حذف مواعيد غير محفوظة بعد */

@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { Ruler, Truck, ChevronDown } from 'lucide-react';
+import { Ruler, Truck, ChevronDown } from '@/app/components/ui/lucideIcons';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
@@ -12,6 +12,7 @@ import {
 import {
     getGoverningEncroachmentProcedureRowForMatch,
     isExecutorRowRejectedAndFinal,
+    isEvictionProcedureRowWorkflowComplete,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import {
@@ -201,12 +202,18 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
         [decisionRows, executionId, openAppeals]
     );
 
-    const sendInitial = (workflowKey: EncroachmentRemovalWorkflowKey, title: string, body: string) => {
+    const sendInitial = (
+        workflowKey: EncroachmentRemovalWorkflowKey,
+        title: string,
+        body: string,
+        supersedeCompletedHub?: boolean,
+    ) => {
         const result = sendInitialEncroachmentRemovalRequest({
             executionId: decisionsStorageExecutionId,
             title,
             body,
             encroachmentWorkflowKey: workflowKey,
+            supersedeCompletedHub,
         });
         if (!result.ok) {
             showToast('تعذر إرسال الطلب', 'error');
@@ -241,6 +248,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
         }
         onExpenseRecorded?.(result.expenseRow);
         setSurveyorFees('');
+        setDetailsOpen((prev) => ({ ...prev, [decisionId]: false }));
         showToast('تم حفظ بيانات الطلب وتسجيل المصروف.', 'success');
     };
 
@@ -274,6 +282,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
         }
         onExpenseRecorded?.(result.expenseRow);
         setMachineryFees('');
+        setDetailsOpen((prev) => ({ ...prev, [decisionId]: false }));
         showToast('تم حفظ بيانات الطلب وتسجيل المصروف.', 'success');
     };
 
@@ -281,6 +290,14 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
     const machineryRow = latestDecision('machinery_entry_permit');
     const surveyorSaved = Boolean(String(surveyorRow?.encroachmentRequestSavedAt || '').trim());
     const machinerySaved = Boolean(String(machineryRow?.encroachmentRequestSavedAt || '').trim());
+    const surveyorWorkflowComplete = Boolean(
+        surveyorRow?.id && isEvictionProcedureRowWorkflowComplete(surveyorRow),
+    );
+    const machineryWorkflowComplete = Boolean(
+        machineryRow?.id && isEvictionProcedureRowWorkflowComplete(machineryRow),
+    );
+    const surveyorInProgress = Boolean(surveyorRow?.id && !surveyorWorkflowComplete);
+    const machineryInProgress = Boolean(machineryRow?.id && !machineryWorkflowComplete);
 
     return (
         <>
@@ -288,7 +305,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                 <button
                     type="button"
                     onClick={() => {
-                        if (surveyorRow?.id) return;
+                        if (surveyorInProgress) return;
                         triggerCoerciveAction('encroachment_surveyor_send');
                     }}
                     className={PROCEDURE_BUTTON_CLASS}
@@ -301,7 +318,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                     </div>
                 </button>
 
-                {!surveyorRow?.id ? (
+                {!surveyorRow?.id || surveyorWorkflowComplete ? (
                     <InlineActionGate
                         gateKey="encroachment_surveyor_send"
                         activeKey={inlineActionGateKey}
@@ -309,16 +326,28 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                             sendInitial(
                                 'surveyor_appointment',
                                 ENCROACHMENT_SURVEYOR_REQUEST_TITLE,
-                                ENCROACHMENT_INITIAL_SURVEYOR_BODY
+                                ENCROACHMENT_INITIAL_SURVEYOR_BODY,
+                                surveyorWorkflowComplete,
                             )
                         }
                         onCancel={() => setInlineActionGateKey(null)}
                     />
                 ) : null}
 
-                {renderDecisionAccordion(ENCROACHMENT_SURVEYOR_REQUEST_TITLE, surveyorRow)}
+                {surveyorInProgress ? renderDecisionAccordion(ENCROACHMENT_SURVEYOR_REQUEST_TITLE, surveyorRow) : null}
 
-                {surveyorRow?.id && isExecutorRowApprovedWorkflowActive(surveyorRow, decisionRows) && (
+                {surveyorWorkflowComplete ? (
+                    <div className="mt-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2.5 text-right">
+                        <p className="text-[11px] font-black text-emerald-100">تم إكمال طلب انتداب الخبير</p>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-emerald-200/85">
+                            لإرسال طلب جديد اضغط الزر أعلاه.
+                        </p>
+                    </div>
+                ) : null}
+
+                {surveyorInProgress &&
+                surveyorRow?.id &&
+                isExecutorRowApprovedWorkflowActive(surveyorRow, decisionRows) ? (
                     <EncroachmentApprovedDetailsCollapsible
                         title="بيانات انتداب الخبير — بعد موافقة المنفذ"
                         row={surveyorRow}
@@ -364,7 +393,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                             حفظ وتوليد الطلب
                         </button>
                     </EncroachmentApprovedDetailsCollapsible>
-                )}
+                ) : null}
             </div>
 
             {variant === 'full' ? (
@@ -372,7 +401,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                 <button
                     type="button"
                     onClick={() => {
-                        if (machineryRow?.id) return;
+                        if (machineryInProgress) return;
                         triggerCoerciveAction('encroachment_machinery_send');
                     }}
                     className={PROCEDURE_BUTTON_CLASS}
@@ -385,7 +414,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                     </div>
                 </button>
 
-                {!machineryRow?.id ? (
+                {!machineryRow?.id || machineryWorkflowComplete ? (
                     <InlineActionGate
                         gateKey="encroachment_machinery_send"
                         activeKey={inlineActionGateKey}
@@ -393,16 +422,30 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                             sendInitial(
                                 'machinery_entry_permit',
                                 ENCROACHMENT_MACHINERY_REQUEST_TITLE,
-                                ENCROACHMENT_INITIAL_MACHINERY_BODY
+                                ENCROACHMENT_INITIAL_MACHINERY_BODY,
+                                machineryWorkflowComplete,
                             )
                         }
                         onCancel={() => setInlineActionGateKey(null)}
                     />
                 ) : null}
 
-                {renderDecisionAccordion(ENCROACHMENT_MACHINERY_REQUEST_TITLE, machineryRow)}
+                {machineryInProgress
+                    ? renderDecisionAccordion(ENCROACHMENT_MACHINERY_REQUEST_TITLE, machineryRow)
+                    : null}
 
-                {machineryRow?.id && isExecutorRowApprovedWorkflowActive(machineryRow, decisionRows) && (
+                {machineryWorkflowComplete ? (
+                    <div className="mt-2 rounded-2xl border border-emerald-500/25 bg-emerald-950/20 px-3 py-2.5 text-right">
+                        <p className="text-[11px] font-black text-emerald-100">تم إكمال طلب إذن الآليات</p>
+                        <p className="mt-0.5 text-[10px] leading-relaxed text-emerald-200/85">
+                            لإرسال طلب جديد اضغط الزر أعلاه.
+                        </p>
+                    </div>
+                ) : null}
+
+                {machineryInProgress &&
+                machineryRow?.id &&
+                isExecutorRowApprovedWorkflowActive(machineryRow, decisionRows) ? (
                     <EncroachmentApprovedDetailsCollapsible
                         title="بيانات إذن الآليات — بعد موافقة المنفذ"
                         row={machineryRow}
@@ -449,7 +492,7 @@ export const EncroachmentRemovalRequestCards: React.FC<EncroachmentRemovalReques
                             حفظ وتوليد الطلب
                         </button>
                     </EncroachmentApprovedDetailsCollapsible>
-                )}
+                ) : null}
             </div>
             ) : null}
         </>

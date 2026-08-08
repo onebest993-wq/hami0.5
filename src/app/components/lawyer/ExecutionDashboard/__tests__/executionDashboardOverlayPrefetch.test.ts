@@ -34,6 +34,7 @@ vi.mock('../executionDashboardLazyRegistry', () => ({
     prefetchExecutionFinancialHubPortal: () => prefetchExecutionFinancialHubPortalMock(),
     prefetchUnifiedSeizureLogHost: () => prefetchUnifiedSeizureLogHostMock(),
     prefetchExecutionNotesAndAppointmentModals: vi.fn(),
+    prefetchCustodyRemovalWardsModule: vi.fn(),
 }));
 
 vi.mock('../executionFollowupTabPrefetch', () => ({

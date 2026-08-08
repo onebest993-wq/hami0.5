@@ -1,13 +1,15 @@
 import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { prefetchLawyerHomeTabModule } from '@/app/runtime/homeHubLoader';
+import { prefetchLawyerHomeHubCardModule } from '@/app/runtime/homeHubCardLoader';
 import { scheduleLawyerShellPrefetch } from '@/app/runtime/deferredShellPrefetch';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+
 function loadLazyComponentsIntent() {
     return import('@/app/utils/lazyComponentsIntent');
 }
 
-function warmHomeHubRadarFromSession(): void {
+export function warmHomeHubRadarFromSession(): void {
     if (typeof window === 'undefined') return;
     const lawyerId = readPersistedSupabaseAuth().user?.id ?? null;
     if (!lawyerId) return;
@@ -22,18 +24,21 @@ export function warmHomeOnHover(): void {
         m.warmLawyerHomeShellCritical();
         m.warmLawyerHomeShellSecondary();
     });
-    // موجة widgets العميقة (تشمل تسخين إضبارة التنفيذ) — مجدولة idle وغير مكررة
     scheduleLawyerShellPrefetch();
     prefetchLawyerHomeTabModule();
+    prefetchLawyerHomeHubCardModule();
     warmHomeHubRadarFromSession();
 }
 
 /** عند أول عرض للرئيسية — فقط ما يظهر على الشاشة (intent-only للباقي) */
 export function warmHomeOnOpen(): void {
+    prefetchLawyerHomeHubCardModule();
     void loadLazyComponentsIntent().then((m) => m.warmLawyerHomeShellCritical());
     prefetchLawyerHomeTabModule();
+    warmHomeHubRadarFromSession();
     onDashboardInteractive(() => {
         scheduleLawyerShellPrefetch();
+        prefetchLawyerHomeHubCardModule();
         scheduleIdleWork(
             () => {
                 void loadLazyComponentsIntent().then((m) => m.warmLawyerHomeShellSecondary());
@@ -44,8 +49,8 @@ export function warmHomeOnOpen(): void {
             },
         );
         scheduleIdleWork(warmHomeHubRadarFromSession, {
-            minDelayMs: import.meta.env.DEV ? 600 : 1_100,
-            timeoutMs: 3_500,
+            minDelayMs: import.meta.env.DEV ? 200 : 400,
+            timeoutMs: 2_000,
         });
     });
 }

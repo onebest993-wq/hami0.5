@@ -16,7 +16,7 @@ import {
     Bell,
     Users,
     type LucideIcon,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { GlobalSearchCategory } from '@/app/services/globalSearchIndex';
 
 /** معرّف قائمة النتائج (listbox) — يربط حقل الإدخال بالنتائج عبر aria-controls */

@@ -1,5 +1,5 @@
-import React, { memo, useEffect, useId, useRef, useState } from 'react';
-import type { LucideIcon } from 'lucide-react';
+import React, { memo, useCallback, useEffect, useId, useRef, useState, type PointerEvent } from 'react';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 
 /** زجاج ملكي — إطار خفيف يتأثر بـ --hami-primary */
 export const SETTING_GLASS =
@@ -44,11 +44,28 @@ export const SettingRow = memo(function SettingRow({
     disabled?: boolean;
 }) {
     const labelId = useId();
+    const actionHostRef = useRef<HTMLDivElement>(null);
+
+    const activateRowSwitch = useCallback(
+        (event: PointerEvent<HTMLDivElement>) => {
+            if (disabled || event.button !== 0) return;
+            const target = event.target;
+            if (target instanceof Element && target.closest('[role="switch"]')) return;
+            const sw = actionHostRef.current?.querySelector('[role="switch"]');
+            if (!(sw instanceof HTMLButtonElement) || sw.getAttribute('aria-disabled') === 'true') return;
+            event.preventDefault();
+            event.stopPropagation();
+            sw.click();
+        },
+        [disabled],
+    );
+
     return (
         <div
-            className={`flex items-center justify-between gap-3 p-4 ${!isLast ? SETTING_ROW_BORDER : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+            className={`flex items-center justify-between gap-3 p-4 touch-manipulation ${!isLast ? SETTING_ROW_BORDER : ''} ${disabled ? 'opacity-50 pointer-events-none' : ''}`}
+            onPointerDown={activateRowSwitch}
         >
-            <div className="flex items-center gap-3 min-w-0">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
                 <div className={`${SETTING_ICON_BOX} text-white/70`}>
                     <Icon size={17} />
                 </div>
@@ -57,11 +74,11 @@ export const SettingRow = memo(function SettingRow({
                         {label}
                     </div>
                     {subLabel ? (
-                        <p className="text-[10px] text-white/45 mt-0.5 leading-relaxed">{subLabel}</p>
+                        <p className="text-xs text-white/60 mt-0.5 leading-relaxed">{subLabel}</p>
                     ) : null}
                 </div>
             </div>
-            <div className="shrink-0">
+            <div ref={actionHostRef} className="relative z-[2] shrink-0">
                 {React.isValidElement(action)
                     ? (() => {
                           const props = action.props as Record<string, unknown>;
@@ -85,6 +102,7 @@ export const Toggle = memo(function Toggle({
     disabled,
     label,
     testId,
+    optimistic: optimisticUi = true,
     'aria-labelledby': ariaLabelledBy,
 }: {
     checked: boolean;
@@ -92,71 +110,175 @@ export const Toggle = memo(function Toggle({
     disabled?: boolean;
     label?: string;
     testId?: string;
+    optimistic?: boolean;
     'aria-labelledby'?: string;
 }) {
+    const [optimistic, setOptimistic] = useState<boolean | null>(null);
+    const pointerCommitRef = useRef(false);
+    const displayed = optimisticUi ? (optimistic ?? checked) : checked;
+
+    useEffect(() => {
+        if (!optimisticUi) return;
+        if (optimistic !== null && checked === optimistic) {
+            setOptimistic(null);
+        }
+    }, [checked, optimistic, optimisticUi]);
+
+    const commit = (next: boolean, event: React.SyntheticEvent) => {
+        event.stopPropagation();
+        if (disabled) return;
+        if (optimisticUi) setOptimistic(next);
+        onChange(next);
+    };
+
     return (
         <button
             type="button"
             role="switch"
-            aria-checked={checked}
+            aria-checked={displayed}
             aria-label={label}
             aria-labelledby={ariaLabelledBy}
             disabled={disabled}
             data-testid={testId}
-            onClick={() => onChange(!checked)}
-            className={`relative inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full touch-manipulation transition-transform duration-100 active:scale-[0.97] ${SETTING_FOCUS_RING} ${disabled ? 'opacity-40' : ''}`}
+            onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                pointerCommitRef.current = true;
+                commit(!displayed, event);
+            }}
+            onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (pointerCommitRef.current) {
+                    pointerCommitRef.current = false;
+                    return;
+                }
+                commit(!displayed, event);
+            }}
+            style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
+            className={`relative z-[2] inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full touch-manipulation active:scale-[0.97] ${SETTING_FOCUS_RING} ${disabled ? 'opacity-40 pointer-events-none' : ''}`}
         >
             <div
-                className={`relative h-7 w-12 rounded-full transition-all duration-200 ${checked ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'}`}
+                aria-hidden
+                className={`pointer-events-none relative h-7 w-12 rounded-full hami-settings-toggle-track ${displayed ? 'bg-[#E6C673] shadow-[0_0_12px_rgba(230,198,115,0.35)]' : 'bg-white/10'}`}
             >
                 <div
-                    className={`absolute top-1 right-1 h-5 w-5 rounded-full bg-white shadow-md transition-transform duration-200 ${checked ? '-translate-x-5' : 'translate-x-0'}`}
+                    className={`pointer-events-none absolute top-1 right-1 h-5 w-5 rounded-full bg-white shadow-md hami-settings-toggle-thumb ${displayed ? '-translate-x-5' : 'translate-x-0'}`}
                 />
             </div>
         </button>
     );
 });
 
-export const Segmented = <T extends string>({
+export const Segmented = memo(function Segmented<T extends string>({
     value,
     options,
     onChange,
     tone = 'dark',
+    equal = false,
+    nowrap = false,
     'aria-labelledby': ariaLabelledBy,
 }: {
     value: T;
     options: { value: T; label: string; testId?: string }[];
     onChange: (v: T) => void;
     tone?: 'dark' | 'light';
+    equal?: boolean;
+    /** صف أفقي قابل للتمرير — لخيارات كثيرة مثل قفل تلقائي */
+    nowrap?: boolean;
     'aria-labelledby'?: string;
-}) => (
-    <div
-        role="group"
-        aria-labelledby={ariaLabelledBy}
-        className={`flex p-0.5 rounded-xl ${SETTING_GLASS_INNER}`}
-    >
-        {options.map((opt) => (
-            <button
-                key={opt.value}
-                type="button"
-                data-testid={opt.testId}
-                aria-pressed={value === opt.value}
-                onClick={() => onChange(opt.value)}
-                className={`min-h-[44px] px-3 py-2 rounded-lg text-[10px] font-bold touch-manipulation transition-all duration-100 active:scale-[0.98] ${SETTING_FOCUS_RING_COMPACT} ${
-                    value === opt.value
-                        ? tone === 'light'
-                            ? 'bg-black/[0.08] text-[#3f4654] ring-1 ring-inset ring-black/[0.08]'
-                            : 'bg-[#E6C673]/18 text-[#E6C673] ring-1 ring-inset ring-[#E6C673]/25'
-                        : tone === 'light'
-                          ? 'text-black/40 hover:text-black/55 hover:bg-black/[0.04]'
-                          : 'text-white/35 hover:text-white/60 hover:bg-white/[0.04]'
-                }`}
-            >
-                {opt.label}
-            </button>
-        ))}
-    </div>
-);
+}) {
+    const buttonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+    const [optimistic, setOptimistic] = useState<T | null>(null);
+    const displayed = optimistic ?? value;
+
+    useEffect(() => {
+        if (optimistic !== null && value === optimistic) {
+            setOptimistic(null);
+        }
+    }, [value, optimistic]);
+
+    const select = (next: T, event: React.SyntheticEvent) => {
+        event.stopPropagation();
+        if (next === displayed) return;
+        setOptimistic(next);
+        onChange(next);
+    };
+
+    const focusOption = (index: number) => {
+        const opt = options[index];
+        if (!opt) return;
+        onChange(opt.value);
+        buttonRefs.current[index]?.focus();
+    };
+
+    const onOptionKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
+        const rtl = typeof document !== 'undefined' && document.documentElement.dir === 'rtl';
+        let next = index;
+
+        if (event.key === 'Home') next = 0;
+        else if (event.key === 'End') next = options.length - 1;
+        else if (event.key === 'ArrowRight') next = rtl ? index - 1 : index + 1;
+        else if (event.key === 'ArrowLeft') next = rtl ? index + 1 : index - 1;
+        else return;
+
+        event.preventDefault();
+        next = Math.max(0, Math.min(options.length - 1, next));
+        focusOption(next);
+    };
+
+    return (
+        <div
+            role="radiogroup"
+            aria-labelledby={ariaLabelledBy}
+            className={`flex gap-1 p-1 rounded-2xl w-full ${nowrap ? 'hami-settings-segmented-nowrap flex-nowrap overflow-x-auto overscroll-x-contain' : ''} ${SETTING_GLASS_INNER}`}
+        >
+            {options.map((opt, index) => {
+                const selected = displayed === opt.value;
+                return (
+                    <button
+                        key={opt.value}
+                        ref={(node) => {
+                            buttonRefs.current[index] = node;
+                        }}
+                        type="button"
+                        role="radio"
+                        data-testid={opt.testId}
+                        aria-checked={selected}
+                        tabIndex={selected ? 0 : -1}
+                        onKeyDown={(event) => onOptionKeyDown(event, index)}
+                        onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            select(opt.value, event);
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                        }}
+                        className={`${equal ? 'flex-1' : ''} ${nowrap ? 'shrink-0' : ''} min-h-[44px] px-2 sm:px-3 py-2.5 rounded-xl text-xs font-bold touch-manipulation active:scale-[0.98] hami-settings-segment ${SETTING_FOCUS_RING_COMPACT} ${
+                            selected
+                                ? tone === 'light'
+                                    ? 'bg-black/[0.08] text-[#3f4654] ring-1 ring-inset ring-black/[0.08] shadow-sm'
+                                    : 'bg-gradient-to-b from-[#E6C673]/22 to-[#E6C673]/10 text-[#E6C673] ring-1 ring-inset ring-[#E6C673]/35 shadow-[0_2px_12px_rgba(230,198,115,0.12)]'
+                                : tone === 'light'
+                                  ? 'text-black/40 hover:text-black/55 hover:bg-black/[0.04]'
+                                  : 'text-white/45 hover:text-white/75 hover:bg-white/[0.05]'
+                        }`}
+                    >
+                        {opt.label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}) as <T extends string>(props: {
+    value: T;
+    options: { value: T; label: string; testId?: string }[];
+    onChange: (v: T) => void;
+    tone?: 'dark' | 'light';
+    equal?: boolean;
+    nowrap?: boolean;
+    'aria-labelledby'?: string;
+}) => React.ReactElement;
 
 export const SliderRow = memo(function SliderRow({
     label,
@@ -245,7 +367,7 @@ export const SliderRow = memo(function SliderRow({
     );
 });
 
-export const SelectRow = ({
+export const SelectRow = memo(function SelectRow({
     label,
     value,
     options,
@@ -253,22 +375,23 @@ export const SelectRow = ({
 }: {
     label: string;
     value: string;
-    options: { value: string; label: string }[];
+    options: { value: string; label: string; testId?: string }[];
     onChange: (v: string) => void;
-}) => (
-    <div className={`p-4 ${SETTING_ROW_BORDER} last:border-0`}>
-        <label className="text-sm font-semibold text-white block mb-2">{label}</label>
-        <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            aria-label={label}
-            className={`w-full min-h-[44px] rounded-xl py-2.5 px-3 text-sm text-white outline-none touch-manipulation focus-visible:border-[#E6C673]/40 focus-visible:ring-2 focus-visible:ring-[#E6C673]/40 ${SETTING_GLASS_INNER}`}
-        >
-            {options.map((o) => (
-                <option key={o.value || 'empty'} value={o.value} className="bg-[#0B1021]">
-                    {o.label || '— اختر —'}
-                </option>
-            ))}
-        </select>
-    </div>
-);
+}) {
+    const labelId = useId();
+
+    return (
+        <div className={`p-4 ${SETTING_ROW_BORDER} last:border-0`}>
+            <span id={labelId} className="text-sm font-semibold text-white block mb-2.5">
+                {label}
+            </span>
+            <Segmented
+                value={value}
+                options={options}
+                onChange={onChange}
+                nowrap
+                aria-labelledby={labelId}
+            />
+        </div>
+    );
+});

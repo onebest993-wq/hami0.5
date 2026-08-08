@@ -4,13 +4,18 @@ import { useMemo, type Dispatch, type MutableRefObject, type SetStateAction } fr
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { syncExecutionTimelineAppointment } from '@/app/services/calendarDossierSync';
-import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
+import { patchExecutorDecisionRowReliable } from '@/app/utils/executorSeizureDecisionQueue';
 import { fieldVisitAppointmentStorageKey } from '@/app/utils/executorApprovalWorkflow';
+import {
+    openFollowupCoerciveModal,
+    type OpenFollowupModalPersistedFn,
+} from '../../utils/followupModalOpen';
 import type { ExecutorApprovalActions } from '../../executionDashboardRuntimeChunkScope';
 
 export type UseExecutionDashboardExecutorApprovalActionsParams = {
     executionData: ExecutionFile | null | undefined;
     executionId: string | undefined;
+    decisionsStorageExecutionId?: string;
     file: ExecutionFile | null | undefined;
     currentFileId: string;
     isMaritalFurnitureClaim: boolean;
@@ -20,6 +25,7 @@ export type UseExecutionDashboardExecutorApprovalActionsParams = {
     executionFileSnapshotRef: MutableRefObject<ExecutionFile | null | undefined>;
     showToast: (message: string, type?: string) => void;
     setShowDecisionsModal: (show: boolean) => void;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     setUnifiedModalTab: Dispatch<SetStateAction<string>>;
     setFollowupExpandProcedureKey: Dispatch<SetStateAction<string | null>>;
@@ -41,6 +47,7 @@ export function useExecutionDashboardExecutorApprovalActions(
     const {
         executionData,
         executionId,
+        decisionsStorageExecutionId,
         file,
         currentFileId,
         isMaritalFurnitureClaim,
@@ -50,6 +57,7 @@ export function useExecutionDashboardExecutorApprovalActions(
         executionFileSnapshotRef,
         showToast,
         setShowDecisionsModal,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         setUnifiedModalTab,
         setFollowupExpandProcedureKey,
@@ -62,12 +70,19 @@ export function useExecutionDashboardExecutorApprovalActions(
     } = params;
 
     return useMemo(
-        () => ({
-            openScheduledDateModal: ({ requestTitle }) => {
+        () => {
+            const openCoerciveFollowup = (expandKey: string) => {
                 setShowDecisionsModal(false);
-                setShowUnifiedExecutionModal(true);
-                setUnifiedModalTab('coercive');
-                setFollowupExpandProcedureKey(
+                openFollowupCoerciveModal(openFollowupModalPersisted, {
+                    setShowUnifiedExecutionModal,
+                    setUnifiedModalTab,
+                });
+                setFollowupExpandProcedureKey(expandKey);
+            };
+
+            return {
+            openScheduledDateModal: ({ requestTitle }) => {
+                openCoerciveFollowup(
                     isMaritalFurnitureClaim ? 'marital_furniture_delivery' : 'field_visit',
                 );
                 showToast(
@@ -80,10 +95,7 @@ export function useExecutionDashboardExecutorApprovalActions(
             openPoliceAssistanceModal: ({ decisionId, requestTitle }) => {
                 void decisionId;
                 void requestTitle;
-                setShowDecisionsModal(false);
-                setShowUnifiedExecutionModal(true);
-                setUnifiedModalTab('coercive');
-                setFollowupExpandProcedureKey('police');
+                openCoerciveFollowup('police');
                 showToast(
                     'تمت الموافقة — أكمل بيانات القوة الإجرائية من البطاقة المنسدلة في الإجراءات الجبرية.',
                     'info',
@@ -145,37 +157,48 @@ export function useExecutionDashboardExecutorApprovalActions(
                     description: `موعد معتمد من قبول المنفذ — مرجع القرار: ${decisionId}`,
                     source: 'القرارات والطعون — موعد ميداني',
                 };
-                setTimelineEvents((prev) => [newEvent, ...prev]);
-                syncExecutionTimelineAppointment({
-                    executionId: currentFileId,
-                    event: newEvent,
-                    caseNo:
-                        String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
-                        undefined,
-                    clientName:
-                        String(
-                            executionData?.creditors?.[0]?.name ??
-                                executionData?.clientName ??
-                                file?.creditors?.[0]?.name ??
-                                '',
-                        ).trim() ||
-                        undefined,
+                const syncExecutionId = String(
+                    dossierId || executionData?.id || executionId || currentFileId || '',
+                ).trim();
+                setTimelineEvents((prev) => {
+                    const next = [newEvent, ...prev];
+                    timelineEventsRef.current = next;
+                    queueMicrotask(() => {
+                        persistExecutionMergeRef.current?.({ timelineEvents: next });
+                    });
+                    return next;
                 });
-                showToast('تم ربط الموعد بالسجل الزمني', 'success');
-                void dossierId;
+                if (syncExecutionId) {
+                    syncExecutionTimelineAppointment({
+                        executionId: syncExecutionId,
+                        event: newEvent,
+                        caseNo:
+                            String(executionData?.fileNumber ?? executionData?.caseNo ?? file?.fileNumber ?? '').trim() ||
+                            undefined,
+                        clientName:
+                            String(
+                                executionData?.creditors?.[0]?.name ??
+                                    executionData?.clientName ??
+                                    file?.creditors?.[0]?.name ??
+                                    '',
+                            ).trim() ||
+                            undefined,
+                    });
+                }
+                showToast('تم ربط الموعد بالسجل الزمني والمواعيد', 'success');
             },
             patchDecision: (decisionId, patch) => {
-                patchExecutorDecisionRow(executionData?.id ?? executionId, decisionId, patch);
+                const storageId = String(
+                    decisionsStorageExecutionId || executionData?.id || executionId || '',
+                ).trim();
+                patchExecutorDecisionRowReliable(storageId, decisionId, patch);
             },
             openBreakInventoryFurnitureModal: ({ decisionId, requestTitle, onSaved, onFinalize }) => {
                 void decisionId;
                 void requestTitle;
                 void onSaved;
                 void onFinalize;
-                setShowDecisionsModal(false);
-                setShowUnifiedExecutionModal(true);
-                setUnifiedModalTab('coercive');
-                setFollowupExpandProcedureKey(
+                openCoerciveFollowup(
                     isMaritalFurnitureClaim ? 'marital_furniture_delivery' : 'break_inventory',
                 );
                 showToast(
@@ -255,12 +278,15 @@ export function useExecutionDashboardExecutorApprovalActions(
                     });
                 });
             },
-        }),
+        };
+        },
         [
+            decisionsStorageExecutionId,
             executionData?.id,
             executionId,
             isMaritalFurnitureClaim,
             nextTimelineId,
+            openFollowupModalPersisted,
             setShowDecisionsModal,
             showToast,
             currentFileId,

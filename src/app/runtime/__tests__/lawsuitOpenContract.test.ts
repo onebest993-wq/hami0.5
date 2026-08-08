@@ -15,6 +15,7 @@ vi.mock('@/app/runtime/smartFileModalLoader', () => smartFileMocks);
 vi.mock('@/app/runtime/lawsuitWorkspaceWarm', () => lawsuitWarmMocks);
 
 import {
+    LAWSUIT_DOSSIER_SUPPRESS_EXECUTION_HOST_EVENT,
     openLawsuitDossierWithContract,
     prepareLawsuitDossierOpen,
 } from '../lawsuitOpenContract';
@@ -26,7 +27,11 @@ describe('lawsuitOpenContract', () => {
 
     it('commit فوري ويسخّن البوابة + المحتوى', async () => {
         const commit = vi.fn();
+        const suppressListener = vi.fn();
+        window.addEventListener(LAWSUIT_DOSSIER_SUPPRESS_EXECUTION_HOST_EVENT, suppressListener);
         openLawsuitDossierWithContract(commit);
+        expect(suppressListener).toHaveBeenCalledTimes(1);
+        window.removeEventListener(LAWSUIT_DOSSIER_SUPPRESS_EXECUTION_HOST_EVENT, suppressListener);
         expect(commit).toHaveBeenCalledTimes(1);
 
         await vi.waitFor(() => {

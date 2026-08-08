@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from '@/app/components/ui/lucideIcons';
 import { cn } from './utils';
 
 const pad2 = (n: number) => String(n).padStart(2, '0');
@@ -140,8 +140,9 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
             if (!rect) return;
             const viewportPadding = 8;
             const gap = 6;
-            const estimatedHeight = 318;
             const calendarWidth = Math.min(304, window.innerWidth - viewportPadding * 2);
+            const popoverHeight = popoverRef.current?.offsetHeight ?? 392;
+
             let left = rect.left + (rect.width - calendarWidth) / 2;
             if (left + calendarWidth > window.innerWidth - viewportPadding) {
                 left = window.innerWidth - calendarWidth - viewportPadding;
@@ -149,25 +150,27 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
             if (left < viewportPadding) left = viewportPadding;
 
             const belowTop = rect.bottom + gap;
-            const aboveTop = rect.top - estimatedHeight - gap;
-            const fitsBelow = belowTop + estimatedHeight <= window.innerHeight - viewportPadding;
+            const aboveTop = rect.top - popoverHeight - gap;
+            const fitsBelow = belowTop + popoverHeight <= window.innerHeight - viewportPadding;
             const fitsAbove = aboveTop >= viewportPadding;
             const top = fitsBelow
                 ? belowTop
                 : fitsAbove
                   ? aboveTop
-                  : Math.max(viewportPadding, window.innerHeight - estimatedHeight - viewportPadding);
+                  : Math.max(viewportPadding, window.innerHeight - popoverHeight - viewportPadding);
 
             setPopoverPos({ top, left, width: calendarWidth });
         };
         update();
+        const raf = requestAnimationFrame(update);
         window.addEventListener('resize', update);
         window.addEventListener('scroll', update, true);
         return () => {
+            cancelAnimationFrame(raf);
             window.removeEventListener('resize', update);
             window.removeEventListener('scroll', update, true);
         };
-    }, [open]);
+    }, [open, viewYear, viewMonth]);
 
     useEffect(() => {
         if (!open) return;
@@ -214,74 +217,77 @@ export const HamiDateInput: React.FC<HamiDateInputProps> = ({
                 ref={popoverRef}
                 role="dialog"
                 aria-label="تقويم اختيار التاريخ"
+                dir="rtl"
                 style={{ top: popoverPos.top, left: popoverPos.left, width: popoverPos.width }}
-                className="fixed z-[9999] max-h-[min(318px,calc(100vh-16px))] overflow-y-auto rounded-xl border border-white/15 bg-[#0B1021] shadow-2xl p-3 text-white"
+                className="fixed z-[9999] flex max-h-[min(420px,calc(100dvh-16px))] flex-col overflow-hidden rounded-2xl border border-[#E6C673]/22 bg-[radial-gradient(circle_at_top,rgba(230,198,115,0.08),transparent_38%),linear-gradient(180deg,rgba(12,18,31,0.98),rgba(8,12,22,0.99))] shadow-[0_20px_48px_rgba(0,0,0,0.55)] backdrop-blur-xl p-4 text-white"
             >
-                <div className="flex items-center justify-between gap-2 mb-3">
+                <div className="flex shrink-0 items-center justify-between gap-2 mb-3 pb-2 border-b border-white/[0.06]">
                     <button
                         type="button"
                         onClick={() => shiftMonth(-1)}
-                        className="p-1.5 rounded-lg border border-white/10 hover:bg-white/10"
+                        className="p-2 rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors"
                         aria-label="الشهر السابق"
                     >
-                        <ChevronRight className="size-4" />
+                        <ChevronRight className="size-4 text-[#E6C673]/85" />
                     </button>
-                    <div className="text-sm font-bold text-center flex-1">
-                        {MONTH_LABELS[viewMonth]} {viewYear}
+                    <div className="text-sm font-black text-center flex-1 text-[#F4E9CD]">
+                        {MONTH_LABELS[viewMonth]} <span className="text-[#E6C673] tabular-nums">{viewYear}</span>
                     </div>
                     <button
                         type="button"
                         onClick={() => shiftMonth(1)}
-                        className="p-1.5 rounded-lg border border-white/10 hover:bg-white/10"
+                        className="p-2 rounded-xl border border-white/[0.1] bg-white/[0.04] hover:bg-[#E6C673]/10 hover:border-[#E6C673]/25 transition-colors"
                         aria-label="الشهر التالي"
                     >
-                        <ChevronLeft className="size-4" />
+                        <ChevronLeft className="size-4 text-[#E6C673]/85" />
                     </button>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1 mb-1">
-                    {WEEKDAY_LABELS.map((label) => (
-                        <div key={label} className="text-center text-[10px] font-bold text-white/45 py-1">
-                            {label}
-                        </div>
-                    ))}
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [scrollbar-width:thin] [scrollbar-color:rgba(230,198,115,0.2)_transparent]">
+                    <div className="grid grid-cols-7 gap-1 mb-2">
+                        {WEEKDAY_LABELS.map((label) => (
+                            <div key={label} className="text-center text-[10px] font-bold text-[#E6C673]/55 py-1">
+                                {label}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                        {cells.map((day, idx) => {
+                            if (!day) {
+                                return <div key={`empty-${idx}`} className="h-9" />;
+                            }
+                            const disabledDay = isDisabledDay(day);
+                            const isSelected = selected ? isSameDay(day, selected) : false;
+                            const isToday = isSameDay(day, today);
+                            return (
+                                <button
+                                    key={day.toISOString()}
+                                    type="button"
+                                    disabled={disabledDay}
+                                    onClick={() => pickDay(day)}
+                                    className={cn(
+                                        'h-9 rounded-xl text-xs font-bold transition-colors',
+                                        disabledDay && 'opacity-20 cursor-not-allowed',
+                                        !disabledDay && !isSelected && 'hover:bg-white/[0.08] hover:border-white/[0.08] border border-transparent',
+                                        isSelected && 'bg-[#E6C673] text-[#0B1021] shadow-[0_0_16px_rgba(230,198,115,0.35)] border border-[#E6C673]/60',
+                                        !isSelected && isToday && 'ring-1 ring-[#E6C673]/45 bg-[#E6C673]/8 text-[#E6C673]',
+                                    )}
+                                >
+                                    {day.getDate()}
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-7 gap-1">
-                    {cells.map((day, idx) => {
-                        if (!day) {
-                            return <div key={`empty-${idx}`} className="h-8" />;
-                        }
-                        const disabledDay = isDisabledDay(day);
-                        const isSelected = selected ? isSameDay(day, selected) : false;
-                        const isToday = isSameDay(day, today);
-                        return (
-                            <button
-                                key={day.toISOString()}
-                                type="button"
-                                disabled={disabledDay}
-                                onClick={() => pickDay(day)}
-                                className={cn(
-                                    'h-8 rounded-lg text-xs font-bold transition-colors',
-                                    disabledDay && 'opacity-25 cursor-not-allowed',
-                                    !disabledDay && !isSelected && 'hover:bg-white/10',
-                                    isSelected && 'bg-[#E6C673] text-[#0B1021]',
-                                    !isSelected && isToday && 'ring-1 ring-[#E6C673]/50',
-                                )}
-                            >
-                                {day.getDate()}
-                            </button>
-                        );
-                    })}
-                </div>
-
-                <div className="mt-2 flex justify-end">
+                <div className="mt-3 shrink-0 pt-2 border-t border-white/[0.06] flex justify-end">
                     <button
                         type="button"
                         onClick={() => {
                             if (!isDisabledDay(today)) pickDay(today);
                         }}
-                        className="text-[11px] font-bold text-[#E6C673] hover:underline"
+                        className="text-[11px] font-bold text-[#E6C673] px-3 py-1.5 rounded-lg border border-[#E6C673]/25 bg-[#E6C673]/10 hover:bg-[#E6C673]/16 transition-colors"
                     >
                         اليوم
                     </button>

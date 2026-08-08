@@ -97,6 +97,7 @@ export function seedVaultWarmCacheFromLocalIndex(userId: string): SmartVaultDoc[
 export function prefetchSmartVaultDocs(userId?: string | null): void {
     const uid = userId?.trim();
     if (!uid || typeof window === 'undefined') return;
+    if (cache.get(uid)?.length) return;
     if (inflight.has(uid)) return;
     void loadVaultDocsIntoCache(uid).catch(() => undefined);
 }

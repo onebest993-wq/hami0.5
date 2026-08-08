@@ -8,6 +8,7 @@ export type SmartFileStageFooterBarProps = {
     isViewingArchived: boolean;
     showOpponentAppealBtnEffective: boolean;
     showAbsentJudgmentFooter: boolean;
+    showPostJudgmentAppealFooter: boolean;
     showAppealStageFooter: boolean;
     showPetitionVoidFooter: boolean;
     displayStage: CaseStage;
@@ -17,14 +18,18 @@ export type SmartFileStageFooterBarProps = {
     absentJudgmentFooterPanel: ReactNode;
     opponentAppealFooterPanel: ReactNode;
     appealStageFooterPanel: ReactNode;
+    postJudgmentAppealFooterPanel: ReactNode;
     showPleadingCloseFooter: boolean;
+    showFlowStatusFooter: boolean;
     setShowJudgmentModal: (v: boolean) => void;
+    flowStatusFooterPanel: ReactNode;
 };
 
 export function SmartFileStageFooterBar({
     isViewingArchived,
     showOpponentAppealBtnEffective,
     showAbsentJudgmentFooter,
+    showPostJudgmentAppealFooter,
     showAppealStageFooter,
     showPetitionVoidFooter,
     displayStage,
@@ -34,13 +39,17 @@ export function SmartFileStageFooterBar({
     absentJudgmentFooterPanel,
     opponentAppealFooterPanel,
     appealStageFooterPanel,
+    postJudgmentAppealFooterPanel,
     showPleadingCloseFooter,
+    showFlowStatusFooter,
     setShowJudgmentModal,
+    flowStatusFooterPanel,
 }: SmartFileStageFooterBarProps) {
     if (
         isViewingArchived &&
         !showOpponentAppealBtnEffective &&
         !showAbsentJudgmentFooter &&
+        !showPostJudgmentAppealFooter &&
         !showAppealStageFooter &&
         !showPetitionVoidFooter
     ) {
@@ -84,6 +93,10 @@ export function SmartFileStageFooterBar({
                 <div onPointerEnter={prefetchAppeal}>{opponentAppealFooterPanel}</div>
             ) : showAppealStageFooter ? (
                 <div onPointerEnter={prefetchAppeal}>{appealStageFooterPanel}</div>
+            ) : showPostJudgmentAppealFooter ? (
+                <div onPointerEnter={prefetchAppeal}>{postJudgmentAppealFooterPanel}</div>
+            ) : showFlowStatusFooter ? (
+                flowStatusFooterPanel
             ) : showPleadingCloseFooter ? (
                 <button
                     type="button"

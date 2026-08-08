@@ -18,7 +18,7 @@ export function shouldMaskLawyerDashboardTabStack(state: LawyerDashboardTabStack
     return (
         state.isCriminalDossierOpen ||
         Boolean(state.archiveType) ||
-        state.showLawsuitsWorkspace ||
+        /* دعاوى: overlay z-220 فوق اللوحة — الرئيسية تبقى مرسومة (مثل التقويم) */
         state.showTransactions ||
         state.isNotepadOpen ||
         state.showCommunity ||

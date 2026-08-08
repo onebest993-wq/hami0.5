@@ -239,13 +239,11 @@ export function TextBlockStylePanel({
                             className={`profile-studio-option-chip profile-studio-option-chip--effect ${
                                 effect.id === 'glow'
                                     ? 'hami-profile-block-text--glow'
-                                    : effect.id === 'gradient'
-                                      ? 'hami-profile-block-text--gradient'
-                                      : effect.id === 'underline'
-                                        ? 'hami-profile-block-text--underline'
-                                        : effect.id === 'shadow'
-                                          ? 'hami-profile-block-text--shadow'
-                                          : ''
+                                    : effect.id === 'underline'
+                                      ? 'hami-profile-block-text--underline'
+                                      : effect.id === 'shadow'
+                                        ? 'hami-profile-block-text--shadow'
+                                        : ''
                             }`}
                             onClick={() =>
                                 applyStylePatch({

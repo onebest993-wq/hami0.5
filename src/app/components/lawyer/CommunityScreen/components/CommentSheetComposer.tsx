@@ -1,4 +1,4 @@
-import { ArrowUp, Lock, X } from 'lucide-react';
+import { ArrowUp, Lock, X } from '@/app/components/ui/lucideIcons';
 import type { CommunityComment, CommunityPost } from '@/app/services/lawyer-cloud';
 import type { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';
 import { ForumMentionSuggestions } from './ForumMentionSuggestions';

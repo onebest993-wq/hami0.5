@@ -29,7 +29,11 @@ import {
     validateRepositoryUploadFile,
 } from '../repositoryUploadValidation';
 import { withForumAsyncTimeout } from '../forumAsync';
-import { peekRepositoryDocsCache, readRepositoryDocsCache, setRepositoryDocsCache } from '@/app/services/forum/repositoryDocsWarmCache';
+import { peekRepositoryDocsCache, readRepositoryDocsCache, setRepositoryDocsCache, warmRepositoryThumbnailUrls } from '@/app/services/forum/repositoryDocsWarmCache';
+import {
+    resetForumRepositoryEscape,
+    setForumRepositoryEscape,
+} from '../forumRepositoryEscapeBridge';
 
 const REPOSITORY_CACHE_HYDRATE_TIMEOUT_MS = 2_000;
 const REPOSITORY_FETCH_TIMEOUT_MS = 6_000;
@@ -53,6 +57,8 @@ export type LegalRepositoryFilters = {
     selectedTag?: string | null;
     /** keepAlive مغلق: أغلق نوافذ الرفع/المعاينة/الحذف */
     surfaceOpen?: boolean;
+    /** تبويب المستودع غير نشط: لا تُسجَّل طبقات Escape */
+    repositoryActive?: boolean;
 };
 
 export type RepositoryUploadPayload = {
@@ -76,6 +82,7 @@ export function useLegalRepositoryDocuments({
     sortBy = 'newest',
     selectedTag = null,
     surfaceOpen = true,
+    repositoryActive = true,
 }: LegalRepositoryFilters = {}) {
     const { user, hasRole } = useAuthSafe();
     const userId = user?.id ?? null;
@@ -141,32 +148,40 @@ export function useLegalRepositoryDocuments({
             if (!cancelled && warmed.length > 0) {
                 applyDocuments(warmed);
                 hydratedCount = Math.max(hydratedCount, warmed.length);
+                void warmRepositoryThumbnailUrls(warmed).catch(() => undefined);
             }
 
             if (cancelled) return;
 
+            const fetchRemote = async () => {
+                try {
+                    const docs = await withForumAsyncTimeout(
+                        RepositoryDB.listDocuments(),
+                        REPOSITORY_FETCH_TIMEOUT_MS,
+                        documentsRef.current,
+                    );
+                    if (!cancelled) {
+                        applyDocuments(docs);
+                        void warmRepositoryThumbnailUrls(docs).catch(() => undefined);
+                    }
+                } catch {
+                    if (!cancelled && documentsRef.current.length === 0) {
+                        SmartToast.error('فشل تحميل المستندات');
+                    }
+                } finally {
+                    if (!cancelled) {
+                        setSyncing(false);
+                    }
+                }
+            };
+
             if (hydratedCount === 0) {
                 setSyncing(true);
+                await fetchRemote();
+                return;
             }
 
-            try {
-                const docs = await withForumAsyncTimeout(
-                    RepositoryDB.listDocuments(),
-                    REPOSITORY_FETCH_TIMEOUT_MS,
-                    documentsRef.current,
-                );
-                if (!cancelled) {
-                    applyDocuments(docs);
-                }
-            } catch {
-                if (!cancelled && documentsRef.current.length === 0) {
-                    SmartToast.error('فشل تحميل المستندات');
-                }
-            } finally {
-                if (!cancelled) {
-                    setSyncing(false);
-                }
-            }
+            void fetchRemote();
         };
 
         void runBootstrap();
@@ -351,13 +366,48 @@ export function useLegalRepositoryDocuments({
     }, [isSubmitting]);
 
     useEffect(() => {
-        if (surfaceOpen !== false) return;
+        if (surfaceOpen !== false && repositoryActive !== false) return;
         closeUploadModal({ force: true });
         setPreviewDoc(null);
         setPreviewSignedUrl(null);
         setPreviewMode('peek');
         if (!deletingId) setDeleteTarget(null);
-    }, [surfaceOpen, closeUploadModal, deletingId]);
+    }, [surfaceOpen, repositoryActive, closeUploadModal, deletingId]);
+
+    const cancelDeleteRequest = useCallback(() => {
+        if (deletingId) return;
+        setDeleteTarget(null);
+    }, [deletingId]);
+
+    const escapeLayerActive = surfaceOpen !== false && repositoryActive !== false;
+
+    useEffect(() => {
+        if (!escapeLayerActive) {
+            resetForumRepositoryEscape();
+            return;
+        }
+        setForumRepositoryEscape(
+            {
+                isUploadModalOpen,
+                previewOpen: previewDoc !== null,
+                deleteOpen: deleteTarget !== null,
+            },
+            {
+                closeUpload: () => closeUploadModal(),
+                closePreview,
+                cancelDelete: cancelDeleteRequest,
+            },
+        );
+        return () => resetForumRepositoryEscape();
+    }, [
+        escapeLayerActive,
+        isUploadModalOpen,
+        previewDoc,
+        deleteTarget,
+        closeUploadModal,
+        closePreview,
+        cancelDeleteRequest,
+    ]);
 
     const syncRepositoryDocToCloud = useCallback(
         async (savedDoc: RepositoryDocument, file: File, ownerId: string) => {
@@ -565,9 +615,6 @@ export function useLegalRepositoryDocuments({
         handleReportDocument,
         handlePreview,
         handleUploadSubmit,
-        cancelDelete: () => {
-            if (deletingId) return;
-            setDeleteTarget(null);
-        },
+        cancelDelete: cancelDeleteRequest,
     };
 }

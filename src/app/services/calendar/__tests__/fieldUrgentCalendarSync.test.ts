@@ -25,13 +25,14 @@ vi.mock('@/app/services/calendar/bridge', async () => {
 });
 
 describe('CALENDAR_SYNC_RULES', () => {
-    it('يفعّل ميدان ومستعجل ومعاملات وملاحظات في المسارات النشطة', () => {
-        expect(CALENDAR_SYNC_RULES.active.task).toBeDefined();
-        expect(CALENDAR_SYNC_RULES.active.urgent).toBeDefined();
-        expect(CALENDAR_SYNC_RULES.active.transaction).toBeDefined();
-        expect(CALENDAR_SYNC_RULES.active.note).toBeDefined();
-        expect((CALENDAR_SYNC_RULES.disabled as { task?: unknown }).task).toBeUndefined();
-        expect((CALENDAR_SYNC_RULES.disabled as { urgent?: unknown }).urgent).toBeUndefined();
+    it('يحصر المسار الحيّ في نقاط الدخول الأربع ويعطّل legacy', () => {
+        expect(CALENDAR_SYNC_RULES.active.lawsuit).toBeDefined();
+        expect(CALENDAR_SYNC_RULES.active.execution).toBeDefined();
+        expect(CALENDAR_SYNC_RULES.active.criminal).toBeDefined();
+        expect(CALENDAR_SYNC_RULES.active.threading).toBeDefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { urgent?: unknown }).urgent).toBeDefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { task?: unknown }).task).toBeDefined();
+        expect((CALENDAR_SYNC_RULES.disabled as { note?: unknown }).note).toBeDefined();
     });
 });
 

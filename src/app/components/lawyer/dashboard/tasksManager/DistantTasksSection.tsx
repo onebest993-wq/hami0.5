@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { Hourglass } from 'lucide-react';
+import { Hourglass } from '@/app/components/ui/lucideIcons';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import { addDays } from '@/app/utils/nlpParser';
 import type { TaskListOrdinal } from './TaskListOrdinalBadge';
@@ -25,9 +25,9 @@ export type DistantTasksSectionProps = {
 
 export const DistantTasksSection = React.memo(function DistantTasksSection(props: DistantTasksSectionProps) {
     return (
-        <section className="mt-10 pt-6 border-t border-[#A67C52]/15" data-testid="tasks-distant-section">
+        <section className="mt-10 pt-6 border-t border-[#E6C673]/15" data-testid="tasks-distant-section">
             <h2 className={`${TASKS_SECTION_TITLE} mb-5`}>
-                <Hourglass className="size-5 text-[#A67C52]/70 shrink-0" aria-hidden />
+                <Hourglass className="size-5 text-[#E6C673]/70 shrink-0" aria-hidden />
                 المهام المؤجلة
             </h2>
             <DistantTasksBody {...props} />
@@ -72,7 +72,7 @@ const SnoozeTaskForm = React.memo(function SnoozeTaskForm({
             <div className="space-y-2 text-right">
                 <label
                     htmlFor="tasks-snooze-due-date"
-                    className="block text-[11px] font-bold text-[#A67C52]/80"
+                    className="block text-[11px] font-bold text-[#E6C673]/80"
                 >
                     تاريخ القيام بالمهمة
                 </label>
@@ -135,7 +135,7 @@ function DistantTasksBody(props: DistantTasksSectionProps) {
     );
 
     return (
-        <div className={`rounded-2xl border border-dashed border-[#A67C52]/25 ${TASKS_GLASS_PANEL} px-5 py-6 space-y-5`}>
+        <div className={`rounded-2xl border border-dashed border-[#E6C673]/25 ${TASKS_GLASS_PANEL} px-5 py-6 space-y-5`}>
             <div className="flex flex-row-reverse flex-wrap items-center justify-between gap-3">
                 <button
                     type="button"

@@ -1,9 +1,9 @@
 import React, { memo } from 'react';
+import './LawyerHomeHubCard/homeHubCardFx.css';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { HomeBlockPatternOverlay } from './dashboard/HomeBlockPatternOverlay';
 import { HomeMoroccanGlassDecor } from './dashboard/HomeMoroccanGlassDecor';
-import { HomeHubAlertsPanel } from './LawyerHomeHubCard/components/HomeHubAlertsPanel';
-import { HomeHubPinsPanel } from './LawyerHomeHubCard/components/HomeHubPinsPanel';
+import { HomeHubPanelBody } from './LawyerHomeHubCard/components/HomeHubPanelBody';
 import { HubPanelTabs } from './LawyerHomeHubCard/components/HubPanelTabs';
 import {
     useLawyerHomeHubCard,
@@ -15,21 +15,25 @@ export type LawyerHomeHubCardProps = UseLawyerHomeHubCardParams;
 export const LawyerHomeHubCard = memo(function LawyerHomeHubCard(props: LawyerHomeHubCardProps) {
     const reduceMotion = useReduceMotion();
     const vm = useLawyerHomeHubCard(props);
-    const { blockOverride, themePrimary = '#E6C673', layoutEditMode = false } = props;
+    const { blockOverride, themePrimary = '#E6C673', layoutEditMode = false, clusterScanSources, secretaryAlerts } =
+        props;
 
     return (
         <section
             data-hami-block="alerts"
             data-testid="home-hub-card"
             data-hub-state={vm.hubInitialPending ? 'loading' : vm.hubFullyEmpty ? 'empty' : 'content'}
-            className={`relative flex flex-col border ${vm.blockClasses} ${vm.alertsMinH} min-h-0 gap-3`}
+            data-hub-layout-mode={vm.cardLayout.mode}
+            data-hub-active-panel={vm.hubPanel}
+            className={`relative flex flex-col ${vm.containerBorderOn ? 'border' : 'border-0'} ${vm.blockClasses} ${vm.cardLayout.sectionMinHeightClass} min-h-0 gap-3`}
             style={vm.blockStyle}
+            data-hami-block-border={vm.containerBorderOn ? '1' : '0'}
             dir="rtl"
-            aria-label="التنبيهات والتثبيت"
+            aria-label="التنبيهات والسكرتير والتثبيت"
             aria-busy={vm.hubInitialPending || undefined}
         >
-            <HomeBlockPatternOverlay override={blockOverride} themePrimary={themePrimary} />
-            <HomeMoroccanGlassDecor pattern={blockOverride?.pattern} />
+            <HomeBlockPatternOverlay blockId="alerts" override={blockOverride} themePrimary={themePrimary} />
+            <HomeMoroccanGlassDecor pattern={blockOverride?.pattern} blockOverride={blockOverride} />
             {vm.showSheen ? (
                 <div className="hami-sovereign-shine absolute inset-0 rounded-[inherit] pointer-events-none z-[1]" aria-hidden />
             ) : null}
@@ -38,39 +42,17 @@ export const LawyerHomeHubCard = memo(function LawyerHomeHubCard(props: LawyerHo
                 hubPanel={vm.hubPanel}
                 onChange={vm.selectHubPanel}
                 alertsCount={vm.alertsTabCount}
-                pinsCount={vm.clusterViews.length}
+                secretaryCount={vm.secretaryTabCount}
+                pinsCount={vm.pinsTabCount}
                 reduceMotion={reduceMotion}
                 layoutEditMode={layoutEditMode}
             />
 
-            <div className="relative z-[2] flex flex-col min-h-0 flex-1">
-                <HomeHubAlertsPanel
-                    hubPanel={vm.hubPanel}
-                    hasCarouselAlerts={vm.hasCarouselAlerts}
-                    horizonCounts={vm.horizonCounts}
-                    activeFilter={vm.activeFilter}
-                    onFilterChange={vm.setActiveFilter}
-                    alertsEmptyState={vm.alertsEmptyState}
-                    alertsError={vm.alertsError}
-                    hasAlerts={vm.hasAlerts}
-                    carouselAlerts={vm.carouselAlerts}
-                    sourceById={vm.sourceById}
-                    onDismissAlert={vm.guardedDismissAlert}
-                    onOpenEntity={vm.guardedOpenEntity}
-                    onAcceptedConvertToCase={vm.guardedAcceptedConvertToCase}
-                    onResolved={vm.guardedResolved}
-                    alertsLayoutKey={vm.alertsLayoutKey}
-                    radarEvents={vm.radarFiltered}
-                    onNavigate={vm.guardedNavigateRoute}
-                    onDismissRadar={vm.guardedDismissRadar}
-                    hubFullyEmpty={vm.hubFullyEmpty}
-                />
-                <HomeHubPinsPanel
-                    hubPanel={vm.hubPanel}
-                    clusterViews={vm.clusterViews}
-                    onNavigate={vm.guardedNavigateRoute}
-                    onUnpin={vm.guardedUnpin}
-                    hubFullyEmpty={vm.hubFullyEmpty}
+            <div className={`hami-hub-readable-panels relative z-[2] flex flex-col min-h-0 ${vm.cardLayout.bodyRegionClass}`}>
+                <HomeHubPanelBody
+                    vm={vm}
+                    clusterScanSources={clusterScanSources}
+                    secretaryAlerts={secretaryAlerts}
                 />
             </div>
         </section>

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { MapPin, UserPlus, X } from 'lucide-react';
+import { MapPin, UserPlus, X } from '@/app/components/ui/lucideIcons';
 import type { ThirdPartyModalProps, ThirdParty } from '../types';
 import { buildThirdPartyRoleLabel, getDefaultThirdPartyStatus } from '../clientRepresentation';
 

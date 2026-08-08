@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import type { SmartVaultDoc } from '@/app/services/lawyer-cloud';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import {
     isVaultDocImage,
     isVaultDocPdf,
@@ -15,11 +15,18 @@ vi.mock('@/app/services/lawyer-cloud', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@/app/services/lawyer-cloud')>();
     return {
         ...actual,
+        uuidv4: () => 'doc-test-id',
+    };
+});
+
+vi.mock('@/app/services/vault/smartVaultRuntime', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/app/services/vault/smartVaultRuntime')>();
+    return {
+        ...actual,
         SmartVaultDB: {
             ...actual.SmartVaultDB,
             getSignedUrl: vi.fn(),
         },
-        uuidv4: () => 'doc-test-id',
     };
 });
 

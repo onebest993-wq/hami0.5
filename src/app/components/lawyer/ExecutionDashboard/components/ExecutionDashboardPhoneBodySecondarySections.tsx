@@ -11,7 +11,7 @@ import {
     FolderOpen,
     History,
     Scale,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type { VisitationScheduleBundle } from '@/app/types/visitationSchedule';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
@@ -96,6 +96,8 @@ export type ExecutionDashboardPhoneBodySecondaryScope = {
 type ExecutionDashboardPhoneBodySecondarySectionsProps = {
     scope: ExecutionDashboardPhoneBodySecondaryScope;
     secondaryStageReady: boolean;
+    /** PhoneBody يعرض CustodyRemoval أعلى — يُعطَّل هنا لتجنب التكرار */
+    includeCustodyRemoval?: boolean;
     followupSpec: {
         hideDossierFinancialTools?: boolean;
     };
@@ -115,6 +117,7 @@ type ExecutionDashboardPhoneBodySecondarySectionsProps = {
 export function ExecutionDashboardPhoneBodySecondarySections({
     scope,
     secondaryStageReady,
+    includeCustodyRemoval = true,
     followupSpec,
     safeResolveCalendarUserId,
     safeSetTimelineAccordionExpanded,
@@ -193,7 +196,8 @@ export function ExecutionDashboardPhoneBodySecondarySections({
 
     return (
         <>
-            {isCustodyRemovalClaimActive &&
+            {includeCustodyRemoval &&
+            isCustodyRemovalClaimActive &&
             typeof nextTimelineId === 'function' &&
             typeof setTimelineEvents === 'function' &&
             typeof persistExecutionMerge === 'function' ? (

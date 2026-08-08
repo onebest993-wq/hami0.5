@@ -1,78 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
-import { prefetchSettingsDialogs } from '../settingsDialogPrefetch';
+import { prefetchSettingsDialogs, ensureSettingsDialogsReady } from '../settingsDialogPrefetch';
 import { useLawyerSettingsSecurity } from '@/app/context/LawyerSettingsContext';
 import {
-    clearNativeBiometricOnDisable,
-    clearNativeBiometricEnrollment,
-    hasNativeBiometricEnrollment,
-    probeNativeBiometricAvailability,
-    registerNativeBiometric,
-} from '@/app/runtime/nativeBiometricBridge';
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
-import {
-    clearStoredBiometricCredential,
-    hasStoredBiometricCredential,
-    isWebAuthnLockSupported,
-    registerBiometricCredential,
-} from '@/app/services/security/webAuthnLock';
+    clearBiometricSessionEnrollment,
+    enrollBiometricSessionLock,
+    hasBiometricSessionEnrollment,
+    probeBiometricSession,
+    reconcileBiometricSessionLockEnabled,
+    resolveBiometricSessionHint,
+} from '@/app/services/security/biometricSessionService';
 import type { AppSettingsState } from '@/app/services/settings';
 import { useSettingsPatches } from '../hooks/useSettingsPatches';
-
-function hasActiveBiometricEnrollment(): boolean {
-    return hasNativeBiometricEnrollment() || (isWebAuthnLockSupported() && hasStoredBiometricCredential());
-}
 
 export function useSecuritySection() {
     const security = useLawyerSettingsSecurity();
     const { patchSecurity, patchData } = useSettingsPatches();
-    const [biometricHint, setBiometricHint] = useState('يفحص جاهزية الجهاز…');
+    const [biometricHint, setBiometricHint] = useState('');
 
     useEffect(() => {
         let cancelled = false;
         void (async () => {
-            if (security.biometricLock && !hasActiveBiometricEnrollment()) {
-                clearStoredBiometricCredential();
-                clearNativeBiometricEnrollment();
+            const reconcile = reconcileBiometricSessionLockEnabled(security.biometricLock);
+            if (reconcile === 'reset') {
                 patchSecurity({ biometricLock: false });
                 if (!cancelled) {
                     SmartToast.info('أُعيد ضبط القفل البيومتري — سجّله من جديد على هذا الجهاز');
                 }
             }
 
-            if (isCapacitorNativePlatform()) {
-                const probe = await probeNativeBiometricAvailability();
-                if (cancelled) return;
-                if (!probe.pluginLoaded) {
-                    setBiometricHint('جاهز للتطبيق — ثبّت غلاف Capacitor مع إضافة البصمة');
-                    return;
-                }
-                if (!probe.hardwareAvailable) {
-                    setBiometricHint('لا بصمة/Face ID على هذا الجهاز حالياً');
-                    return;
-                }
-                setBiometricHint(
-                    security.biometricLock
-                        ? 'مفعّل — يُقفل عند العودة من الخلفية وبعد الخمول'
-                        : 'جاهز — بصمة/Face ID أصلية على الجهاز',
-                );
-                return;
-            }
-
-            if (!isWebAuthnLockSupported()) {
-                if (!cancelled) {
-                    setBiometricHint('يتطلب HTTPS وجهازاً يدعم البصمة — أو تطبيق Android/iOS');
-                }
-                return;
-            }
-            if (!cancelled) {
-                setBiometricHint(
-                    security.biometricLock
-                        ? 'مفعّل عبر WebAuthn على المتصفح'
-                        : 'متاح على المتصفح — أفضل على تطبيق الهاتف',
-                );
-            }
+            const availability = await probeBiometricSession();
+            if (cancelled) return;
+            setBiometricHint(resolveBiometricSessionHint(availability, security.biometricLock));
         })();
         return () => {
             cancelled = true;
@@ -80,14 +40,14 @@ export function useSecuritySection() {
     }, [security.biometricLock, patchSecurity]);
 
     const toggleLocalOnly = useCallback(
-        async (enabled: boolean) => {
+        async (enabled: boolean): Promise<boolean | void> => {
             if (enabled) {
-                prefetchSettingsDialogs();
+                await ensureSettingsDialogsReady();
                 const ok = await SmartDialog.confirm(
                     'لن يتصل التطبيق بالإنترنت أو السحابة. تبقى القضايا والملاحظات والتنفيذ على هذا الجهاز فقط. يمكنك إلغاء ذلك لاحقاً.',
                     { title: 'تفعيل قطع الاتصال؟' },
                 );
-                if (!ok) return;
+                if (!ok) return false;
                 patchSecurity({ localOnlyMode: true });
                 patchData({
                     cloudSync: false,
@@ -105,69 +65,54 @@ export function useSecuritySection() {
     );
 
     const toggleBiometric = useCallback(
-        async (checked: boolean) => {
+        async (checked: boolean): Promise<boolean | void> => {
             if (!checked) {
-                clearStoredBiometricCredential();
-                clearNativeBiometricEnrollment();
-                void clearNativeBiometricOnDisable();
+                clearBiometricSessionEnrollment();
                 patchSecurity({ biometricLock: false });
                 SmartToast.success('تم إيقاف القفل البيومتري');
                 return;
             }
 
-            if (isCapacitorNativePlatform()) {
-                const probe = await probeNativeBiometricAvailability();
-                if (!probe.pluginLoaded) {
-                    SmartToast.warning('إضافة البصمة غير محمّلة — أعد بناء غلاف التطبيق');
-                    return;
-                }
-                if (!probe.hardwareAvailable) {
-                    SmartToast.warning('لا توجد بصمة أو Face ID مسجّلة على الجهاز');
-                    return;
-                }
-                const nativeRegistered = await registerNativeBiometric();
-                if (nativeRegistered === true) {
-                    const needsAutoLock = security.autoLockMinutes === 0;
-                    patchSecurity({
-                        biometricLock: true,
-                        ...(needsAutoLock ? { autoLockMinutes: 5 as const } : {}),
-                    });
-                    SmartToast.success(
-                        needsAutoLock
-                            ? 'تم تفعيل البصمة الأصلية مع قفل تلقائي (5 دقائق)'
-                            : 'تم تفعيل القفل البيومتري الأصلي',
-                    );
-                    return;
-                }
-                if (nativeRegistered === false) {
-                    SmartToast.warning('تعذر تفعيل البصمة على هذا الجهاز');
-                    return;
-                }
+            const loadingToastId = SmartToast.loading('جاري التحقق البيومتري…');
+            let outcome: Awaited<ReturnType<typeof enrollBiometricSessionLock>>;
+            try {
+                outcome = await enrollBiometricSessionLock();
+            } finally {
+                if (loadingToastId) SmartToast.dismiss(loadingToastId);
             }
-
-            if (!isWebAuthnLockSupported()) {
-                SmartToast.info('القفل البيومتري يتطلب جهازاً يدعم البصمة أو Face ID');
+            if (outcome.status === 'enrolled') {
+                const needsAutoLock = security.autoLockMinutes === 0;
+                patchSecurity({
+                    biometricLock: true,
+                    ...(needsAutoLock ? { autoLockMinutes: 5 as const } : {}),
+                });
+                SmartToast.success(
+                    needsAutoLock
+                        ? 'تم تفعيل البصمة مع قفل تلقائي (5 دقائق)'
+                        : 'تم تفعيل القفل البيومتري',
+                );
                 return;
             }
-            try {
-                const registered = await registerBiometricCredential();
-                if (registered) {
-                    const needsAutoLock = security.autoLockMinutes === 0;
-                    patchSecurity({
-                        biometricLock: true,
-                        ...(needsAutoLock ? { autoLockMinutes: 5 as const } : {}),
-                    });
-                    SmartToast.success(
-                        needsAutoLock
-                            ? 'تم تفعيل البصمة مع قفل تلقائي (5 دقائق)'
-                            : 'تم تفعيل القفل البيومتري',
+
+            if (outcome.status === 'cancelled') {
+                SmartToast.info('لم يُفعَّل القفل البيومتري — ألغيت التحقق أو فشل');
+                return false;
+            }
+
+            if (outcome.status === 'unavailable') {
+                const availability = await probeBiometricSession();
+                if (availability.channel === 'native') {
+                    SmartToast.warning(
+                        'البصمة غير جاهزة في هذا التثبيت — أعد البناء: npm run cap:build:android ثم cap:install:android',
                     );
                 } else {
-                    SmartToast.warning('تعذر تسجيل البصمة');
+                    SmartToast.info('القفل البيومتري يتطلب جهازاً يدعم البصمة أو Face ID');
                 }
-            } catch {
-                SmartToast.warning('تعذر تفعيل البصمة على هذا الجهاز');
+                return false;
             }
+
+            SmartToast.warning('تعذر تفعيل البصمة على هذا الجهاز');
+            return false;
         },
         [patchSecurity, security.autoLockMinutes],
     );
@@ -191,6 +136,7 @@ export function useSecuritySection() {
         toggleBiometric,
         setAutoLockMinutes,
         biometricSubLabel: biometricHint,
+        hasBiometricEnrollment: hasBiometricSessionEnrollment(),
     };
 }
 

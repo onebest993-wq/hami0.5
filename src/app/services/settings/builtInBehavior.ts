@@ -2,7 +2,8 @@ import { persistenceRepository } from '@/app/infrastructure/persistence/LocalSto
 import { HOME_SECTION_ORDER_DEFAULT, type HomeSectionId } from './homeSections';
 import type { ViewMode } from './types';
 
-/** سلوك ثابت — لم يعد جزءاً من lawyer_settings القابل للتعديل. */
+/** سلوك ثابت — لم يعد جزءاً من lawyer_settings القابل للتعديل.
+ *  الإشعارات والتنبيهات تُعرض في الإعدادات كمعلومة فقط (SecuritySection) — لا مفاتيح وهمية في الحالة المحفوظة. */
 export const BUILTIN_VIEW_MODE_DEFAULT: ViewMode = 'list';
 export const BUILTIN_COMPACT_MODE = false;
 export const BUILTIN_WATERMARK_EXPORT = false;

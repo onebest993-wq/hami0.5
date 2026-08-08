@@ -169,6 +169,7 @@ export function groupExecutionDashboardCoreScopeBagInput(
         toggleTimelineEventPin: input.toggleTimelineEventPin,
         tryOpenPendingBreakInventoryLedger: input.tryOpenPendingBreakInventoryLedger,
         tryOpenPendingCustodianDetails: input.tryOpenPendingCustodianDetails,
+        saveJudicialCustodianEntry: input.saveJudicialCustodianEntry,
         updateThirdPartyReceiveDraft: input.updateThirdPartyReceiveDraft,
     },
     setters: {

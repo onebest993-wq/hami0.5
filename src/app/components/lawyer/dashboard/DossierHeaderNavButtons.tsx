@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '@/app/components/ui/lucideIcons';
 import { HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 
 const navBtnClass =
@@ -9,6 +9,7 @@ export type DossierHeaderNavButtonsProps = {
     onBack?: () => void;
     onExit: () => void;
     showBack?: boolean;
+    showExit?: boolean;
     backTestId?: string;
     exitTestId?: string;
     /** أصغر للبطاقات */
@@ -20,6 +21,7 @@ export function DossierHeaderNavButtons({
     onBack,
     onExit,
     showBack = true,
+    showExit = true,
     backTestId = 'dossier-nav-back',
     exitTestId = 'dossier-nav-exit',
     compact = false,
@@ -43,19 +45,21 @@ export function DossierHeaderNavButtons({
                     <ArrowRight size={compact ? 15 : 17} strokeWidth={2} aria-hidden />
                 </button>
             ) : null}
-            <button
-                type="button"
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onExit();
-                }}
-                data-testid={exitTestId}
-                className={`${navBtnClass} ${sizeClass} hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200`}
-                aria-label="المغادرة إلى الواجهة الرئيسية"
-                title="المغادرة إلى الواجهة الرئيسية"
-            >
-                <HomeXIcon size={compact ? 15 : 17} strokeWidth={2} aria-hidden />
-            </button>
+            {showExit ? (
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onExit();
+                    }}
+                    data-testid={exitTestId}
+                    className={`${navBtnClass} ${sizeClass} hover:border-rose-400/25 hover:bg-rose-500/10 hover:text-rose-200`}
+                    aria-label="المغادرة إلى الواجهة الرئيسية"
+                    title="المغادرة إلى الواجهة الرئيسية"
+                >
+                    <HomeXIcon size={compact ? 15 : 17} strokeWidth={2} aria-hidden />
+                </button>
+            ) : null}
         </div>
     );
 }

@@ -14,8 +14,9 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
             /import \{ LawyerDashboardExecutionDossierOverlayEntry \} from/,
         );
         expect(main).not.toContain('LazyExecutionDossierOverlayEntry');
-        expect(main).toContain('executionDossierHostFile');
         expect(main).toContain('EXECUTION_DOSSIER_PRIME_HOST_EVENT');
+        expect(main).toContain('executionDossierOverlayLive');
+        expect(main).not.toContain('executionDossierHostFile');
         expect(main).not.toMatch(
             /executionDossierLive[\s\S]{0,200}ExecutionDossierInstantChrome/,
         );
@@ -31,29 +32,27 @@ describe('execution dossier instant open — archive warm + sync Entry', () => {
         );
         expect(entry).toContain('executionDashboardPortalLazy');
         expect(entry).toContain('isPreloaded()');
-        expect(entry).toContain('open={open}');
+        expect(entry).toContain('open,');
         expect(entry).not.toContain('lazyWithRetry');
     });
 
-    it('Portal يخفي keep-alive على جذر createPortal (لا يفلت من غلاف Entry)', () => {
+    it('Portal لا يُركَّب في DOM عند open=false (لا keep-alive يومض)', () => {
         const portal = readFileSync(
             join(root, 'src/app/components/lawyer/dashboard/ExecutionDashboardPortal.tsx'),
             'utf8',
         );
-        expect(portal).toContain('open = true');
-        expect(portal).toContain('execution-dashboard-portal-keepalive');
-        expect(portal).toContain('pointerEvents: open ? \'auto\' : \'none\'');
+        expect(portal).toContain('if (!open) return null');
+        expect(portal).toContain('execution-dashboard-portal-open');
+        expect(portal).not.toContain('execution-dashboard-portal-keepalive');
         expect(portal).toContain('createPortal(layer, document.body)');
     });
 
     it('مخزن التنفيذ يسخّن سلسلة الإضبارة فوراً (includeSecondary)', () => {
         const chrome = readFileSync(
-            join(root, 'src/app/components/lawyer/ArchivePortal/ArchivePortalChrome.tsx'),
+            join(root, 'src/app/components/lawyer/ArchivePortal/ExecutionArchiveChrome.tsx'),
             'utf8',
         );
-        expect(chrome).toMatch(
-            /type === 'executions'[\s\S]{0,200}includeSecondary:\s*true/,
-        );
+        expect(chrome).toMatch(/warmExecutionWorkspace[\s\S]{0,200}includeSecondary:\s*true/);
     });
 
     it('ensureFirstPaint ينتظر preload البوابة + مكوّن الإضبارة', () => {

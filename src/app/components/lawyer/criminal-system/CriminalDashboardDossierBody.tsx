@@ -36,11 +36,11 @@ import {
 import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 import { isInvestigationStoredStage } from './criminalStageRuntimeCore';
 import { getPendingCassationAppealForResult } from './judicialDecisionsEngine';
-import {
-    CriminalDossierTopBanners,
+import { CriminalDossierTopBanners,
     CriminalDossierMidBanners,
     type CriminalDossierMidBannersProps,
 } from './components/CriminalDossierStatusBanners';
+import { SparkCriminalNudgeHost } from '@/app/spark/ui/SparkCriminalNudgeHost';
 import { CaseJourneyHeader } from './components/CaseJourneyHeader';
 import { GuarantorForfeitureStrip } from './components/GuarantorForfeitureStrip';
 import { OtherEvidenceEntryForm } from './components/OtherEvidenceEntryForm';
@@ -164,6 +164,7 @@ export type CriminalDashboardDossierBodyProps = {
     switchDashboardTab: (tab: CriminalDashboardTab) => void;
     activeTab: CriminalDashboardTab;
     handleDashboardBack: () => void;
+    dossierNestedNav?: boolean;
 
     /** لوحة الإفادات وأدلة الإثبات الأخرى */
     setIsOtherEvidenceFormOpen: Dispatch<SetStateAction<boolean>>;
@@ -367,6 +368,7 @@ export function CriminalDashboardDossierBody(props: CriminalDashboardDossierBody
         onClose,
         onExitToHome,
         handleDashboardBack,
+        dossierNestedNav = false,
         setIsOtherEvidenceFormOpen,
         isOtherEvidenceReadOnly,
         isEffectiveTrialCourtStage,
@@ -477,6 +479,7 @@ export function CriminalDashboardDossierBody(props: CriminalDashboardDossierBody
                     key={id}
                     onNavBack={handleDashboardBack}
                     onNavExit={onExitToHome}
+                    dossierNestedNav={dossierNestedNav}
                     headerTitle={headerTitle}
                     stage={stage}
                     activeLegalArticle={activeLegalArticle}
@@ -597,6 +600,29 @@ export function CriminalDashboardDossierBody(props: CriminalDashboardDossierBody
                     } catch {
                         showLegalError();
                     }
+                }}
+            />
+
+            <SparkCriminalNudgeHost
+                caseId={id}
+                caseNumber={criminalCase.caseNumber}
+                isArchived={isEffectivelyArchived}
+                shouldShowArticle3DeadlineBanner={shouldShowArticle3DeadlineBanner}
+                article3ElapsedDays={article3ElapsedDays}
+                shouldShowMandatoryCassationBanner={shouldShowMandatoryCassationBanner}
+                verdictCards={verdictCards}
+                disabled={isDashboardReadOnly}
+                onAbsentiaObjection={() => {
+                    const defendantId = visibleDefendants[0]?.id;
+                    if (defendantId) {
+                        try {
+                            fileInAbsentiaObjection(id, defendantId);
+                        } catch {
+                            showLegalError();
+                        }
+                        return;
+                    }
+                    openDefaultJudgmentOpposition?.();
                 }}
             />
 

@@ -1,23 +1,11 @@
-// @ts-nocheck
 import { useMemo, useRef } from 'react';
+import { buildExecutionViewData } from '@/app/application/execution/dossier/buildExecutionViewData';
 import { normalizeExecutionFileRecord } from '@/app/components/lawyer/LawyerDashboardParts/utils';
 import { resolvePartyStoredName } from '@/app/utils/executionPartyNormalize';
-import { storageCache } from '@/app/utils/storageCache';
-import { executionStorageKey } from '@/app/utils/executionStorageKeys';
-import {
-    isInabaSubFileId,
-    inabaSubMetaStorageKey,
-    filterTimelineEventsForInabaDossier,
-} from '@/app/stores/executionDashboardStore';
+import { isInabaSubFileId } from '@/app/stores/executionDashboardStore';
 import type { ExecutionFile } from '@/app/types/execution';
 import { maritalFurnitureFinancialContentSignature } from '@/app/utils/maritalFurniture';
-
-function parseUpdatedAt(file: { updatedAt?: unknown; createdAt?: unknown } | null): number {
-    if (!file) return 0;
-    const raw = file.updatedAt ?? file.createdAt;
-    const n = raw ? Date.parse(String(raw)) : 0;
-    return Number.isFinite(n) ? n : 0;
-}
+import { personalCoercivePersistSignature } from '@/app/components/lawyer/execution/coerciveStackUtils';
 
 /** توقيع محتوى — لتثبيت المرجع ومنع حلقات setState */
 export function executionFileContentSignature(file: ExecutionFile | null | undefined): string {
@@ -59,35 +47,41 @@ export function executionFileContentSignature(file: ExecutionFile | null | undef
             thirdPartySeizureIds: thirdParty.map((t) => String((t as { id?: string }).id || '')).join(','),
             seizedAssetIds: seized.map((a) => String((a as { id?: string }).id || '')).join(','),
             maritalFurnitureFin: maritalFurnitureFinancialContentSignature(file),
+            notesSig: (() => {
+                const notes = file.caseNotesLog;
+                if (!Array.isArray(notes) || notes.length === 0) return '';
+                const last = notes[0];
+                return `${notes.length}:${String((last as { id?: string }).id || '')}:${String((last as { savedAt?: string }).savedAt || '')}`;
+            })(),
+            tasksSig: (() => {
+                const tasks = file.caseTasksPending;
+                if (!Array.isArray(tasks) || tasks.length === 0) return '';
+                return `${tasks.length}:${String((tasks[0] as { id?: string }).id || '')}`;
+            })(),
+            ledgerSig: (() => {
+                const ledger = file.financialLedger;
+                if (!Array.isArray(ledger) || ledger.length === 0) return '';
+                return `${ledger.length}:${ledger
+                    .map((row) => String((row as { id?: string }).id || ''))
+                    .join(',')}`;
+            })(),
+            otherPartyLogSig: (() => {
+                const log = (file as ExecutionFile).other_party_actions_log;
+                if (!Array.isArray(log) || log.length === 0) return '';
+                return log
+                    .map(
+                        (row) =>
+                            `${String(row.id || '')}:${String(row.savedAt || '')}:${String(row.outcome || '')}:${String(row.decisionRowId || '')}`,
+                    )
+                    .join('|');
+            })(),
+            personalCoerciveSig: personalCoercivePersistSignature(
+                file as unknown as Record<string, unknown>,
+            ),
         });
     } catch {
         return String(file.id ?? '');
     }
-}
-
-function executionStoredBlobMatchesFileId(
-    stored: ExecutionFile | null | undefined,
-    fileId: string,
-): boolean {
-    if (!stored || !fileId) return false;
-    const sid = String(stored.id ?? '').trim();
-    const fid = String(fileId).trim();
-    if (!sid || !fid) return false;
-    return sid === fid;
-}
-
-function pickRicherExecutionFile(a: ExecutionFile, b: ExecutionFile): ExecutionFile {
-    const aNames =
-        (a.creditors ?? []).filter((p) => resolvePartyStoredName(p)).length +
-        (a.debtors ?? []).filter((p) => resolvePartyStoredName(p)).length;
-    const bNames =
-        (b.creditors ?? []).filter((p) => resolvePartyStoredName(p)).length +
-        (b.debtors ?? []).filter((p) => resolvePartyStoredName(p)).length;
-    if (aNames !== bNames) return aNames > bNames ? a : b;
-    const aTs = parseUpdatedAt(a);
-    const bTs = parseUpdatedAt(b);
-    if (aTs !== bTs) return aTs >= bTs ? a : b;
-    return a;
 }
 
 const stableNormalizedCache = new Map<string, ExecutionFile>();
@@ -110,6 +104,7 @@ function stableNormalize(file: ExecutionFile | null): ExecutionFile | null {
 /**
  * مصدر القراءة: `file` من الأب أولاً (يتجنب حلقة currentFile ↔ normalize ↔ setCurrentFile).
  * `currentFile` من المتجر يُستخدم فقط عند غياب `file`.
+ * دمج المخزن/الإنابة يمر عبر buildExecutionViewData (application layer).
  */
 export function useExecutionData(
     currentFile: ExecutionFile | null,
@@ -122,128 +117,27 @@ export function useExecutionData(
     const fileSig = executionFileContentSignature(file ?? null);
     const storeSig = executionFileContentSignature(currentFile);
     const storeId = String(currentFile?.id ?? '').trim();
-    const propId = String(file?.id ?? executionId ?? '').trim();
     const inDelegationView = preferStoreCurrentFile || isInabaSubFileId(storeId);
-    const fileId = inDelegationView && storeId ? storeId : propId;
 
     return useMemo(() => {
-        let resolved: ExecutionFile | null = null;
-
-        if (inDelegationView && currentFile) {
-            resolved = currentFile;
-        } else if (file) {
-            resolved = file as ExecutionFile;
-        } else if (currentFile) {
-            resolved = currentFile;
-        }
-
-        const parentFromInabaId =
-            isInabaSubFileId(storeId) && storeId.includes(':')
-                ? storeId.slice(storeId.indexOf(':') + 1).trim()
-                : '';
-        const parentLink = String(
-            (resolved as ExecutionFile | null)?.parentId ||
-                (resolved as { parentFileId?: string } | null)?.parentFileId ||
-                parentFromInabaId ||
-                ''
-        ).trim();
-        const inabaMetaKey =
-            inDelegationView && isInabaSubFileId(storeId) && parentLink
-                ? executionStorageKey(inabaSubMetaStorageKey(parentLink, storeId))
-                : '';
-        const persistKey = inabaMetaKey ? '' : fileId || '';
-        const storageKey = inabaMetaKey || (persistKey ? executionStorageKey(persistKey) : '');
-        let stored = storageKey ? (storageCache.get(storageKey) as ExecutionFile | null) : null;
-        if (stored && persistKey && !executionStoredBlobMatchesFileId(stored, persistKey)) {
-            stored = null;
-        }
-
-        if (inDelegationView && isInabaSubFileId(storeId) && resolved) {
-            const rawTimeline = Array.isArray(stored?.timelineEvents)
-                ? stored!.timelineEvents
-                : Array.isArray(resolved.timelineEvents)
-                  ? resolved.timelineEvents
-                  : [];
-            const inabaTimeline = filterTimelineEventsForInabaDossier(rawTimeline, storeId);
-            resolved = {
-                ...resolved,
-                fileNumber: String(stored?.fileNumber ?? resolved.fileNumber ?? '').trim(),
-                fileYear: String(stored?.fileYear ?? resolved.fileYear ?? '').trim(),
-                timelineEvents: inabaTimeline,
-                creditors: resolved.creditors?.length
-                    ? resolved.creditors
-                    : stored?.creditors?.length
-                      ? stored.creditors
-                      : resolved.creditors,
-                debtors: resolved.debtors?.length
-                    ? resolved.debtors
-                    : stored?.debtors?.length
-                      ? stored.debtors
-                      : resolved.debtors,
-                parties: resolved.parties?.length
-                    ? resolved.parties
-                    : stored?.parties?.length
-                      ? stored.parties
-                      : resolved.parties,
-                party_multiplicity: resolved.party_multiplicity ?? stored?.party_multiplicity,
-                creditor_party_death_case:
-                    resolved.creditor_party_death_case ?? stored?.creditor_party_death_case,
-                debtor_party_death_case: resolved.debtor_party_death_case ?? stored?.debtor_party_death_case,
-                party_death_case: resolved.party_death_case ?? stored?.party_death_case,
-                guarantor_followup: stored?.guarantor_followup ?? resolved.guarantor_followup,
-                procedural_guarantee: stored?.procedural_guarantee ?? resolved.procedural_guarantee,
-                hasGuarantor: stored?.hasGuarantor ?? resolved.hasGuarantor,
-            } as ExecutionFile;
-        } else if (resolved && stored) {
-            const fu = parseUpdatedAt(resolved);
-            const su = parseUpdatedAt(stored);
-            if (Number.isFinite(su) && su > fu) {
-                resolved = pickRicherExecutionFile(stored, resolved);
-            } else if (executionStorageTick > 0) {
-                try {
-                    const pairs: [unknown, unknown][] = [
-                        [resolved.creditor_party_death_case ?? null, stored.creditor_party_death_case ?? null],
-                        [resolved.debtor_party_death_case ?? null, stored.debtor_party_death_case ?? null],
-                        [resolved.party_death_case ?? null, stored.party_death_case ?? null],
-                        [resolved.party_multiplicity ?? null, stored.party_multiplicity ?? null],
-                        [resolved.debtors ?? null, stored.debtors ?? null],
-                        [resolved.guarantor_followup ?? null, stored.guarantor_followup ?? null],
-                        [resolved.procedural_guarantee ?? null, stored.procedural_guarantee ?? null],
-                        [resolved.hasGuarantor ?? null, stored.hasGuarantor ?? null],
-                        [resolved.creditors ?? null, stored.creditors ?? null],
-                        [resolved.seizedProperties ?? null, stored.seizedProperties ?? null],
-                        [resolved.seizedMovables ?? null, stored.seizedMovables ?? null],
-                        [resolved.thirdPartySeizures ?? null, stored.thirdPartySeizures ?? null],
-                        [resolved.seizedAssets ?? null, stored.seizedAssets ?? null],
-                        [resolved.realEstateSeizureAssets ?? null, stored.realEstateSeizureAssets ?? null],
-                        [resolved.timelineEvents ?? null, stored.timelineEvents ?? null],
-                        [resolved.other_party_request_tracks ?? null, stored.other_party_request_tracks ?? null],
-                        [resolved.other_party_actions_log ?? null, stored.other_party_actions_log ?? null],
-                        [resolved.maritalFurnitureItems ?? null, stored.maritalFurnitureItems ?? null],
-                        [resolved.debtAmount ?? null, stored.debtAmount ?? null],
-                        [resolved.totalAmount ?? null, stored.totalAmount ?? null],
-                    ];
-                    for (const [fp, sp] of pairs) {
-                        if (JSON.stringify(fp) !== JSON.stringify(sp)) {
-                            resolved = pickRicherExecutionFile(stored, resolved);
-                            break;
-                        }
-                    }
-                } catch {
-                    /* ignore */
-                }
-            }
-        } else if (!resolved && stored) {
-            resolved = stored;
-        }
-
-        if (!resolved && executionId && !inDelegationView) {
-            const s = storageCache.get(executionStorageKey(executionId)) as ExecutionFile | null;
-            if (s && executionStoredBlobMatchesFileId(s, executionId)) resolved = s;
-        }
-
+        const resolved = buildExecutionViewData({
+            currentFile,
+            file,
+            executionId,
+            executionStorageTick,
+            preferStoreCurrentFile,
+        });
         return stableNormalize(resolved);
-    }, [fileId, fileSig, storeSig, executionStorageTick, executionId, inDelegationView, currentFile, file]);
+    }, [
+        fileSig,
+        storeSig,
+        executionStorageTick,
+        executionId,
+        inDelegationView,
+        currentFile,
+        file,
+        preferStoreCurrentFile,
+    ]);
 }
 
 /** للمزامنة مع المتجر دون إعادة normalize كل render */

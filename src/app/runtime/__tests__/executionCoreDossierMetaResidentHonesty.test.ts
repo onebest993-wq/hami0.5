@@ -67,23 +67,57 @@ describe('execution Core — resident followup open honesty (W0b)', () => {
         join(process.cwd(), 'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts'),
         'utf8',
     );
-    const portalSrc = readFileSync(
+    const handlerClusterRuntimeSrc = readFileSync(
         join(
             process.cwd(),
-            'src/app/components/lawyer/ExecutionDashboard/ExecutionFollowupModalPortal.tsx',
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerClusterRuntime.ts',
+        ),
+        'utf8',
+    );
+    const prefetchEffectsSrc = readFileSync(
+        join(
+            process.cwd(),
+            'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreHandlerPrefetchEffects.ts',
+        ),
+        'utf8',
+    );
+    const shellSrc = readFileSync(
+        join(
+            process.cwd(),
+            'src/app/components/lawyer/ExecutionDashboard/components/ExecutionFollowupModalShell.tsx',
         ),
         'utf8',
     );
 
-    it('Core يستضيف handleMemoFollowupClick مقيماً في notesTasksHandlers', () => {
+    it('Core يستضيف handleMemoFollowupClick ومعالجات notes على Core مباشرة', () => {
         expect(coreSrc).toMatch(/const handleMemoFollowupClick = useCallback\(/);
         expect(coreSrc).toContain('followupDebtor.openFollowupModalPersisted');
-        expect(coreSrc).toContain('shouldPreferLightHandlerClusterOnDossierMount');
-        expect(coreSrc).toMatch(/notesTasksHandlers:\s*\{[\s\S]*handleMemoFollowupClick/);
+        expect(coreSrc).toContain('useExecutionDashboardCoreResidentHandlers');
+        expect(coreSrc).toContain('...coreResidentHandlers');
+        expect(handlerClusterRuntimeSrc).toMatch(
+            /shouldLoadExecutionHandlerClusterLight\(handlerClusterGateInput\)/,
+        );
+        expect(handlerClusterRuntimeSrc).toMatch(
+            /shouldLoadExecutionHandlerClusterFollowupAdminSpecial\(handlerClusterGateInput\)/,
+        );
+        expect(handlerClusterRuntimeSrc).toMatch(
+            /shouldLoadExecutionHandlerClusterFollowupDossierControls\(handlerClusterGateInput\)/,
+        );
+        expect(handlerClusterRuntimeSrc).toMatch(
+            /shouldLoadExecutionHandlerClusterFollowupOtherParty\(handlerClusterGateInput\)/,
+        );
+        expect(handlerClusterRuntimeSrc).toMatch(
+            /shouldLoadExecutionHandlerClusterDossierSupport\(handlerClusterGateInput\)/,
+        );
+        expect(coreSrc).toContain('useExecutionDashboardCoreHandlerPrefetchEffects');
+        expect(prefetchEffectsSrc).toContain('registerExecutionHandlerStubNotifier');
+        expect(prefetchEffectsSrc).toContain('prefetchExecutionHandlersForStubPath');
+        expect(prefetchEffectsSrc).toContain('followup-admin-special');
+        expect(prefetchEffectsSrc).toContain('followup-dossier-controls');
     });
 
-    it('Portal الحي يحمل عقود e2e testid', () => {
-        expect(portalSrc).toContain('data-testid="execution-followup-modal"');
-        expect(portalSrc).toContain('data-testid="execution-followup-modal-close"');
+    it('Shell الحي يحمل عقود e2e testid', () => {
+        expect(shellSrc).toContain('data-testid="execution-followup-modal"');
+        expect(shellSrc).toContain('data-testid="execution-followup-modal-close"');
     });
 });

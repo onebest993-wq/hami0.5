@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { HandHelping, Loader2, Shield } from 'lucide-react';
+import { HandHelping, Loader2, Shield } from '@/app/components/ui/lucideIcons';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import type { ShareScope } from '@/app/types/taskHelpTypes';
 import type { NetworkColleague } from '@/app/services/caseShare/caseShareTypes';

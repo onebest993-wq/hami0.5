@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Scale } from 'lucide-react';
+import { Scale } from '@/app/components/ui/lucideIcons';
 import {
     REPOSITORY_DOCUMENT_TYPES,
     REPOSITORY_SORT_OPTIONS,

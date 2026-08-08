@@ -1,0 +1,16 @@
+{
+  "measuredAt": "2026-07-30T12:45:48.802Z",
+  "source": "e2e",
+  "notes": [
+    "live probe C:\\Users\\HEX STORE\\Downloads\\New folder\\perf-reports\\execution-open-probe-raw.json",
+    "perf-budget ExecutionDashboard namedChunkMaxRawKb=420 (chunk, not open-ms SLA)"
+  ],
+  "archiveOpenMs": 473,
+  "dossierOpenMs": 2674,
+  "followupOpenMs": 9749,
+  "mobileGapsOpen": [
+    "execution-open in-app perf marks (hami:execution:*): OPEN — wall-clock probe only",
+    "followupOpenMs warm-cache second open: OPEN — probe measures cold path only",
+    "live e2e probe blocked when dev overlay/import errors present: check vite HMR overlay before --live"
+  ]
+}

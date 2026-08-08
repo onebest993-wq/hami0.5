@@ -102,6 +102,7 @@ export const RepositoryFeedPanel = memo(function RepositoryFeedPanel({
             aria-hidden={!active}
         >
             <RepositoryFeedList
+                key={feedLayout}
                 items={items}
                 itemLayoutClass={itemLayoutClass}
                 feedLayout={feedLayout}

@@ -76,7 +76,7 @@ describe('world-class field-tasks close honesty', () => {
             /if \(widgetId === 'dockTasks'\) \{[\s\S]*?\n            \}/,
         )?.[0];
         expect(tasksPrime).toBeTruthy();
-        expect(tasksPrime).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'hover')");
+        expect(tasksPrime).toContain("prefetchDockWidgetIntentImmediate('dockTasks', 'open')");
         expect(tasksPrime).not.toContain('hydrateFieldTasksShellForInstantOpen');
     });
 
@@ -85,7 +85,7 @@ describe('world-class field-tasks close honesty', () => {
             path.join(root, 'src/app/components/lawyer/dashboard/fieldTasks/FieldTasksSheetHost.tsx'),
             'utf8',
         );
-        expect(host).toContain('FieldTasksInstantSheetShell');
+        expect(host).toContain('FieldTasksWarmSheetBridge');
         expect(host).toContain('field-tasks-sheet-load-error');
         expect(host).toContain('field-tasks-sheet-retry');
     });

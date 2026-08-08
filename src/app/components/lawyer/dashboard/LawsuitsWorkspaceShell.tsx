@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';
 import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
@@ -56,6 +56,7 @@ export function LawsuitsWorkspaceShell({
 
     useEffect(() => {
         if (!open || !escapeEnabled) return;
+        const exit = onExitToHome ?? onClose;
         const onKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') return;
             if (
@@ -68,7 +69,7 @@ export function LawsuitsWorkspaceShell({
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
-            onClose();
+            exit();
         };
         const tryClose = (): boolean => {
             if (
@@ -78,7 +79,7 @@ export function LawsuitsWorkspaceShell({
             ) {
                 return false;
             }
-            onClose();
+            exit();
             return true;
         };
         window.addEventListener('keydown', onKeyDown, true);
@@ -87,7 +88,7 @@ export function LawsuitsWorkspaceShell({
             window.removeEventListener('keydown', onKeyDown, true);
             unregisterNativeBack();
         };
-    }, [onClose, escapeEnabled, open]);
+    }, [onClose, onExitToHome, escapeEnabled, open]);
 
     const selectTab = (next: LawsuitsWorkspaceTab) => {
         setTab(next);

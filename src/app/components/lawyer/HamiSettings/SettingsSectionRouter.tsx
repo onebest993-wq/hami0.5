@@ -1,72 +1,27 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
 import { AppearanceSection } from './appearance/AppearanceSection';
 import { useSettingsSectionMountSet } from './hooks/useSettingsSectionMountSet';
 import { SettingsSectionActiveProvider } from './settingsSectionActiveContext';
-import {
-    getResolvedSettingsSection,
-    resolveSettingsSectionComponent,
-} from './settingsSectionRegistry';
-
-function SettingsSectionLoadingFallback() {
-    return (
-        <div
-            className="px-2 pt-2 space-y-3"
-            data-testid="settings-section-loading"
-            aria-busy="true"
-            aria-label="جاري تحميل قسم الإعدادات"
-        >
-            <div className="h-24 rounded-2xl bg-white/[0.04] animate-pulse" aria-hidden />
-            <div className="h-16 rounded-2xl bg-white/[0.03] animate-pulse" aria-hidden />
-            <div className="h-16 rounded-2xl bg-white/[0.03] animate-pulse" aria-hidden />
-        </div>
-    );
-}
+import { getResolvedSettingsSection } from './settingsSectionRegistry';
 
 type SettingsSectionPanelProps = {
     sectionId: SettingsSectionId;
-    active: boolean;
     onClose: () => void;
-    onEnterHomeLayoutEdit?: () => void;
     accountProps: SettingsSectionRouterProps['accountProps'];
 };
 
 function SettingsSectionPanel({
     sectionId,
-    active,
     onClose,
-    onEnterHomeLayoutEdit,
     accountProps,
 }: SettingsSectionPanelProps) {
-    const [Component, setComponent] = useState<React.ComponentType<object> | null>(() =>
-        sectionId === 'appearance' ? AppearanceSection : getResolvedSettingsSection(sectionId),
-    );
-
-    useLayoutEffect(() => {
-        if (!active || sectionId === 'appearance') return;
-
-        const cached = getResolvedSettingsSection(sectionId);
-        if (cached) {
-            setComponent(() => cached);
-            return;
-        }
-
-        let cancelled = false;
-        void resolveSettingsSectionComponent(sectionId).then((next) => {
-            if (!cancelled && next) setComponent(() => next);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [active, sectionId]);
-
     if (sectionId === 'appearance') {
-        return <AppearanceSection onEnterHomeLayoutEdit={onEnterHomeLayoutEdit} />;
+        return <AppearanceSection />;
     }
 
-    if (!Component) {
-        return active ? <SettingsSectionLoadingFallback /> : null;
-    }
+    const Component = getResolvedSettingsSection(sectionId);
+    if (!Component) return null;
 
     if (sectionId === 'account') {
         const Account = Component as React.ComponentType<{
@@ -82,7 +37,6 @@ function SettingsSectionPanel({
 export type SettingsSectionRouterProps = {
     activeSection: SettingsSectionId;
     onClose: () => void;
-    onEnterHomeLayoutEdit?: () => void;
     open?: boolean;
     accountProps: {
         onLogout?: () => void;
@@ -92,7 +46,6 @@ export type SettingsSectionRouterProps = {
 export function SettingsSectionRouter({
     activeSection,
     onClose,
-    onEnterHomeLayoutEdit,
     open = true,
     accountProps,
 }: SettingsSectionRouterProps) {
@@ -107,9 +60,7 @@ export function SettingsSectionRouter({
                         <SettingsSectionActiveProvider active={isActive && open}>
                             <SettingsSectionPanel
                                 sectionId={sectionId}
-                                active={isActive && open}
                                 onClose={onClose}
-                                onEnterHomeLayoutEdit={onEnterHomeLayoutEdit}
                                 accountProps={accountProps}
                             />
                         </SettingsSectionActiveProvider>

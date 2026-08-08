@@ -69,6 +69,7 @@ describe('settingsIntentWarm', () => {
         expect(prefetchSettingsOverlayEntry).toHaveBeenCalledTimes(1);
         await vi.waitFor(() => {
             expect(loadSettingsSection).toHaveBeenCalled();
+            expect(preloadAllSettingsSectionComponents).toHaveBeenCalled();
         });
     });
 });

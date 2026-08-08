@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { hubIconBoxPx, hubIconStrokePx, hubRouteTitleRem } from '@/app/services/settings/homeBlockScale';
+import { hubIconBoxPx, hubIconStrokePx, hubRouteTitleRem, hubRouteTitleRemHalf } from '@/app/services/settings/homeBlockScale';
 import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout';
 
 export function resolveHubRouteTileVisuals(params: {
@@ -16,11 +16,13 @@ export function resolveHubRouteTileVisuals(params: {
     glowOrbStyle: CSSProperties;
 } {
     const { accent, size = 'normal', layoutSpan = 2 } = params;
-    const spanScale = layoutSpan === 1 ? 0.84 : 1;
-    const boxPx = hubIconBoxPx(size ?? 'normal') * spanScale;
-    const iconPx = hubIconStrokePx(size ?? 'normal') * spanScale;
-    const baseRem = hubRouteTitleRem(size ?? 'normal') * spanScale;
-    const scale = 'var(--hami-content-scale, 1)';
+    const isHalf = layoutSpan === 1;
+    const boxPx = hubIconBoxPx(size ?? 'normal') * (isHalf ? 0.92 : 1);
+    const iconPx = hubIconStrokePx(size ?? 'normal') * (isHalf ? 0.92 : 1);
+    const baseRem = isHalf
+        ? hubRouteTitleRemHalf(size ?? 'normal')
+        : hubRouteTitleRem(size ?? 'normal');
+    const scale = isHalf ? '1' : 'var(--hami-content-scale, 1)';
 
     return {
         iconWrapStyle: {
@@ -41,14 +43,16 @@ export function resolveHubRouteTileVisuals(params: {
             color: accent,
             filter: `drop-shadow(0 2px 10px color-mix(in srgb, ${accent} 45%, transparent))`,
         },
-        titleStyle: {
-            fontSize: `calc(${baseRem}rem * ${scale})`,
-            backgroundImage: `linear-gradient(148deg, #FFF9EE 0%, #F8F2E8 38%, color-mix(in srgb, ${accent} 48%, #F5F0E6) 100%)`,
-            WebkitBackgroundClip: 'text',
-            backgroundClip: 'text',
-            color: 'transparent',
-            filter: `drop-shadow(0 3px 16px color-mix(in srgb, ${accent} 45%, transparent))`,
-        },
+        titleStyle: isHalf
+            ? {
+                  ['--hami-hub-title-accent' as string]: accent,
+                  ['--hami-hub-title-size' as string]: `${baseRem}rem`,
+              }
+            : {
+                  fontSize: `calc(${baseRem}rem * ${scale})`,
+                  ['--hami-hub-title-accent' as string]: accent,
+                  ['--hami-hub-title-size' as string]: `${baseRem}rem`,
+              },
         titleRuleStyle: {
             width: `calc(${layoutSpan === 1 ? 2.1 : 2.85}rem * ${scale})`,
             height: `max(2px, calc(2.5px * ${scale}))`,

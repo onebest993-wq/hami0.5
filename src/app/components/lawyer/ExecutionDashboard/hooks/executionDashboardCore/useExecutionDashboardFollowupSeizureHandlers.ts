@@ -1,4 +1,5 @@
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import { resolveDecisionsStorageExecutionId } from '@/app/components/lawyer/DecisionsAndAppealsEngine/engine/resolveDecisionsStorageExecutionId';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import {
     runSaveSeizedMovableInitForDecision,
@@ -41,14 +42,26 @@ export function useExecutionDashboardFollowupSeizureHandlers({
     setMovableSeizureSubjectDraft,
 }: UseExecutionDashboardFollowupSeizureHandlersParams) {
     const seizureInitDeps = useCallback(
-        () => ({
-            exId: String(decisionsStorageExecutionId ?? '').trim(),
-            executionDataRef,
-            nextTimelineId,
-            persistExecutionMerge,
-            pushTimelineEvent,
-            showToast,
-        }),
+        () => {
+            const data = executionDataRef.current as ExecutionFile | null | undefined;
+            const raw = String(decisionsStorageExecutionId ?? '').trim();
+            const resolved = resolveDecisionsStorageExecutionId(
+                raw || undefined,
+                data as Record<string, unknown> | undefined,
+            );
+            const exId =
+                resolved !== 'default'
+                    ? resolved
+                    : String(raw || data?.id || '').trim();
+            return {
+                exId,
+                executionDataRef,
+                nextTimelineId,
+                persistExecutionMerge,
+                pushTimelineEvent,
+                showToast,
+            };
+        },
         [
             decisionsStorageExecutionId,
             executionDataRef,

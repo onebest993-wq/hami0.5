@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CheckCircle, ChevronDown, XCircle } from 'lucide-react';
+import { CheckCircle, ChevronDown, XCircle } from '@/app/components/ui/lucideIcons';
 import { FollowupFlowBackButton } from './FollowupFlowBackButton';
 
 export { ExecutionInlineExecutorDecisionActions } from '@/app/components/shared/ExecutionInlineExecutorDecisionActions';
@@ -67,7 +67,10 @@ export function ExecutionInlineAccordion(props: {
             return next;
         });
         queueMicrotask(() => {
-            stepRefs.current[targetStepId]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            const el = stepRefs.current[targetStepId];
+            if (el && typeof el.scrollIntoView === 'function') {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
         });
     }, [
         props.stepNavRequest?.seq,

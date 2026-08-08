@@ -8,6 +8,7 @@ import {
     finalizePastWeekTasks,
     promoteDueSnoozedTasks,
     partitionAgendaPendingTasks,
+    buildPostponeTaskPatch,
 } from '@/app/components/lawyer/dashboard/tasksManager/utils';
 import { WORK_WEEK, WORK_WEEK_LAST_OFFSET } from '@/app/components/lawyer/dashboard/tasksManager/constants';
 import type { LegalTask } from '@/app/types/TaskEngine';
@@ -56,13 +57,9 @@ describe('tasksManager/utils — work week', () => {
 describe('weekly agenda visibility', () => {
     const now = localDate(2026, 7, 1);
 
-    it('يخفي اليوم المنتهي الفارغ', () => {
+    it('يبقي كل أيام الأسبوع ظاهرة حتى الفارغة والمنتهية', () => {
         const past = addDays(now, -1);
-        expect(isWeeklyAgendaDayVisible(past, 0, now, null, 'tue')).toBe(false);
-    });
-
-    it('يبقي اليوم المنتهي إذا فيه مهام', () => {
-        const past = addDays(now, -1);
+        expect(isWeeklyAgendaDayVisible(past, 0, now, null, 'tue')).toBe(true);
         expect(isWeeklyAgendaDayVisible(past, 2, now, null, 'tue')).toBe(true);
         expect(isWeeklyPastDayCompact(past, 2, now)).toBe(true);
     });
@@ -97,6 +94,26 @@ function archivedTask(parsedDate: Date): LegalTask {
         voiceDurationSec: null,
     };
 }
+
+describe('buildPostponeTaskPatch', () => {
+    it('داخل الأسبوع الحالي: parsedDate وبدون reminderAt', () => {
+        const now = localDate(2026, 8, 3); // Monday
+        const weekStart = getSaturdayOfWeekContaining(now);
+        const target = addDays(weekStart, 3);
+        const patch = buildPostponeTaskPatch(target, now);
+        expect(patch.parsedDate?.getTime()).toBe(startOfLocalDay(target).getTime());
+        expect(patch.reminderAt).toBeNull();
+    });
+
+    it('خارج الأسبوع الحالي: reminderAt وبدون parsedDate', () => {
+        const now = localDate(2026, 8, 3);
+        const weekStart = getSaturdayOfWeekContaining(now);
+        const target = addDays(weekStart, 10);
+        const patch = buildPostponeTaskPatch(target, now);
+        expect(patch.parsedDate).toBeNull();
+        expect(patch.reminderAt?.getTime()).toBe(startOfLocalDay(target).getTime());
+    });
+});
 
 describe('finalizePastWeekTasks', () => {
     it('يضبط completedAt عند نقل أسبوع سابق للأرشيف', () => {

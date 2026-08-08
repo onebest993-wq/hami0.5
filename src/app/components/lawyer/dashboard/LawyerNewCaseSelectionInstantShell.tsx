@@ -2,7 +2,7 @@ import React from 'react';
 import { HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
 import { JURISDICTIONS, type JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import { JurisdictionGlassPanel } from '@/app/components/lawyer/LawyerNewCase/components/JurisdictionGlassPanel';
-import { HUB_NESTED_OVERLAY_Z_CLASS } from './hubOverlayStack';
+import { HUB_NESTED_OVERLAY_Z_CLASS, HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS } from './hubOverlayStack';
 import { NC_HEADER } from '@/app/components/lawyer/LawyerNewCase/newCaseGlassTheme';
 
 const noop = () => undefined;
@@ -13,17 +13,19 @@ export function LawyerNewCaseSelectionInstantShell({
     mode = 'picker',
     onSelectJurisdiction,
     onJurisdictionPointerEnter,
+    dossierNewCaseElevated = false,
 }: {
     onClose: () => void;
     mode?: 'loading' | 'picker';
     onSelectJurisdiction?: (id: JurisdictionId) => void;
     onJurisdictionPointerEnter?: (id: JurisdictionId) => void;
+    dossierNewCaseElevated?: boolean;
 }): React.ReactElement {
     const isLoading = mode === 'loading';
 
     return (
         <div
-            className={`fixed inset-0 ${HUB_NESTED_OVERLAY_Z_CLASS} flex flex-col overflow-hidden bg-[#080c14] font-['Tajawal']`}
+            className={`fixed inset-0 ${dossierNewCaseElevated ? HUB_DOSSIER_SPAWN_NEW_CASE_Z_CLASS : HUB_NESTED_OVERLAY_Z_CLASS} flex flex-col overflow-hidden bg-[#080c14] font-['Tajawal']`}
             aria-busy="true"
             data-testid="lawyer-new-case-instant-shell"
         >

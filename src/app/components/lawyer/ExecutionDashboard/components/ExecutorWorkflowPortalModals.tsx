@@ -62,6 +62,7 @@ export interface ExecutorWorkflowPortalModalsProps {
     setJudicialCustodianModalOpen: Dispatch<SetStateAction<boolean>>;
     judicialCustodianModalCtx: JudicialCustodianModalCtx;
     setJudicialCustodianModalCtx: Dispatch<SetStateAction<JudicialCustodianModalCtx>>;
+    judicialCustodianExistingNames?: string[];
 
     executionReportPrompt: { onConfirm: () => void } | null;
     setExecutionReportPrompt: Dispatch<SetStateAction<{ onConfirm: () => void } | null>>;
@@ -101,6 +102,7 @@ export const ExecutorWorkflowPortalModals: React.FC<ExecutorWorkflowPortalModals
     setJudicialCustodianModalOpen,
     judicialCustodianModalCtx,
     setJudicialCustodianModalCtx,
+    judicialCustodianExistingNames = [],
     executionReportPrompt,
     setExecutionReportPrompt,
     setShowDecisionsModal,
@@ -180,6 +182,7 @@ export const ExecutorWorkflowPortalModals: React.FC<ExecutorWorkflowPortalModals
                             requestTitle={judicialCustodianModalCtx?.requestTitle ?? ''}
                             initialName={judicialCustodianModalCtx?.initialName}
                             initialSalary={judicialCustodianModalCtx?.initialSalary}
+                            existingCustodianNames={judicialCustodianExistingNames}
                             onClose={() => {
                                 setJudicialCustodianModalOpen(false);
                                 setJudicialCustodianModalCtx(null);

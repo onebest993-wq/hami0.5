@@ -17,7 +17,12 @@ import {
     loadScheduleIntentWarm,
     SCHEDULE_PRIME_HOST_EVENT,
 } from '@/app/hooks/lawyerDashboard/schedule/scheduleLazyImports';
-import { commitScheduleTabOpen } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
+import { commitScheduleTabClose, commitScheduleTabOpen } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
+import {
+    isScheduleShellSnappedOpen,
+    snapScheduleShellClose,
+    snapScheduleShellOpen,
+} from '@/app/services/schedule/scheduleShellSnap';
 import type { CalendarSearchFocus } from '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow';
 
 export type { CalendarSearchFocus };
@@ -149,7 +154,7 @@ export function useLawyerDashboardScheduleTab({
     useEffect(() => {
         if (typeof window === 'undefined') return;
         const onPrime = () => {
-            primeScheduleTabMount();
+            queueMicrotask(() => primeScheduleTabMount());
         };
         window.addEventListener(SCHEDULE_PRIME_HOST_EVENT, onPrime);
         return () => window.removeEventListener(SCHEDULE_PRIME_HOST_EVENT, onPrime);
@@ -160,9 +165,18 @@ export function useLawyerDashboardScheduleTab({
     }, []);
 
     const backToHomeFromSchedule = useCallback(() => {
-        setCalendarSearchFocus(null);
-        setActiveTab('home');
+        commitScheduleTabClose({ setCalendarSearchFocus, setActiveTab });
     }, [setActiveTab]);
+
+    useLayoutEffect(() => {
+        if (activeTab === 'schedule') {
+            snapScheduleShellOpen();
+            return;
+        }
+        if (isScheduleShellSnappedOpen()) {
+            snapScheduleShellClose();
+        }
+    }, [activeTab]);
 
     const openScheduleTab = useCallback(
         (opts?: OpenScheduleTabOptions) => {

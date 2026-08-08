@@ -10,8 +10,15 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { X, Calendar, Clock, FileText, User, Building2, Car, Home, DollarSign } from 'lucide-react';
+import { X, Calendar, Clock, FileText, User, Building2, Car, Home, DollarSign } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '@/app/types/execution';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_EDIT_SHELL_MAX,
+    EXEC_MODAL_HEADER_SAFE_TOP,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -118,23 +125,23 @@ export const TimelineEditModal: React.FC<TimelineEditModalProps> = ({
 
     return (
         <div
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/60 p-4 backdrop-blur-md"
+            className={`fixed inset-0 z-[130] flex items-center justify-center bg-black/60 backdrop-blur-md ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
             dir="rtl"
             onClick={onClose}
             role="presentation"
         >
             <div
-                className="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-2xl shadow-black/50"
+                className={`flex w-full max-w-md flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#0B1120] shadow-2xl shadow-black/50 ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
                 role="dialog"
                 aria-label="تعديل حدث السجل الزمني"
             >
                 {/* Header */}
-                <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0B1120] p-3">
+                <div className={`sticky top-0 z-10 flex shrink-0 items-center justify-between gap-2 border-b border-white/10 bg-gradient-to-l from-slate-950/90 to-[#0B1120] p-3 ${EXEC_MODAL_HEADER_SAFE_TOP}`}>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="rounded-lg border border-white/10 bg-white/[0.03] p-2 text-slate-300 transition-all hover:bg-white/[0.06] hover:text-white"
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
                         aria-label="إغلاق"
                     >
                         <X size={18} />
@@ -229,7 +236,7 @@ export const TimelineEditModal: React.FC<TimelineEditModalProps> = ({
                         <button
                             type="button"
                             onClick={handleSave}
-                            className="w-full rounded-xl bg-gradient-to-l from-blue-600 to-blue-700 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-blue-800"
+                            className={`w-full rounded-xl bg-gradient-to-l from-blue-600 to-blue-700 py-3.5 text-sm font-bold text-white shadow-lg shadow-blue-500/25 transition-all hover:from-blue-700 hover:to-blue-800 ${EXEC_MODAL_TOUCH_TARGET}`}
                         >
                             حفظ التعديلات
                         </button>
@@ -237,7 +244,7 @@ export const TimelineEditModal: React.FC<TimelineEditModalProps> = ({
                         <button
                             type="button"
                             onClick={handleDelete}
-                            className="w-full rounded-xl border border-rose-500/25 bg-rose-950/10 py-3 text-sm font-bold text-rose-200 transition-all hover:bg-rose-950/20"
+                            className={`w-full rounded-xl border border-rose-500/25 bg-rose-950/10 py-3 text-sm font-bold text-rose-200 transition-all hover:bg-rose-950/20 ${EXEC_MODAL_TOUCH_TARGET}`}
                         >
                             حذف الحدث
                         </button>

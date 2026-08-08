@@ -88,7 +88,7 @@ describe('global search section surgical close honesty', () => {
         expect(entry).toContain("import('@/app/services/search/globalSearchLocalWarmProbe')");
     });
 
-    it('مسار الهيدر يفتح عند pointerdown مع قشرة Suspense فورية', () => {
+    it('مسار الهيدر يفتح عند pointerdown مع Entry sync (بلا Suspense fallback)', () => {
         const trigger = fs.readFileSync(
             path.join(
                 root,
@@ -102,26 +102,24 @@ describe('global search section surgical close honesty', () => {
             path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardMainView.tsx'),
             'utf8',
         );
-        expect(main).toContain('GlobalSearchOverlayLoadingFallback');
+        expect(main).toContain('LawyerDashboardGlobalSearchOverlayEntry');
         expect(main).toContain('showGlobalSearch');
         expect(main).toMatch(
-            /globalSearchLive\s*\?[\s\S]*?<Suspense[\s\S]*?showGlobalSearch[\s\S]*?GlobalSearchOverlayLoadingFallback[\s\S]*?closeGlobalSearch/,
+            /globalSearchLive\s*\?[\s\S]*?LawyerDashboardGlobalSearchOverlayEntry/,
         );
     });
 
-    it('لا رسالة «جاري فتح البحث» — Host=InstantShell و MainView fallback خفيف بلاها', () => {
-        const instant = fs.readFileSync(
+    it('لا رسالة «جاري فتح البحث» — Host=StaticShell ثابت وبدون نص انتظار', () => {
+        const bridge = fs.readFileSync(
             path.join(
                 root,
-                'src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantShell.tsx',
+                'src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayLoadingBridge.tsx',
             ),
             'utf8',
         );
-        expect(instant).toContain('GlobalSearchOverlayDialogChrome');
-        expect(instant).toContain('writeGlobalSearchDraftQuery');
-        expect(instant).toContain('useOverlayCloseArm');
-        expect(instant).toContain('requestClose');
-        expect(instant).not.toMatch(/جاري فتح البحث/);
+        expect(bridge).toContain('GlobalSearchOverlayStaticShell');
+        expect(bridge).toContain('useGlobalSearchBridgeShellContent');
+        expect(bridge).not.toMatch(/جاري فتح البحث/);
         const fallback = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/LawyerDashboardParts/LazyFallback.tsx'),
             'utf8',
@@ -136,7 +134,9 @@ describe('global search section surgical close honesty', () => {
             ),
             'utf8',
         );
-        expect(host).toContain('GlobalSearchInstantShell');
+        expect(host).toContain('GlobalSearchOverlayStaticShell');
+        expect(host).toContain('headless');
+        expect(host).toContain('useGlobalSearchFocusArm');
         expect(host).toContain('keepAlive');
         expect(host).toContain('keepWarm={keepAlive}');
         const staticShell = fs.readFileSync(
@@ -148,9 +148,10 @@ describe('global search section surgical close honesty', () => {
         );
         expect(staticShell).toContain('useOverlayCloseArm');
         expect(staticShell).toContain('requestClose');
+        expect(staticShell).toContain('focusArmed');
     });
 
-    it('تركيب Host فور هوية حقيقية + تسليم مسودة InstantShell', () => {
+    it('تركيب Host فور هوية حقيقية + تسليم مسودة عبر bridge hook', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardGlobalSearch.ts'),
             'utf8',
@@ -166,14 +167,14 @@ describe('global search section surgical close honesty', () => {
         expect(hostLifecycle).toContain('ركّب Host مخفياً فور وجود هوية');
         expect(openFlow).toContain('takeGlobalSearchDraftQuery');
         expect(hook).toContain('clearGlobalSearchDraftQuery');
-        const instant = fs.readFileSync(
+        const bridgeHook = fs.readFileSync(
             path.join(
                 root,
-                'src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchInstantShell.tsx',
+                'src/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchBridgeShellContent.ts',
             ),
             'utf8',
         );
-        expect(instant).toContain('writeGlobalSearchDraftQuery');
+        expect(bridgeHook).toContain('writeGlobalSearchDraftQuery');
         const queryHook = fs.readFileSync(
             path.join(
                 root,
@@ -183,9 +184,12 @@ describe('global search section surgical close honesty', () => {
         );
         expect(queryHook).toContain('takeGlobalSearchDraftQuery');
         expect(queryHook).toContain('peekGlobalSearchDraftQuery');
+        expect(openFlow).toContain('snapGlobalSearchShellOpen');
         expect(openFlow).toContain('revealGlobalSearchWarmShell');
+        expect(openFlow).toMatch(/snapGlobalSearchShellOpen\(\)[\s\S]*flushSync/);
+        expect(hook).toContain('executeOverlaySnapClose');
         expect(hook).toContain('concealGlobalSearchWarmShell');
-        expect(hook).toMatch(/لا تُسقط searchHostMounted/);
+        expect(hook).toContain('snapGlobalSearchShellClose');
         const closeBody = hook.slice(
             hook.indexOf('const closeGlobalSearch = useCallback'),
             hook.indexOf('}, []);', hook.indexOf('const closeGlobalSearch = useCallback')) + 8,
@@ -201,6 +205,8 @@ describe('global search section surgical close honesty', () => {
         expect(overlay).toContain('GlobalSearchOverlayStaticShell');
         expect(overlay).not.toContain('LazyGlobalSearchMotionShell');
         expect(overlay).toMatch(/StaticShell دائماً/);
+        expect(overlay).toContain('headless');
+        expect(overlay).toContain('onShellContent');
         const entrySrc = fs.readFileSync(
             path.join(
                 root,
@@ -209,9 +215,30 @@ describe('global search section surgical close honesty', () => {
             'utf8',
         );
         expect(entrySrc).toContain('userId={forumUserId}');
-        expect(instant).toContain('useBodyScrollLock');
-        expect(instant).toContain('registerNativeBackHandler');
-        expect(instant).toContain('useMobileKeyboardInset');
+        const host = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayHost.tsx',
+            ),
+            'utf8',
+        );
+        expect(host).toContain('useBodyScrollLock');
+        const focusArm = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/GlobalSearchOverlay/hooks/useGlobalSearchFocusArm.ts',
+            ),
+            'utf8',
+        );
+        expect(focusArm).toContain('isCapacitorNativePlatform');
+        const searchHeader = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/GlobalSearchOverlay/components/SearchHeader.tsx',
+            ),
+            'utf8',
+        );
+        expect(searchHeader).not.toContain('readOnly={open && !focusArmed}');
         const nav = fs.readFileSync(
             path.join(root, 'src/app/hooks/globalSearchNavDispatch.ts'),
             'utf8',
@@ -272,5 +299,18 @@ describe('global search section surgical close honesty', () => {
         );
         expect(host).toContain('global-search-load-error');
         expect(host).toContain('global-search-load-retry');
+    });
+
+    it('G9: CSS يُبقي الرئيسية مرسومة تحت البحث + ستارة html فورية', () => {
+        const css = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlay.css'),
+            'utf8',
+        );
+        expect(css).toContain("html[data-hami-global-search-open='1']::before");
+        expect(css).toContain('[data-search-open=\'true\']');
+        expect(css).toContain('[data-testid=\'home-main-zone\']');
+        expect(css).toContain('[data-testid=\'home-main-grid\']');
+        expect(css).toContain('visibility: visible !important');
+        expect(css).not.toContain("html[data-hami-global-search-open='1'] .hami-dashboard-home-stack-cover {\n    visibility: hidden");
     });
 });

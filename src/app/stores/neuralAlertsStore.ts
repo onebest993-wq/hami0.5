@@ -18,6 +18,8 @@ export function syncHorizonFilterIfEmpty(
     counts: HorizonCounts,
     current: AlertTimeHorizon,
 ): AlertTimeHorizon | null {
-    if (counts[current] > 0) return null;
+    if (current === 'urgent' && counts.urgent > 0) return null;
+    if (current === 'upcoming' && counts.upcoming > 0) return null;
+    if (current === 'near') return pickDefaultHorizonFilter(counts);
     return pickDefaultHorizonFilter(counts);
 }

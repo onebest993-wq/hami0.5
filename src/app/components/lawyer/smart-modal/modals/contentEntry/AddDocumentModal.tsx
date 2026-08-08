@@ -7,7 +7,7 @@ import {
     RefreshCw,
     Trash2,
     UploadCloud,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -16,6 +16,8 @@ import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import {
     readFilePreviewUrl,
     resolveVaultDocForViewing,
+    resolveVaultDocUrl,
+    resolveVaultDocViewerKind,
 } from '@/app/services/vaultUploadService';
 import { revokeBlobUrlIfNeeded } from '@/app/services/vault/vaultDocUtils';
 import { readVaultLocalIndexSync } from '@/app/services/vault/vaultLocalIndex';
@@ -45,6 +47,7 @@ export const AddDocumentModal = ({
     recentDocuments = [],
     onDeleteDocument,
     onReplaceDocument,
+    browseOnly = false,
 }: AddDocumentModalProps) => {
     const T = useSmartFileModalTheme();
     const isPearl = T.variant === 'personal-pearl';
@@ -154,6 +157,21 @@ export const AddDocumentModal = ({
         setIsFileDragActive(active);
     };
 
+    const openDocumentPreview = (
+        title: string,
+        url: string,
+        kind: 'image' | 'pdf' | 'audio' | 'file',
+        source?: string | Blob | null,
+    ) => {
+        revokeBlobUrlIfNeeded(fullPreviewUrl);
+        setFullPreviewTitle(title);
+        setFullPreviewUrl(url);
+        setFullPreviewKind(kind);
+        setFullPreviewSource(source ?? url);
+        setFullPreviewNonce((value) => value + 1);
+        setFullPreviewOpen(true);
+    };
+
     const handlePreviewSavedDocument = async (item: TimelineEvent) => {
         const itemId = String(item.id);
         setPreviewLoading(true);
@@ -163,16 +181,26 @@ export const AddDocumentModal = ({
             let snapshotFailed = false;
             if (snapshot) {
                 const payload = await resolveVaultDocForViewing(snapshot).catch(() => null);
-                if (!payload) {
-                    snapshotFailed = true;
-                } else {
-                    revokeBlobUrlIfNeeded(fullPreviewUrl);
-                    setFullPreviewTitle(snapshot.fileName || snapshot.title);
-                    setFullPreviewUrl(payload.url);
-                    setFullPreviewKind(payload.kind);
-                    setFullPreviewSource(payload.blob ?? payload.url);
-                    setFullPreviewNonce((value) => value + 1);
-                    setFullPreviewOpen(true);
+                if (payload) {
+                    openDocumentPreview(
+                        snapshot.fileName || snapshot.title,
+                        payload.url,
+                        payload.kind,
+                        payload.blob ?? payload.url,
+                    );
+                    clearPreviewMissing(itemId);
+                    return;
+                }
+                snapshotFailed = true;
+                const fallbackUrl = await resolveVaultDocUrl(snapshot).catch(() => null);
+                const fallbackKind = resolveVaultDocViewerKind(snapshot);
+                if (fallbackUrl && fallbackKind) {
+                    openDocumentPreview(
+                        snapshot.fileName || snapshot.title,
+                        fallbackUrl,
+                        fallbackKind,
+                        fallbackUrl,
+                    );
                     clearPreviewMissing(itemId);
                     return;
                 }
@@ -204,19 +232,26 @@ export const AddDocumentModal = ({
             }
 
             const payload = await resolveVaultDocForViewing(doc).catch(() => null);
-            if (!payload) {
-                markPreviewMissing(itemId);
-                SmartToast.error('تعذر تجهيز هذا الملف للمعاينة. أعد إرفاقه عبر استبدال إذا كان مستنداً قديماً.');
+            if (payload) {
+                openDocumentPreview(
+                    doc.fileName || doc.title,
+                    payload.url,
+                    payload.kind,
+                    payload.blob ?? payload.url,
+                );
+                clearPreviewMissing(itemId);
                 return;
             }
-            revokeBlobUrlIfNeeded(fullPreviewUrl);
-            setFullPreviewTitle(doc.fileName || doc.title);
-            setFullPreviewUrl(payload.url);
-            setFullPreviewKind(payload.kind);
-            setFullPreviewSource(payload.blob ?? payload.url);
-            setFullPreviewNonce((value) => value + 1);
-            setFullPreviewOpen(true);
-            clearPreviewMissing(itemId);
+            const fallbackUrl = await resolveVaultDocUrl(doc).catch(() => null);
+            const fallbackKind = resolveVaultDocViewerKind(doc);
+            if (fallbackUrl && fallbackKind) {
+                openDocumentPreview(doc.fileName || doc.title, fallbackUrl, fallbackKind, fallbackUrl);
+                clearPreviewMissing(itemId);
+                return;
+            }
+            markPreviewMissing(itemId);
+            SmartToast.error('تعذر تجهيز هذا الملف للمعاينة. أعد إرفاقه عبر استبدال إذا كان مستنداً قديماً.');
+            return;
         } catch {
             markPreviewMissing(itemId);
             SmartToast.error('تعذر فتح هذا المستند حالياً');
@@ -297,19 +332,27 @@ export const AddDocumentModal = ({
                 kind={fullPreviewKind}
                 pdfSource={fullPreviewSource}
             />
-            <SmartModalHeader T={T} icon={Paperclip} title={editMode ? 'تعديل مستند' : 'محفظة الأدلة الذكية'} onClose={onClose} />
+            <SmartModalHeader
+                T={T}
+                icon={Paperclip}
+                title={browseOnly ? 'مستندات الإضبارة — للاطلاع' : editMode ? 'تعديل مستند' : 'محفظة الأدلة الذكية'}
+                onClose={onClose}
+            />
             <div
                 className={
-                    T.useMoroccanCorners
+                    browseOnly
+                        ? 'p-5 sm:p-6'
+                        : T.useMoroccanCorners
                         ? 'grid gap-5 p-5 sm:p-6 md:min-h-[min(76dvh,640px)] md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] md:items-start'
                         : T.body
                 }
             >
                 <div className="space-y-4">
                     <ModalInlineTimeline
-                        title="سجل المستندات داخل هذا القسم"
+                        title={browseOnly ? 'مستندات هذه المرحلة' : 'سجل المستندات داخل هذا القسم'}
                         emptyLabel="لا توجد مستندات محفوظة في هذه المرحلة بعد"
                         items={recentDocuments}
+                        pinActions={browseOnly}
                         renderMeta={(item) =>
                             [
                                 item.docCategory ? `النوع: ${item.docCategory}` : null,
@@ -333,7 +376,7 @@ export const AddDocumentModal = ({
                                         (previewLoading && previewingEventId === String(item.id)) ||
                                         isPreviewMissing(String(item.id))
                                     }
-                                    className="inline-flex items-center gap-1 rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/10 px-3 py-1.5 text-[10px] font-bold text-[#E6C673] transition-colors hover:bg-[#E6C673]/18 disabled:opacity-50"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-[#E6C673]/18 bg-[#E6C673]/10 px-2 py-0.5 text-[9px] font-bold text-[#E6C673] transition-colors hover:bg-[#E6C673]/18 disabled:opacity-50"
                                 >
                                     {previewLoading && previewingEventId === String(item.id) ? (
                                         <Loader2 size={12} className="animate-spin" />
@@ -344,10 +387,12 @@ export const AddDocumentModal = ({
                                     )}
                                     {isPreviewMissing(String(item.id)) ? 'مفقود' : 'اطلاع'}
                                 </button>
+                                {!browseOnly ? (
+                                <>
                                 <button
                                     type="button"
                                     onClick={() => onReplaceDocument?.(item)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-white/[0.12] bg-white/[0.05] px-3 py-1.5 text-[10px] font-bold text-white/70 transition-colors hover:bg-white/[0.08]"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-white/[0.12] bg-white/[0.05] px-2 py-0.5 text-[9px] font-bold text-white/70 transition-colors hover:bg-white/[0.08]"
                                 >
                                     <RefreshCw size={12} />
                                     استبدال
@@ -355,16 +400,30 @@ export const AddDocumentModal = ({
                                 <button
                                     type="button"
                                     onClick={() => void handleDeleteSavedDocument(item)}
-                                    className="inline-flex items-center gap-1 rounded-xl border border-rose-500/20 bg-rose-500/10 px-3 py-1.5 text-[10px] font-bold text-rose-200 transition-colors hover:bg-rose-500/16"
+                                    className="inline-flex items-center gap-1 rounded-xl border border-rose-500/20 bg-rose-500/10 px-2 py-0.5 text-[9px] font-bold text-rose-200 transition-colors hover:bg-rose-500/16"
                                 >
                                     <Trash2 size={12} />
                                     حذف
                                 </button>
+                                </>
+                                ) : null}
                             </div>
                         )}
-                        renderBody={(item) => <DocumentTimelinePreview item={item} />}
+                        renderBody={(item) => (
+                            <DocumentTimelinePreview
+                                item={item}
+                                onPreviewClick={
+                                    browseOnly
+                                        ? () => {
+                                              void handlePreviewSavedDocument(item);
+                                          }
+                                        : undefined
+                                }
+                            />
+                        )}
                     />
                 </div>
+                {!browseOnly ? (
                 <div className="space-y-5 md:self-center">
                     <input
                         id={fileInputId}
@@ -500,6 +559,7 @@ export const AddDocumentModal = ({
                         {saving ? 'جارٍ حفظ المستند...' : editMode ? 'تحديث المستند' : 'حفظ المستند'}
                     </button>
                 </div>
+                ) : null}
             </div>
         </MoroccanGlassShell>
     );

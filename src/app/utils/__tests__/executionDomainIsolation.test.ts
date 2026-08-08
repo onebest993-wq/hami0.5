@@ -37,6 +37,44 @@ describe('executionDomainIsolation', () => {
         expect(canPersistExecutorRequestKind(ctx, 'unified_collection').allowed).toBe(false);
     });
 
+    it('2b) communication journal bypasses sharia special_followup gate', () => {
+        const ctx = resolveExecutionDomainContext({
+            id: 'exec-vis',
+            claimType: 'مشاهدة',
+            classification: 'أحوال شخصية',
+            creditors: [{ name: 'أم', isClient: true }],
+            debtors: [{ name: 'أب' }],
+        });
+        expect(canPersistExecutorRequestKind(ctx, 'special_followup').allowed).toBe(false);
+        expect(
+            canPersistExecutorRequestKind(ctx, 'special_followup', { communicationJournal: true }).allowed,
+        ).toBe(true);
+        expect(
+            canPersistExecutorRequestKind(ctx, 'special_followup', {
+                decisionTitle: 'إرسال كتاب / مخاطبة جهة — محكمة',
+            }).allowed,
+        ).toBe(true);
+        expect(
+            canPersistExecutorRequestKind(ctx, 'special_followup', {
+                adminRequestsTab: true,
+            }).allowed,
+        ).toBe(true);
+        expect(
+            canPersistExecutorRequestKind(ctx, 'special_followup', {
+                payloadJson: JSON.stringify({ kind: 'manual_followup', v: 1 }),
+            }).allowed,
+        ).toBe(true);
+        const rows = [
+            {
+                id: 'comm-1',
+                requestKind: 'special_followup',
+                title: 'إرسال كتاب / مخاطبة جهة — محكمة',
+                executorOutcome: 'approved',
+            },
+        ];
+        expect(filterDecisionsForDomainContext(ctx, rows).map((r) => r.id)).toEqual(['comm-1']);
+    });
+
     it('3) debtor agent hides creditor_side queue requests', () => {
         const ctx = resolveExecutionDomainContext({
             id: 'exec-debtor-agent',
@@ -102,6 +140,28 @@ describe('executionDomainIsolation', () => {
             },
         });
         expect(gate.allowed).toBe(true);
+    });
+
+    it('6d) eviction_procedure hub rows stay visible in decisions center for field-procedure paths', () => {
+        const ctx = resolveExecutionDomainContext({
+            id: 'exec-sd',
+            claimType: 'تسليم شيء معين',
+            representedParty: 'debtor',
+            creditors: [{ name: 'دائن' }],
+            debtors: [{ name: 'مدين', isClient: true }],
+        });
+        expect(ctx.perspective).toBe('debtor_agent');
+        const rows = [
+            {
+                id: 'ev-1',
+                requestKind: 'eviction_procedure',
+                appealRequestOrigin: 'creditor_side',
+                domainNamespace: 'financial_debt__creditor_agent',
+                title: 'طلب تحديد موعد الخروج الميداني',
+                executorOutcome: 'pending',
+            },
+        ];
+        expect(filterDecisionsForDomainContext(ctx, rows).map((r) => r.id)).toEqual(['ev-1']);
     });
 
     it('7) guarantor request only on financial path', () => {

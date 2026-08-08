@@ -1,11 +1,14 @@
 // @ts-nocheck
-import { useEffect } from 'react';
 import {
     collectFollowupDossierControlsHandlerClusterContext,
     type HandlerClusterContextSpreads,
 } from './collectHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFollowupDossierControls } from './useExecutionDashboardCoreHandlerClusterFollowupDossierControls';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupDossierControlsBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -20,9 +23,15 @@ export function ExecutionDashboardHandlerClusterFollowupDossierControlsBridge({
         collectFollowupDossierControlsHandlerClusterContext(input as HandlerClusterContextSpreads),
     );
 
-    useEffect(() => {
-        onCluster(cluster);
-    }, [cluster, onCluster]);
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster as Record<string, unknown>,
+        [
+            ...handlerBagKeyFingerprint(
+                cluster.dossierFollowupHandlers as Record<string, unknown>,
+            ),
+        ],
+        onCluster,
+    );
 
     return null;
 }

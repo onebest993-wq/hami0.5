@@ -1,9 +1,15 @@
 import type { TimelineEvent } from '../../LawyerShared';
 import {
     cleanTimelineCardTitle,
+    formatTimelineWhenAr,
     timelineDescriptionForDisplay,
 } from '@/app/utils/timelineSmartDisplay';
 import { isOpponentProceedingsEvent, isSessionTimelineEvent } from './sessionRecordEngine';
+import {
+    isLegalDeadlineTimelineEvent,
+    isPleadingHearingAppointment,
+    resolveLegalDeadlineDateLabel,
+} from './timelineLegalDeadline';
 
 export type TimelineFeedCategory =
     | 'all'
@@ -92,6 +98,76 @@ const STATUS_TAIL_RE =
 
 const STATUS_LINE_RE = /^الحالة:\s*.+$/im;
 
+const CIVIL_TIMELINE_BOILERPLATE_LINE_RES: RegExp[] = [
+    /^📎\s*المستندات المنقولة/i,
+    /^المستندات المنقولة متاحة/i,
+    /^⚠️\s*الدعوى متروكة/i,
+    /^⏳\s*سيتم الإبطال/i,
+    /^📁\s*الملف تم أرشفته/i,
+    /^🔒\s*لا يقبل/i,
+    /^🏛️\s*إنهاء نهائي/i,
+    /^⚖️\s*تم إبطال/i,
+];
+
+function isCivilTimelineBoilerplateLine(line: string): boolean {
+    const trimmed = line.trim();
+    if (!trimmed) return true;
+    return CIVIL_TIMELINE_BOILERPLATE_LINE_RES.some((re) => re.test(trimmed));
+}
+
+function formatAppointmentDetailsLine(event: TimelineEvent): string | null {
+    if (event.type !== 'appointment') return null;
+    const rawDate = String(event.date ?? event.deadlineDate ?? '').trim();
+    if (!rawDate) return null;
+    const ymd = rawDate.slice(0, 10);
+    const formattedDate = formatTimelineWhenAr(ymd);
+    const time = String(event.time ?? '').trim();
+
+    if (isLegalDeadlineTimelineEvent(event)) {
+        const label = resolveLegalDeadlineDateLabel(event);
+        if (time) return `${label}: ${formattedDate} · ${time}`;
+        return `${label}: ${formattedDate}`;
+    }
+
+    if (!isPleadingHearingAppointment(event)) {
+        const title = String(event.title ?? '').trim();
+        if (title) return `${title}: ${formattedDate}${time ? ` · ${time}` : ''}`;
+        return formattedDate;
+    }
+
+    if (time) return `موعد المرافعة: ${formattedDate} · ${time}`;
+    return `موعد المرافعة: ${formattedDate}`;
+}
+
+function refineCivilTimelineBody(event: TimelineEvent, body: string): string {
+    const appointmentLine = formatAppointmentDetailsLine(event);
+    let lines = body
+        .split('\n')
+        .map((line) => line.trim())
+        .filter((line) => line && !isCivilTimelineBoilerplateLine(line));
+
+    if (appointmentLine) {
+        const hasDateHint = lines.some(
+            (line) =>
+                line.includes(ymdSlice(event.date ?? event.deadlineDate)) ||
+                line.includes('موعد المرافعة') ||
+                line.includes('آخر موعد') ||
+                line.includes('تاريخ صدور القرار'),
+        );
+        if (!hasDateHint) lines.unshift(appointmentLine);
+    }
+
+    if (isLegalDeadlineTimelineEvent(event)) {
+        lines = lines.filter((line) => !/^مرحلة:\s*/i.test(line));
+    }
+
+    return lines.join('\n').trim();
+}
+
+function ymdSlice(raw: string | undefined): string {
+    return String(raw ?? '').trim().slice(0, 10);
+}
+
 export function classifyTimelineEvent(event: TimelineEvent): Exclude<TimelineFeedCategory, 'all'> {
     const ext = event as Ext;
     const title = String(event.title ?? '');
@@ -100,6 +176,8 @@ export function classifyTimelineEvent(event: TimelineEvent): Exclude<TimelineFee
     if (ext.isAttachment || /حجز\s*احتياطي/i.test(title)) return 'attachment';
     if (ext.isFastTrack || event.isFastTrack) return 'request';
     if (isSessionTimelineEvent(event) && !isOpponentProceedingsEvent(event)) return 'session';
+
+    if (event.type === 'appointment' && isLegalDeadlineTimelineEvent(event)) return 'procedural';
 
     if (event.type === 'appointment') return 'appointment';
     if (event.type === 'note') return 'note';
@@ -149,7 +227,7 @@ export function formatTimelineCardBody(event: TimelineEvent): string {
             .trim();
     }
 
-    return body;
+    return refineCivilTimelineBody(event, body);
 }
 
 export function timelineEventSearchBlob(event: TimelineEvent): string {

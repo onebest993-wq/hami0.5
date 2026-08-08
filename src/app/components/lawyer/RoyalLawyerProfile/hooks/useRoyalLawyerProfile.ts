@@ -101,10 +101,10 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
     const displayName = resolveLawyerDisplayName(header?.name, userId, (userMeta ?? {}) as Record<string, unknown>);
     const initials = displayName.charAt(0) || 'ح';
 
-    useProfileLifecycle({
+    const { isShellReady } = useProfileLifecycle({
         profileUserId: userId,
         loading,
-        hasHeader: Boolean(header?.name?.trim()),
+        hasHeader: Boolean(profile),
         isOwnProfile,
         perfOpenEpoch: options.perfOpenEpoch,
     });
@@ -158,7 +158,7 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
     }, [closeGalleryViewer, settingsOpen, closeSettings, isEditing, saveProfile, options]);
 
     useProfileScreenEscape({
-        enabled: Boolean(options.isScreenMode && options.onBack),
+        enabled: Boolean(options.isScreenMode && options.onBack && options.screenActive !== false),
         settingsOpen,
         savingSettings,
         galleryOpen: galleryViewerOpen,
@@ -225,6 +225,7 @@ export function useRoyalLawyerProfile(options: RoyalLawyerProfileProps = {}) {
         profileUserId,
         handleBack: handleBackSafe,
         paintReady: !loading,
+        contentReady: isShellReady && !loadError,
         onGalleryViewerOpenChange,
         onRegisterCloseGalleryViewer: registerCloseGalleryViewer,
         committedGalleryPaths,

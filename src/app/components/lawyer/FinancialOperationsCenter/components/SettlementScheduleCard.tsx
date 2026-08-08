@@ -1,6 +1,6 @@
 import React from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { CalendarClock, Handshake } from 'lucide-react';
+import { CalendarClock, Handshake } from '@/app/components/ui/lucideIcons';
 import { BTN_SETTLEMENT_APPLY } from '../constants';
 import { formatIqdDisplay, formatNumberInput, parseAmount } from '../utils';
 

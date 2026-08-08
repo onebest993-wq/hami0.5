@@ -2,6 +2,7 @@
 import { useExecutionDashboardJudicialCustodianRemove } from './useExecutionDashboardJudicialCustodianRemove';
 import { useExecutionDashboardPushTimelineEvent } from './useExecutionDashboardPushTimelineEvent';
 import { useExecutionDashboardPropertyInlineSaveContext } from './useExecutionDashboardPropertyInlineSaveContext';
+import { useExecutionDashboardMovableInlineSaveContext } from './useExecutionDashboardMovableInlineSaveContext';
 import { useExecutionDashboardSupabaseTimelineHydrate } from './useExecutionDashboardRuntimeSyncEffects';
 import { useExecutionAICopilot } from '../useExecutionAICopilot';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
@@ -56,6 +57,22 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         decisionsStorageExecutionId,
         executionDataId: executionData?.id,
         executionId,
+        executionData: executionData as Record<string, unknown> | undefined,
+        executionDataRef: executionDataRef as { current: Record<string, unknown> | null | undefined },
+        showToast,
+        persistExecutionMerge,
+        pushTimelineEvent,
+        nextTimelineId,
+        linkSeizureAuctionToAppointments,
+        pushSeizureAuctionCalendarAppointment,
+    });
+
+    const movableInlineSaveCtx = useExecutionDashboardMovableInlineSaveContext({
+        decisionsStorageExecutionId,
+        executionDataId: executionData?.id,
+        executionId,
+        executionData: executionData as Record<string, unknown> | undefined,
+        executionDataRef: executionDataRef as { current: Record<string, unknown> | null | undefined },
         showToast,
         persistExecutionMerge,
         pushTimelineEvent,
@@ -75,5 +92,6 @@ export function useExecutionDashboardCoreHandlerClusterFoundationCore(
         pushTimelineEventBinding,
         pushTimelineEvent,
         propertyInlineSaveCtx,
+        movableInlineSaveCtx,
     };
 }

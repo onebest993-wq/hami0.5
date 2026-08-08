@@ -1,12 +1,11 @@
 /**
- * E2E — الواجهة الرئيسية: المنطقة الرئيسية، شبكة البطاقات، التنقل، وضع التخصيص.
+ * E2E — الواجهة الرئيسية: المنطقة الرئيسية، شبكة البطاقات، والتنقل.
  */
 import { test, expect } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers } from './helpers/productivityE2EFixtures';
 import {
     expectHomeMainShell,
-    openHomeLayoutEditFromSettings,
     prepareHomeMainE2E,
 } from './helpers/homeMainFixtures';
 import {
@@ -37,6 +36,21 @@ test.describe('الواجهة الرئيسية', () => {
         await expect(page.getByTestId('home-dock-forum')).toBeVisible();
     });
 
+    test('بطاقة المنتدى تعرض المحتوى بعد التحميل دون مؤشر دائري', async ({ page }) => {
+        await page.goto('/');
+        await ensureLawyerDashboard(page);
+        await dismissProductivityBlockers(page);
+        await expectHomeMainShell(page);
+
+        const forumTile = page.getByTestId('home-dock-forum');
+        await expect(forumTile).toBeVisible({ timeout: 15_000 });
+        await expect(forumTile.locator('.hami-forum-meridian-pod')).toBeVisible();
+        await expect(forumTile.locator('.hami-forum-meridian-lead')).toHaveText('المنتدى');
+
+        const legacySpinnerCircle = forumTile.locator('svg circle[r="8.5"]');
+        await expect(legacySpinnerCircle).toHaveCount(0);
+    });
+
     test('تفتح المعاملات من بطاقة الشبكة', async ({ page }) => {
         await ensureTransactionsDashboard(page);
         await expectHomeMainShell(page);
@@ -60,38 +74,7 @@ test.describe('الواجهة الرئيسية', () => {
         await expect(page.getByTestId('lawyer-home-tab')).toBeVisible();
     });
 
-    test('وضع التخصيص يُفتح من الإعدادات ويُغلق بـ Escape', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        await expectHomeMainShell(page);
-        await openHomeLayoutEditFromSettings(page);
-        await expect(page.getByTestId('hami-settings-shell')).toBeHidden({ timeout: 5_000 });
-
-        await page.keyboard.press('Escape');
-        await expect(page.getByTestId('home-layout-edit-bar')).toBeHidden({ timeout: 5_000 });
-        await expect(page.getByTestId('lawyer-home-tab')).toBeVisible();
-    });
-
-    test('وضع التخصيص يُغلق بزر تم', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        await openHomeLayoutEditFromSettings(page);
-        await page.getByTestId('home-layout-edit-done').click({ force: true });
-        await expect(page.getByTestId('home-layout-edit-bar')).toBeHidden({ timeout: 5_000 });
-        await expect(page.getByTestId('lawyer-home-tab')).toBeVisible();
-    });
-
     test('تفتح مخزن التنفيذ من بطاقة الشبكة', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        await expectHomeMainShell(page);
-        await page.getByTestId('hub-archive-execution').scrollIntoViewIfNeeded();
         await page.getByTestId('hub-archive-execution').click({ force: true });
         await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({
             timeout: 25_000,
@@ -109,18 +92,20 @@ test.describe('الواجهة الرئيسية', () => {
         await expect(page.getByTestId('lawsuits-tab-civil')).toBeVisible({ timeout: 15_000 });
     });
 
-    test('تفتح المفكرة والتقويم من الدوك السفلي', async ({ page }) => {
+    test('تفتح المفكرة والتقويم من بلاطات الرئيسية', async ({ page }) => {
         await page.goto('/');
         await ensureLawyerDashboard(page);
         await dismissProductivityBlockers(page);
 
         await expectHomeMainShell(page);
-        const chrome = page.getByTestId('home-bottom-chrome');
 
         await openNotepadShellFromHome(page);
         await closeNotepadShell(page);
 
-        await chrome.getByTestId('home-dock-shell-dockCalendar').click({ force: true });
+        await page
+            .getByTestId('home-dock-dockCalendar')
+            .or(page.getByTestId('home-dock-shell-dockCalendar'))
+            .click({ force: true });
         await expect(
             page.getByTestId('smart-legal-radar').or(page.getByTestId('schedule-tab-loading')),
         ).toBeVisible({ timeout: 15_000 });

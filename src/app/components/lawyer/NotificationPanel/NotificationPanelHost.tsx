@@ -12,12 +12,22 @@ import {
 
 type NotificationPanelComponent = React.ComponentType<NotificationPanelProps>;
 
+export type NotificationPanelHostProps = NotificationPanelProps & {
+    /** يبقي اللوحة mounted بعد الإغلاق — فتح/إغلاق أسرع */
+    keepAlive?: boolean;
+};
+
 /** يحمّل لوحة الإشعارات مرة واحدة — يعرض shell فوري أثناء التحميل */
-export function NotificationPanelHost(props: NotificationPanelProps): React.ReactElement | null {
-    const { isOpen, onClose } = props;
+export function NotificationPanelHost({
+    keepAlive = false,
+    isOpen,
+    onClose,
+    ...rest
+}: NotificationPanelHostProps): React.ReactElement | null {
     const [Component, setComponent] = useState<NotificationPanelComponent | null>(
         () => getCachedNotificationPanel(),
     );
+    const shouldMount = isOpen || keepAlive;
 
     useLayoutEffect(() => {
         let cancelled = false;
@@ -47,17 +57,25 @@ export function NotificationPanelHost(props: NotificationPanelProps): React.Reac
     }, []);
 
     useLayoutEffect(() => {
-        if (!isOpen) return;
+        if (!shouldMount) return;
         void hydrateNotificationShellForInstantOpen(true);
-    }, [isOpen]);
+    }, [shouldMount]);
 
-    if (!isOpen) {
+    if (!shouldMount) {
         return null;
     }
 
     if (!Component) {
-        return <NotificationPanelLoadingFallback onClose={onClose} />;
+        if (!isOpen) return null;
+        return <NotificationPanelLoadingFallback embedded onClose={onClose} />;
     }
 
-    return <Component {...props} />;
+    return (
+        <Component
+            isOpen={isOpen}
+            keepAlive={keepAlive}
+            onClose={onClose}
+            {...rest}
+        />
+    );
 }

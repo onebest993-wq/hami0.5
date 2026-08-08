@@ -22,8 +22,10 @@ import {
     resolveDecisionRowNamespaceSlug,
     writeExecutorDecisionsArray,
     executionDecisionsNamespaceStorageKey,
+    flushExecutorDecisionsStorageImmediate,
 } from '@/app/utils/executionDecisionsNamespace';
 import {
+    COMMUNICATION_JOURNAL_TITLE_KEYWORD,
     dispatchDomainIsolationBlocked,
     gateExecutorRequestPersist,
     readExecutionDataForDomainGate,
@@ -38,6 +40,7 @@ import {
     isExecutorRequestAppealCycleSupersededFromRecord,
     isExecutorRequestFollowupBlockedFromRecord,
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/utils';
+import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 
 export const DECISIONS_RELOAD_EVENT = 'hami-decisions-reload';
 
@@ -86,7 +89,9 @@ function persistExecutorDecisionsArray(
 ): void {
     const data = resolveExecutionDataForDomainGate(executionId, executionData);
     const persistId = resolveDecisionsStorageExecutionId(executionId, data);
-    writeExecutorDecisionsArray(persistId !== 'default' ? persistId : executionId, arr, data);
+    const persistKey = persistId !== 'default' ? persistId : executionId;
+    writeExecutorDecisionsArray(persistKey, arr, data);
+    flushExecutorDecisionsStorageImmediate(persistKey, data);
     dispatchDecisionsReload();
 }
 
@@ -271,7 +276,15 @@ export function closeSeizureSubtypeDecisionCycle(input: {
 function assertDomainGate(
     executionId: string | undefined,
     requestKind: string,
-    meta?: { personalCoerciveSubtype?: string; executionData?: Record<string, unknown> | null }
+    meta?: {
+        personalCoerciveSubtype?: string;
+        executionData?: Record<string, unknown> | null;
+        decisionTitle?: string;
+        communicationJournal?: boolean;
+        adminRequestsTab?: boolean;
+        otherPartyFollowup?: boolean;
+        payloadJson?: string;
+    },
 ): boolean {
     const gate = gateExecutorRequestPersist(executionId, requestKind, meta);
     if (!gate.allowed) {
@@ -291,17 +304,33 @@ export function appendSpecialFollowupRequest(input: {
     decisionTitle?: string;
     /** حمولة منظمة لطلبات خاصة (مثل التوحيد) */
     payloadJson?: string;
+    executionData?: Record<string, unknown> | null;
+    /** مخاطبات السجل — تتجاوز بوابة الاختصاص */
+    communicationJournal?: boolean;
+    /** نماذج الطلبات — تتجاوز بوابة الاختصاص */
+    adminRequestsTab?: boolean;
+    /** تحركات الطرف الآخر — تتجاوز بوابة الاختصاص */
+    otherPartyFollowup?: boolean;
 }): string | null {
-    if (!assertDomainGate(input.executionId, 'special_followup')) {
+    const titleTrim = String(input.decisionTitle ?? '').trim();
+    const resolvedTitle = titleTrim || 'طلب تنفيذي خاص';
+    if (
+        !assertDomainGate(input.executionId, 'special_followup', {
+            executionData: input.executionData,
+            decisionTitle: resolvedTitle,
+            communicationJournal: input.communicationJournal,
+            adminRequestsTab: input.adminRequestsTab,
+            otherPartyFollowup: input.otherPartyFollowup,
+            payloadJson: input.payloadJson,
+        })
+    ) {
         return null;
     }
     const trimmed = input.content.trim();
     const body = `بتاريخ ${input.requestDate}:\n\n${trimmed}`;
     const rowId = newExecutorDecisionId('special_followup');
     try {
-        const arr = readActiveExecutorDecisionsForMutate(input.executionId);
-        const titleTrim = String(input.decisionTitle ?? '').trim();
-        const resolvedTitle = titleTrim || 'طلب تنفيذي خاص';
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId, input.executionData);
         const dupPending = arr.some((r) => {
             const pending = (r as any).executorOutcome === 'pending' || (r as any).executorOutcome === undefined;
             if (!pending) return false;
@@ -328,7 +357,63 @@ export function appendSpecialFollowupRequest(input: {
             ...executorDecisionRowHubDefaults(),
         };
         arr.unshift(row);
-        persistExecutorDecisionsArray(input.executionId, arr);
+        persistExecutorDecisionsArray(input.executionId, arr, input.executionData);
+        dispatchDecisionsReload();
+        return rowId;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * تسجيل مخاطبة في سجل محضر المتابعة — بدون بوابة special_followup (كل الاختصاصات).
+ */
+export function appendCommunicationJournalRequest(input: {
+    executionId: string | undefined;
+    letterDate: string;
+    content: string;
+    directorate: string;
+    executionData?: Record<string, unknown> | null;
+}): string | null {
+    const letterDate = String(input.letterDate || '').trim();
+    const directorate = String(input.directorate || '').trim();
+    const trimmed = String(input.content || '').trim();
+    if (!letterDate || !directorate || !trimmed) return null;
+
+    const title = `${COMMUNICATION_JOURNAL_TITLE_KEYWORD} — ${directorate}`;
+    const body = `بتاريخ ${letterDate}:\n\n${trimmed}`;
+    const rowId = newExecutorDecisionId('special_followup');
+
+    try {
+        const arr = readActiveExecutorDecisionsForMutate(input.executionId, input.executionData);
+        const dupPending = arr.some((r) => {
+            const pending =
+                (r as any).executorOutcome === 'pending' || (r as any).executorOutcome === undefined;
+            if (!pending) return false;
+            if (String((r as any).requestKind || '') !== 'special_followup') return false;
+            const t = String((r as any).title || '').trim();
+            const b = String((r as any).body || '').trim();
+            return t === title && b === body;
+        });
+        if (dupPending) {
+            dispatchDecisionsReload();
+            return null;
+        }
+
+        const row = {
+            id: rowId,
+            title,
+            body,
+            date: letterDate,
+            appealStatus: 'pending' as const,
+            executorOutcome: 'pending' as const,
+            requestKind: 'special_followup' as const,
+            deputationTargetDirectorate: directorate,
+            ...executorDecisionRowHubDefaults(),
+        };
+        arr.unshift(row);
+        persistExecutorDecisionsArray(input.executionId, arr, input.executionData);
+        dispatchDecisionsReload();
         return rowId;
     } catch {
         return null;
@@ -675,6 +760,17 @@ function parseSeizedMovableIdFromPayloadJson(raw: string | undefined): string {
     }
 }
 
+function parseSeizedPropertyIdFromPayloadJson(raw: string | undefined): string {
+    const rawJson = String(raw || '').trim();
+    if (!rawJson) return '';
+    try {
+        const v = JSON.parse(rawJson) as { seizedPropertyId?: string };
+        return String(v?.seizedPropertyId ?? '').trim();
+    } catch {
+        return '';
+    }
+}
+
 export function appendPendingExecutorSeizureDecision(input: {
     executionId: string | undefined;
     requestTitle: string;
@@ -705,6 +801,7 @@ export function appendPendingExecutorSeizureDecision(input: {
         });
 
         const inputMovableId = parseSeizedMovableIdFromPayloadJson(input.seizurePayloadJson);
+        const inputPropertyId = parseSeizedPropertyIdFromPayloadJson(input.seizurePayloadJson);
         const dup = arr.find((r) => {
             if (isExecutorHubRowInactiveForGoverning(r, arr)) return false;
             if (String(r.requestKind || '') !== 'seizure') return false;
@@ -718,12 +815,19 @@ export function appendPendingExecutorSeizureDecision(input: {
             const rowMovableId = parseSeizedMovableIdFromPayloadJson(
                 String((r as any).seizurePayloadJson || '')
             );
+            const rowPropertyId = parseSeizedPropertyIdFromPayloadJson(
+                String((r as any).seizurePayloadJson || '')
+            );
             if (inputMovableId && rowMovableId && inputMovableId !== rowMovableId) return false;
+            if (inputPropertyId && rowPropertyId && inputPropertyId !== rowPropertyId) return false;
             const t1 = String(r.title || '').trim();
             const t2 = String(input.requestTitle || '').trim();
             if (b) {
                 if (inputMovableId || rowMovableId) {
                     return Boolean(inputMovableId) && inputMovableId === rowMovableId;
+                }
+                if (inputPropertyId || rowPropertyId) {
+                    return Boolean(inputPropertyId) && inputPropertyId === rowPropertyId;
                 }
                 return true;
             }
@@ -799,6 +903,7 @@ export function patchExecutorDecisionRow(
             return true;
         }
         SecureStoreService.setItemSync(bucketKey, JSON.stringify(nextBucket));
+        flushExecutorDecisionsStorageImmediate(executionId, data);
         dispatchDecisionsReload();
         return true;
     } catch {
@@ -856,7 +961,10 @@ export function patchExecutorDecisionRowEverywhere(
             SecureStoreService.setItemSync(key, JSON.stringify(next));
             touched += 1;
         }
-        if (touched > 0) dispatchDecisionsReload();
+        if (touched > 0) {
+            flushExecutorDecisionsStorageImmediate(scopeId || undefined);
+            dispatchDecisionsReload();
+        }
         return { ok: touched > 0, patchedKeys: touched };
     } catch {
         return { ok: false, patchedKeys: 0 };
@@ -1257,12 +1365,15 @@ export function mergeExecutorDecisionsInto(input: {
  * لإعادة فتح نافذة الموعد من تبويب الإجراءات دون إعادة تقديم الطلب.
  */
 export function findApprovedFieldVisitNeedingSchedule(
-    executionId: string | undefined
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
-    const rows = readExecutorDecisionsArray(executionId);
+    const rows = executionData
+        ? readExecutorDecisionsUnionAcrossCandidateIds(executionId, executionData)
+        : readExecutorDecisionsArray(executionId);
     for (const r of rows) {
         if (String((r as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') continue;
-        if (!isExecutorRowEffectivelyApproved(r as Record<string, unknown>)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(r as Record<string, unknown>, rows)) continue;
         if (String((r as { executorScheduleLabel?: string }).executorScheduleLabel || '').trim() !== '')
             continue;
         const title = String((r as { title?: string }).title || '');
@@ -1285,12 +1396,15 @@ export function findApprovedFieldVisitNeedingSchedule(
  * لإعادة فتح النافذة من تبويب الإجراءات دون إعادة تقديم الطلب.
  */
 export function findApprovedBreakInventoryNeedingLedger(
-    executionId: string | undefined
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
-    const rows = readExecutorDecisionsArray(executionId);
+    const rows = executionData
+        ? readExecutorDecisionsUnionAcrossCandidateIds(executionId, executionData)
+        : readExecutorDecisionsArray(executionId);
     for (const r of rows) {
         if (String((r as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') continue;
-        if (!isExecutorRowEffectivelyApproved(r as Record<string, unknown>)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(r as Record<string, unknown>, rows)) continue;
         const finalizedAt = String(
             (r as { breakInventoryFurnitureFinalizedAt?: string }).breakInventoryFurnitureFinalizedAt || ''
         ).trim();
@@ -1312,12 +1426,38 @@ export function findApprovedBreakInventoryNeedingLedger(
 
 /** موافقة على تنصيب حارس دون حفظ الاسم والراتب — إعادة فتح النافذة دون طلب جديد */
 export function findApprovedCustodianNeedingDetails(
-    executionId: string | undefined
+    executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
-    const rows = readExecutorDecisionsArray(executionId);
+    const rows = executionData
+        ? readExecutorDecisionsUnionAcrossCandidateIds(executionId, executionData)
+        : readExecutorDecisionsArray(executionId);
+    const snap = executionData as {
+        eviction_judicial_custodians?: Array<{ fullName?: string; decisionId?: string }>;
+        eviction_judicial_custodian?: { fullName?: string; decisionId?: string } | null;
+    } | null;
+    const dossierCustodians = (() => {
+        const arr = Array.isArray(snap?.eviction_judicial_custodians)
+            ? snap!.eviction_judicial_custodians!
+            : [];
+        const list = arr
+            .filter((c) => String(c?.fullName || '').trim())
+            .map((c) => ({
+                fullName: String(c.fullName || '').trim(),
+                decisionId: String(c.decisionId || '').trim(),
+            }));
+        const legacy = snap?.eviction_judicial_custodian;
+        if (legacy?.fullName && !list.length) {
+            list.push({
+                fullName: String(legacy.fullName).trim(),
+                decisionId: String(legacy.decisionId || '').trim(),
+            });
+        }
+        return list;
+    })();
     for (const r of rows) {
         if (String((r as { requestKind?: string }).requestKind || '') !== 'eviction_procedure') continue;
-        if (!isExecutorRowEffectivelyApproved(r as Record<string, unknown>)) continue;
+        if (!isExecutorRowApprovedWorkflowActive(r as Record<string, unknown>, rows)) continue;
         const savedAt = String(
             (r as { judicialCustodianDetailsSavedAt?: string }).judicialCustodianDetailsSavedAt || ''
         ).trim();
@@ -1332,6 +1472,10 @@ export function findApprovedCustodianNeedingDetails(
         if (branch !== 'Judicial Custodian') continue;
         const decisionId = String((r as { id?: string }).id || '').trim();
         if (!decisionId) continue;
+        const dossierHit = dossierCustodians.some(
+            (c) => c.decisionId === decisionId && c.fullName,
+        );
+        if (dossierHit) continue;
         return { decisionId, requestTitle: title };
     }
     return null;
@@ -1699,38 +1843,61 @@ export function getGoverningPersonalCoerciveSubtypeRow(
 }
 
 /** بطاقة/قرار غير منتهٍ في مركز القرارات (لتنبيه الاستبدال عند إعادة الإرسال) */
+export function hasActivePersonalCoerciveSubtypeCardFromDecisions(
+    allDecisions: Record<string, unknown>[],
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): boolean {
+    const row = getGoverningPersonalCoerciveSubtypeRowFromDecisions(allDecisions, subtype, opts);
+    if (!row) return false;
+    if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return false;
+    const out = String((row as { executorOutcome?: string }).executorOutcome || '');
+    if (out === 'withdrawn') return false;
+    if (isExecutorHubRowInactiveForGoverning(row, allDecisions)) return false;
+    if (isPersonalCoerciveSubtypeRowPending(row)) return true;
+    if (isExecutorRowRejectedAndFinal(row)) return true;
+    if (isExecutorRequestAppealCycleSupersededFromRecord(row, allDecisions)) return false;
+    if (isExecutorRequestFollowupBlockedFromRecord(row, allDecisions)) return true;
+    return false;
+}
+
 export function hasActivePersonalCoerciveSubtypeCard(
     executionId: string | undefined,
     subtype: PersonalCoerciveSubtype,
     opts?: { debtorKey?: string; primaryDebtorKey?: string }
 ): boolean {
-    const row = getGoverningPersonalCoerciveSubtypeRow(executionId, subtype, opts);
-    if (!row) return false;
-    if ((row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true) return false;
-    const out = String((row as { executorOutcome?: string }).executorOutcome || '');
-    if (out === 'withdrawn') return false;
-    const all = readExecutorDecisionsArray(executionId);
-    if (isExecutorHubRowInactiveForGoverning(row, all)) return false;
-    if (isPersonalCoerciveSubtypeRowPending(row)) return true;
-    if (isExecutorRowRejectedAndFinal(row)) return true;
-    if (isExecutorRequestAppealCycleSupersededFromRecord(row, all)) return false;
-    if (isExecutorRequestFollowupBlockedFromRecord(row, all)) return true;
-    return false;
+    return hasActivePersonalCoerciveSubtypeCardFromDecisions(
+        readExecutorDecisionsArray(executionId),
+        subtype,
+        opts,
+    );
 }
 
 /** تبويب القرارات المناسب للبطاقة الحاكمة */
-export function resolvePersonalCoerciveDecisionsNav(
-    executionId: string | undefined,
+export function resolvePersonalCoerciveDecisionsNavFromDecisions(
+    allDecisions: Record<string, unknown>[],
     subtype: PersonalCoerciveSubtype,
     opts?: { debtorKey?: string; primaryDebtorKey?: string }
 ): { decisionsTab: 'current' | 'previous'; decisionId?: string } {
-    const row = getGoverningPersonalCoerciveSubtypeRow(executionId, subtype, opts);
+    const row = getGoverningPersonalCoerciveSubtypeRowFromDecisions(allDecisions, subtype, opts);
     const decisionId = row ? String((row as { id?: string }).id || '').trim() : '';
     if (!row || !decisionId) return { decisionsTab: 'current' };
     if (isPersonalCoerciveSubtypeRowPending(row)) {
         return { decisionsTab: 'current', decisionId };
     }
     return { decisionsTab: 'previous', decisionId };
+}
+
+export function resolvePersonalCoerciveDecisionsNav(
+    executionId: string | undefined,
+    subtype: PersonalCoerciveSubtype,
+    opts?: { debtorKey?: string; primaryDebtorKey?: string }
+): { decisionsTab: 'current' | 'previous'; decisionId?: string } {
+    return resolvePersonalCoerciveDecisionsNavFromDecisions(
+        readExecutorDecisionsArray(executionId),
+        subtype,
+        opts,
+    );
 }
 
 /** إغلاق دورة طلب تنفيذ جبري شخصي في مركز القرارات (أرشفة + استبدال) */
@@ -2111,12 +2278,15 @@ export function getGoverningEvictionProcedureRowForBranch(
     all: Record<string, unknown>[],
     branch: string
 ): Record<string, unknown> | null {
+    const branchRows = evictionProcedureHubRowsForBranch(all, branch);
     const sorted = sortEvictionProcedureRowsNewestFirst(
-        evictionHubRowsEligibleForGoverning(all, evictionProcedureHubRowsForBranch(all, branch))
+        evictionHubRowsEligibleForGoverning(all, branchRows)
     );
     const active = sorted.find((row) => isEvictionProcedureRowActive(row, all));
     if (active) return active;
-    return sorted[0] ?? null;
+    if (sorted[0]) return sorted[0];
+    // دورة طعن مُغلقة تُستبعد من «eligible» — ما زال الصف يحكم مزامنة الفرع والعرض
+    return sortEvictionProcedureRowsNewestFirst(branchRows)[0] ?? null;
 }
 
 export function getGoverningEvictionProcedureRowForMatch(

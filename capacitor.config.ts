@@ -27,7 +27,11 @@ const config: CapacitorConfig = {
         },
         PrivacyScreen: {
             enable: false,
-            preventScreenshots: true,
+            preventScreenshots: false,
+        },
+        LocalNotifications: {
+            smallIcon: 'ic_launcher_foreground',
+            iconColor: '#E6C673',
         },
     },
 };

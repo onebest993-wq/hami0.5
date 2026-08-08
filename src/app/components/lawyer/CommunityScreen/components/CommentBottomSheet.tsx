@@ -5,7 +5,7 @@ import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import {
   MessageCircle, MessageSquare, Lock,
   X, ArrowDownUp,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import type { CommunityPost, CommunityComment } from '@/app/services/lawyer-cloud';
 import type { MentionCandidate } from '@/app/hooks/useForumMentionAutocomplete';
 import { useForumMentionAutocomplete } from '@/app/hooks/useForumMentionAutocomplete';

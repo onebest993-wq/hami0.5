@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const hydrateProfileShellForInstantOpen = vi.fn(() => Promise.resolve(true));
 const prefetchProfileHubModule = vi.fn();
 const warmProfileDataCache = vi.fn(() => Promise.resolve());
+const hydrateProfileWarmCachePeekSync = vi.fn();
 
 vi.mock('@/app/runtime/profileHubLoader', () => ({
     hydrateProfileShellForInstantOpen: (...args: unknown[]) => hydrateProfileShellForInstantOpen(...args),
@@ -12,6 +13,7 @@ vi.mock('@/app/runtime/profileHubLoader', () => ({
 
 vi.mock('@/app/services/profile/profileWarmCache', () => ({
     warmProfileDataCache: (...args: unknown[]) => warmProfileDataCache(...args),
+    hydrateProfileWarmCachePeekSync: (...args: unknown[]) => hydrateProfileWarmCachePeekSync(...args),
 }));
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
@@ -55,9 +57,13 @@ describe('profileBootHydrator', () => {
 
         const ok = await hydrateProfileShellForInstantOpenWithData('lawyer-1', true);
 
+        await vi.waitFor(() => {
+            expect(hydrateProfileWarmCachePeekSync).toHaveBeenCalledWith('lawyer-1');
+            expect(warmProfileDataCache).toHaveBeenCalledWith('lawyer-1');
+        });
+
         expect(ok).toBe(true);
         expect(hydrateProfileShellForInstantOpen).toHaveBeenCalledTimes(1);
-        expect(warmProfileDataCache).toHaveBeenCalledWith('lawyer-1');
         expect(onHydrated).toHaveBeenCalledTimes(1);
 
         window.removeEventListener(PROFILE_SHELL_HYDRATED_EVENT, onHydrated);

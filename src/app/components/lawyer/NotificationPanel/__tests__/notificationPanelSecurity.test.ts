@@ -54,6 +54,7 @@ describe('notificationHeaderBusy', () => {
 
     it('يُظهر تحميل القائمة فقط عند البرد الفعلي', () => {
         expect(isNotificationPanelColdLoading(true, 0, false)).toBe(true);
+        expect(isNotificationPanelColdLoading(true, 0, false, true)).toBe(false);
         expect(isNotificationPanelColdLoading(true, 2, false)).toBe(false);
         expect(isNotificationPanelColdLoading(true, 0, true)).toBe(false);
     });

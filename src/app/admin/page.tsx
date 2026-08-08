@@ -1,6 +1,6 @@
 import React from "react";
 import { AdminLawEntry } from "@/app/components/admin/AdminLawEntry";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight } from '@/app/components/ui/lucideIcons';
 
 export interface AdminLawLibraryPageProps {
     /** عند الربط مع `App.tsx`: العودة إلى لوحة الإدارة */

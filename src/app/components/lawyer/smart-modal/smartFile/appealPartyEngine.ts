@@ -10,6 +10,7 @@ import {
     type AppealPartyFlipSelection,
 } from './appealStageTransition';
 import { isAppealStageName } from './judgmentTypes';
+import { resolveLawyerOriginalSideInAbsentObjection } from './absentJudgmentFlow';
 import {
     affiliativeThirdPartySide,
     isAffiliativeThirdPartyRole,
@@ -66,6 +67,9 @@ export function inferAppellantSideFromLawyer(
     representedParty?: string | null,
     parties?: Array<{ role?: string; isClient?: boolean; side?: 'right' | 'left'; lawyer?: { isMyOffice?: boolean } }>,
 ): AppealSide {
+    const objectionOriginal = resolveLawyerOriginalSideInAbsentObjection(parties);
+    if (objectionOriginal) return objectionOriginal;
+
     const bucket = resolveLawyerJudgmentBucket(representedParty, parties);
     if (bucket === 'defendant') return 'المدعى عليه';
     return 'المدعي';

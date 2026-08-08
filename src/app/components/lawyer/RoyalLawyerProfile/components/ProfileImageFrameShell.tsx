@@ -148,24 +148,56 @@ export function ProfileImageFrameShell({
         return { clipPath: clip, WebkitClipPath: clip } as React.CSSProperties;
     }, [clip, isPerspective]);
 
+    const hasShapedClip = Boolean(clip && !isPerspective);
+
     const wrapStyle = useMemo(
         () =>
             ({
                 '--img-accent': accent,
-                height: useAspect ? undefined : heightPx,
-                maxHeight: useAspect ? undefined : 320,
-                aspectRatio: useAspect ? aspectRatio : undefined,
+                ...(hasShapedClip
+                    ? {
+                          width: `min(100%, ${heightPx}px)`,
+                          maxWidth: '100%',
+                          aspectRatio: '1 / 1',
+                          height: 'auto',
+                          marginInline: 'auto',
+                      }
+                    : {
+                          height: useAspect ? undefined : heightPx,
+                          maxHeight: useAspect ? undefined : 320,
+                          aspectRatio: useAspect ? aspectRatio : undefined,
+                      }),
                 transform:
                     interaction === 'tilt' && tiltActive
                         ? `perspective(1000px) rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`
                         : undefined,
             }) as React.CSSProperties,
-        [accent, aspectRatio, heightPx, interaction, tilt.x, tilt.y, tiltActive, useAspect],
+        [
+            accent,
+            aspectRatio,
+            hasShapedClip,
+            heightPx,
+            interaction,
+            tilt.x,
+            tilt.y,
+            tiltActive,
+            useAspect,
+        ],
     );
 
     const pad = rimPadPx(rim);
 
     const rimShellStyle = useMemo(() => {
+        if (borderless) {
+            return {
+                ...clipStyle,
+                padding: 0,
+                background: 'transparent',
+                border: 'none',
+                boxShadow: 'none',
+            } as React.CSSProperties;
+        }
+
         const base: React.CSSProperties = {
             ...clipStyle,
             padding: pad,
@@ -191,7 +223,7 @@ export function ProfileImageFrameShell({
         }
 
         return base;
-    }, [accent, clipStyle, pad, rim]);
+    }, [accent, borderless, clipStyle, pad, rim]);
 
     const imgStyle = useMemo(() => {
         const base: React.CSSProperties = {
@@ -221,10 +253,11 @@ export function ProfileImageFrameShell({
             onPointerUp={interaction === 'tilt' ? onTiltPointerEnd : undefined}
             onPointerCancel={interaction === 'tilt' ? onTiltPointerEnd : undefined}
         >
-            <div className={frameClass} style={rimShellStyle} data-rim-shell="">
+            <div className={frameClass} style={rimShellStyle} data-rim-shell="" data-borderless={borderless ? 'true' : 'false'}>
                 <div
                     data-profile-media-frame
                     data-template={template}
+                    data-borderless={borderless ? 'true' : 'false'}
                     className="profile-image-frame__media"
                     style={clipStyle}
                 >

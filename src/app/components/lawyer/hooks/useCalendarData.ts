@@ -9,7 +9,7 @@ import {
 import { CALENDAR_UPDATED_EVENT } from '@/app/services/calendarBridge.types';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/core';
 import { isBridgedCalendarEvent } from '@/app/services/calendar/calendarEventAuthorship';
-import { mapStoredEventsToUnified } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
+import { mapStoredEventsToUnified, mapAllCalendarEventsForSparkScan } from '@/app/components/lawyer/SmartLegalRadar/calendarEventMapping';
 import {
     getCachedCalendarEvents,
     hasCachedCalendarEvents,
@@ -17,6 +17,7 @@ import {
     setCachedCalendarEvents,
 } from '@/app/services/calendar/calendarEventsCache';
 import { readLocalCalendarSnapshotSync } from '@/app/services/calendar/calendarLocalSnapshot';
+import { awaitCalendarWarmIfInflight } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 import type { CalendarSourceModule } from '@/app/services/calendarBridge.types';
 
 export type UnifiedEventBridge = {
@@ -31,6 +32,8 @@ export type UnifiedEvent = {
     title: string;
     date: string;
     time?: string;
+    endTime?: string;
+    durationMinutes?: number;
     type: CalendarEventType;
     location?: string;
     notes?: string;
@@ -46,6 +49,7 @@ export type UnifiedEvent = {
     court?: string;
     partiesSummary?: string;
     sourceLabel?: string;
+    reminderMinutesBefore?: number | null;
 };
 
 const CALENDAR_UPDATE_DEBOUNCE_MS = 300;
@@ -80,11 +84,33 @@ function newCalendarEventId(): string {
     return `cal_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
+/** يمنع إعادة رسم القائمة عند جلب/مزامنة بلا تغيّر فعلي في الأحداث */
+export function calendarEventSetsEqual(a: CalendarEvent[], b: CalendarEvent[]): boolean {
+    if (a === b) return true;
+    if (a.length !== b.length) return false;
+    const updatedById = new Map(b.map((e) => [e.id, e.updatedAt]));
+    for (const e of a) {
+        if (updatedById.get(e.id) !== e.updatedAt) return false;
+    }
+    return true;
+}
+
+function adoptCalendarEventsIfChanged(prev: CalendarEvent[], next: CalendarEvent[]): CalendarEvent[] {
+    return calendarEventSetsEqual(prev, next) ? prev : next;
+}
+
 function resolveInitialCalendarEvents(userId: string): CalendarEvent[] {
     if (hasCachedCalendarEvents(userId)) {
         return getCachedCalendarEvents(userId) ?? [];
     }
     return readLocalCalendarSnapshotSync(userId);
+}
+
+/** لمسح سبارك على الرئيسية — يشمل مواعيد الجسر الآلي */
+export function resolveUnifiedCalendarEventsForScan(userId: string): UnifiedEvent[] {
+    const uid = String(userId ?? '').trim();
+    if (!uid) return [];
+    return mapAllCalendarEventsForSparkScan(resolveInitialCalendarEvents(uid));
 }
 
 function toYmd(date: Date): string {
@@ -122,6 +148,7 @@ export function useCalendarData(userId: string) {
     const [error, setError] = useState<string | null>(null);
     const hasLoadedOnceRef = useRef(true);
     const fetchInFlightRef = useRef(false);
+    const fetchRequestIdRef = useRef(0);
 
     const fetchEvents = useCallback(
         async (options?: { background?: boolean; forceRefresh?: boolean }) => {
@@ -133,6 +160,7 @@ export function useCalendarData(userId: string) {
                 return;
             }
             if (fetchInFlightRef.current && options?.background) return;
+            const requestId = ++fetchRequestIdRef.current;
             const isBackground = options?.background ?? hasLoadedOnceRef.current;
             if (isBackground) {
                 setBackgroundSyncing(true);
@@ -145,12 +173,14 @@ export function useCalendarData(userId: string) {
                 const events = await fetchCalendarEventsWithTimeout(effectiveUserId, {
                     forceRefresh: options?.forceRefresh,
                 });
-                setCustomEvents(events);
+                if (requestId !== fetchRequestIdRef.current) return;
+                setCustomEvents((prev) => adoptCalendarEventsIfChanged(prev, events));
                 setCachedCalendarEvents(effectiveUserId, events);
             } catch (err) {
+                if (requestId !== fetchRequestIdRef.current) return;
                 const snapshot = readLocalCalendarSnapshotSync(effectiveUserId);
                 if (snapshot.length > 0) {
-                    setCustomEvents(snapshot);
+                    setCustomEvents((prev) => adoptCalendarEventsIfChanged(prev, snapshot));
                     setCachedCalendarEvents(effectiveUserId, snapshot);
                 } else if (err instanceof Error && err.message === 'calendar-fetch-timeout') {
                     setError(null);
@@ -158,6 +188,7 @@ export function useCalendarData(userId: string) {
                     setError('فشل تحميل أحداث التقويم');
                 }
             } finally {
+                if (requestId !== fetchRequestIdRef.current) return;
                 hasLoadedOnceRef.current = true;
                 fetchInFlightRef.current = false;
                 setSyncing(false);
@@ -171,7 +202,7 @@ export function useCalendarData(userId: string) {
         if (!effectiveUserId) return;
         invalidateCalendarEventsCache(effectiveUserId);
         const snapshot = readLocalCalendarSnapshotSync(effectiveUserId);
-        setCustomEvents(snapshot);
+        setCustomEvents((prev) => adoptCalendarEventsIfChanged(prev, snapshot));
         setCachedCalendarEvents(effectiveUserId, snapshot);
         hasLoadedOnceRef.current = true;
         if (snapshot.length > 0) {
@@ -193,12 +224,15 @@ export function useCalendarData(userId: string) {
 
         let cancelled = false;
         void (async () => {
+            await awaitCalendarWarmIfInflight(effectiveUserId);
             if (cancelled) return;
             await fetchEvents({ background: true });
         })();
 
         return () => {
             cancelled = true;
+            fetchRequestIdRef.current += 1;
+            fetchInFlightRef.current = false;
         };
     }, [effectiveUserId, fetchEvents]);
 
@@ -219,6 +253,12 @@ export function useCalendarData(userId: string) {
     }, [applyLocalSnapshot]);
 
     const allEvents = useMemo(() => mapStoredEventsToUnified(customEvents), [customEvents]);
+
+    /** مسح سبارك/تضارب — كل الأحداث غير المكتملة بما فيها الجسر الآلي */
+    const sparkScanEvents = useMemo(
+        () => mapAllCalendarEventsForSparkScan(customEvents),
+        [customEvents],
+    );
 
     const eventsByDate = useMemo(() => {
         const map = new Map<string, UnifiedEvent[]>();
@@ -311,6 +351,7 @@ export function useCalendarData(userId: string) {
 
     return {
         allEvents,
+        sparkScanEvents,
         customEvents,
         loading: false,
         backgroundSyncing,

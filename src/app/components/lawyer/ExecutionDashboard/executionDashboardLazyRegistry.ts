@@ -94,11 +94,15 @@ export const LazyJudicialCustodianCardMenu = lazy(() =>
         default: m.JudicialCustodianCardMenu,
     }))
 );
-export const LazyEvictionFieldProceduresPanel = lazy(() =>
+export const LazyEvictionFieldProceduresPanel = createPreloadableLazyComponent(() =>
     import('../execution/EvictionFieldProceduresPanel').then((m) => ({
         default: m.EvictionFieldProceduresPanel,
     }))
 );
+
+export function prefetchEvictionFieldProceduresPanel(): void {
+    void LazyEvictionFieldProceduresPanel.preload();
+}
 export const LazyOtherPartyActionsLog = createPreloadableLazyComponent(() =>
     import('../execution/OtherPartyActionsLog').then((m) => ({
         default: m.OtherPartyActionsLog,
@@ -206,23 +210,36 @@ export const LazyGuarantorDetailsPostApprovalModal = lazy(() =>
     }))
 );
 
-export const LazyVisitationScheduleModule = lazy(() =>
+const visitationScheduleModuleImport = () =>
     import('./components/VisitationScheduleModule').then((m) => ({
         default: m.VisitationScheduleModule,
-    }))
-);
+    }));
 
-export const LazyCustodyRemovalWardsModule = lazy(() =>
+export const LazyVisitationScheduleModule = createPreloadableLazyComponent(visitationScheduleModuleImport);
+
+export function prefetchVisitationScheduleModule(): void {
+    void LazyVisitationScheduleModule.preload();
+}
+
+export const LazyCustodyRemovalWardsModule = createPreloadableLazyComponent(() =>
     import('./components/CustodyRemovalWardsModule').then((m) => ({
         default: m.CustodyRemovalWardsModule,
     }))
 );
 
-export const LazyMaritalFurnitureModule = lazy(() =>
+export function prefetchCustodyRemovalWardsModule(): void {
+    void LazyCustodyRemovalWardsModule.preload();
+}
+
+export const LazyMaritalFurnitureModule = createPreloadableLazyComponent(() =>
     import('./components/MaritalFurnitureModule').then((m) => ({
         default: m.MaritalFurnitureModule,
     }))
 );
+
+export function prefetchMaritalFurnitureModule(): void {
+    void LazyMaritalFurnitureModule.preload();
+}
 
 export const LazyExecutionFullTimelineModalContainer = lazy(() =>
     import('./components/ExecutionFullTimelineModalContainer').then((m) => ({

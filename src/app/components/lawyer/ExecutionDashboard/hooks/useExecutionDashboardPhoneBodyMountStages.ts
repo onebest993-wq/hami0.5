@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
-import { prefetchExecutionOverlayModals } from '../executionDashboardLazyRegistry';
+import {
+    prefetchExecutionOverlayModals,
+    prefetchMaritalFurnitureModule,
+    prefetchVisitationScheduleModule,
+} from '../executionDashboardLazyRegistry';
 import type { ExecutionShellOverlayModalFlags } from './useExecutionShellOverlaysGate';
 
 export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFlags & {
@@ -9,6 +13,8 @@ export type ExecutionDashboardPhoneBodyMountFlags = ExecutionShellOverlayModalFl
     showExecutionFinancialHub?: boolean;
     showUnifiedSeizureLogModal?: boolean;
     showVisitationCalendarModal?: boolean;
+    isVisitationClaim?: boolean;
+    isMaritalFurnitureClaim?: boolean;
 };
 
 /** يوزّع mount داخل جسم الإضبارة على موجات قصيرة بدل تجميعها عند أول رسم */
@@ -31,8 +37,13 @@ export function useExecutionDashboardPhoneBodyMountStages(
     const [quaternaryStageReady, setQuaternaryStageReady] = useState(false);
 
     const quaternaryStageUrgent = useMemo(
-        () => Boolean(flags.showVisitationCalendarModal),
-        [flags.showVisitationCalendarModal],
+        () =>
+            Boolean(
+                flags.showVisitationCalendarModal ||
+                    flags.isVisitationClaim ||
+                    flags.isMaritalFurnitureClaim,
+            ),
+        [flags.showVisitationCalendarModal, flags.isVisitationClaim, flags.isMaritalFurnitureClaim],
     );
 
     useEffect(() => {
@@ -46,7 +57,13 @@ export function useExecutionDashboardPhoneBodyMountStages(
     useEffect(() => {
         if (!quaternaryStageUrgent) return;
         setQuaternaryStageReady(true);
-    }, [quaternaryStageUrgent]);
+        if (flags.isVisitationClaim) {
+            prefetchVisitationScheduleModule();
+        }
+        if (flags.isMaritalFurnitureClaim) {
+            prefetchMaritalFurnitureModule();
+        }
+    }, [quaternaryStageUrgent, flags.isVisitationClaim, flags.isMaritalFurnitureClaim]);
 
     useEffect(() => {
         if (secondaryStageReady) return;

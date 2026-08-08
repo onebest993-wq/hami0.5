@@ -1,10 +1,13 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
 } from './handlerClusterContextShared';
 import { useExecutionDashboardVoluntaryPeriodHandlers } from './useExecutionDashboardVoluntaryPeriodHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 type Props = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -13,7 +16,7 @@ type Props = {
 
 /**
  * معالجات وفاة الخصوم (partyDeathHandlers) استُضيفت في core
- * (useExecutionDashboardRuntimeAssembly) لأن قائمة ⋮ متاحة قبل أي بوابة جسر —
+ * (useExecutionDashboardCore) لأن قائمة ⋮ متاحة قبل أي بوابة جسر —
  * هذا الجسر يوفّر معالجات المهلة الطوعية فقط.
  */
 export function ExecutionDashboardHandlerClusterCoercivePartyLifecycleBridge({
@@ -49,11 +52,13 @@ export function ExecutionDashboardHandlerClusterCoercivePartyLifecycleBridge({
         setDebtorNotificationDate: c.setDebtorNotificationDate,
     });
 
-    useEffect(() => {
-        onCluster({
-            voluntaryPeriodHandlers,
-        });
-    }, [onCluster, voluntaryPeriodHandlers]);
+    const cluster: Record<string, unknown> = { voluntaryPeriodHandlers };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        handlerBagKeyFingerprint(voluntaryPeriodHandlers as Record<string, unknown>),
+        onCluster,
+    );
 
     return null;
 }

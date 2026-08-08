@@ -35,8 +35,10 @@ export type ExecutionDashboardCoreGraceMasterEvictionPipelineInput = {
     paidClientFees: number;
     activeDebtorIsEmployee: boolean;
     followupSpecializationEffective: unknown;
+    followupModalSpecialization: unknown;
     followupModalSpecializationEffective: unknown;
     followupModalDebtorIsEmployee: boolean;
+    followupModalDebtorIsDeceased: boolean;
     decisionsReloadEpoch: number;
     isRepresentingDebtor: boolean;
     decisionsStorageExecutionId: string;

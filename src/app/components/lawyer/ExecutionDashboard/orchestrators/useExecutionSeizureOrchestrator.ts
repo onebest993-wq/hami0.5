@@ -3,7 +3,8 @@ import {
     useExecutionSeizedAssetModalState,
     useExecutionSeizedPropertyStepEvents,
 } from '../hooks/useExecutionSeizedAssetModals';
-import type { ExecutionOrchestratorCoreInput, ExecutionOrchestratorSlice } from './executionOrchestratorTypes';
+import type { ExecutionOrchestratorCoreInput } from './executionOrchestratorTypes';
+import type { ExecutionSeizureOrchestratorSlice } from './executionSeizureOrchestratorTypes';
 
 export type UseExecutionSeizureOrchestratorInput = Pick<
     ExecutionOrchestratorCoreInput,
@@ -18,7 +19,7 @@ export type UseExecutionSeizureOrchestratorInput = Pick<
 /** حجز الأصول — modals + أحداث الخطوات + كفيل */
 export function useExecutionSeizureOrchestrator(
     input: UseExecutionSeizureOrchestratorInput,
-): ExecutionOrchestratorSlice {
+): ExecutionSeizureOrchestratorSlice {
     const seizedAssetModals = useExecutionSeizedAssetModalState();
 
     useExecutionSeizedPropertyStepEvents({

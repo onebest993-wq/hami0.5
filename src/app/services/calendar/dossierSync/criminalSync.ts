@@ -2,7 +2,7 @@
  * مزامنة منهجية: أي موعد/تاريخ في إضبارة (دعوى، تنفيذ، مستعجل، معاملة، جزائي، Threading)
  * يُرفع إلى التقويم المركزي عبر معرّف ثابت — لا ربط عشوائي لكل زر على حدة.
  */
-import { CalendarBridge, normalizeDateToYmd, resolveCalendarUserId } from '@/app/services/calendarBridge';
+import { CalendarBridge, flushPendingCalendarSyncs, normalizeDateToYmd, resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { loadCriminalCasesRaw } from '@/app/utils/criminalCasesStorage';
 import type { DossierSyncStats } from './types';
 import { shouldExcludeCriminalFromCalendar } from './exclusions';
@@ -93,7 +93,9 @@ export function syncOneCriminalCase(caseRecord: Record<string, unknown>, userId:
     }
 
     // 🧹 Pruning: احذف أي حدث في CalendarDB لا ينتمي لـ expectedIds (Sniffer/orphans/legacy)
-    void pruneOrphanedBridgedEventsForEntity('criminal', caseId, expectedIds, userId);
+    void flushPendingCalendarSyncs().then(() =>
+        pruneOrphanedBridgedEventsForEntity('criminal', caseId, expectedIds, userId),
+    );
 }
 
 export function syncCriminalCases(userId: string, stats: DossierSyncStats): void {

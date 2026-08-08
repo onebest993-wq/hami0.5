@@ -5,8 +5,9 @@ import {
     canSendPushNotifications,
     filterAlertsByNotificationSettings,
     getLawyerSettingsSnapshot,
-    pushNotificationOptionsFromSettings,
+    alertNotificationChannel,
 } from '@/app/services/settings/settingsRuntime';
+import { showHamiNotification } from '@/app/services/notifications/HamiNotificationBridge';
 import { debug } from '@/app/utils/debug';
 
 const SEEN_KEY = 'hami:alert-push-seen:v1';
@@ -124,15 +125,18 @@ export async function syncPushForNewCriticalAlerts(
 
     for (const a of critical) {
         if (seen.has(a.id)) continue;
+        const channel = alertNotificationChannel(a) ?? 'secretary';
         try {
-            await PushNotificationService.showNotification(
-                pushNotificationOptionsFromSettings(settings, {
+            await showHamiNotification(
+                channel,
+                {
                     title: a.title,
                     body: a.summary,
                     tag: a.id,
                     data: { alertId: a.id, target: a.target, entityId: a.entityId },
                     requireInteraction: a.type === 'HEARING' || a.type === 'URGENT',
-                }),
+                },
+                a.priority <= 1,
             );
             seen.set(a.id, now);
             changed = true;

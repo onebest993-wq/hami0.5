@@ -61,28 +61,70 @@ describe('repository dock section surgical close honesty', () => {
     });
 
     it('pointerPrime للمستودع prefetch + prime host بلا hydrate', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+        const gate = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/dockShellPrefetchGate.ts'),
             'utf8',
         );
-        const repoPrime = dock.match(
-            /if \(widgetId === 'dockRepository'\) \{[\s\S]*?\n            \}/,
+        const repoPrime = gate.match(
+            /if \([\s\S]*?widgetId === 'dockRepository'[\s\S]*?\) \{[\s\S]*?return;\s*\}/,
         )?.[0];
         expect(repoPrime).toBeTruthy();
-        expect(repoPrime).toContain("prefetchDockWidgetIntentImmediate('dockRepository')");
+        expect(repoPrime).toContain("prefetchDockWidgetIntentImmediate('dockRepository', 'hover')");
         expect(repoPrime).toContain('dispatchRepositoryPrimeHost');
+        expect(repoPrime).not.toContain('paintRepositoryInstantChrome()');
         expect(repoPrime).not.toContain('hydrateRepository');
-        expect(dock).not.toContain("from '@/app/runtime/repositoryBootHydrator'");
+        expect(gate).not.toContain("from '@/app/runtime/repositoryBootHydrator'");
     });
 
-    it('أيقونة dockRepository تستخدم HomeWarehouseIcon', () => {
-        const dock = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LegalCommandCenterDock.tsx'),
+    it('بلاطات الدوك في الشبكة الرئيسية بلا شريط سفلي', () => {
+        const homeTab = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/LawyerDashboardHomeTab.tsx'),
             'utf8',
         );
-        expect(dock).toContain('HomeWarehouseIcon');
-        expect(dock).toMatch(/dockRepository:[\s\S]*?icon:\s*HomeWarehouseIcon/);
-        expect(dock).not.toMatch(/\bWarehouse\b/);
+        expect(homeTab).toContain('DockHalfTile');
+        expect(homeTab).toContain('bindDockWidgetPointerHandlers');
+        expect(homeTab).not.toContain('LegalCommandCenterDock');
+        expect(homeTab).not.toContain('home-bottom-chrome');
+    });
+
+    it('المستودع حي في orchestration خارج الجزيرة المؤجّلة (مثل التقويم)', () => {
+        const orch = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardCoreOrchestration.ts'),
+            'utf8',
+        );
+        expect(orch).toContain('useLawyerDashboardRepository');
+        expect(orch).toContain('repositoryFeature');
+        const stubs = fs.readFileSync(
+            path.join(root, 'src/app/components/lawyer/dashboard/createDeferredFeatureStubs.ts'),
+            'utf8',
+        );
+        expect(stubs).not.toContain("requestArm('repository')");
+        expect(stubs).not.toContain('openRepository:');
+        const deferred = fs.readFileSync(
+            path.join(
+                root,
+                'src/app/components/lawyer/dashboard/LawyerDashboardDeferredFeatureSurfaces.tsx',
+            ),
+            'utf8',
+        );
+        expect(deferred).not.toContain('useLawyerDashboardRepository');
+        expect(deferred).toContain('params.openNotepad');
+        const openFlow = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow.ts'),
+            'utf8',
+        );
+        expect(openFlow).toContain('paintRepositoryInstantChrome');
+        expect(openFlow).toContain('commitRepositoryClose');
+        const tabBundle = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/buildLawyerDashboardTabBundle.ts'),
+            'utf8',
+        );
+        expect(tabBundle).toMatch(
+            /onOpenRepository:\s*\(opts\)\s*=>\s*\{\s*params\.openRepository\(opts\);\s*\}/,
+        );
+        expect(tabBundle).not.toMatch(
+            /onOpenRepository:[\s\S]*?primeNotepadShellMount\(\);[\s\S]*?openRepository/,
+        );
     });
 
     it('مسار المستودع بلا debug 127.0.0.1:7777', () => {

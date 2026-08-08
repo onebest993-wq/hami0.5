@@ -20,6 +20,8 @@ import { createCriminalRequestsActions } from './criminalStoreRequestsActions';
 import { createCriminalTrialActions } from './criminalStoreTrialActions';
 import { createCriminalLifecycleActions } from './criminalStoreLifecycleActions';
 import { validateDefendantSeveranceSelection } from './investigationDefendantPurge';
+import { debug } from '@/app/utils/debug';
+import { sentryCaptureException } from '@/app/observability/sentryClient';
 import type { CriminalDefendant } from './criminalCaseModel';
 import type { CriminalStoreState } from './criminalStoreState.types';
 
@@ -131,6 +133,20 @@ export type { CriminalStoreState };
 
 const criminalPersistStorage = createCriminalStorePersistStorage<CriminalStoreState>();
 
+/**
+ * zustand يبتلع فشل الترحيل في catch داخلي، فيُقلع المتجر بحالة فارغة دون أي إشارة —
+ * المحامي يفتح التطبيق فلا يجد أضابيره. هذا هو الإبلاغ الوحيد عن ذلك.
+ */
+function reportCriminalRehydrateFailure(error: unknown): void {
+    debug.error('[criminalStore] فشل استرجاع الحالة المحفوظة — الأضابير لن تظهر', error);
+    void sentryCaptureException(error, {
+        area: 'criminal-store',
+        phase: 'rehydrate',
+        persistVersion: CRIMINAL_STORE_PERSIST_VERSION,
+        storeKey: CRIMINAL_STORE_KEY,
+    });
+}
+
 export const useCriminalStore = create<CriminalStoreState>()(
     persist(
         (set, get) => ({
@@ -149,8 +165,11 @@ export const useCriminalStore = create<CriminalStoreState>()(
             name: CRIMINAL_STORE_KEY,
             version: CRIMINAL_STORE_PERSIST_VERSION,
             migrate: migrateCriminalPersistState,
-            storage: criminalPersistStorage,
+            storage: criminalPersistStorage as import('zustand/middleware').PersistStorage<unknown, unknown>,
             partialize: criminalStorePartialize,
+            onRehydrateStorage: () => (_state, error) => {
+                if (error) reportCriminalRehydrateFailure(error);
+            },
         },
     ),
 );

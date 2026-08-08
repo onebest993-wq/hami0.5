@@ -1,5 +1,6 @@
 import type { ExecutionFile } from '@/app/types/execution';
 import {
+    hasAnyMaritalFurnitureDeliveryRecorded,
     isMaritalFurnitureDeliveryStatusRecorded,
     readMaritalFurnitureItems,
     sumUndeliveredMaritalFurnitureTotal,
@@ -18,24 +19,34 @@ export function resolveMaritalFurnitureFinancialSyncPatch(input: {
         input.decisionsStorageExecutionId,
     ) as ExecutionFile | Record<string, unknown>;
 
+    const storageItems = readMaritalFurnitureItems(mergedView);
     const followupItems = Array.isArray(input.maritalFurnitureItemsForFollowup)
-        ? (input.maritalFurnitureItemsForFollowup as Parameters<typeof sumUndeliveredMaritalFurnitureTotal>[0])
-        : readMaritalFurnitureItems(mergedView);
+        ? readMaritalFurnitureItems({
+              maritalFurnitureItems: input.maritalFurnitureItemsForFollowup as Parameters<
+                  typeof readMaritalFurnitureItems
+              >[0]['maritalFurnitureItems'],
+          })
+        : [];
+
+    const storageHasDelivery = hasAnyMaritalFurnitureDeliveryRecorded(storageItems);
+    const followupHasDelivery = hasAnyMaritalFurnitureDeliveryRecorded(followupItems);
 
     const items =
-        readMaritalFurnitureItems({
-            ...mergedView,
-            maritalFurnitureItems:
-                followupItems.length > 0
-                    ? followupItems
-                    : (mergedView as ExecutionFile).maritalFurnitureItems,
-        }) || readMaritalFurnitureItems(mergedView);
+        storageHasDelivery && !followupHasDelivery
+            ? storageItems
+            : followupHasDelivery && !storageHasDelivery
+              ? followupItems
+              : followupItems.length > 0
+                ? followupItems
+                : storageItems;
 
     const mergedForStatus = {
         ...input.executionData,
         maritalFurnitureItems: items,
     };
-    const deliveryRecorded = isMaritalFurnitureDeliveryStatusRecorded(mergedForStatus);
+    const deliveryRecorded =
+        isMaritalFurnitureDeliveryStatusRecorded(mergedForStatus) ||
+        isMaritalFurnitureDeliveryStatusRecorded({ maritalFurnitureItems: storageItems });
     const expectedFinancial = deliveryRecorded ? sumUndeliveredMaritalFurnitureTotal(items) : 0;
 
     const storedDebt = Math.round(

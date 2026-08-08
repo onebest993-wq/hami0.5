@@ -150,6 +150,7 @@ export const SeizureRequestsTab: React.FC<SeizureRequestsTabProps> = ({
         isFinancialDebtCollectionClaim,
         settlementBreachTriggeredAt,
         ledgerPendingSettlement,
+        persistExecutionMerge,
     });
 
     return (

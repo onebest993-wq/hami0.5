@@ -80,9 +80,9 @@ export function resolveDecisionsStorageExecutionId(
     executionData?: Record<string, unknown> | null
 ): string {
     const candidates = [
-        executionId,
         executionData?.parentDossierId,
         executionData?.parentFileId,
+        executionId,
         executionData?.id,
     ];
     for (const raw of candidates) {

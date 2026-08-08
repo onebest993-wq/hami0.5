@@ -8,7 +8,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { invalidateE2eDistStamp } from './e2e-dist-stamp.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const assetsDir = path.join(ROOT, 'dist', 'assets');
@@ -42,10 +41,6 @@ if (hits) {
     '[guard-dist-client-env] Production client must use build-time VITE_SUPABASE_* only — no placeholders, no info.ts fallback',
   );
   process.exit(1);
-}
-
-if (process.env.VITE_E2E !== '1') {
-    invalidateE2eDistStamp();
 }
 
 console.log('[guard-dist-client-env] OK — no placeholder / committed-fallback Supabase identity in dist');

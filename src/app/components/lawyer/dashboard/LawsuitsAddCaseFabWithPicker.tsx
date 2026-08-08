@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X } from '@/app/components/ui/lucideIcons';
 import { JURISDICTIONS, type JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/wordLists';
 import { prefetchLawyerNewCaseModule } from '@/app/runtime/lawyerNewCaseLoader';
 import { CIVIL_LAWSUIT_TEST_IDS } from '@/app/components/lawyer/smart-modal/smartFile/civilLawsuitTestIds';

@@ -80,13 +80,6 @@ export function useCommunityPostsFeed({
     useEffect(() => {
         if (postsBootstrappedRef.current) return;
         let cancelled = false;
-        let showedBlockingLoader = false;
-
-        const clearBlockingLoader = () => {
-            if (showedBlockingLoader && !cancelled) {
-                setLoadingPosts(false);
-            }
-        };
 
         const fetchRemotePage = async () => {
             const { posts: page } = await ForumApiService.listPostsPaginated(pageSize, 0);
@@ -126,8 +119,8 @@ export function useCommunityPostsFeed({
 
             if (hydratedCount > 0) {
                 postsBootstrappedRef.current = true;
+                setLoadingPosts(false);
             } else {
-                showedBlockingLoader = true;
                 setLoadingPosts(true);
             }
 
@@ -140,7 +133,7 @@ export function useCommunityPostsFeed({
             } finally {
                 if (!cancelled) {
                     postsBootstrappedRef.current = true;
-                    clearBlockingLoader();
+                    setLoadingPosts(false);
                 }
             }
         };
@@ -148,7 +141,6 @@ export function useCommunityPostsFeed({
         void runBootstrap();
         return () => {
             cancelled = true;
-            clearBlockingLoader();
         };
     }, [applyPostsUpdate, pageSize, postsRef]);
 

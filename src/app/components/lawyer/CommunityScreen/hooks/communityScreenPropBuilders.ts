@@ -9,7 +9,7 @@ import type { ForumParticipant } from '@/app/services/forum/forumMentionUtils';
 import type { CommunitySection } from '../communitySectionState';
 import type { CommunityScreenBodyProps } from '../components/CommunityScreenBody';
 import type { CommunityScreenOverlaysProps } from '../components/CommunityScreenOverlays';
-import { openForumAddQuestionGuard } from '../components/CommunityScreenBody';
+import { openForumAddQuestionGuard } from '../forumAddQuestionGuard';
 import { prefetchCommunitySearchOverlay } from '../communityOverlayPrefetch';
 
 export type CommunityScreenPropBuilderContext = {

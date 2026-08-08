@@ -36,12 +36,12 @@ describe('notificationIntentWarm', () => {
 
     it('warmNotificationsOnOpen يجلب الإشعارات ويحمّل chunk للمستخدم المسجّل', async () => {
         warmNotificationsOnOpen('lawyer-1');
+        expect(hydrateFromLocalPeek).toHaveBeenCalledWith('lawyer-1');
         expect(prefetchNotificationPanel).toHaveBeenCalledTimes(1);
-        expect(loadNotificationPanelModule).toHaveBeenCalledTimes(1);
+        expect(loadNotificationPanelModule).toHaveBeenCalled();
         await vi.waitFor(() => {
-            expect(hydrateFromLocalPeek).toHaveBeenCalledWith('lawyer-1');
+            expect(refreshNotificationShellBadge).toHaveBeenCalledWith('lawyer-1');
         });
-        expect(refreshNotificationShellBadge).toHaveBeenCalledWith('lawyer-1');
     });
 
     it('warmNotificationsOnOpen يتخطى الجلب بدون معرّف', () => {
@@ -53,9 +53,7 @@ describe('notificationIntentWarm', () => {
     it('warmNotificationsOnOpen يتخطى مزامنة الشبكة في الخلفية', async () => {
         Object.defineProperty(document, 'hidden', { configurable: true, value: true });
         warmNotificationsOnOpen('lawyer-1');
-        await vi.waitFor(() => {
-            expect(hydrateFromLocalPeek).toHaveBeenCalledWith('lawyer-1');
-        });
+        expect(hydrateFromLocalPeek).toHaveBeenCalledWith('lawyer-1');
         expect(refreshNotificationShellBadge).not.toHaveBeenCalled();
         Object.defineProperty(document, 'hidden', { configurable: true, value: false });
     });

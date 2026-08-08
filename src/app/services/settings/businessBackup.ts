@@ -225,6 +225,11 @@ export async function buildBusinessBackupPayload(selection: BusinessBackupSelect
     if (selection.includeVault) includeKeys.push('hami_docs_vault');
 
     const allKeys = await SecureStoreService.listKeys();
+    if (selection.includeExecution) {
+        allKeys
+            .filter((k) => k.startsWith('execution_') && k !== 'executionFiles')
+            .forEach((k) => includeKeys.push(k));
+    }
     if (selection.includeNotes) {
         allKeys.filter((k) => k.startsWith('hami_notes_vault_')).forEach((k) => includeKeys.push(k));
     }

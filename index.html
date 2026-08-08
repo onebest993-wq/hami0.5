@@ -3,65 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
+    <link rel="preload" as="style" href="/hami-home-static-shell.css" />
+    <link rel="preload" as="style" href="/hami-boot-shell.css" />
+    <style id="hami-splash-critical">
+      html,
+      body {
+        margin: 0;
+        background: #0a0f1c;
+      }
+      #hami-static-boot {
+        position: fixed;
+        inset: 0;
+        z-index: 99990;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #0a0f1c;
+        overflow: hidden;
+      }
+      .hami-boot-wordmark {
+        font-family: system-ui, sans-serif;
+        font-size: clamp(2.75rem, 14vw, 4.25rem);
+        font-weight: 800;
+        letter-spacing: 0.06em;
+        line-height: 1;
+        color: #e6c673;
+        user-select: none;
+        -webkit-user-select: none;
+        pointer-events: none;
+      }
+    </style>
+    <script src="/hami-boot.js"></script>
     <link rel="stylesheet" href="/hami-boot-shell.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Amiri:wght@700&display=swap"
-      rel="stylesheet"
-    />
-    <script>
-      (function () {
-        if (typeof window === 'undefined' || typeof console === 'undefined') return;
-        var benign = [
-          /ResizeObserver loop/i,
-          /^\[vite\] /i,
-          /Download the React DevTools/i,
-          /Reduced Motion enabled on your device/i,
-          /motion\.dev\/troubleshooting\/reduced-motion/i,
-          /\[CursorBrowser\]/i,
-          /Native dialog overrides installed/i,
-          /\[SecureStore\].*Refused empty overwrite/i,
-          /\[KvGuard\]/i,
-          /\[Violation\].*non-passive/i,
-        ];
-        function msg(args) {
-          return Array.prototype.slice.call(args).join(' ');
-        }
-        function patch(level) {
-          var native = console[level].bind(console);
-          console[level] = function () {
-            var t = msg(arguments);
-            if (benign.some(function (r) { return r.test(t); })) return;
-            native.apply(console, arguments);
-          };
-        }
-        patch('debug');
-        patch('info');
-        patch('warn');
-        patch('log');
-        window.addEventListener(
-          'error',
-          function (e) {
-            if (benign.some(function (r) { return r.test(e.message || ''); })) e.preventDefault();
-          },
-          true,
-        );
-      })();
-    </script>
-
-    <!-- 🔐 WebAuthn Permissions Policy -->
-    <meta http-equiv="Permissions-Policy" content="publickey-credentials-get=*, publickey-credentials-create=*" />
-
+    <link rel="stylesheet" href="/hami-home-static-shell.css" />
     <title>Hami - Lawyer Dashboard</title>
     <style>
       html,
       body {
-        background: #0a0f1c;
-        color: #e6c673;
+        background: var(--hami-board-surface-bg, var(--hami-surface-bg, #0a0f1c));
+        color: var(--hami-primary, #e6c673);
         margin: 0;
         min-height: 100%;
       }
@@ -73,35 +53,10 @@
     </style>
   </head>
   <body>
-    <div
-      id="hami-static-boot"
-      class="hami-boot-cinematic"
-      data-testid="hami-static-boot"
-      aria-busy="true"
-      aria-label="تهيئة لوحة المحامي"
-    >
-      <div class="hami-boot-center-stage" aria-hidden="true">
-        <div class="hami-boot-wordmark-stage hami-boot-wordmark-stage--enter">
-          <div class="hami-boot-brand-mark-shell">
-            <img
-              class="hami-boot-brand-mark"
-              src="/hami-logo-transparent.png"
-              alt=""
-              loading="eager"
-              decoding="async"
-              fetchpriority="high"
-              draggable="false"
-            />
-          </div>
-          <div class="hami-boot-brand-credit" aria-label="المطور المستقل أحمد مهدي كريو">
-            <span class="hami-boot-brand-credit-role">المطور المستقل</span>
-            <strong class="hami-boot-brand-credit-name">أحمد مهدي كريو</strong>
-          </div>
-        </div>
-      </div>
+    <div id="hami-static-boot" data-testid="hami-static-boot" data-hami-phase="splash" aria-hidden="true">
+      <span class="hami-boot-wordmark" data-testid="hami-boot-wordmark" aria-hidden="true">حامي</span>
     </div>
     <div id="root"></div>
-    <script src="/hami-boot.js" defer></script>
     <script type="module" src="/src/index.tsx"></script>
   </body>
 </html>

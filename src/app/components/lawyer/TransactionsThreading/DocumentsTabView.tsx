@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/app/components/ui/dialog';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { useTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';

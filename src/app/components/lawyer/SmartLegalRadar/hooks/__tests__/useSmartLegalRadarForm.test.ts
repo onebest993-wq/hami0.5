@@ -54,12 +54,11 @@ describe('useSmartLegalRadarForm', () => {
         });
         expect(result.current.showForm).toBe(true);
 
-        act(() => {
-            result.current.handleFormChange('title', 'جلسة مرافعة');
-        });
-
         await act(async () => {
-            await result.current.handleSave();
+            await result.current.handleSave({
+                ...result.current.formData,
+                title: 'جلسة مرافعة',
+            });
         });
 
         expect(addEvent).toHaveBeenCalledTimes(1);
@@ -89,15 +88,20 @@ describe('useSmartLegalRadarForm', () => {
 
         act(() => {
             result.current.openAddForm();
-            result.current.handleFormChange('title', 'موعد');
         });
 
         let firstSave: Promise<void>;
         act(() => {
-            firstSave = result.current.handleSave();
+            firstSave = result.current.handleSave({
+                ...result.current.formData,
+                title: 'موعد',
+            });
         });
         act(() => {
-            void result.current.handleSave();
+            void result.current.handleSave({
+                ...result.current.formData,
+                title: 'موعد',
+            });
         });
 
         await act(async () => {

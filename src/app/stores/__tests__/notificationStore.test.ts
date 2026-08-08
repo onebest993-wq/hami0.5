@@ -100,6 +100,15 @@ describe('notificationStore', () => {
         expect(persistMock).toHaveBeenCalledWith('user-xyz', expect.objectContaining({ id: 'persist-1' }));
     });
 
+    it('hydrateFromLocalPeek يضبط hasHydratedOnce حتى مع قائمة فارغة', () => {
+        useNotificationStore.getState().hydrateFromLocalPeek('user-empty');
+        const state = useNotificationStore.getState();
+        expect(state.currentUserId).toBe('user-empty');
+        expect(state.notifications).toEqual([]);
+        expect(state.hasHydratedOnce).toBe(true);
+        expect(state.isLoading).toBe(false);
+    });
+
     it('setUserId يُصفّر القائمة عند تبديل الحساب', () => {
         useNotificationStore.getState().setUserId('user-a');
         useNotificationStore.getState().addNotification(makeNotif('a'));

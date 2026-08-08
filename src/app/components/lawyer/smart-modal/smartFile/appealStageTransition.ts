@@ -1,8 +1,13 @@
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import {
+    isPersonalStatusAppealContext,
     isPersonalStatusCoreStage,
-    isPersonalStatusStageName,
 } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import {
+    resolveLastPleadingStageIndex,
+    resolvePleadingLayer,
+    isBeginningPleadingStageName,
+} from './pleadingStageClassification';
 import type { CaseStage, IncidentalCase, Party, TimelineEvent } from '../../LawyerShared';
 import type { SmartFileAttachment } from './judgmentTypes';
 import { isAppealStageName, isFirstInstanceStageName, resolveLawyerSide } from './judgmentTypes';
@@ -10,13 +15,20 @@ import { buildAppealStageParties } from './appealPartyEngine';
 import { INTERPLEADER_APPELLANT_SIDE } from './interpleaderAppealEngine';
 import {
     extractParentheticalUnderlyingSide,
+    isAbsentObjectedRole,
+    isAbsentObjectorRole,
     isAppellantAppealRole,
     isDefendantSideRole,
     isPlaintiffSideRole,
     isThirdPartyRole,
     isInterpleaderThirdPartyRole,
+    resolveAbsentObjectionOriginalSide,
 } from './partyRoleClassification';
-import { resolveRetrialTargetStageIndex } from './extraordinaryAppealGateway';
+import { resolveAbsentObjectionClientRole } from './absentJudgmentFlow';
+import {
+    resolveCorrectionAcceptReturnTargetStageIndex,
+    resolveRetrialTargetStageIndex,
+} from './extraordinaryAppealGateway';
 
 export type AppealTransitionParams = {
     appealType: string;
@@ -62,10 +74,18 @@ export function resolveAppealRoleTitles(appealType: string): { appellantTitle: s
 
 export function resolveAppealStageName(
     appealType: string,
-    options?: { sourceStageName?: string | null },
+    options?: {
+        sourceStageName?: string | null;
+        stages?: Array<{ stageName?: string | null; name?: string | null }> | null;
+        file?: { lawsuitJurisdiction?: string; selectedType?: string } | null;
+    },
 ): string {
     const t = String(appealType ?? '').trim();
-    const personal = isPersonalStatusStageName(options?.sourceStageName);
+    const personal = isPersonalStatusAppealContext(
+        options?.sourceStageName,
+        options?.stages,
+        options?.file,
+    );
 
     if (personal) {
         if (t === 'تمييز') return 'تمييز';
@@ -86,6 +106,23 @@ export function resolveOpponentAsAppellant(
     representedParty?: string | null,
     parties?: Array<{ role?: string; isClient?: boolean }>,
 ): 'المدعي' | 'المدعى عليه' {
+    if (
+        parties?.some(
+            (p) =>
+                isAbsentObjectorRole(String(p.role ?? ''))
+                || isAbsentObjectedRole(String(p.role ?? '')),
+        )
+    ) {
+        const clientRole = resolveAbsentObjectionClientRole(parties);
+        if (clientRole === 'objected') return 'المدعى عليه';
+        if (clientRole === 'objector') return 'المدعي';
+        const objector = parties?.find((p) => isAbsentObjectorRole(String(p.role ?? '')));
+        if (objector) {
+            const objectorOriginal = resolveAbsentObjectionOriginalSide(objector);
+            if (objectorOriginal) return objectorOriginal;
+        }
+    }
+
     const side = resolveLawyerSide(representedParty, parties);
     if (side === 'المدعي') return 'المدعى عليه';
     if (side === 'المدعى عليه') return 'المدعي';
@@ -299,7 +336,10 @@ export function applyAppealStageTransition(
 
     const updatedStages = [...stages];
     const stageName = String(currentStage.stageName ?? currentStage.name ?? '');
-    const appealStageName = resolveAppealStageName(appealType, { sourceStageName: stageName });
+    const appealStageName = resolveAppealStageName(appealType, {
+        sourceStageName: stageName,
+        stages: updatedStages,
+    });
     const transferredAttachments = collectTransferableAttachments(currentStage.attachments);
     const flippedParties = buildAppealStageParties(
         currentStage.parties ?? [],
@@ -338,7 +378,7 @@ export function applyAppealStageTransition(
         type: 'milestone',
         date: filingDate || getLocalTodayYmd(),
         title: `🚀 فتح إضبارة ${appealStageName}`,
-        details: `تم تقديم ${appealType} برقم ${newCaseNumber || '—'}\n\nمقدم الطعن: ${appellant}\n${notes ? `\nملاحظات: ${notes}` : ''}\n\n📎 المستندات المنقولة متاحة في طلبات الإضبارة.`,
+        details: `تم تقديم ${appealType} برقم ${newCaseNumber || '—'}\nمقدم الطعن: ${appellant}${notes ? `\nملاحظات: ${notes}` : ''}`,
         isNew: true,
     };
 
@@ -407,9 +447,8 @@ export function shouldShowFirstInstanceIncidentalUi(
     stageName?: string | null,
     isPleadingsClosed?: boolean,
 ): boolean {
-    if (!isFirstInstanceStageName(stageName)) return false;
     if (isPleadingsClosed) return false;
-    return String(stageName ?? '') !== 'التمييز';
+    return isBeginningPleadingStageName(stageName);
 }
 
 export type CassationRemandTarget = {
@@ -422,27 +461,25 @@ function stageLabel(stage: CaseStage | undefined): string {
     return String(stage?.stageName ?? stage?.name ?? '').trim();
 }
 
-/** بعد نقض التمييز: استئناف إن وُجدت مرحلة استئناف سابقة، وإلا البداءة/أول درجة. */
+/** بعد نقض التمييز: العودة لآخر مرحلة مرافعة (استئناف · بداءة · اعتراض · إعادة محاكمة). */
 export function resolveCassationRemandTarget(
     stages: CaseStage[],
     cassationStageIndex: number,
 ): CassationRemandTarget {
-    const prior = stages.slice(0, Math.max(0, cassationStageIndex));
-
-    for (let i = prior.length - 1; i >= 0; i--) {
-        const name = stageLabel(prior[i]);
-        if (isAppealStageName(name)) {
-            return {
-                stageName: name || 'الاستئناف',
-                sourceStageIndex: i,
-                remandLayer: 'appeal',
-            };
-        }
+    const pleadingIdx = resolveLastPleadingStageIndex(stages, cassationStageIndex);
+    if (pleadingIdx >= 0) {
+        const name = stageLabel(stages[pleadingIdx]);
+        return {
+            stageName: name || 'البداءة',
+            sourceStageIndex: pleadingIdx,
+            remandLayer: resolvePleadingLayer(name),
+        };
     }
 
+    const prior = stages.slice(0, Math.max(0, cassationStageIndex));
     for (let i = prior.length - 1; i >= 0; i--) {
         const name = stageLabel(prior[i]);
-        if (isPersonalStatusStageName(name) && isPersonalStatusCoreStage(name)) {
+        if (isPersonalStatusAppealContext(name, prior) && isPersonalStatusCoreStage(name)) {
             return {
                 stageName: name || 'أحوال شخصية',
                 sourceStageIndex: i,
@@ -451,19 +488,11 @@ export function resolveCassationRemandTarget(
         }
     }
 
-    let firstInstanceIdx = 0;
-    for (let i = prior.length - 1; i >= 0; i--) {
-        const name = stageLabel(prior[i]);
-        if (isFirstInstanceStageName(name)) {
-            firstInstanceIdx = i;
-            break;
-        }
-    }
-
-    const source = prior[firstInstanceIdx] ?? prior[0];
+    const fallbackIdx = prior.length > 0 ? 0 : 0;
+    const source = prior[fallbackIdx];
     return {
         stageName: stageLabel(source) || 'البداءة',
-        sourceStageIndex: prior.length > 0 ? firstInstanceIdx : 0,
+        sourceStageIndex: fallbackIdx,
         remandLayer: 'first_instance',
     };
 }
@@ -554,6 +583,9 @@ export function applyCassationRemand(
 export function cassationRemandSuccessMessage(target: CassationRemandTarget): string {
     if (target.remandLayer === 'appeal') {
         return 'تم نقض الحكم وإعادة الإضبارة لمرحلة الاستئناف';
+    }
+    if (isPersonalStatusAppealContext(target.stageName)) {
+        return `تم نقض الحكم وإعادة الإضبارة لمرحلة ${target.stageName}`;
     }
     return `تم نقض الحكم وإعادة الإضبارة لمرحلة ${target.stageName}`;
 }
@@ -696,7 +728,7 @@ export function applyCorrectionComplete(
         timeline: [completeEvent, ...(correctionStage.timeline ?? [])],
     };
 
-    const targetIndex = resolveRetrialTargetStageIndex(updatedStages);
+    const targetIndex = resolveCorrectionAcceptReturnTargetStageIndex(updatedStages);
     const targetStage = updatedStages[targetIndex];
     if (!targetStage) {
         throw new Error('applyCorrectionComplete: litigation target stage missing');
@@ -728,6 +760,51 @@ export function applyCorrectionComplete(
         newActiveIndex: targetIndex,
         targetStageName: targetName,
     };
+}
+
+export const CORRECTION_JUDGMENT_ACCEPTED = 'قبول طلب التصحيح';
+export const CORRECTION_JUDGMENT_REJECTED = 'رد طلب التصحيح';
+
+/** رد طلب التصحيح — يُؤيد القرار التمييزي ويُقفل الإضبارة نهائياً. */
+export function applyCorrectionRejected(
+    stages: CaseStage[],
+    correctionStageIndex: number,
+    params?: CorrectionCompleteParams,
+): { updatedStages: CaseStage[] } {
+    const updatedStages = [...stages];
+    const correctionStage = updatedStages[correctionStageIndex];
+    if (!correctionStage) {
+        throw new Error('applyCorrectionRejected: correction stage not found');
+    }
+
+    const now = params?.completionDate ?? getLocalTodayYmd();
+    const notes = String(params?.notes ?? '').trim();
+    const outcome = String(params?.outcome ?? '').trim() || CORRECTION_JUDGMENT_REJECTED;
+    const finalDecision = 'مكتسبة الدرجة القطعية';
+
+    const rejectEvent: TimelineEvent = {
+        id: `correction_rejected_${Date.now()}`,
+        type: 'milestone',
+        date: now,
+        title: '❌ رد طلب التصحيح — اكتسب القرار التمييزي الدرجة القطعية',
+        details: notes
+            ? `${outcome}\n\n${notes}\n\nتم تأييد القرار التمييزي وإغلاق الإضبارة نهائياً.`
+            : `${outcome}\n\nتم تأييد القرار التمييزي وإغلاق الإضبارة نهائياً.`,
+        isNew: true,
+        color: 'gold',
+    };
+
+    updatedStages[correctionStageIndex] = {
+        ...correctionStage,
+        status: 'completed',
+        isPleadingsClosed: true,
+        awaitingOpponentAppeal: false,
+        finalDecision: `${outcome} — ${finalDecision}`,
+        decisionDate: now,
+        timeline: [rejectEvent, ...(correctionStage.timeline ?? [])],
+    };
+
+    return { updatedStages };
 }
 
 function isQuashedCassationStage(stage: CaseStage | undefined): boolean {

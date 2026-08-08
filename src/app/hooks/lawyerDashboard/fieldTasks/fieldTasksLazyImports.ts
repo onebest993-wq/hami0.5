@@ -1,5 +1,9 @@
 /** تحميل ديناميكي — لا تبعيات ثقيلة على مسار أول paint. */
 
+let instantPaintInflight: Promise<
+    typeof import('@/app/runtime/fieldTasksInstantPaint')
+> | null = null;
+
 export function loadFieldTasksBootHydrator() {
     return import('@/app/runtime/fieldTasksBootHydrator');
 }
@@ -9,7 +13,15 @@ export function loadFieldTasksHubLoader() {
 }
 
 export function loadFieldTasksInstantPaint() {
-    return import('@/app/runtime/fieldTasksInstantPaint');
+    if (!instantPaintInflight) {
+        instantPaintInflight = import('@/app/runtime/fieldTasksInstantPaint');
+    }
+    return instantPaintInflight;
+}
+
+/** تسخين مبكر — يملأ instantPaintRef قبل أول نقرة على الميدان */
+export function prefetchFieldTasksInstantPaint(): void {
+    void loadFieldTasksInstantPaint();
 }
 
 export function warmQuantumTasksDiskRead(): void {

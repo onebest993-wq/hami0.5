@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 
 export const JudicialNotificationModal = ({ isOpen, onClose, onSave }: any) => {
     const [targetPerson, setTargetPerson] = useState('');

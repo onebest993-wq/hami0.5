@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { FolderInput } from 'lucide-react';
+import { FolderInput } from '@/app/components/ui/lucideIcons';
 import { groupRepositoryRoomsByInitial } from '@/app/services/repository/repositoryRoomPresentation';
 import type { RepositoryRoom } from '@/app/services/repository/repositoryRooms';
 import { REPO_CARD_ICON_BTN } from './smartRepositoryTheme';

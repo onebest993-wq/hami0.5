@@ -1,9 +1,8 @@
-// @ts-nocheck
 /** Phase C Slice 25 — fingerprint لـ lazy chunk setup */
 export function buildExecutionDashboardCoreChunkFingerprint(p: {
     executionId: string | undefined;
-    activeTabId: string;
-    activeFinancialTab: string;
+    activeTabId: string | number;
+    activeFinancialTab: string | number;
     activeTimelineFilter: string;
     executionPaused: boolean;
     dossierLifecyclePanel: {
@@ -28,7 +27,9 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
     voluntaryEndOptimistic: boolean;
     notificationCount: number;
     showExecutionFinancialHub: boolean;
+    showExecutionTrashModal: boolean;
     handlerClusterEpoch: number;
+    decisionsReloadEpoch: number;
 }) {
     const { dossierLifecyclePanel, followupOrchestrator, coercionOrchestrator } = p;
     return {
@@ -55,6 +56,8 @@ export function buildExecutionDashboardCoreChunkFingerprint(p: {
         voluntaryEndOptimistic: p.voluntaryEndOptimistic,
         notificationCount: p.notificationCount,
         showExecutionFinancialHub: p.showExecutionFinancialHub,
+        showExecutionTrashModal: p.showExecutionTrashModal,
         handlerClusterEpoch: p.handlerClusterEpoch,
+        decisionsReloadEpoch: p.decisionsReloadEpoch,
     };
 }

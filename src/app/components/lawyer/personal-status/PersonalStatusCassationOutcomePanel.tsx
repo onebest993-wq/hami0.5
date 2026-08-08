@@ -1,4 +1,4 @@
-import { Check, Scale, X } from 'lucide-react';
+import { Check, Scale, X } from '@/app/components/ui/lucideIcons';
 
 type PersonalStatusCassationOutcomePanelProps = {
     onRatify: () => void;
@@ -20,17 +20,13 @@ export function PersonalStatusCassationOutcomePanel({
             className="rounded-2xl border border-[#F0A8B4]/22 bg-gradient-to-br from-[#F5C6D0]/[0.10] via-white/[0.04] to-[#ECE8E2]/[0.03] backdrop-blur-xl p-4 shadow-[inset_0_1px_0_rgba(255,220,228,0.16)]"
             data-testid="personal-status-cassation-outcome"
         >
-            <div className="flex items-start gap-3 mb-3.5">
+            <div className="flex items-center gap-3 mb-2.5">
                 <div className="shrink-0 w-10 h-10 rounded-xl border border-[#F0A8B4]/28 bg-gradient-to-br from-[#F5C6D0]/[0.14] to-white/[0.05] flex items-center justify-center">
                     <Scale size={17} className="text-[#FFD4DC]" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 text-right">
                     <p className="text-sm font-bold text-[#FFFEF9] leading-snug">
                         قرار محكمة التمييز الاتحادية
-                    </p>
-                    <p className="text-[11px] text-[#9894A0] mt-1 leading-relaxed">
-                        بعد صدور القرار، سجّل تصديق الحكم المميّز أو نقضه. عند النقض تُعاد الإضبارة
-                        لمرحلة الأحوال الشخصية وتُفتح المرافعة مجدداً.
                     </p>
                 </div>
             </div>

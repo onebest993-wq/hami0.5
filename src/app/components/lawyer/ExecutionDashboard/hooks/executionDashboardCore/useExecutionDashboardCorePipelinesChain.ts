@@ -1,7 +1,9 @@
-// @ts-nocheck
-/** Phase C Slice 32 — workspace → persist pipeline chain */
-import type { ExecutionFile } from '@/app/types/execution';
 import type { ExecutionDashboardProps } from '../../types';
+import type { ExecutionDashboardCoreBootPipelineValue } from './executionDashboardCoreBootPipelineTypes';
+import {
+    buildExecutionDashboardCoreFollowupDebtorPipelineInput,
+    buildExecutionDashboardCoreWorkspacePipelineInput,
+} from './buildExecutionDashboardCorePipelinesChainInputs';
 import { useExecutionDashboardCoreWorkspacePipeline } from './useExecutionDashboardCoreWorkspacePipeline';
 import { useExecutionDashboardCoreFileMetadataBinding } from './useExecutionDashboardCoreFileMetadataBinding';
 import { useExecutionDashboardCoreFollowupDebtorPipeline } from './useExecutionDashboardCoreFollowupDebtorPipeline';
@@ -13,7 +15,7 @@ export function useExecutionDashboardCorePipelinesChain({
     executionId,
     onUpdate,
 }: {
-    boot: Record<string, unknown>;
+    boot: ExecutionDashboardCoreBootPipelineValue;
     file: ExecutionDashboardProps['file'];
     executionId: string | undefined;
     onUpdate: ExecutionDashboardProps['onUpdate'];
@@ -80,29 +82,9 @@ export function useExecutionDashboardCorePipelinesChain({
         hasChildDossiers,
     } = boot;
 
-    const workspacePipeline = useExecutionDashboardCoreWorkspacePipeline({
-        modals,
-        executionData,
-        executionDataRef,
-        executionFileKey,
-        executionDashboardFileId,
-        executionId,
-        decisionsStorageExecutionId,
-        executionStorageTick,
-        setExecutionModal,
-        showDecisionsModal,
-        setShowDecisionsModal,
-        setShowNotesModal,
-        setShowDocumentsModal,
-        setShowAppointmentModal,
-        setShowTimelineModal,
-        setShowNotificationModal,
-        setShowCoerciveModal,
-        subFiles,
-        activeSubFileId,
-        isInabaActive,
-        parentDossierId,
-    });
+    const workspacePipeline = useExecutionDashboardCoreWorkspacePipeline(
+        buildExecutionDashboardCoreWorkspacePipelineInput({ boot, executionId }),
+    );
 
     const {
         todayYmd,
@@ -179,7 +161,6 @@ export function useExecutionDashboardCorePipelinesChain({
         activeCoerciveActions,
         activeTimelineEvents,
     });
-
     const {
         directorate,
         fileNumber,
@@ -248,42 +229,27 @@ export function useExecutionDashboardCorePipelinesChain({
     // ===========================
     // Financial debug logging removed from render path for performance
     
-    const followupDebtor = useExecutionDashboardCoreFollowupDebtorPipeline({
-        executionData,
-        viewExecutionData,
-        executionId,
-        decisionsStorageExecutionId,
-        decisionsReloadEpoch,
-        claimType,
-        creditors,
-        debtors,
-        mergedTimelineEvents,
-        activeTimelineEvents,
-        activeCoerciveActions,
-        realEstateSeizureRegistryAssets,
-        salarySeizureRegistryAssets,
-        movableSeizureRegistryAssets,
-        thirdPartySeizureRegistryAssets,
-        thirdPartySeizuresUi,
-        showToast,
-        showUnifiedExecutionModal,
-        dossierFileKey,
-        executionFileKey,
-        setShowDecisionsModal,
-        showDecisionsModal,
-        setActiveTimelineFilter,
-        setShowExtraCreditors,
-        setShowExtraDebtors,
-        caseTasksPendingRef,
-        setCaseTasksPending,
-        setTimelineEvents,
-        persistExecutionMergeRef,
-        setNotificationCount,
-        setDebtorSummonsMarkerLocal,
-        pushTimelineEventRef,
-        nextTimelineId,
-        followupOrchestrator,
-    });
+    const followupDebtor = useExecutionDashboardCoreFollowupDebtorPipeline(
+        buildExecutionDashboardCoreFollowupDebtorPipelineInput({
+            executionData,
+            viewExecutionData,
+            executionId,
+            decisionsStorageExecutionId,
+            decisionsReloadEpoch: Number(decisionsReloadEpoch ?? 0),
+            claimType,
+            creditors,
+            debtors,
+            showToast,
+            dossierFileKey,
+            executionFileKey,
+            setShowDecisionsModal,
+            showDecisionsModal,
+            setShowExtraCreditors,
+            setShowExtraDebtors,
+            setDebtorSummonsMarkerLocal,
+            workspacePipeline,
+        }) ,
+    );
 
     const {
         debtorWorkspaceContext,

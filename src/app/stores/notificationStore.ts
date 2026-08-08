@@ -8,6 +8,7 @@ import { sanitizeNotificationDisplayMessage, isNavigationNoiseNotification } fro
 import { isIncomingNotification } from '@/app/services/notificationIncomingFilter';
 import { capNotificationList } from '@/app/services/notifications/notificationLimits';
 import { capMergedNotificationLists, mergeNotificationRecord } from '@/app/services/notifications/notificationMerge';
+import { peekLocalNotifications } from '@/app/infrastructure/notificationPeekLite';
 
 type NotificationRepositoryModule = typeof import('@/app/infrastructure/NotificationRepository');
 
@@ -107,22 +108,20 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         });
     },
 
-    hydrateFromLocalPeek: (userId: string) => {
+  hydrateFromLocalPeek: (userId: string) => {
+        const uid = userId.trim();
+        if (!uid) return;
         const state = get();
-        if (state.currentUserId === userId && state.notifications.length > 0) return;
-        void loadNotificationRepository().then((mod) => {
-            const latest = get();
-            if (latest.currentUserId === userId && latest.notifications.length > 0) return;
-            const list = stripInvalidNotifications(capNotificationList(mod.peekLocalNotifications(userId)));
-            if (list.length === 0) return;
-            const unread = list.filter((n) => !n.isRead).length;
-            set({
-                currentUserId: userId,
-                notifications: list,
-                unreadCount: unread,
-                hasHydratedOnce: true,
-                isLoading: false,
-            });
+        if (state.currentUserId === uid && state.hasHydratedOnce) return;
+
+        const list = stripInvalidNotifications(capNotificationList(peekLocalNotifications(uid)));
+        const unread = list.filter((n) => !n.isRead).length;
+        set({
+            currentUserId: uid,
+            notifications: list,
+            unreadCount: unread,
+            hasHydratedOnce: true,
+            isLoading: false,
         });
     },
 

@@ -42,15 +42,28 @@ export function TransactionsHubInstantShell({ onBack }: TransactionsHubInstantSh
                 <TxGlassHeader>
                     <TxHeaderRow title="إدارة المعاملات" onBack={onBack} backTestId="transactions-back" />
 
-                    <div className="mt-4 relative pointer-events-none" aria-hidden>
-                        <HomeSearchIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8A8680]/60" />
-                        <div className="h-11 rounded-sm border border-[#2A4550]/80 bg-[#152A32]" />
-                    </div>
-
-                    <div className="mt-3 flex gap-1.5 overflow-hidden pb-0.5" aria-hidden>
-                        {Array.from({ length: 4 }).map((_, i) => (
-                            <div key={i} className="h-11 w-[4.5rem] shrink-0 rounded-[3px] bg-[#152A32]" />
-                        ))}
+                    <div
+                        className="mt-4 rounded-sm border-2 border-[#3A5A68] bg-[#152A32] overflow-hidden pointer-events-none"
+                        aria-hidden
+                    >
+                        <div className="flex items-center gap-2 px-3 h-11">
+                            <HomeSearchIcon className="w-4 h-4 text-[#8A8680]/60 shrink-0" />
+                            <div className="h-3 flex-1 rounded-sm bg-[#1A3340]/60" />
+                            <div className="h-5 w-12 shrink-0 rounded-[3px] bg-[#D4A56A]/10 border border-[#A67C45]/30" />
+                        </div>
+                        <div className="h-px bg-gradient-to-l from-transparent via-[#2A4550]/70 to-transparent" />
+                        <div className="flex gap-1.5 overflow-hidden px-2 py-2">
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <div
+                                    key={i}
+                                    className="h-11 w-[4.25rem] shrink-0 rounded-[3px] bg-[#0E1F26]/90 border border-[#3A5A68]/50"
+                                />
+                            ))}
+                        </div>
+                        <div className="border-t border-[#2A4550]/45 px-3 py-1.5 flex justify-between gap-2">
+                            <div className="h-2.5 w-16 rounded-sm bg-[#1A3340]/50" />
+                            <div className="h-2.5 w-20 rounded-sm bg-[#1A3340]/40" />
+                        </div>
                     </div>
                 </TxGlassHeader>
 

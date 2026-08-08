@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, UserPlus, Users } from 'lucide-react';
+import { Plus, UserPlus, Users } from '@/app/components/ui/lucideIcons';
 import PartyCard, { type PartyCardProps } from './PartyCard';
 import { ecg } from './executionCreationGlassUi';
 import { ExecutionCreationSection } from './ExecutionCreationSection';
@@ -151,7 +151,7 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
 
     return (
         <ExecutionCreationSection title="أطراف الإضبارة">
-            <div className={ecg.partyGroup}>
+            <div className={ecg.partyGroup} data-spark-focus="creditors">
                 <div className="flex flex-col gap-1 p-1">
                     {creditors.map((creditor, index) => (
                         <PartyCard
@@ -194,7 +194,11 @@ export const PartiesSection: React.FC<PartiesSectionProps> = React.memo(({
                         const debtorKey = String(debtor.id);
                         const isSolidary = Boolean(debtor.isSolidaryLiability);
                         return (
-                            <div key={debtor.id} className="border-b border-white/5 last:border-b-0">
+                            <div
+                                key={debtor.id}
+                                className="border-b border-white/5 last:border-b-0"
+                                {...(index === 0 ? { 'data-spark-focus': 'debtor-address' } : {})}
+                            >
                                 <PartyCard
                                     party={debtor}
                                     index={index}

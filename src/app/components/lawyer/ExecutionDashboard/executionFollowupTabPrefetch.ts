@@ -1,5 +1,6 @@
 /** تحميل مسبق لتبويب واحد من محضر المتابعة — لا يجمع كل التبويبات في موجة واحدة */
 import { prefetchExecutionCoreHandlers } from './executionCoreHandlersPrefetch';
+import { canonicalFollowupTabForPrefetch } from './utils/followupLegacyTabNormalization';
 import {
     LazyCoerciveTab,
     LazyCommunicationsTab,
@@ -11,6 +12,8 @@ import {
     LazyPersonalTab,
     LazyRequestsTab,
     LazySeizureRequestsTab,
+    prefetchCustodyRemovalWardsModule,
+    prefetchEvictionFieldProceduresPanel,
 } from './executionDashboardLazyRegistry';
 
 export type ExecutionFollowupTabPrefetchId =
@@ -30,8 +33,10 @@ const TAB_LOADERS: Record<ExecutionFollowupTabPrefetchId, () => Promise<unknown>
         Promise.all([
             LazyPersonalTab.preload(),
             LazyPersonalCoerciveFollowupPanel.preload(),
+            Promise.resolve(prefetchCustodyRemovalWardsModule()),
         ]),
-    coercive: () => LazyCoerciveTab.preload(),
+    coercive: () =>
+        Promise.all([LazyCoerciveTab.preload(), Promise.resolve(prefetchEvictionFieldProceduresPanel())]),
     financial: () => LazyFinancialTab.preload(),
     other_party: () =>
         Promise.all([LazyOtherPartyTab.preload(), LazyOtherPartyActionsLog.preload()]),
@@ -49,33 +54,33 @@ export function isExecutionFollowupTabPrefetchId(
 }
 
 export function prefetchExecutionFollowupTab(tabId: string): void {
-    if (!isExecutionFollowupTabPrefetchId(tabId)) return;
-    switch (tabId) {
+    const canonical = canonicalFollowupTabForPrefetch(tabId);
+    if (!isExecutionFollowupTabPrefetchId(canonical)) return;
+    switch (canonical) {
         case 'personal':
         case 'coercive':
             prefetchExecutionCoreHandlers('coercive');
             prefetchExecutionCoreHandlers('coercive-lifecycle');
             break;
-        case 'admin':
-        case 'special':
-            prefetchExecutionCoreHandlers('followup-admin-special');
-            break;
         case 'seizure_requests':
-            // 'seizure' كان no-op — أول تفاعل داخل تبويب الحجز كان يصطدم بجسور باردة
             prefetchExecutionCoreHandlers('seizure-requests');
             break;
-        case 'other_party':
-            // 'followup-other-party' كان no-op — سخّن جسرَي المدين والدائن معاً
-            prefetchExecutionCoreHandlers('followup-other-party-debtor');
-            prefetchExecutionCoreHandlers('followup-other-party-creditor');
+        case 'admin':
+        case 'special':
             break;
         case 'dossier_controls':
             prefetchExecutionCoreHandlers('followup-dossier-controls');
+            prefetchExecutionCoreHandlers('dossier-support');
+            break;
+        case 'other_party':
+        case 'financial':
+        case 'correspondences':
+            // المعالجات على Core أو لا تحتاج جسور handlers — UI فقط عبر TAB_LOADERS
             break;
         default:
             break;
     }
-    void TAB_LOADERS[tabId]().catch(() => undefined);
+    void TAB_LOADERS[canonical as ExecutionFollowupTabPrefetchId]().catch(() => undefined);
 }
 
 /**

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Briefcase } from 'lucide-react';
+import { Briefcase } from '@/app/components/ui/lucideIcons';
 import type { AffiliationSide, Party, ThirdPartyEntryMode } from '../../../LawyerShared';
 import { groupPartiesBySide, affiliationSideLabel } from '../../smartFile/incidentalCaseLinking';
 import { MoroccanGlassShell } from '../../smartFile/moroccanGlassShell';
 import { SmartModalHeader, useSmartModalAccent } from '../../smartFile/smartModalChrome';
+import { SmartToast } from '@/app/components/ui/SmartToast';
+import { isCounterClaimAllowedStage, buildIncidentalSpawnConfirmPreview } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
 import type { AddIncidentalCaseModalProps } from '../../smartFile/modalFormTypes';
 
 export const AddIncidentalCaseModal = ({
@@ -28,6 +30,7 @@ export const AddIncidentalCaseModal = ({
             ? currentStage
             : (currentStage?.stageName || currentStage?.name || '');
     const isAppeal = stageLabel.includes('استئناف') || stageLabel.includes('Appeal');
+    const counterClaimAllowed = isCounterClaimAllowedStage(stageLabel);
     const isThirdParty = type === 'thirdParty';
     const isSpawnType = type === 'joined' || type === 'counter';
 
@@ -35,6 +38,18 @@ export const AddIncidentalCaseModal = ({
         currentStage && typeof currentStage !== 'string' && Array.isArray(currentStage.parties)
             ? (currentStage.parties as Party[])
             : [];
+    const stageRecord =
+        currentStage && typeof currentStage !== 'string'
+            ? (currentStage as {
+                  stageName?: string;
+                  court?: string;
+                  judge?: string;
+                  parties?: Party[];
+              })
+            : null;
+    const spawnPreview = spawnConfirm && stageRecord
+        ? buildIncidentalSpawnConfirmPreview(stageRecord, spawnConfirm.type)
+        : null;
     const { plaintiffs, defendants } = groupPartiesBySide(stageParties);
     const affiliationParties = affiliationSide === 'plaintiff' ? plaintiffs : affiliationSide === 'defendant' ? defendants : [];
 
@@ -79,6 +94,10 @@ export const AddIncidentalCaseModal = ({
     const canSubmit = isThirdParty ? canSubmitThirdParty : canSubmitDefault;
 
     const handleTypeChange = (next: string) => {
+        if (!editMode && next === 'counter' && !counterClaimAllowed) {
+            SmartToast.error('لا يمكن إنشاء دعوى متقابلة في مرحلة الاستئناف أو إعادة المحاكمة');
+            return;
+        }
         if (!editMode && (next === 'joined' || next === 'counter')) {
             const incidentalId = `inc_${Date.now()}`;
             setType(next);
@@ -145,7 +164,7 @@ export const AddIncidentalCaseModal = ({
                                 <option value="joined" className={optionClass}>
                                     دعوى منضمة
                                 </option>
-                                <option value="counter" className={optionClass}>
+                                <option value="counter" disabled={!counterClaimAllowed} className={optionClass}>
                                     دعوى متقابلة
                                 </option>
                                 <option value="thirdParty" className={optionClass}>
@@ -166,11 +185,63 @@ export const AddIncidentalCaseModal = ({
                             </span>
                             ؟
                         </p>
+                        {spawnPreview ? (
+                            <div className="mt-3 space-y-2 rounded-xl border border-white/[0.08] bg-black/20 p-3 text-[10px] text-white/55">
+                                {spawnPreview.court ? (
+                                    <p>
+                                        <span className="text-white/35 font-bold">المحكمة: </span>
+                                        {spawnPreview.court}
+                                    </p>
+                                ) : null}
+                                {spawnPreview.judge ? (
+                                    <p>
+                                        <span className="text-white/35 font-bold">القاضي: </span>
+                                        {spawnPreview.judge}
+                                    </p>
+                                ) : null}
+                                {spawnPreview.stage ? (
+                                    <p>
+                                        <span className="text-white/35 font-bold">المرحلة: </span>
+                                        {spawnPreview.stage}
+                                    </p>
+                                ) : null}
+                                {spawnPreview.plaintiffs.length > 0 ? (
+                                    <div>
+                                        <p className="text-white/35 font-bold mb-1">المدعي (جانب الدعوى الجديدة)</p>
+                                        {spawnPreview.plaintiffs.map((p) => (
+                                            <p key={p.id} className="text-white/75">
+                                                {p.name || '—'}
+                                                {p.status ? (
+                                                    <span className="text-white/35"> — {p.status}</span>
+                                                ) : null}
+                                            </p>
+                                        ))}
+                                    </div>
+                                ) : null}
+                                {spawnPreview.defendants.length > 0 ? (
+                                    <div>
+                                        <p className="text-white/35 font-bold mb-1">المدعى عليه</p>
+                                        {spawnPreview.defendants.map((p) => (
+                                            <p key={p.id} className="text-white/75">
+                                                {p.name || '—'}
+                                                {p.status ? (
+                                                    <span className="text-white/35"> — {p.status}</span>
+                                                ) : null}
+                                            </p>
+                                        ))}
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
                         <div className="mt-3 flex items-center gap-2">
                             <button
                                 type="button"
                                 onClick={() => {
-                                    onSpawnLinkedCase?.({
+                                    if (!onSpawnLinkedCase) {
+                                        SmartToast.error('تعذّر فتح نموذج الإضبارة المرتبطة');
+                                        return;
+                                    }
+                                    onSpawnLinkedCase({
                                         type: spawnConfirm.type,
                                         incidentalId: spawnConfirm.incidentalId,
                                     });

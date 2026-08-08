@@ -7,9 +7,10 @@ import {
     resolveExecutorDecisionRowContext,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import type { OtherPartyRequestOutcome } from '@/app/utils/otherPartyEffectiveRequestsUtils';
+import { DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE } from '@/app/utils/otherPartyManualTrackDecisionSource';
 import { patchOtherPartyRequestTrack } from '@/app/utils/otherPartyRequestTrackUtils';
 
-export const DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE = 'debtor_agent_creditor_mirror';
+export { DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE };
 
 export type ManualTrackPhase =
     | 'idle'

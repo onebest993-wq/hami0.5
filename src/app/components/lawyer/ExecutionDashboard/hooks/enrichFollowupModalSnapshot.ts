@@ -71,10 +71,16 @@ export function enrichFollowupModalSnapshot(
             picked.showEmployeeAssignmentCoerciveBlock ??
             picked.modalShowEmployeeAssignmentCoerciveBlock ??
             false,
-        showPersonalCoerciveFollowupTab:
-            picked.showPersonalCoerciveFollowupTab ??
-            picked.modalShowPersonalCoerciveFollowupTab ??
-            false,
+        showPersonalCoerciveFollowupTab: (() => {
+            const fromPicked =
+                picked.showPersonalCoerciveFollowupTab ?? picked.modalShowPersonalCoerciveFollowupTab;
+            if (fromPicked !== undefined) return Boolean(fromPicked);
+            const earnerSpec = s.followupSpecialization as { hidePersonalCoerciveFollowupTab?: boolean } | undefined;
+            if (earnerSpec && typeof earnerSpec.hidePersonalCoerciveFollowupTab === 'boolean') {
+                return !earnerSpec.hidePersonalCoerciveFollowupTab;
+            }
+            return false;
+        })(),
         resolvedEmployeeSummonsAssignment:
             picked.resolvedEmployeeSummonsAssignment ??
             picked.modalResolvedEmployeeSummonsAssignment ??
@@ -82,11 +88,19 @@ export function enrichFollowupModalSnapshot(
             null,
         personalTabLockedForEmployee:
             picked.personalTabLockedForEmployee ?? picked.modalPersonalTabLockedForEmployee ?? false,
-        followupSpecialization:
-            picked.followupSpecialization ??
-            picked.followupModalSpecializationEffective ??
-            s.followupSpecialization ??
-            EMPTY_FOLLOWUP_SPECIALIZATION,
+        followupSpecialization: {
+            ...EMPTY_FOLLOWUP_SPECIALIZATION,
+            ...(typeof picked.followupModalSpecializationEffective === 'object' &&
+            picked.followupModalSpecializationEffective
+                ? (picked.followupModalSpecializationEffective as FollowupModalSnapshot)
+                : {}),
+            ...(typeof s.followupSpecialization === 'object' && s.followupSpecialization
+                ? (s.followupSpecialization as FollowupModalSnapshot)
+                : {}),
+            ...(typeof picked.followupSpecialization === 'object' && picked.followupSpecialization
+                ? (picked.followupSpecialization as FollowupModalSnapshot)
+                : {}),
+        },
         executionDebtorTabIndex: picked.executionDebtorTabIndex ?? s.executionDebtorTabIndex ?? 0,
         paidDebt: picked.paidDebt ?? s.paidDebt ?? 0,
         totalOwed: picked.totalOwed ?? s.totalOwed ?? 0,

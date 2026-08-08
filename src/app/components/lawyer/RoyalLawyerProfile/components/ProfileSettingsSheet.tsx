@@ -13,6 +13,7 @@ import { ProfileSettingsSheetHeader } from './settings/ProfileSettingsSheetHeade
 import { ProfileSettingsSheetPanels } from './settings/ProfileSettingsSheetPanels';
 import { ProfileSettingsSheetFooter } from './settings/ProfileSettingsSheetFooter';
 import { ProfileSettingsSheetFileInputs } from './settings/ProfileSettingsSheetFileInputs';
+import { useProfileCanvasBackgroundEditorChunk } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileCanvasBackgroundEditorChunk';
 import { profileMediaPathsOnlyIn } from '@/app/services/profile/profileMediaPaths';
 import { removeProfileMediaPaths } from '@/app/services/profileMediaService';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -47,7 +48,7 @@ export function ProfileSettingsSheet({
     const draftRef = useRef(customization);
     const customizationRef = useRef(customization);
     const { reduceMotion, keyboardInset, backdropTransition, sheetTransition } =
-        useProfileSettingsSheetChrome();
+        useProfileSettingsSheetChrome(open);
     useBodyScrollLock(open);
 
     /** يمنع تعديل المسودة أثناء حذف صامت قبل أن يصل prop الحفظ للواجهة */
@@ -61,6 +62,12 @@ export function ProfileSettingsSheet({
     const { tab, setTab, draft, patchDraft } = state;
     draftRef.current = draft;
     customizationRef.current = customization;
+
+    const canvasEditorOpen = Boolean(state.canvasBgEditor);
+    const {
+        ready: canvasEditorReady,
+        ProfileCanvasBackgroundEditor,
+    } = useProfileCanvasBackgroundEditorChunk(canvasEditorOpen);
 
     const guardedPatchDraft = useCallback(
         (updater: (prev: ProfilePageCustomization) => ProfilePageCustomization) => {
@@ -253,6 +260,14 @@ export function ProfileSettingsSheet({
                                 onBlockImageSelected={state.onBlockImageSelected}
                                 onCanvasBgSelected={state.onCanvasBgSelected}
                             />
+                            {ProfileCanvasBackgroundEditor ? (
+                                <ProfileCanvasBackgroundEditor
+                                    open={canvasEditorOpen && canvasEditorReady}
+                                    file={state.canvasBgEditor?.file ?? null}
+                                    onCancel={state.cancelCanvasBgEditor}
+                                    onConfirm={state.confirmCanvasBgEditor}
+                                />
+                            ) : null}
                         </div>
                     </motion.div>
                 </>

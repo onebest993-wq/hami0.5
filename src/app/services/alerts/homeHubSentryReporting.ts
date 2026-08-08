@@ -1,3 +1,5 @@
+import { isSentryEnabledInBuild as isSentryConfigured } from '@/app/observability/sentryBuildPolicy';
+
 export type HomeHubSentryReportContext = {
     userId?: string;
     alertsTabCount?: number;
@@ -23,11 +25,6 @@ type SentryModule = {
 };
 
 let sentryModulePromise: Promise<SentryModule | null> | null = null;
-
-function isSentryConfigured(): boolean {
-    const dsn = import.meta.env.VITE_SENTRY_DSN;
-    return Boolean(dsn && typeof dsn === 'string' && !dsn.includes('examplePublicKey'));
-}
 
 function loadSentryModule(): Promise<SentryModule | null> {
     if (!isSentryConfigured()) return Promise.resolve(null);

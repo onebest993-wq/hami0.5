@@ -63,3 +63,22 @@ describe('localOnlyGuard', () => {
         expect(isCloudSyncBucketEnabled(settings, 'files')).toBe(false);
     });
 });
+
+describe('isCloudSyncBucketEnabled', () => {
+    it('يحترم أعلام السلات عند تفعيل المزامنة', () => {
+        const base = {
+            ...LAWYER_SETTINGS_V2_DEFAULTS,
+            security: { ...LAWYER_SETTINGS_V2_DEFAULTS.security, localOnlyMode: false },
+            data: {
+                ...LAWYER_SETTINGS_V2_DEFAULTS.data,
+                cloudSync: true,
+                syncNotes: true,
+                syncFiles: false,
+                syncExecution: true,
+            },
+        };
+        expect(isCloudSyncBucketEnabled(base, 'notes')).toBe(true);
+        expect(isCloudSyncBucketEnabled(base, 'files')).toBe(false);
+        expect(isCloudSyncBucketEnabled(base, 'execution')).toBe(true);
+    });
+});

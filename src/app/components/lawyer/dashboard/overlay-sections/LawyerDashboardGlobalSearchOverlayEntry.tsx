@@ -3,6 +3,8 @@ import { GlobalSearchOverlayHost } from '@/app/components/lawyer/GlobalSearchOve
 import { isRealSignedIn, resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import { useGlobalSearchShellLifecycle } from '@/app/hooks/lawyerDashboard/useGlobalSearchShellLifecycle';
 import { useGlobalSearchMobileSuspend } from '@/app/hooks/lawyerDashboard/useGlobalSearchMobileSuspend';
+import { concealGlobalSearchWarmShell } from '@/app/runtime/globalSearchInstantPaint';
+import { snapGlobalSearchShellClose } from '@/app/services/search/globalSearchShellSnap';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 
 export function LawyerDashboardGlobalSearchOverlayEntry({
@@ -12,7 +14,8 @@ export function LawyerDashboardGlobalSearchOverlayEntry({
     nav,
 }: Pick<LawyerDashboardOverlaysBundleProps, 'shell' | 'data' | 'overlays' | 'nav'>) {
     const { userId, authUserId } = shell;
-    const { files, executionFiles, globalNotes, searchNotifications, criminalCasesForCluster } = data;
+    const { files, executionFiles, globalNotes, searchNotifications, criminalCasesForCluster, lawsuitLifecycleIndex } =
+        data;
     const {
         showGlobalSearch,
         searchHostMounted,
@@ -49,6 +52,12 @@ export function LawyerDashboardGlobalSearchOverlayEntry({
     );
     useGlobalSearchMobileSuspend(globalSearchEnabled && showGlobalSearch);
 
+    useLayoutEffect(() => {
+        if (!shouldMount || showGlobalSearch) return;
+        concealGlobalSearchWarmShell();
+        snapGlobalSearchShellClose();
+    }, [shouldMount, showGlobalSearch]);
+
     if (!shouldMount) return null;
 
     return (
@@ -59,6 +68,7 @@ export function LawyerDashboardGlobalSearchOverlayEntry({
                 keepAlive={searchHostMounted}
                 files={files}
                 executionFiles={executionFiles}
+                lawsuitLifecycleIndex={lawsuitLifecycleIndex}
                 globalNotes={globalNotes}
                 notifications={searchNotifications}
                 criminalCases={criminalCasesForCluster}

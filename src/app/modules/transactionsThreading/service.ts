@@ -1,6 +1,15 @@
 import type { TransactionsThreadingRepository } from './repository';
 import { createThreadingId } from './ids';
-import { sanitizeTransactionCreateFields } from '@/app/services/transactions/transactionsInputSecurity';
+import {
+  sanitizeTransactionCreateFields,
+  sanitizeTransactionDocumentTitle,
+  sanitizeTransactionDocumentType,
+  sanitizeTransactionFinanceAmount,
+  sanitizeTransactionFinanceDescription,
+  sanitizeTransactionOfficialReference,
+  sanitizeTransactionTaskNotes,
+  sanitizeTransactionTaskTitle,
+} from '@/app/services/transactions/transactionsInputSecurity';
 import {
   FinanceRecordType,
   TransactionStatus,
@@ -117,10 +126,10 @@ export class TransactionsThreadingService {
     const task: TransactionTask = {
       id: this.idFactory(),
       transactionId: input.transactionId,
-      title: input.title,
+      title: sanitizeTransactionTaskTitle(input.title),
       status: input.status ?? TransactionTaskStatus.Pending,
       parentTaskId,
-      notes: input.notes ?? null,
+      notes: sanitizeTransactionTaskNotes(input.notes),
       deadline: input.deadline ?? null,
       officialReference: null,
       createdAt: this.now(),
@@ -163,7 +172,7 @@ export class TransactionsThreadingService {
   async completeTask(taskId: string, officialReference?: string | null): Promise<TransactionTask> {
     const existing = await this.repo.getTask(taskId);
     if (!existing) throw new Error('Task not found');
-    const ref = officialReference?.trim() ? officialReference.trim() : null;
+    const ref = sanitizeTransactionOfficialReference(officialReference);
     const updated = await this.repo.updateTask(taskId, {
       status: TransactionTaskStatus.Done,
       completedAt: existing.completedAt ?? this.now(),
@@ -183,6 +192,24 @@ export class TransactionsThreadingService {
     const tx = await this.repo.getTransaction(transactionId);
     if (!tx) throw new Error('Transaction not found');
     return this.repo.updateTransaction(transactionId, { agreedFees, updatedAt: this.now() });
+  }
+
+  async setTransactionArchived(transactionId: string, archived: boolean): Promise<Transaction> {
+    const tx = await this.repo.getTransaction(transactionId);
+    if (!tx) throw new Error('Transaction not found');
+    return this.repo.updateTransaction(transactionId, {
+      archivedAt: archived ? this.now() : null,
+      updatedAt: this.now(),
+    });
+  }
+
+  async setTransactionDeleted(transactionId: string, deleted: boolean): Promise<Transaction> {
+    const tx = await this.repo.getTransaction(transactionId);
+    if (!tx) throw new Error('Transaction not found');
+    return this.repo.updateTransaction(transactionId, {
+      deletedAt: deleted ? this.now() : null,
+      updatedAt: this.now(),
+    });
   }
 
   async listTransactions(): Promise<Transaction[]> {
@@ -211,8 +238,8 @@ export class TransactionsThreadingService {
       id: this.idFactory(),
       transactionId: input.transactionId,
       type: input.type,
-      amount: input.amount,
-      description: input.description,
+      amount: sanitizeTransactionFinanceAmount(input.amount),
+      description: sanitizeTransactionFinanceDescription(input.description),
       date: input.date ?? this.now(),
     };
 
@@ -260,8 +287,8 @@ export class TransactionsThreadingService {
     const doc: TransactionDocument = {
       id: this.idFactory(),
       transactionId: input.transactionId,
-      type: input.type ?? 'مستمسك',
-      title: input.title,
+      type: sanitizeTransactionDocumentType(input.type),
+      title: sanitizeTransactionDocumentTitle(input.title),
       ownerTag: input.ownerTag,
       uploadedAt: input.uploadedAt ?? this.now(),
     };

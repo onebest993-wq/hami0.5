@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link2, X } from 'lucide-react';
+import { Link2, X } from '@/app/components/ui/lucideIcons';
 
 import { resolveCriminalCaseDisplayLabel, useCriminalStore } from '../criminalStore';
 

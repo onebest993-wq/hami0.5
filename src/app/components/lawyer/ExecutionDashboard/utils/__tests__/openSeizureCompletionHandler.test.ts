@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import { handleOpenSeizureCompletionEvent } from '@/app/components/lawyer/ExecutionDashboard/utils/openSeizureCompletionHandler';
+import { getExecutorDecisionRowById } from '@/app/utils/executorSeizureDecisionQueue';
 
 vi.mock('@/app/utils/executorSeizureDecisionQueue', () => ({
     getExecutorDecisionRowById: vi.fn(() => ({
@@ -27,6 +28,7 @@ describe('handleOpenSeizureCompletionEvent', () => {
             seizedAssetsSnapshotRef: { current: [] as SeizedAsset[] },
             setSeizedAssets: vi.fn(),
             setSeizureDetailCompletion: vi.fn(),
+            setShowCoerciveActionForm: vi.fn(),
         };
 
         handleOpenSeizureCompletionEvent(
@@ -55,6 +57,7 @@ describe('handleOpenSeizureCompletionEvent', () => {
             seizedAssetsSnapshotRef: { current: [] as SeizedAsset[] },
             setSeizedAssets: vi.fn(),
             setSeizureDetailCompletion: vi.fn(),
+            setShowCoerciveActionForm: vi.fn(),
         };
 
         handleOpenSeizureCompletionEvent(
@@ -65,5 +68,46 @@ describe('handleOpenSeizureCompletionEvent', () => {
         );
 
         expect(focus).toHaveBeenCalledWith('dec-9', 'عقار تجريبي');
+    });
+
+    it('opens coercive salary form after salary approval completion', () => {
+        vi.mocked(getExecutorDecisionRowById).mockReturnValueOnce({
+            seizureSubtype: 'salary',
+            title: 'طلب حجز راتب',
+        } as any);
+
+        const setShowCoerciveActionForm = vi.fn();
+        const setSeizureDetailCompletion = vi.fn();
+        const ctx = {
+            executionDataId: 'ex-1',
+            executionId: 'ex-1',
+            executionDataRef: { current: null as ExecutionFile | null },
+            persistExecutionMergeRef: { current: vi.fn() },
+            pushTimelineEventRef: { current: vi.fn() },
+            nextTimelineId: () => 'tl-1',
+            focusSeizurePropertyInlineRef: { current: vi.fn() },
+            focusSeizureMovableInlineRef: { current: vi.fn() },
+            focusSeizureThirdPartyInlineRef: { current: vi.fn() },
+            focusSeizureNoticeInlineRef: { current: vi.fn() },
+            seizedAssetsSnapshotRef: { current: [] as SeizedAsset[] },
+            setSeizedAssets: vi.fn(),
+            setSeizureDetailCompletion,
+            setShowCoerciveActionForm,
+        };
+
+        handleOpenSeizureCompletionEvent(
+            new CustomEvent('hami-open-seizure-completion', {
+                detail: { executionId: 'ex-1', decisionId: 'dec-salary' },
+            }),
+            ctx
+        );
+
+        expect(setSeizureDetailCompletion).toHaveBeenCalledWith(
+            expect.objectContaining({
+                decisionRowId: 'dec-salary',
+                actionType: 'salary',
+            }),
+        );
+        expect(setShowCoerciveActionForm).toHaveBeenCalledWith('salary');
     });
 });

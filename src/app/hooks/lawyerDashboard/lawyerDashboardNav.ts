@@ -175,7 +175,11 @@ export function persistNotificationsSessionOpen(open: boolean): void {
 export function readInitialGlobalSearchSession(): { open: boolean } {
     if (typeof window === 'undefined') return { open: false };
     try {
-        return { open: sessionStorage.getItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY) === '1' };
+        /* overlay — لا يُستعاد بعد reload (يفتح البحث تلقائياً ويُربك المستخدم) */
+        if (sessionStorage.getItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY) === '1') {
+            sessionStorage.removeItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY);
+        }
+        return { open: false };
     } catch {
         return { open: false };
     }
@@ -197,16 +201,15 @@ export function persistGlobalSearchSessionOpen(open: boolean): void {
 export function readInitialLawyerTab(): LawyerDashboardTab {
     if (typeof window === 'undefined') return 'home';
     try {
-        /* أول إقلاع للجلسة: دائماً الرئيسية — استعادة الملف/التقويم تحت السبلاش تسبب تشوهاً */
+        /* الملف overlay — لا يُستعاد أبداً بعد reload (يسبب قفزاً مخيفاً للملف) */
+        if (sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY) === 'profile') {
+            sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
+        }
+        /* أول إقلاع للجلسة: دائماً الرئيسية — استعادة التقويم تحت السبلاش تسبب تشوهاً */
         if (!isBootRevealDone()) {
             return 'home';
         }
         const saved = sessionStorage.getItem(LAWYER_DASHBOARD_TAB_KEY);
-        /* الملف المهني overlay — لا يُستعاد بعد reload (يسبب قفزاً غير مقصود للملف) */
-        if (saved === 'profile') {
-            sessionStorage.removeItem(LAWYER_DASHBOARD_TAB_KEY);
-            return 'home';
-        }
         if (saved === 'schedule') {
             return saved;
         }
@@ -229,6 +232,13 @@ export function clearPersistedLawyerProfileTab(): void {
     } catch {
         /* ignore storage */
     }
+}
+
+/** إغلاق snap + جلسة — يُستدعى عند cold boot لمنع ظهور الملف دون نية */
+export function resetProfileShellOnColdDashboardBoot(): void {
+    clearPersistedLawyerProfileTab();
+    if (typeof document === 'undefined') return;
+    document.documentElement.removeAttribute('data-hami-profile-open');
 }
 
 export type CriminalReturnTarget = 'lawsuits_workspace' | 'main';

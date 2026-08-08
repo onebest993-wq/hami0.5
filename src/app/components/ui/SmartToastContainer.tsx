@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { CheckCircle, AlertCircle, Info, Sparkles, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, Info, Sparkles, X } from '@/app/components/ui/lucideIcons';
 import { subscribeSmartToast, type ToastEvent } from '@/app/components/ui/smartToastBus';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 

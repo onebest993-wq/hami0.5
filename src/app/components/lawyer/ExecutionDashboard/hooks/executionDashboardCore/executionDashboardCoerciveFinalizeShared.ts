@@ -1,6 +1,8 @@
 import { getLocalTodayYmd } from './executionDashboardCoreDate';
 import { patchExecutionDecisionRowLite } from './executionDashboardDecisionStorageLiteWrite';
-import type { SeizedAsset, TimelineEvent } from '@/app/types/execution';
+import { getExecutorDecisionRowById } from '@/app/utils/executorSeizureDecisionQueue';
+import { mergeSeizureDecisionPayloadJson } from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
+import type { SeizedAsset, SeizedMovable, SeizedProperty, TimelineEvent } from '@/app/types/execution';
 import type { FinalizeCoerciveSeizureInput } from './executionDashboardCoerciveFinalizeTypes';
 
 export function resolveFinalizeIdentity(input: FinalizeCoerciveSeizureInput): {
@@ -125,9 +127,48 @@ export function commitCoerciveFinalize(input: {
         source.persistExecutionMerge({ seizureDraftsByDecisionId: nextDraftsAfterSave });
     }
 
+    const existingDecisionRow = getExecutorDecisionRowById(
+        source.decisionsStorageExecutionId,
+        decisionRowId,
+    ) as Record<string, unknown> | null;
+    const existingPayloadJson = String(existingDecisionRow?.seizurePayloadJson || '').trim();
+    let seizurePayloadJson: string | undefined;
+    if (source.actionType === 'property') {
+        const rows = (persistPatch.seizedProperties || []) as SeizedProperty[];
+        const hit = rows.find((x) => String(x.decisionRowId || '') === String(decisionRowId));
+        const propertyId = String(hit?.id || '').trim();
+        if (propertyId) {
+            seizurePayloadJson = mergeSeizureDecisionPayloadJson(existingPayloadJson, {
+                seizedPropertyId: propertyId,
+                propertyNumber: String(source.details.propertyNumber || '').trim(),
+                propertyDistrict: String(source.details.propertyDistrict || '').trim(),
+                propertyType: String(source.details.propertyType || '').trim(),
+            });
+        }
+    }
+    if (source.actionType === 'vehicle') {
+        const rows = (persistPatch.seizedMovables || []) as SeizedMovable[];
+        const hit = rows.find((x) => String(x.decisionRowId || '') === String(decisionRowId));
+        const movableId = String(hit?.id || '').trim();
+        if (movableId) {
+            seizurePayloadJson = mergeSeizureDecisionPayloadJson(existingPayloadJson, {
+                seizedMovableId: movableId,
+                movableDescription: String(
+                    source.details.movableDescription ||
+                        source.details.movableAssetType ||
+                        source.details.vehicleDescription ||
+                        '',
+                ).trim(),
+                movableLocation: String(source.details.movableLocation || '').trim(),
+                judicialCustodianName: String(source.details.judicialCustodianName || '').trim(),
+            });
+        }
+    }
+
     patchExecutionDecisionRowLite(source.decisionsStorageExecutionId, decisionRowId, {
         seizureRequestSavedAt: now,
         seizureRequestDetails: mergedDesc || undefined,
+        ...(seizurePayloadJson ? { seizurePayloadJson } : {}),
     });
     source.showToast('تم حفظ تفاصيل الحجز بعد موافقة المنفذ.', 'success');
     source.setLastActionDate(today);

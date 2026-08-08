@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { AlertTriangle, Building2, Package } from 'lucide-react';
+import { AlertTriangle, Building2, Package } from '@/app/components/ui/lucideIcons';
 
 import type { InlineActionGateKey } from '../types';
 
@@ -23,6 +23,8 @@ import {
     isExecutorRowRejectedAndFinal,
 
     listEvictionProcedureHubRowsForMatch,
+
+    dispatchDecisionsReload,
 
 } from '@/app/utils/executorSeizureDecisionQueue';
 
@@ -162,6 +164,8 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
     const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
 
+    const storageExecutionId = executionId || decisionsStorageExecutionId;
+
     const [expanded, setExpanded] = React.useState(false);
 
 
@@ -200,7 +204,7 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
 
 
-    const [selectedItemId, setSelectedItemId] = React.useState('');
+    const [selectedItemIds, setSelectedItemIds] = React.useState<Set<string>>(() => new Set());
 
 
 
@@ -208,37 +212,51 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
         if (conversionEligibleItems.length === 0) {
 
-            setSelectedItemId('');
+            setSelectedItemIds(new Set());
 
             return;
 
         }
 
-        if (conversionEligibleItems.length === 1) {
+        setSelectedItemIds((prev) => {
 
-            setSelectedItemId(conversionEligibleItems[0].id);
+            const next = new Set<string>();
 
-            return;
+            for (const id of prev) {
 
-        }
+                if (conversionEligibleItems.some((item) => item.id === id)) next.add(id);
 
-        setSelectedItemId((prev) =>
+            }
 
-            conversionEligibleItems.some((item) => item.id === prev) ? prev : ''
+            if (next.size === 0 && conversionEligibleItems.length === 1) {
 
-        );
+                next.add(conversionEligibleItems[0]!.id);
+
+            }
+
+            return next;
+
+        });
 
     }, [conversionEligibleItems]);
 
 
 
-    const selectedItem = React.useMemo(
+    const toggleSelectedItem = React.useCallback((itemId: string) => {
 
-        () => conversionEligibleItems.find((item) => item.id === selectedItemId) ?? null,
+        setSelectedItemIds((prev) => {
 
-        [conversionEligibleItems, selectedItemId]
+            const next = new Set(prev);
 
-    );
+            if (next.has(itemId)) next.delete(itemId);
+
+            else next.add(itemId);
+
+            return next;
+
+        });
+
+    }, []);
 
 
 
@@ -272,43 +290,45 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
 
 
-    const latestRow = React.useMemo(() => {
-
-        const hits = decisionRows
-
+    const conversionRows = React.useMemo(() => {
+        return decisionRows
             .filter(
-
                 (d) =>
-
-                    isSpecificDeliveryConversionDecisionRow(d) && !isExecutorHubRowSuperseded(d)
-
+                    isSpecificDeliveryConversionDecisionRow(d) && !isExecutorHubRowSuperseded(d),
             )
-
             .sort((a, b) => {
-
                 const da = String(a?.resolvedAt ?? a?.date ?? '');
-
                 const db = String(b?.resolvedAt ?? b?.date ?? '');
-
                 return db.localeCompare(da, undefined, { numeric: true });
-
             });
-
-        return hits[0] || null;
-
     }, [decisionRows]);
+
+    const latestRow = React.useMemo(() => {
+        const active = conversionRows.find(
+            (row) =>
+                !isSpecificDeliveryConversionCycleComplete(row, { allDecisions: decisionRows }) &&
+                !isExecutorRowRejectedAndFinal(row),
+        );
+        return active ?? conversionRows[0] ?? null;
+    }, [conversionRows, decisionRows]);
 
 
 
     const savedAt = String(latestRow?.specificDeliveryConversionSavedAt || '').trim();
 
-    const workflowComplete = isSpecificDeliveryConversionCycleComplete(latestRow, {
-
+    const rowWorkflowComplete = isSpecificDeliveryConversionCycleComplete(latestRow, {
         allDecisions: decisionRows,
-
     });
 
-    const hasRequest = Boolean(latestRow?.id) && !workflowComplete;
+    const hasRequest =
+        Boolean(latestRow?.id) &&
+        !rowWorkflowComplete &&
+        !isExecutorRowRejectedAndFinal(latestRow as Record<string, unknown>);
+
+    const workflowComplete =
+        conversionEligibleItems.length === 0 &&
+        rowWorkflowComplete &&
+        Boolean(latestRow?.id);
 
 
 
@@ -317,48 +337,46 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
         if (workflowComplete) setExpanded(false);
     }, [hasRequest, workflowComplete, latestRow?.id]);
 
-    const autoCompletedDecisionRef = React.useRef<string | null>(null);
-
-    React.useEffect(() => {
+    const confirmDestructionAfterApproval = React.useCallback(() => {
         if (!latestRow?.id) return;
         const decisionId = String(latestRow.id || '').trim();
         if (!decisionId) return;
-        const saved = Boolean(String(latestRow.specificDeliveryConversionSavedAt || '').trim());
-        if (saved) {
-            autoCompletedDecisionRef.current = decisionId;
+        if (!isExecutorRowApprovedWorkflowActive(latestRow, decisionRows)) {
+            showToast('بانتظار موافقة المنفذ على الطلب', 'warning');
             return;
         }
-        if (isExecutorRowRejectedAndFinal(latestRow)) return;
-        if (!isExecutorRowApprovedWorkflowActive(latestRow, decisionRows)) return;
-        if (autoCompletedDecisionRef.current === decisionId) return;
-
         const payload = parseSpecificDeliveryConversionPayload(latestRow);
-        const itemId = String(payload.itemId || selectedItem?.id || '').trim();
-        if (!itemId) return;
-
+        const itemId = String(payload.itemId || '').trim();
         const itemName =
             payload.itemName ||
             allItems.find((item) => item.id === itemId)?.name ||
-            selectedItem?.name ||
             '';
-
+        if (!itemId) {
+            showToast('تعذر تحديد الشيء المرتبط بالطلب', 'error');
+            return;
+        }
         const result = completeSpecificDeliveryConversionApproval({
-            executionId: decisionsStorageExecutionId,
+            executionId: storageExecutionId,
             decisionId,
             itemName,
         });
-        if (!result.ok) return;
-
-        autoCompletedDecisionRef.current = decisionId;
+        if (!result.ok) {
+            showToast('تعذر تسجيل الهلاك — تحقق من قرار المنفذ.', 'error');
+            return;
+        }
         onConversionItemDeclared?.(itemId);
+        dispatchDecisionsReload();
+        setExpanded(false);
+        showToast('تم تسجيل الهلاك — يُستكمل تقدير القيمة عبر انتداب الخبير.', 'success', {
+            decisionsLink: true,
+        });
     }, [
         allItems,
         decisionRows,
-        decisionsStorageExecutionId,
         latestRow,
         onConversionItemDeclared,
-        selectedItem?.id,
-        selectedItem?.name,
+        showToast,
+        storageExecutionId,
     ]);
 
     const openAppeals = React.useCallback(
@@ -461,19 +479,72 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
                             decisionId={decisionId}
 
+                            decisionRow={row}
+
                             requestKind="special_followup"
 
                             disabled={rejected}
 
                             onOpenAppealCenter={() => openAppeals(decisionId)}
 
+                            onResolved={(result) => {
+
+                                if (result.ok) dispatchDecisionsReload();
+
+                            }}
+
                         />
+
+                    ) : approved ? (
+
+                        <button
+
+                            type="button"
+
+                            onClick={() => openAppeals(decisionId)}
+
+                            className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
+
+                        >
+
+                            متابعة قرار المنفذ
+
+                        </button>
 
                     ) : null,
 
             },
 
         ];
+
+        if (approved && !rejected && !savedAt) {
+            const payload = parseSpecificDeliveryConversionPayload(row);
+            const itemLabel =
+                payload.itemName ||
+                allItems.find((item) => item.id === payload.itemId)?.name ||
+                'الشيء المحدد';
+            steps.push({
+                id: `${decisionId}:complete`,
+                title: 'تسجيل الهلاك',
+                subtitle: 'بعد موافقة المنفذ',
+                status: 'active',
+                tone: 'neutral',
+                content: (
+                    <div className="space-y-2.5">
+                        <p className="text-[10px] text-slate-400 text-right">
+                            الشيء: <span className="font-bold text-slate-200">{itemLabel}</span>
+                        </p>
+                        <button
+                            type="button"
+                            onClick={confirmDestructionAfterApproval}
+                            className="w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 px-3 py-2 text-[11px] font-extrabold text-emerald-200 hover:bg-emerald-500/15"
+                        >
+                            تأكيد الهلاك والانتقال لانتداب الخبير
+                        </button>
+                    </div>
+                ),
+            });
+        }
 
         return (
 
@@ -497,26 +568,26 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
         <div dir="rtl" className="space-y-2.5">
             <p className="text-[11px] font-bold text-slate-300 text-center leading-relaxed">
                 {conversionEligibleItems.length > 1
-                    ? 'اختر الشيء الذي هلك أو تعذّر تسليمه'
+                    ? 'اختر الشيء أو الأشياء التي هلكت أو تعذّر تسليمها'
                     : 'الشيء محل طلب التحويل'}
             </p>
             <div
-                role="radiogroup"
-                aria-label="الشيء محل التحويل"
+                role="group"
+                aria-label="الأشياء محل التحويل"
                 className="flex flex-wrap gap-2 justify-center"
             >
                 {conversionEligibleItems.map((item) => (
                     <SpecificDeliveryItemChip
                         key={item.id}
                         item={item}
-                        selected={item.id === selectedItemId}
-                        onSelect={() => setSelectedItemId(item.id)}
+                        selected={selectedItemIds.has(item.id)}
+                        onSelect={() => toggleSelectedItem(item.id)}
                     />
                 ))}
             </div>
-            {conversionEligibleItems.length > 1 && !selectedItemId ? (
+            {conversionEligibleItems.length > 1 && selectedItemIds.size === 0 ? (
                 <p className="text-center text-[9px] font-bold text-amber-300/90">
-                    اختر شيئاً واحداً ثم أرسل الطلب
+                    اختر شيئاً واحداً أو أكثر ثم أرسل الطلب
                 </p>
             ) : null}
         </div>
@@ -554,7 +625,7 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
             onToggleExpanded={() => setExpanded((v) => !v)}
 
-            workflowComplete={Boolean(savedAt)}
+            workflowComplete={workflowComplete}
 
             lifecycleSummary={lifecycleSummary}
 
@@ -562,55 +633,32 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
             onConfirmSend={({ resubmit } = {}) => {
 
-                if (!selectedItem) {
+                let selectedItems = conversionEligibleItems.filter((item) =>
+                    selectedItemIds.has(item.id),
+                );
+
+                if (resubmit && selectedItems.length === 0 && latestRow) {
+                    const payload = parseSpecificDeliveryConversionPayload(latestRow);
+                    const itemId = String(payload.itemId || '').trim();
+                    const fromAll = allItems.find((item) => item.id === itemId);
+                    if (fromAll) selectedItems = [fromAll];
+                }
+
+                if (selectedItems.length === 0) {
 
                     showToast(
 
                         conversionEligibleItems.length > 1
 
-                            ? 'اختر الشيء المراد إعلان هلاكه'
+                            ? 'اختر الشيء أو الأشياء المراد إعلان هلاكها'
 
-                            : 'لا يوجد شيء مؤهل للتحويل',
+                            : resubmit
 
-                        'warning'
+                              ? 'لا يوجد شيء مؤهل لإعادة الطلب'
 
-                    );
+                              : 'لا يوجد شيء مؤهل للتحويل',
 
-                    return;
-
-                }
-
-                const result = sendInitialSpecificDeliveryConversionRequest({
-
-                    executionId: decisionsStorageExecutionId,
-
-                    supersedeCompletedHub: resubmit,
-
-                    itemId: selectedItem.id,
-
-                    itemName: selectedItem.name,
-
-                });
-
-                if (!result.ok) {
-
-                    const pending =
-
-                        latestRow &&
-
-                        (String(latestRow.executorOutcome ?? 'pending') === 'pending' ||
-
-                            String(latestRow.executorOutcome ?? '') === '');
-
-                    showToast(
-
-                        pending
-
-                            ? 'يوجد طلب قيد البت لدى المنفذ.'
-
-                            : 'يوجد طلب سابق يجب إكماله أو إغلاق دورته قبل تقديم طلب جديد.',
-
-                        'warning'
+                        'warning',
 
                     );
 
@@ -618,19 +666,63 @@ export const SpecificDeliveryConversionRequestCard: React.FC<
 
                 }
 
-                showToast('تم إرسال الطلب إلى مركز قرارات المنفذ.', 'success', {
+                let sent = 0;
 
-                    decisionsLink: true,
+                for (const item of selectedItems) {
 
-                });
+                    const result = sendInitialSpecificDeliveryConversionRequest({
+
+                        executionId: storageExecutionId,
+
+                        supersedeCompletedHub: resubmit,
+
+                        itemId: item.id,
+
+                        itemName: item.name,
+
+                    });
+
+                    if (result.ok) sent += 1;
+
+                }
+
+                if (sent === 0) {
+
+                    showToast('يوجد طلب قيد البت أو مكتمل لأحد الأشياء المحددة.', 'warning');
+
+                    return;
+
+                }
+
+                dispatchDecisionsReload();
+
+                setExpanded(true);
+
+                setInlineActionGateKey(null);
+
+                showToast(
+
+                    sent > 1
+
+                        ? `تم إرسال ${sent} طلبات إلى مركز قرارات المنفذ.`
+
+                        : resubmit
+
+                          ? 'تم تقديم طلب جديد إلى مركز قرارات المنفذ.'
+
+                          : 'تم إرسال الطلب إلى مركز قرارات المنفذ.',
+
+                    'success',
+
+                    { decisionsLink: true },
+
+                );
 
             }}
 
             sendGateContent={itemPicker}
 
-            sendGateConfirmDisabled={
-                conversionEligibleItems.length > 1 && !selectedItemId
-            }
+            sendGateConfirmDisabled={selectedItemIds.size === 0}
 
             panelBody={renderPanel(latestRow)}
 

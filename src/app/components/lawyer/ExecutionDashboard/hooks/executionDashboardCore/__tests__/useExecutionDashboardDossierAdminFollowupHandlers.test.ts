@@ -1,19 +1,17 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { useExecutionDashboardDossierAdminFollowupHandlers } from '../useExecutionDashboardDossierAdminFollowupHandlers';
 
-const appendSpecialFollowupRequest = vi.fn(() => 'decision-1');
-const isFollowupRequestKindAllowed = vi.fn(() => ({ allowed: true }));
-const dispatchDomainIsolationBlocked = vi.fn();
+const mocks = vi.hoisted(() => ({
+    appendSpecialFollowupRequest: vi.fn(() => 'decision-1'),
+}));
 
 vi.mock('@/app/utils/specialFollowupDecisionQueue', () => ({
-    appendSpecialFollowupRequest,
+    appendSpecialFollowupRequest: mocks.appendSpecialFollowupRequest,
 }));
 
-vi.mock('@/app/utils/executionDomainIsolation', () => ({
-    isFollowupRequestKindAllowed,
-    dispatchDomainIsolationBlocked,
-}));
+import { useExecutionDashboardDossierAdminFollowupHandlers } from '../useExecutionDashboardDossierAdminFollowupHandlers';
+
+const { appendSpecialFollowupRequest } = mocks;
 
 describe('useExecutionDashboardDossierAdminFollowupHandlers', () => {
     it('submits a manual special followup request and resets draft state', async () => {
@@ -43,16 +41,13 @@ describe('useExecutionDashboardDossierAdminFollowupHandlers', () => {
 
         await result.current.runSpecialFollowupSubmit();
 
-        expect(isFollowupRequestKindAllowed).toHaveBeenCalledWith(
-            { id: 'exec-1' },
-            'exec-1',
-            'special_followup',
-        );
         expect(appendSpecialFollowupRequest).toHaveBeenCalledWith(
             expect.objectContaining({
                 executionId: 'exec-1',
                 requestDate: '2026-07-11',
                 decisionTitle: 'طلب خاص',
+                adminRequestsTab: true,
+                executionData: { id: 'exec-1' },
             }),
         );
         expect(pushTimelineEvent).toHaveBeenCalledWith(
@@ -67,10 +62,37 @@ describe('useExecutionDashboardDossierAdminFollowupHandlers', () => {
         expect(setSpecialRequestManualTitle).toHaveBeenCalledWith('');
         expect(setSpecialRequestDate).toHaveBeenCalled();
         expect(showToast).toHaveBeenCalledWith(
-            expect.stringContaining('تم حفظ الطلب بنجاح'),
+            expect.stringContaining('تم إرسال الطلب'),
             'success',
             expect.any(Object),
         );
-        expect(dispatchDomainIsolationBlocked).not.toHaveBeenCalled();
+    });
+
+    it('resolves execution id from executionData when decisionsStorageExecutionId is empty', async () => {
+        const pushTimelineEvent = vi.fn();
+        const showToast = vi.fn();
+
+        const { result } = renderHook(() =>
+            useExecutionDashboardDossierAdminFollowupHandlers({
+                executionData: { id: 'exec-from-data' } as never,
+                decisionsStorageExecutionId: undefined,
+                specialRequestDate: '2026-07-11',
+                specialRequestManualTitle: 'طلب',
+                specialRequestContent: 'تفاصيل',
+                nextTimelineId: () => 'timeline-2',
+                pushTimelineEvent,
+                showToast,
+                setSpecialRequestTemplatePick: vi.fn(),
+                setSpecialRequestContent: vi.fn(),
+                setSpecialRequestManualTitle: vi.fn(),
+                setSpecialRequestDate: vi.fn(),
+            }),
+        );
+
+        await result.current.runSpecialFollowupSubmit();
+
+        expect(appendSpecialFollowupRequest).toHaveBeenCalledWith(
+            expect.objectContaining({ executionId: 'exec-from-data', adminRequestsTab: true }),
+        );
     });
 });

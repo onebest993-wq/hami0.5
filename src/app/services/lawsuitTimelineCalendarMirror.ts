@@ -1,6 +1,13 @@
 import type { CaseStage, TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import { normalizeDateToYmd } from '@/app/services/calendar/bridge';
 import { syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
+import { isCassationCorrectionStageName } from '@/app/components/lawyer/smart-modal/smartFile/extraordinaryAppealGateway';
+import {
+    isPersonalStatusAppealContext,
+    isPersonalStatusDossierFromStages,
+    formatPersonalStatusStageDisplayName,
+} from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
+import { isCassationStageName } from '@/app/components/lawyer/smart-modal/smartFile/judgmentTypes';
 
 export const LAWSUIT_CAL_APPT = {
     sessionNext: (sessionId: string) => `appt_session_next_${sessionId}`,
@@ -39,9 +46,29 @@ function stageDegreeLabel(stageName?: string | null): 'first_instance' | 'appeal
 }
 
 function resolveJudgmentMirrorMeta(stage: CaseStage): { title: string; details?: string } {
-    const degree = stageDegreeLabel(stage.stageName);
     const finalDecision = typeof stage.finalDecision === 'string' ? stage.finalDecision.trim() : '';
     const stageLabel = String(stage.stageName ?? '').trim();
+    const isPersonalContext =
+        isPersonalStatusAppealContext(stage.stageName, [stage])
+        || isPersonalStatusDossierFromStages([stage]);
+
+    if (isPersonalContext) {
+        if (isCassationStageName(stage.stageName)) {
+            return {
+                title: 'تاريخ القرار التمييزي',
+                details: finalDecision || (stageLabel ? `مرحلة: ${stageLabel}` : undefined),
+            };
+        }
+        const displayLabel =
+            formatPersonalStatusStageDisplayName(stageLabel, { showCoreStage: true })
+            ?? 'محكمة الموضوع';
+        return {
+            title: `تاريخ قرار ${displayLabel}`,
+            details: finalDecision || (stageLabel ? `مرحلة: ${stageLabel}` : undefined),
+        };
+    }
+
+    const degree = stageDegreeLabel(stage.stageName);
 
     if (degree === 'first_instance') {
         return {
@@ -68,6 +95,53 @@ function resolveJudgmentMirrorMeta(stage: CaseStage): { title: string; details?:
     };
 }
 
+function resolveCassationDeadlineMirrorMeta(stage: CaseStage): { title: string; details?: string } {
+    const degree = stageDegreeLabel(stage.stageName);
+    if (degree === 'appeal') {
+        return {
+            title: 'مهلة التمييز',
+            details: 'آخر مهلة للتمييز بعد الحكم الاستئنافي (شهر من صدور القرار)',
+        };
+    }
+    if (degree === 'first_instance') {
+        return {
+            title: 'مهلة التمييز',
+            details: 'آخر مهلة للتمييز إن لم يُستأنف الحكم البدائي (شهر من صدور القرار)',
+        };
+    }
+    if (degree === 'cassation') {
+        return {
+            title: 'مهلة الطعن على القرار التمييزي',
+            details: 'آخر موعد للطعن على القرار التمييزي',
+        };
+    }
+    const stageLabel = String(stage.stageName ?? '').trim();
+    return {
+        title: 'مهلة التمييز',
+        details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+    };
+}
+
+function shouldMirrorAppealDeadline(stage: CaseStage): boolean {
+    if (isCassationCorrectionStageName(stage.stageName)) return false;
+    if (isPersonalStatusAppealContext(stage.stageName)) return false;
+    if (isPersonalStatusDossierFromStages([stage])) return false;
+    const degree = stageDegreeLabel(stage.stageName);
+    return degree === 'first_instance';
+}
+
+function shouldMirrorCassationDeadline(stage: CaseStage): boolean {
+    if (isCassationCorrectionStageName(stage.stageName)) return false;
+    const degree = stageDegreeLabel(stage.stageName);
+    return degree === 'first_instance' || degree === 'appeal' || degree === 'cassation';
+}
+
+function shouldMirrorExtraordinaryDeadline(stage: CaseStage): boolean {
+    if (isCassationCorrectionStageName(stage.stageName)) return false;
+    const degree = stageDegreeLabel(stage.stageName);
+    return degree === 'first_instance' || degree === 'appeal' || degree === 'cassation';
+}
+
 function resolveAppealDeadlineMirrorMeta(stage: CaseStage): { title: string; details?: string } {
     const degree = stageDegreeLabel(stage.stageName);
     const stageLabel = String(stage.stageName ?? '').trim();
@@ -75,13 +149,13 @@ function resolveAppealDeadlineMirrorMeta(stage: CaseStage): { title: string; det
     if (degree === 'first_instance') {
         return {
             title: 'آخر موعد طعن على الحكم البدائي',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            details: 'آخر موعد للاستئناف (15 يوماً من اليوم التالي لصدور الحكم)',
         };
     }
     if (degree === 'appeal') {
         return {
             title: 'آخر موعد طعن على الحكم الاستئنافي',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            details: 'آخر موعد للتمييز بعد الحكم الاستئنافي',
         };
     }
     if (degree === 'cassation') {
@@ -150,12 +224,12 @@ export function collectStageLegalCalendarSpecs(
     };
     const appealMeta = resolveAppealDeadlineMirrorMeta(s);
     const judgmentMeta = resolveJudgmentMirrorMeta(s);
-    const stageLabel = String(s.stageName ?? '').trim();
+    const cassationMeta = resolveCassationDeadlineMirrorMeta(s);
 
     return [
         {
             id: LAWSUIT_CAL_APPT.appealDeadline(stageId),
-            date: readAppealDeadline(s),
+            date: shouldMirrorAppealDeadline(s) ? readAppealDeadline(s) : null,
             title: appealMeta.title,
             details: appealMeta.details,
             subType: 'other',
@@ -169,30 +243,38 @@ export function collectStageLegalCalendarSpecs(
         },
         {
             id: LAWSUIT_CAL_APPT.cassationDeadline(stageId),
-            date: normalizeDateToYmd(timers.cassationDeadline ?? null),
-            title: 'مهلة التمييز',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            date: shouldMirrorCassationDeadline(s)
+                ? normalizeDateToYmd(timers.cassationDeadline ?? null)
+                : null,
+            title: cassationMeta.title,
+            details: cassationMeta.details,
             subType: 'other',
         },
         {
             id: LAWSUIT_CAL_APPT.reviewDeadline(stageId),
-            date: normalizeDateToYmd(timers.reviewDeadline ?? null),
+            date: shouldMirrorExtraordinaryDeadline(s)
+                ? normalizeDateToYmd(timers.reviewDeadline ?? null)
+                : null,
             title: 'مهلة إعادة المحاكمة',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            details: 'آخر موعد لطلب إعادة المحاكمة',
             subType: 'other',
         },
         {
             id: LAWSUIT_CAL_APPT.finalAppealDeadline(stageId),
-            date: normalizeDateToYmd(timers.finalAppealDeadline ?? null),
+            date: shouldMirrorExtraordinaryDeadline(s)
+                ? normalizeDateToYmd(timers.finalAppealDeadline ?? null)
+                : null,
             title: 'مهلة الطعن النهائي',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            details: 'آخر موعد للطعن النهائي',
             subType: 'other',
         },
         {
             id: LAWSUIT_CAL_APPT.defaultObjectionDeadline(stageId),
-            date: normalizeDateToYmd(timers.defaultObjectionDeadline ?? null),
+            date: shouldMirrorAppealDeadline(s)
+                ? normalizeDateToYmd(timers.defaultObjectionDeadline ?? null)
+                : null,
             title: 'مهلة الاعتراض على الحكم الغيابي',
-            details: stageLabel ? `مرحلة: ${stageLabel}` : undefined,
+            details: 'آخر موعد للاعتراض الغيابي (10 أيام من التبليغ)',
             subType: 'other',
         },
     ];

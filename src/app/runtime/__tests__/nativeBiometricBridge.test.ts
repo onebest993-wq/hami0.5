@@ -1,14 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const isCapacitorNativePlatform = vi.fn();
-const loadOptionalCapacitorPlugin = vi.fn();
+const loadBiometricAuthPlugin = vi.fn();
+const callBiometricNative = vi.fn();
+const withReadyBiometricPlugin = vi.fn();
 
 vi.mock('@/app/runtime/nativePlatform', () => ({
     isCapacitorNativePlatform: () => isCapacitorNativePlatform(),
 }));
 
-vi.mock('@/app/runtime/optionalCapacitorPluginLoad', () => ({
-    loadOptionalCapacitorPlugin: (...args: unknown[]) => loadOptionalCapacitorPlugin(...args),
+vi.mock('@/app/runtime/nativeCapacitorPluginRegistry', () => ({
+    loadBiometricAuthPlugin: (...args: unknown[]) => loadBiometricAuthPlugin(...args),
+}));
+
+vi.mock('@/app/runtime/biometricNative', () => ({
+    callBiometricNative: (...args: unknown[]) => callBiometricNative(...args),
+    withReadyBiometricPlugin: (...args: unknown[]) => withReadyBiometricPlugin(...args),
 }));
 
 import {
@@ -24,7 +31,17 @@ describe('nativeBiometricBridge', () => {
         localStorage.clear();
         clearNativeBiometricEnrollment();
         isCapacitorNativePlatform.mockReturnValue(false);
-        loadOptionalCapacitorPlugin.mockResolvedValue(null);
+        callBiometricNative.mockImplementation(async (fn: (plugin: unknown) => unknown) => {
+            const plugin = await loadBiometricAuthPlugin();
+            if (!plugin) return null;
+            return fn(plugin);
+        });
+        withReadyBiometricPlugin.mockImplementation(async (fn: (plugin: unknown) => unknown) => {
+            const plugin = await loadBiometricAuthPlugin();
+            if (!plugin) return null;
+            return fn(plugin);
+        });
+        loadBiometricAuthPlugin.mockResolvedValue(null);
     });
 
     it('يعيد probe فارغ خارج الغلاف الأصلي', async () => {
@@ -37,7 +54,7 @@ describe('nativeBiometricBridge', () => {
 
     it('يكتشف غياب الـ plugin داخل الغلاف', async () => {
         isCapacitorNativePlatform.mockReturnValue(true);
-        loadOptionalCapacitorPlugin.mockResolvedValue(null);
+        loadBiometricAuthPlugin.mockResolvedValue(null);
 
         await expect(probeNativeBiometricAvailability()).resolves.toEqual({
             nativeShell: true,
@@ -48,11 +65,9 @@ describe('nativeBiometricBridge', () => {
 
     it('يقرأ توفر العتاد من checkBiometry', async () => {
         isCapacitorNativePlatform.mockReturnValue(true);
-        loadOptionalCapacitorPlugin.mockResolvedValue({
-            BiometricAuth: {
-                checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true }),
-                authenticate: vi.fn(),
-            },
+        loadBiometricAuthPlugin.mockResolvedValue({
+            checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true }),
+            authenticate: vi.fn(),
         });
 
         await expect(probeNativeBiometricAvailability()).resolves.toEqual({
@@ -65,11 +80,9 @@ describe('nativeBiometricBridge', () => {
     it('يسجّل enrollment بعد مصادقة ناجحة', async () => {
         isCapacitorNativePlatform.mockReturnValue(true);
         const authenticate = vi.fn().mockResolvedValue(undefined);
-        loadOptionalCapacitorPlugin.mockResolvedValue({
-            BiometricAuth: {
-                checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true }),
-                authenticate,
-            },
+        loadBiometricAuthPlugin.mockResolvedValue({
+            checkBiometry: vi.fn().mockResolvedValue({ isAvailable: true }),
+            authenticate,
         });
 
         await expect(registerNativeBiometric()).resolves.toBe(true);

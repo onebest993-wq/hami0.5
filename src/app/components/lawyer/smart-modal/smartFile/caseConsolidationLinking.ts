@@ -191,6 +191,73 @@ function mergeById<T extends { id: string }>(primary: T[], secondary: T[]): T[] 
     return [...map.values()];
 }
 
+type FileNote = FileData['notes'][number];
+
+function mergeNotes(primary: FileNote[], secondary: FileNote[]): FileNote[] {
+    const seen = new Set<number>();
+    const out: FileNote[] = [];
+    for (const note of [...primary, ...secondary]) {
+        if (!note || typeof note.id !== 'number' || seen.has(note.id)) continue;
+        seen.add(note.id);
+        out.push(note);
+    }
+    return out.sort((a, b) => String(b.date ?? '').localeCompare(String(a.date ?? '')));
+}
+
+function mergeImages(
+    primary: FileData['images'],
+    secondary: FileData['images'],
+): FileData['images'] {
+    const seen = new Set<string>();
+    const out: FileData['images'] = [];
+    for (const image of [...(primary ?? []), ...(secondary ?? [])]) {
+        const key = `${String(image?.url ?? '').trim()}|${String(image?.name ?? '').trim()}`;
+        if (!key.replace('|', '').trim() || seen.has(key)) continue;
+        seen.add(key);
+        out.push(image);
+    }
+    return out;
+}
+
+function mergeHistory(
+    primary: FileData['history'],
+    secondary: FileData['history'],
+): FileData['history'] {
+    const combined = [...(primary ?? []), ...(secondary ?? [])];
+    return combined.sort((a, b) => {
+        const da = 'date' in a ? String(a.date ?? '') : '';
+        const db = 'date' in b ? String(b.date ?? '') : '';
+        return da.localeCompare(db);
+    });
+}
+
+function sumOptionalAmount(
+    a: number | string | undefined,
+    b: number | string | undefined,
+): number | string | undefined {
+    const na = Number(a);
+    const nb = Number(b);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na + nb;
+    if (Number.isFinite(na)) return na;
+    if (Number.isFinite(nb)) return nb;
+    return a ?? b;
+}
+
+/** إذا أُدمجت الإضبارة في أخرى — افتح الإضبارة الموحّدة بدل المؤرشفة */
+export function resolveConsolidationMergedOpenTarget(
+    files: FileData[],
+    file: FileData,
+): FileData {
+    const mergedInto = normalizeFileId(file.consolidationMergedInto);
+    if (mergedInto === null) return file;
+    const primary = findFileById(files, mergedInto);
+    if (!primary) return file;
+    if (normalizeFileId(primary.consolidationMergedInto) !== null) {
+        return resolveConsolidationMergedOpenTarget(files, primary);
+    }
+    return primary;
+}
+
 function buildConsolidationEvent(
     primaryCaseNo: string,
     secondaryCaseNo: string,
@@ -387,10 +454,17 @@ export function mergeLawsuitFilesForConsolidation(
         (primaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
         (secondaryStage.incidentalCases as IncidentalCase[] | undefined) ?? [],
     );
+    const mergedThirdParties = mergeById(
+        (primaryStage.thirdParties as { id: string }[] | undefined) ?? [],
+        (secondaryStage.thirdParties as { id: string }[] | undefined) ?? [],
+    );
     const mergedParties = mergeParties(
         (primaryStage.parties as Party[] | undefined) ?? primary.parties ?? [],
         (secondaryStage.parties as Party[] | undefined) ?? secondary.parties ?? [],
     );
+    const mergedNotes = mergeNotes(primary.notes ?? [], secondary.notes ?? []);
+    const mergedImages = mergeImages(primary.images, secondary.images);
+    const mergedHistory = mergeHistory(primary.history, secondary.history);
 
     primaryStages[primaryIdx] = {
         ...primaryStage,
@@ -401,6 +475,7 @@ export function mergeLawsuitFilesForConsolidation(
         tasks: mergedTasks,
         incidentalCases: mergedIncidental,
         parties: mergedParties,
+        thirdParties: mergedThirdParties.length > 0 ? mergedThirdParties : primaryStage.thirdParties,
     };
 
     const mergedPrimary: FileData = {
@@ -416,6 +491,11 @@ export function mergeLawsuitFilesForConsolidation(
         tasks: mergedTasks,
         incidentalCases: mergedIncidental,
         consolidationSecondaryRefs: refs,
+        notes: mergedNotes,
+        images: mergedImages,
+        history: mergedHistory,
+        feesTotal: sumOptionalAmount(primary.feesTotal, secondary.feesTotal),
+        feesPaid: sumOptionalAmount(primary.feesPaid, secondary.feesPaid),
         mergedConsolidatedFileIds: [
             ...(Array.isArray(primary.mergedConsolidatedFileIds) ? primary.mergedConsolidatedFileIds : []),
             Number(secondary.id),

@@ -70,17 +70,98 @@ export function isDossierControlDecisionSettled(
         return true;
     }
 
-    const all = opts?.allDecisions;
-    if (Array.isArray(all) && all.length > 0) {
-        const followup = resolveExecutorRequestFollowupBlockFromRecord(
-            row,
-            all as Decision[],
-            opts?.appealPerspective ?? 'creditor_agent'
-        );
-        return !followup;
+    if (isExecutorRowRejectedAndFinal(row)) {
+        return false;
     }
 
-    return true;
+    if (isExecutorRowEffectivelyApproved(row)) {
+        const all = opts?.allDecisions;
+        if (Array.isArray(all) && all.length > 0) {
+            const followup = resolveExecutorRequestFollowupBlockFromRecord(
+                row,
+                all as Decision[],
+                opts?.appealPerspective ?? 'creditor_agent'
+            );
+            if (followup) return false;
+        }
+        return false;
+    }
+
+    return false;
+}
+
+export type DossierControlWorkflowPhase =
+    | 'idle'
+    | 'pending_executor'
+    | 'approved_pending_apply'
+    | 'rejected'
+    | 'completed';
+
+/** مرحلة الإجراء الحالية — لعرض «أين توقف الطلب» داخل بطاقة التحكم */
+export function resolveDossierControlWorkflowPhase(
+    row: Record<string, unknown> | null | undefined,
+    opts?: {
+        parentExecutionId?: string;
+        allDecisions?: Record<string, unknown>[];
+        appealPerspective?: AppealUiPerspective;
+    }
+): DossierControlWorkflowPhase {
+    if (!row) return 'idle';
+    if (
+        isDossierControlDecisionSettled(row, {
+            parentExecutionId: opts?.parentExecutionId,
+            allDecisions: opts?.allDecisions,
+            appealPerspective: opts?.appealPerspective,
+        })
+    ) {
+        return 'completed';
+    }
+    if (isExecutorRowRejectedAndFinal(row)) return 'rejected';
+    const pending =
+        String((row as { executorOutcome?: string }).executorOutcome ?? 'pending') === 'pending' ||
+        String((row as { executorOutcome?: string }).executorOutcome ?? '') === '';
+    if (pending) return 'pending_executor';
+    if (isExecutorRowEffectivelyApproved(row)) return 'approved_pending_apply';
+    return 'idle';
+}
+
+export function resolveDossierControlWorkflowLabels(phase: DossierControlWorkflowPhase): {
+    sent: string;
+    executor: string;
+    applied: string;
+} {
+    switch (phase) {
+        case 'pending_executor':
+            return {
+                sent: 'تم الإرسال',
+                executor: 'بانتظار قرار المنفذ',
+                applied: 'تطبيق الآثار',
+            };
+        case 'approved_pending_apply':
+            return {
+                sent: 'تم الإرسال',
+                executor: 'موافق — تطبيق الآثار',
+                applied: 'جاري الإكمال',
+            };
+        case 'rejected':
+            return {
+                sent: 'تم الإرسال',
+                executor: 'مرفوض',
+                applied: '—',
+            };
+        case 'completed':
+            return {
+                sent: 'تم الإرسال',
+                executor: 'موافق',
+                applied: 'مكتمل',
+            };
+        default:
+            return {
+                sent: 'إرسال الطلب',
+                executor: 'قرار المنفذ',
+                applied: 'تطبيق الآثار',
+            };
+    }
 }
 
 export const DOSSIER_ACTION_DECISION_TITLES: Record<DossierActionType, string> = {

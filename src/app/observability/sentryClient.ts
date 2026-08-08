@@ -1,3 +1,6 @@
+import { isSentryEnabledInBuild } from '@/app/observability/sentryBuildPolicy';
+import { sanitizeSentryEvent, type SentryLikeEvent } from '@/app/observability/sentrySanitize';
+
 type SentryModule = typeof import('@sentry/react');
 
 type BufferedCapture = {
@@ -13,8 +16,7 @@ let initialized = false;
 const preInitBuffer: BufferedCapture[] = [];
 
 function isConfigured(): boolean {
-    const dsn = import.meta.env.VITE_SENTRY_DSN;
-    return Boolean(dsn && !dsn.includes('examplePublicKey'));
+    return isSentryEnabledInBuild();
 }
 
 function flushPreInitBuffer(mod: SentryModule): void {
@@ -53,10 +55,12 @@ export function ensureSentryInitialized(): Promise<SentryModule | null> {
             const attachReplayOnError = () => {
                 if (replayAttached) return;
                 replayAttached = true;
+                // بيانات الموكّلين مشمولة بسرية المهنة — لا يُرسَل نص ولا وسائط إلى طرف ثالث.
                 Sentry.addIntegration(
                     Sentry.replayIntegration({
-                        maskAllText: false,
-                        blockAllMedia: false,
+                        maskAllText: true,
+                        maskAllInputs: true,
+                        blockAllMedia: true,
                     }),
                 );
             };
@@ -71,7 +75,7 @@ export function ensureSentryInitialized(): Promise<SentryModule | null> {
                 beforeSend(event) {
                     if (event.level === 'warning') return null;
                     if (event.level === 'error' || event.level === 'fatal') attachReplayOnError();
-                    return event;
+                    return sanitizeSentryEvent(event as SentryLikeEvent) as typeof event | null;
                 },
             });
 

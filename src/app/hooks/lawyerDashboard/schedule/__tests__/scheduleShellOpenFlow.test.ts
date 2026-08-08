@@ -12,11 +12,18 @@ vi.mock('react-dom', () => ({
 
 vi.mock('@/app/utils/bodyScrollLock', () => ({
     dismissTransientOverlays: mocks.dismissMock,
+    reconcileBodyScrollLock: vi.fn(),
 }));
 
 vi.mock('@/app/services/calendar/calendarPerfMetrics', () => ({
     clearCalendarPerfMarks: mocks.clearPerfMock,
     markCalendarPerfPhase: mocks.markPerfMock,
+}));
+
+vi.mock('@/app/services/schedule/scheduleShellSnap', () => ({
+    snapScheduleShellOpen: vi.fn(() => false),
+    snapScheduleShellClose: vi.fn(),
+    scheduleShellReactSync: (fn: () => void) => fn(),
 }));
 
 describe('scheduleShellOpenFlow', () => {
@@ -47,9 +54,9 @@ describe('scheduleShellOpenFlow', () => {
             eventId: 'ev-1',
         });
         expect(setActiveTab).toHaveBeenCalledWith('schedule');
+        expect(mocks.dismissMock).toHaveBeenCalledTimes(1);
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));
-        expect(mocks.dismissMock).toHaveBeenCalled();
     });
 
     it('commitScheduleTabOpen يمسح التركيز بلا opts', async () => {
@@ -65,5 +72,20 @@ describe('scheduleShellOpenFlow', () => {
         });
 
         expect(setCalendarSearchFocus).toHaveBeenCalledWith(null);
+    });
+
+    it('commitScheduleTabClose يعيد الرئيسية فوراً مع snap DOM', async () => {
+        const { commitScheduleTabClose } = await import(
+            '@/app/hooks/lawyerDashboard/schedule/scheduleShellOpenFlow'
+        );
+        const { snapScheduleShellClose } = await import('@/app/services/schedule/scheduleShellSnap');
+        const setCalendarSearchFocus = vi.fn();
+        const setActiveTab = vi.fn();
+
+        commitScheduleTabClose({ setCalendarSearchFocus, setActiveTab });
+
+        expect(snapScheduleShellClose).toHaveBeenCalled();
+        expect(setCalendarSearchFocus).toHaveBeenCalledWith(null);
+        expect(setActiveTab).toHaveBeenCalledWith('home');
     });
 });

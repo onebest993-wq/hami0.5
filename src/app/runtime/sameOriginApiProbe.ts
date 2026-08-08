@@ -3,6 +3,7 @@
  * على Netlify static يُرجع index.html → unavailable → لا مهلة 12ث لكل طلب.
  */
 import { isBffAuthEnabled } from '@/app/utils/bffAuthClient';
+import { isShellAuthBypassed } from '@/app/services/auth/shellAuth';
 
 export type SameOriginApiState = 'pending' | 'available' | 'unavailable';
 
@@ -30,7 +31,7 @@ export async function probeSameOriginApi(): Promise<SameOriginApiState> {
         state = 'unavailable';
         return state;
     }
-    if (!isBffAuthEnabled()) {
+    if (!isBffAuthEnabled() || isShellAuthBypassed()) {
         state = 'unavailable';
         return state;
     }

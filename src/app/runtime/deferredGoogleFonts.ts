@@ -1,7 +1,16 @@
-const GOOGLE_FONTS_HREF =
-    'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;500;700&family=Changa:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;700&family=Reem+Kufi:wght@400;700&family=Tajawal:wght@400;500;700;800&display=swap';
+const GOOGLE_FONTS_HREF_OPTIONAL =
+    'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;500;700;800&family=Changa:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;700&family=Reem+Kufi:wght@400;700&family=Tajawal:wght@400;500;700;800&display=optional';
+
+const GOOGLE_FONTS_HREF_SWAP =
+    'https://fonts.googleapis.com/css2?family=Almarai:wght@400;700&family=Amiri:wght@400;700&family=Cairo:wght@400;500;700;800&family=Changa:wght@400;600;700&family=Noto+Naskh+Arabic:wght@400;700&family=Reem+Kufi:wght@400;700&family=Tajawal:wght@400;500;700;800&display=swap';
 
 let scheduled = false;
+
+function resolveGoogleFontsHref(): string {
+    if (typeof document === 'undefined') return GOOGLE_FONTS_HREF_OPTIONAL;
+    const native = document.documentElement.getAttribute('data-hami-native') === '1';
+    return native ? GOOGLE_FONTS_HREF_SWAP : GOOGLE_FONTS_HREF_OPTIONAL;
+}
 
 /** يحمّل خطوط Google بعد أول إطار — بدون preconnect/preload في المسار الحرج */
 export function scheduleDeferredGoogleFonts(): void {
@@ -25,16 +34,12 @@ export function scheduleDeferredGoogleFonts(): void {
 
         const sheet = document.createElement('link');
         sheet.rel = 'stylesheet';
-        sheet.href = GOOGLE_FONTS_HREF;
+        sheet.href = resolveGoogleFontsHref();
         sheet.setAttribute('data-hami-google-fonts', '1');
         document.head.appendChild(sheet);
     };
 
     const run = () => inject();
 
-    if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(run, { timeout: 2500 });
-    } else {
-        window.setTimeout(run, 1200);
-    }
+    queueMicrotask(run);
 }

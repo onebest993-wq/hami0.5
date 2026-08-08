@@ -46,7 +46,7 @@ import {
     filterHeaderIncidentalCases as _filterHeaderIncidentalCases,
     isLinkedSpawnIncidentalType as _isLinkedSpawnIncidentalType,
 } from '../../smartFile/incidentalCaseLinking';
-import { syncLawsuitTaskDue, syncLawsuitTimelineAppointment as _syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync';
+import { syncLawsuitTaskDue, syncLawsuitTimelineAppointment } from '@/app/services/calendar/dossierSync';
 import {
     isPetitionVoidRevivalExpired as _isPetitionVoidRevivalExpired,
     PETITION_VOID_APPEAL_DAYS as _PETITION_VOID_APPEAL_DAYS,
@@ -93,6 +93,7 @@ export function useProceduralPauseActions(options: UseSmartFileProceduralActions
         setShowPauseModal,
         setShowInterruptionModal,
         setShowResumeInterruptionModal,
+        setShowPauseResumeModal,
         setShowExtraordinaryAppealModal,
         setShowProvisionalOrderModal,
         setShowInterlocutoryModal,
@@ -116,7 +117,7 @@ const handlePauseConfirm = (pauseData: { reason: string; linkedCaseNo?: string; 
         updatedStages[activeStageIndex].timeline = stageTimeline(currentStage).map((e: TimelineEvent) => 
             e.id === id ? { 
                 ...e, 
-                title: 'قرار استئخار الدعوى ⏸️',
+                title: 'قرار استئخار الدعوى',
                 details: `${reason}\n\n🔗 بانتظار حسم الدعوى المرتبطة رقم: ${linkedCaseNo}`,
                 // Ideally store raw data if possible, but for now we rely on re-parsing or just updating details
             } : e
@@ -139,8 +140,8 @@ const handlePauseConfirm = (pauseData: { reason: string; linkedCaseNo?: string; 
             id: `pause_${Date.now()}`,
             type: 'decision',
             date: getLocalTodayYmd(),
-            title: 'قرار استئخار الدعوى ⏸️',
-            details: `${reason}\n\n🔗 بانتظار حسم الدعوى المرتبطة رقم: ${linkedCaseNo ?? ''}`,
+            title: 'قرار استئخار الدعوى',
+            details: `سبب الاستئخار: ${reason}\n\nالدعوى المرتبطة: ${linkedCaseNo ?? '—'}\n\nتوقف السير مؤقتاً بانتظار حسم الدعوى المرتبطة. يجب استئناف السير من التذييل قبل انتهاء المهلة القانونية.`,
             isNew: true,
             isPause: true,
         }, ...stageTimeline(currentStage)];
@@ -151,28 +152,68 @@ const handlePauseConfirm = (pauseData: { reason: string; linkedCaseNo?: string; 
     saveToCloud(updatedStages);
 };
 
-const handleResume = () => {
-    // This is a direct resume (e.g. from Pause/Stay)
-    // For Interruption, we use handleResumeInterruptionConfirm via Modal
+const handleResume = (data?: { nextHearingDate?: string }) => {
     setStatus('نشطة');
     setIsPaused(false);
     setPauseReason('');
-    
-    // Add timeline event
+
     const updatedStages = [...stages];
-    const newEvent: TimelineEvent = {
+    const nextHearingDate = String(data?.nextHearingDate ?? '').trim().slice(0, 10);
+    const timelineEvents: TimelineEvent[] = [];
+
+    updatedStages[activeStageIndex] = {
+        ...currentStage,
+        isPleadingsClosed: false,
+        status: 'active',
+    };
+
+    if (nextHearingDate) {
+        timelineEvents.push({
+            id: `resume_pause_hearing_${Date.now()}`,
+            type: 'appointment',
+            date: nextHearingDate,
+            title: 'موعد المرافعة بعد استئناف السير',
+            details: 'موعد المرافعة القادم بعد رفع استئخار الدعوى.',
+            isNew: true,
+        });
+        const ctx = lawsuitCalendarContext();
+        if (ctx.fileId) {
+            syncLawsuitTimelineAppointment({
+                userId: ctx.userId,
+                fileId: ctx.fileId,
+                event: {
+                    id: `appt_resume_pause_${nextHearingDate}`,
+                    date: nextHearingDate,
+                    title: 'مرافعة بعد استئناف الاستئخار',
+                },
+                caseNo: ctx.caseNo,
+                court: ctx.court,
+                parties: ctx.parties,
+                clientName: ctx.clientName,
+            });
+        }
+    }
+
+    timelineEvents.push({
         id: `resume_${Date.now()}`,
         type: 'decision',
         date: getLocalTodayYmd(),
-        title: '▶️ استئناف السير في الدعوى (من استئخار)',
-        details: 'تم رفع التجميد واستئناف السير في الدعوى بشكل طبيعي.',
-        isNew: true
-    };
-    
-    updatedStages[activeStageIndex].timeline = [newEvent, ...(stageTimeline(currentStage) || [])];
-    
+        title: 'استئناف السير في الدعوى (من استئخار)',
+        details: nextHearingDate
+            ? `تم رفع الاستئخار واستئناف السير. موعد المرافعة القادم: ${nextHearingDate}`
+            : 'تم رفع التجميد واستئناف السير في الدعوى بشكل طبيعي.',
+        isNew: true,
+    });
+
+    updatedStages[activeStageIndex].timeline = [
+        ...timelineEvents,
+        ...(stageTimeline(currentStage) || []),
+    ];
+
     setStages(updatedStages);
     saveToCloud(updatedStages);
+    setShowPauseResumeModal?.(false);
+    SmartToast.success('تم استئناف السير في الدعوى');
 };
 
 
@@ -442,8 +483,8 @@ const handleInterruptionConfirm = (data: { reason: string; affectedParty: string
             id: `interrupt_${Date.now()}`,
             type: 'decision',
             date: date,
-            title: 'قرار بانقطاع السير في الدعوى 🛑',
-            details: `السبب القانوني: ${reason}\n\nالخصم المعني: ${affectedParty}\n\n${notes ? `ملاحظات: ${notes}\n\n` : ''}⚖️ *الدعوى موقوفة بحكم القانون لحين تبليغ الورثة أو من يقوم مقام الخصم.*`,
+            title: 'قرار بانقطاع السير في الدعوى',
+            details: `السبب القانوني: ${reason}\n\nالخصم المعني: ${affectedParty}\n\n${notes ? `ملاحظات: ${notes}\n\n` : ''}انقطع السير بحكم القانون لحين تبليغ من يقوم مقام الخصم أو زوال السبب.\nاستئناف السير من زر التذييل مع تسجيل موعد المرافعة القادم.`,
             isNew: true
         };
 
@@ -455,31 +496,69 @@ const handleInterruptionConfirm = (data: { reason: string; affectedParty: string
     saveToCloud(updatedStages);
 };
 
-const handleResumeInterruptionConfirm = () => {
+const handleResumeInterruptionConfirm = (data?: { nextHearingDate?: string }) => {
     setStatus('نشطة');
     setIsInterrupted(false);
     setInterruptionData(null);
-    
-    // Add timeline event for resuming interruption
-    const updatedStages = [...stages];
-    
-    // 🆕 Clear Interruption Date
-    updatedStages[activeStageIndex].interruptionDate = undefined;
 
-    const newEvent: TimelineEvent = {
+    const updatedStages = [...stages];
+    updatedStages[activeStageIndex] = {
+        ...currentStage,
+        isPleadingsClosed: false,
+        status: 'active',
+        interruptionDate: undefined,
+    };
+
+    const nextHearingDate = String(data?.nextHearingDate ?? '').trim().slice(0, 10);
+    const timelineEvents: TimelineEvent[] = [];
+
+    if (nextHearingDate) {
+        timelineEvents.push({
+            id: `resume_hearing_${Date.now()}`,
+            type: 'appointment',
+            date: nextHearingDate,
+            title: 'موعد المرافعة بعد استئناف السير',
+            details: 'موعد المرافعة القادم بعد زوال سبب انقطاع السير.',
+            isNew: true,
+        });
+        const ctx = lawsuitCalendarContext();
+        if (ctx.fileId) {
+            syncLawsuitTimelineAppointment({
+                userId: ctx.userId,
+                fileId: ctx.fileId,
+                event: {
+                    id: `appt_resume_interrupt_${nextHearingDate}`,
+                    date: nextHearingDate,
+                    title: 'مرافعة بعد استئناف السير',
+                },
+                caseNo: ctx.caseNo,
+                court: ctx.court,
+                parties: ctx.parties,
+                clientName: ctx.clientName,
+            });
+        }
+    }
+
+    timelineEvents.push({
         id: `resume_int_${Date.now()}`,
         type: 'decision',
         date: getLocalTodayYmd(),
-        title: '🟢 استئناف السير (زوال سبب الانقطاع)',
-        details: 'تم تبليغ من يقوم مقام الخصم أو زوال السبب القانوني للانقطاع، واستئناف السير في الدعوى من النقطة التي وقفت عندها.',
-        isNew: true
-    };
+        title: 'استئناف السير (زوال سبب الانقطاع)',
+        details: nextHearingDate
+            ? `تم استئناف السير في الدعوى. موعد المرافعة القادم: ${nextHearingDate}`
+            : 'تم تبليغ من يقوم مقام الخصم أو زوال السبب القانوني للانقطاع، واستئناف السير في الدعوى من النقطة التي وقفت عندها.',
+        isNew: true,
+    });
 
-    updatedStages[activeStageIndex].timeline = [newEvent, ...(stageTimeline(currentStage) || [])];
-    
+    updatedStages[activeStageIndex].timeline = [
+        ...timelineEvents,
+        ...(stageTimeline(currentStage) || []),
+    ];
+
     setStages(updatedStages);
     saveToCloud(updatedStages);
     setShowResumeInterruptionModal(false);
+    SmartToast.success('تم استئناف السير في الدعوى');
 };
 
 // ========================================

@@ -5,6 +5,7 @@ import {
     type ArchiveDossierViewMode,
 } from '@/app/components/lawyer/ArchivePortal/components/ArchiveDossierToolbar';
 import { prefetchLawsuitArchiveContent } from '@/app/runtime/hubArchiveLoader';
+import { LAWSUIT_ARCHIVE_SCROLL_REGION_CLASS } from '@/app/components/lawyer/ArchivePortal/lawsuitArchiveInstantLayout';
 
 const noop = () => undefined;
 
@@ -113,7 +114,7 @@ export function LawsuitsCivilArchiveInstantShell({
 
             <div
                 ref={onScrollParentRef}
-                className="flex-1 overflow-y-auto px-4 sm:px-5 lg:px-6 py-5 pb-[max(2rem,calc(5.25rem+env(safe-area-inset-bottom)))]"
+                className={LAWSUIT_ARCHIVE_SCROLL_REGION_CLASS}
             >
                 {hasChildren ? (
                     children

@@ -7,7 +7,8 @@ import {
     AddNoteModal,
     AddPaymentModal,
 } from '../../modals/contentEntryModals';
-import { LazyEditCaseInfoModal, LazyAddIncidentalCaseModal, LazyFastTrackModal, LazyAttachmentShieldModal } from '../../lazySmartFileModalChunks';
+import { LazyEditCaseInfoModal, LazyFastTrackModal, LazyAttachmentShieldModal } from '../../lazySmartFileModalChunks';
+import { AddIncidentalCaseModal } from '../../modals/flow-modals/AddIncidentalCaseModal';
 import type { SmartFileCaseFormData } from '../../smartFile/modalFormTypes';
 import { inferLawsuitTypeFromDocType } from '@/app/services/dossier-notes/dossierLawArticleTooltips';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
@@ -54,6 +55,7 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
         currentStage,
         parentData,
         handlers: h,
+        isCaseLinkViewOnly = false,
     } = props;
     const recentAppointments = visibleTimelineByType(
         displayStage.timeline,
@@ -95,6 +97,7 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         recentDocuments={recentDocuments as never}
                         onDeleteDocument={(id) => h.handleDeleteEvent(id)}
                         onReplaceDocument={(event) => setEditingEvent(event)}
+                        browseOnly={isCaseLinkViewOnly}
                     />
                 ) : null}
                 {showNoteModal ? (
@@ -126,6 +129,7 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                                 date: event.date,
                             }))}
                         onDeleteNote={(id) => h.handleDeleteEvent(id)}
+                        browseOnly={isCaseLinkViewOnly}
                     />
                 ) : null}
                 {showPaymentModal ? (
@@ -136,23 +140,19 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         onAdd={h.handleAddPayment}
                     />
                 ) : null}
-                {showIncidentalModal ? (
-                    <Suspense fallback={null}>
-                    <LazyAddIncidentalCaseModal
-                        key="add-incidental"
-                        isOpen={showIncidentalModal}
-                        onClose={() => {
-                            setShowIncidentalModal(false);
-                            setEditingIncidental(null);
-                        }}
-                        onAdd={h.handleAddIncidentalCase}
-                        onSpawnLinkedCase={h.handleSpawnLinkedIncidentalCase}
-                        currentStage={currentStage}
-                        editMode={!!editingIncidental}
-                        editData={editingIncidental ?? undefined}
-                    />
-                    </Suspense>
-                ) : null}
+                <AddIncidentalCaseModal
+                    key="add-incidental"
+                    isOpen={showIncidentalModal}
+                    onClose={() => {
+                        setShowIncidentalModal(false);
+                        setEditingIncidental(null);
+                    }}
+                    onAdd={h.handleAddIncidentalCase}
+                    onSpawnLinkedCase={h.handleSpawnLinkedIncidentalCase}
+                    currentStage={displayStage}
+                    editMode={!!editingIncidental}
+                    editData={editingIncidental ?? undefined}
+                />
                 {showFastTrackModal ? (
                     <Suspense fallback={null}>
                     <LazyFastTrackModal
@@ -197,6 +197,7 @@ export function SmartFileModalsContentSection(props: SmartFileModalsPortalProps)
                         recentAppointments={recentAppointments as never}
                         onDeleteAppointment={(id) => h.handleDeleteEvent(id)}
                         onEditAppointment={(event) => setEditingEvent(event)}
+                        browseOnly={isCaseLinkViewOnly}
                     />
                 ) : null}
         </>

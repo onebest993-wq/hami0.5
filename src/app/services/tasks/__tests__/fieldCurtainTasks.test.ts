@@ -87,6 +87,30 @@ describe('fieldCurtainTasks', () => {
         expect(countFieldDaySheetTasks(tasks, today)).toBe(2);
     });
 
+    it('sheet list includes past-day tasks in current week (pinned or overdue)', () => {
+        const today = new Date('2026-08-03T10:00:00');
+        const tasks = [
+            task({
+                id: 'past-pinned',
+                title: 'مثبتة يوم مضى',
+                pinnedToFieldCurtain: true,
+                fieldCurtainPinnedAt: new Date('2026-08-02T08:00:00'),
+                parsedDate: new Date('2026-08-02T09:00:00'),
+            }),
+            task({
+                id: 'past-due',
+                title: 'مستحقة يوم مضى',
+                parsedDate: new Date('2026-08-02T09:00:00'),
+            }),
+            task({
+                id: 'future',
+                title: 'لاحق',
+                parsedDate: new Date('2026-08-05T09:00:00'),
+            }),
+        ];
+        expect(listFieldDaySheetTasks(tasks, today).map((t) => t.id)).toEqual(['past-pinned', 'past-due']);
+    });
+
     it('sheet list sorts pinned tasks by pin time', () => {
         const today = new Date('2026-06-21T10:00:00');
         const tasks = [

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Dispatch, SetStateAction } from 'react';
 
-import { Check, X } from 'lucide-react';
+import { Check, ChevronDown, CalendarClock, X } from '@/app/components/ui/lucideIcons';
 
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 
@@ -25,6 +25,8 @@ import {
     commitCustodyWardTimelineAction,
 
     type CustodyWardTimelineEventKind,
+
+    wardAwaitingRescheduleAfterMissed,
 
     enrichCustodyWardsFromTimeline,
 
@@ -98,7 +100,7 @@ function WardDot({ status }: { status: CustodyWardDeliveryStatus }) {
 
         <span
 
-            className={`inline-block h-2 w-2 shrink-0 rounded-full ring-2 ring-white/10 ${STATUS_DOT[status]}`}
+            className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ring-2 ring-white/10 ${STATUS_DOT[status]}`}
 
             aria-hidden
 
@@ -120,7 +122,9 @@ type WardRowProps = {
 
     dateDraft: string;
 
-    onToggle: () => void;
+    showDatePicker: boolean;
+
+  onToggle: () => void;
 
     onDateDraftChange: (value: string) => void;
 
@@ -131,6 +135,10 @@ type WardRowProps = {
     onReceived: () => void;
 
     onNotReceived: () => void;
+
+    onOpenRescheduleCalendar: () => void;
+
+    awaitingReschedule: boolean;
 
 };
 
@@ -146,6 +154,8 @@ function WardDeliveryRow({
 
     dateDraft,
 
+    showDatePicker,
+
     onToggle,
 
     onDateDraftChange,
@@ -157,6 +167,10 @@ function WardDeliveryRow({
     onReceived,
 
     onNotReceived,
+
+    onOpenRescheduleCalendar,
+
+    awaitingReschedule,
 
 }: WardRowProps) {
 
@@ -174,7 +188,27 @@ function WardDeliveryRow({
 
     const showEarly = hasAppointment && !appointmentDue;
 
-    const showDue = hasAppointment && appointmentDue;
+    const showDueActions = hasAppointment && appointmentDue;
+
+    const appointmentLabel = hasAppointment
+
+        ? formatCustodyAppointmentLabelAr(row.appointmentYmd!)
+
+        : '';
+
+
+
+    const showChangeAppointmentButton =
+
+        !showDatePicker &&
+
+        (awaitingReschedule || (hasAppointment && !appointmentDue));
+
+    const changeAppointmentLabel = awaitingReschedule
+
+        ? 'تحديد موعد آخر للتسليم'
+
+        : 'تغيير الموعد';
 
 
 
@@ -182,19 +216,25 @@ function WardDeliveryRow({
 
         return (
 
-            <div className="flex items-center gap-2 px-2.5 py-1.5 min-h-[36px]">
+            <div className="flex items-center gap-2 px-2.5 py-2 min-h-[44px]">
 
                 <WardDot status={row.status} />
 
-                <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-slate-200">{row.name}</p>
+                <p className="min-w-0 flex-1 truncate text-[12px] font-bold text-slate-100">{row.name}</p>
 
-                {row.appointmentYmd ? (
+                <span
 
-                    <span className="shrink-0 text-[10px] text-slate-500">
+                    className="shrink-0 rounded-lg border border-emerald-500/35 bg-emerald-500/12 px-2 py-0.5 text-[10px] font-black text-emerald-100"
 
-                        {formatCustodyAppointmentLabelAr(row.appointmentYmd)}
+                >
 
-                    </span>
+                    تم التسليم
+
+                </span>
+
+                {appointmentLabel ? (
+
+                    <span className="shrink-0 text-[9px] tabular-nums text-slate-500">{appointmentLabel}</span>
 
                 ) : null}
 
@@ -216,7 +256,7 @@ function WardDeliveryRow({
 
                 onClick={onToggle}
 
-                className="flex w-full items-center gap-2 px-2.5 py-1.5 text-right min-h-[40px] hover:bg-white/[0.03] touch-manipulation"
+                className="flex w-full items-center gap-2 px-2.5 py-2 text-right min-h-[44px] hover:bg-white/[0.04] active:bg-white/[0.06] touch-manipulation transition-colors"
 
                 aria-expanded={isExpanded}
 
@@ -228,17 +268,46 @@ function WardDeliveryRow({
 
                     <p className="truncate text-[12px] font-bold text-slate-100">{row.name}</p>
 
-                    <p className="truncate text-[10px] text-slate-500">
+                    {hasAppointment ? (
 
-                        {hasAppointment
+                        <p className="truncate text-[10px] font-semibold text-amber-200/85">
 
-                            ? formatCustodyAppointmentLabelAr(row.appointmentYmd!)
+                            موعد التسليم: {appointmentLabel}
 
-                            : 'بدون موعد'}
+                        </p>
 
-                    </p>
+                    ) : awaitingReschedule ? (
+
+                        <p className="truncate text-[10px] font-bold text-rose-200/85 animate-pulse">
+
+                            حدّد موعد تسليم جديد
+
+                        </p>
+
+                    ) : (
+                        <p className="truncate text-[10px] font-bold text-[#E6C673]/80 animate-pulse">
+
+                            اضغط لتحديد موعد التسليم
+
+                        </p>
+
+                    )}
 
                 </div>
+
+                <ChevronDown
+
+                    size={16}
+
+                    className={`shrink-0 text-[#E6C673]/70 transition-transform duration-200 ${
+
+                        isExpanded ? 'rotate-180' : ''
+
+                    } ${!isExpanded && !hasAppointment ? 'motion-safe:animate-bounce' : ''}`}
+
+                    aria-hidden
+
+                />
 
             </button>
 
@@ -246,43 +315,77 @@ function WardDeliveryRow({
 
             {isExpanded ? (
 
-                <div className="space-y-1.5 border-t border-white/[0.05] px-2.5 py-1.5" data-exec-interactive>
+                <div className="space-y-1.5 border-t border-white/[0.05] px-2.5 py-2" data-exec-interactive>
 
-                    <div className="flex items-center gap-1">
-
-                        <input
-
-                            type="date"
-
-                            value={effectiveDate}
-
-                            min={todayYmd}
-
-                            onChange={(e) => onDateDraftChange(e.target.value)}
-
-                            className="h-9 min-w-0 flex-1 rounded-lg border border-white/12 bg-[#0A0F1C] px-2 text-[11px] text-slate-100 [color-scheme:dark] touch-manipulation"
-
-                            style={{ direction: 'ltr', textAlign: 'right' }}
-
-                        />
+                    {showChangeAppointmentButton ? (
 
                         <button
 
                             type="button"
 
-                            onClick={() => onSaveAppointment(effectiveDate)}
+                            onClick={onOpenRescheduleCalendar}
 
-                            disabled={!effectiveDate}
+                            className={`flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[11px] font-black touch-manipulation transition-colors ${
 
-                            className="h-9 shrink-0 rounded-lg bg-[#E6C673] px-2.5 text-[10px] font-black text-[#0A0F1C] touch-manipulation disabled:cursor-not-allowed disabled:bg-[#E6C673]/35 disabled:text-[#0A0F1C]/55"
+                                awaitingReschedule
+
+                                    ? 'border-[#E6C673]/30 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/16 motion-safe:animate-pulse'
+
+                                    : 'border-amber-500/30 bg-amber-500/10 text-amber-100 hover:bg-amber-500/16'
+
+                            }`}
 
                         >
 
-                            حفظ
+                            <CalendarClock size={14} className="shrink-0" aria-hidden />
+
+                            {changeAppointmentLabel}
 
                         </button>
 
-                    </div>
+                    ) : null}
+
+
+
+                    {showDatePicker && !showDueActions ? (
+
+                        <div className="flex items-center gap-1">
+
+                            <input
+
+                                type="date"
+
+                                value={effectiveDate}
+
+                                min={todayYmd}
+
+                                onChange={(e) => onDateDraftChange(e.target.value)}
+
+                                className="h-10 min-w-0 flex-1 rounded-lg border border-white/12 bg-[#0A0F1C] px-2 text-[11px] text-slate-100 [color-scheme:dark] touch-manipulation"
+
+                                style={{ direction: 'ltr', textAlign: 'right' }}
+
+                            />
+
+                            <button
+
+                                type="button"
+
+                                onClick={() => onSaveAppointment(effectiveDate)}
+
+                                disabled={!effectiveDate}
+
+                                className="h-10 shrink-0 rounded-lg bg-[#E6C673] px-3 text-[10px] font-black text-[#0A0F1C] touch-manipulation disabled:cursor-not-allowed disabled:bg-[#E6C673]/35 disabled:text-[#0A0F1C]/55"
+
+                            >
+
+                                حفظ الموعد
+
+                            </button>
+
+                        </div>
+
+                    ) : null}
 
 
 
@@ -294,7 +397,7 @@ function WardDeliveryRow({
 
                             onClick={onEarlyReceipt}
 
-                            className="w-full rounded-lg border border-sky-500/25 py-1.5 text-[10px] font-bold text-sky-100 touch-manipulation"
+                            className="w-full rounded-lg border border-sky-500/25 py-2 text-[10px] font-bold text-sky-100 touch-manipulation min-h-[40px]"
 
                         >
 
@@ -306,41 +409,51 @@ function WardDeliveryRow({
 
 
 
-                    {showDue ? (
+                    {showDueActions ? (
 
-                        <div className="flex gap-1">
+                        <div className="space-y-1">
 
-                            <button
+                            <p className="text-[9px] font-bold text-slate-400 text-right">
 
-                                type="button"
+                                موعد التسليم اليوم — سجّل النتيجة
 
-                                onClick={onReceived}
+                            </p>
 
-                                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-500/35 py-1.5 text-[10px] font-bold text-emerald-100 touch-manipulation"
+                            <div className="flex gap-1">
 
-                            >
+                                <button
 
-                                <Check size={12} />
+                                    type="button"
 
-                                تم الاستلام
+                                    onClick={onReceived}
 
-                            </button>
+                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-emerald-500/35 py-2 text-[10px] font-bold text-emerald-100 touch-manipulation min-h-[40px]"
 
-                            <button
+                                >
 
-                                type="button"
+                                    <Check size={12} />
 
-                                onClick={onNotReceived}
+                                    تم الاستلام
 
-                                className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-rose-500/30 py-1.5 text-[10px] font-bold text-rose-100 touch-manipulation"
+                                </button>
 
-                            >
+                                <button
 
-                                <X size={12} />
+                                    type="button"
 
-                                لم يُستلم
+                                    onClick={onNotReceived}
 
-                            </button>
+                                    className="flex flex-1 items-center justify-center gap-1 rounded-lg border border-rose-500/30 py-2 text-[10px] font-bold text-rose-100 touch-manipulation min-h-[40px]"
+
+                                >
+
+                                    <X size={12} />
+
+                                    لم يُستلم
+
+                                </button>
+
+                            </div>
 
                         </div>
 
@@ -418,9 +531,26 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
     }, [custodyWardNames, effectiveBundle, timelineEvents]);
 
+    /** أكثر من 3 محضونين — الطي التلقائي لتخفيف طول الشاشة */
+    const shouldAutoCollapseModule = wards.length > 3;
+
+    const [moduleExpanded, setModuleExpanded] = useState(() => !shouldAutoCollapseModule);
+
+    const prevWardCountRef = useRef(wards.length);
+
+    useEffect(() => {
+        const prev = prevWardCountRef.current;
+        prevWardCountRef.current = wards.length;
+        if (prev === 0 && wards.length > 3) {
+            setModuleExpanded(false);
+        }
+    }, [wards.length]);
+
     const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
     const [dateDraftByKey, setDateDraftByKey] = useState<Record<string, string>>({});
+
+    const [showDatePickerByKey, setShowDatePickerByKey] = useState<Record<string, boolean>>({});
 
     const timelineEventsRef = useRef(timelineEvents);
 
@@ -580,9 +710,45 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
         if (!first) return;
 
-        const ok = commitWardAction(first.ward, first.kind, { wards });
+        let cancelled = false;
 
-        if (ok) backfillSigRef.current = sig;
+        const runBackfill = () => {
+
+            if (cancelled) return;
+
+            const ok = commitWardAction(first.ward, first.kind, { wards });
+
+            if (ok) backfillSigRef.current = sig;
+
+        };
+
+        const ric = globalThis.requestIdleCallback;
+
+        const cancelRic = globalThis.cancelIdleCallback;
+
+        if (typeof ric === 'function') {
+
+            const idleId = ric(runBackfill, { timeout: 1200 });
+
+            return () => {
+
+                cancelled = true;
+
+                if (typeof cancelRic === 'function') cancelRic(idleId);
+
+            };
+
+        }
+
+        const timeoutId = window.setTimeout(runBackfill, 0);
+
+        return () => {
+
+            cancelled = true;
+
+            window.clearTimeout(timeoutId);
+
+        };
 
     }, [commitWardAction, timelineEvents, wards]);
 
@@ -626,11 +792,7 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
             showToast('تم حفظ موعد التسليم', 'success');
 
-            if (!isCustodyAppointmentDue(ymd, todayYmd)) {
-
-                setExpandedKey(null);
-
-            }
+            setShowDatePickerByKey((prev) => ({ ...prev, [wardKey]: false }));
 
             setDateDraftByKey((prev) => {
 
@@ -688,6 +850,16 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
             setExpandedKey(null);
 
+            setShowDatePickerByKey((prev) => {
+
+                const copy = { ...prev };
+
+                delete copy[wardKey];
+
+                return copy;
+
+            });
+
         },
 
         [effectiveBundle, commitWardAction, custodyWardNames, showToast],
@@ -719,6 +891,16 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
             showToast('تم تسجيل الاستلام', 'success');
 
             setExpandedKey(null);
+
+            setShowDatePickerByKey((prev) => {
+
+                const copy = { ...prev };
+
+                delete copy[wardKey];
+
+                return copy;
+
+            });
 
         },
 
@@ -754,9 +936,11 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
             }
 
-            showToast('تم التسجيل — يمكنك تحديد موعد جديد', 'warning');
+            showToast('تم التسجيل — حدّد موعد تسليم جديد', 'warning');
 
             setExpandedKey(wardKey);
+
+            setShowDatePickerByKey((prev) => ({ ...prev, [wardKey]: false }));
 
             setDateDraftByKey((prev) => ({ ...prev, [wardKey]: '' }));
 
@@ -796,7 +980,31 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
         <div className="mx-3 mt-2 rounded-xl border border-[#E6C673]/18 bg-[#0B1120]/38 ring-1 ring-white/[0.04]" dir="rtl">
 
-            <div className="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-1.5">
+            <button
+
+                type="button"
+
+                onClick={() => setModuleExpanded((prev) => !prev)}
+
+                className="flex w-full items-center justify-between border-b border-white/[0.06] px-2.5 py-2 min-h-[40px] hover:bg-white/[0.03] touch-manipulation transition-colors"
+
+                aria-expanded={moduleExpanded}
+
+            >
+
+                <ChevronDown
+
+                    size={16}
+
+                    className={`shrink-0 text-[#E6C673]/75 transition-transform duration-200 ${
+
+                        moduleExpanded ? 'rotate-180' : ''
+
+                    }`}
+
+                    aria-hidden
+
+                />
 
                 <p className="text-[10px] font-bold text-[#E6C673]/90">المحضونين</p>
 
@@ -806,54 +1014,114 @@ export const CustodyRemovalWardsModule: React.FC<CustodyRemovalWardsModuleProps>
 
                 </span>
 
-            </div>
+            </button>
+
+
+
+            {moduleExpanded ? (
+
+                <>
+
+            <p className="px-2.5 py-1 text-[9px] leading-relaxed text-slate-500 text-right">
+
+                اضغط على اسم المحضون لتحديد موعد التسليم أو تسجيل النتيجة.
+
+            </p>
 
             <div className="divide-y divide-white/[0.05]">
 
-                {wards.map((row) => (
+                {wards.map((row) => {
 
-                    <WardDeliveryRow
+                    const awaitingReschedule = wardAwaitingRescheduleAfterMissed(row, timelineEvents);
 
-                        key={row.wardKey}
+                    const hasAppointment = Boolean(row.appointmentYmd);
 
-                        row={row}
+                    const showDatePicker = Boolean(showDatePickerByKey[row.wardKey]);
 
-                        todayYmd={todayYmd}
+                    return (
 
-                        isExpanded={expandedKey === row.wardKey}
+                        <WardDeliveryRow
 
-                        dateDraft={dateDraftByKey[row.wardKey] ?? ''}
+                            key={row.wardKey}
 
-                        onToggle={() => {
+                            row={row}
 
-                            setExpandedKey((prev) => (prev === row.wardKey ? null : row.wardKey));
+                            todayYmd={todayYmd}
 
-                        }}
+                            isExpanded={expandedKey === row.wardKey}
 
-                        onDateDraftChange={(value) =>
+                            dateDraft={dateDraftByKey[row.wardKey] ?? ''}
 
-                            setDateDraftByKey((prev) => ({ ...prev, [row.wardKey]: value }))
+                            showDatePicker={showDatePicker}
 
-                        }
+                            awaitingReschedule={awaitingReschedule}
 
-                        onSaveAppointment={(ymd) => saveAppointment(row.wardKey, row.name, ymd)}
+                            onToggle={() => {
 
-                        onEarlyReceipt={() => markEarlyReceipt(row.wardKey, row.name)}
+                                setExpandedKey((prev) => {
 
-                        onReceived={() => markReceived(row.wardKey, row.name)}
+                                    const next = prev === row.wardKey ? null : row.wardKey;
 
-                        onNotReceived={() => markNotReceived(row.wardKey, row.name)}
+                                    if (next === row.wardKey && !hasAppointment && !awaitingReschedule) {
 
-                    />
+                                        setShowDatePickerByKey((p) => ({ ...p, [row.wardKey]: true }));
 
-                ))}
+                                    } else if (next !== row.wardKey) {
+
+                                        setShowDatePickerByKey((p) => {
+
+                                            if (!p[row.wardKey]) return p;
+
+                                            const copy = { ...p };
+
+                                            delete copy[row.wardKey];
+
+                                            return copy;
+
+                                        });
+
+                                    }
+
+                                    return next;
+
+                                });
+
+                            }}
+
+                            onDateDraftChange={(value) =>
+
+                                setDateDraftByKey((prev) => ({ ...prev, [row.wardKey]: value }))
+
+                            }
+
+                            onSaveAppointment={(ymd) => saveAppointment(row.wardKey, row.name, ymd)}
+
+                            onEarlyReceipt={() => markEarlyReceipt(row.wardKey, row.name)}
+
+                            onReceived={() => markReceived(row.wardKey, row.name)}
+
+                            onNotReceived={() => markNotReceived(row.wardKey, row.name)}
+
+                            onOpenRescheduleCalendar={() =>
+
+                                setShowDatePickerByKey((prev) => ({ ...prev, [row.wardKey]: true }))
+
+                            }
+
+                        />
+
+                    );
+
+                })}
 
             </div>
+
+                </>
+
+            ) : null}
 
         </div>
 
     );
 
 };
-
-

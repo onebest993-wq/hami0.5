@@ -1,6 +1,9 @@
-import { useEffect } from 'react';
 import { useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial } from './useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial';
 import type { FollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupAdminSpecialBridgeProps = {
     input: FollowupAdminSpecialHandlerClusterInput;
@@ -13,9 +16,15 @@ export function ExecutionDashboardHandlerClusterFollowupAdminSpecialBridge({
 }: ExecutionDashboardHandlerClusterFollowupAdminSpecialBridgeProps) {
     const cluster = useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial(input);
 
-    useEffect(() => {
-        onCluster(cluster);
-    }, [cluster, onCluster]);
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster as Record<string, unknown>,
+        [
+            ...handlerBagKeyFingerprint(
+                cluster.dossierFollowupHandlers as Record<string, unknown>,
+            ),
+        ],
+        onCluster,
+    );
 
     return null;
 }

@@ -2,7 +2,9 @@ import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
 
 const profileLineCache = new Map<string, string>();
 
-function formatProfileLine(profile: Awaited<ReturnType<typeof ProfileDB.getProfile>>): string {
+function formatProfileLine(
+    profile: Awaited<ReturnType<typeof ProfileDB.getProfile>> | null,
+): string {
     if (!profile) return '';
     return [
         profile.header.name,

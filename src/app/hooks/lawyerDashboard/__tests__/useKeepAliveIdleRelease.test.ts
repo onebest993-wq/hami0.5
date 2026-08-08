@@ -1,6 +1,18 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
+import {
+    getLatchedTabIdleReleaseMs,
+    getOverlayKeepAliveIdleMs,
+    useKeepAliveIdleRelease,
+} from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
+
+vi.mock('@/app/runtime/nativePlatform', () => ({
+    isCapacitorNativePlatform: vi.fn(() => false),
+}));
+
+vi.mock('@/app/runtime/devicePerformanceTier', () => ({
+    isLitePerformanceActive: vi.fn(() => false),
+}));
 
 describe('useKeepAliveIdleRelease', () => {
     beforeEach(() => {
@@ -47,5 +59,21 @@ describe('useKeepAliveIdleRelease', () => {
             vi.advanceTimersByTime(5_000);
         });
         expect(onRelease).not.toHaveBeenCalled();
+    });
+});
+
+describe('keep-alive idle ms', () => {
+    it('على الويب يبقى idle طويلاً', async () => {
+        const { isCapacitorNativePlatform } = await import('@/app/runtime/nativePlatform');
+        vi.mocked(isCapacitorNativePlatform).mockReturnValue(false);
+        expect(getOverlayKeepAliveIdleMs()).toBe(8 * 60 * 1_000);
+        expect(getLatchedTabIdleReleaseMs()).toBe(10 * 60 * 1_000);
+    });
+
+    it('على الأصلي يُقصّر idle لتحرير الذاكرة', async () => {
+        const { isCapacitorNativePlatform } = await import('@/app/runtime/nativePlatform');
+        vi.mocked(isCapacitorNativePlatform).mockReturnValue(true);
+        expect(getOverlayKeepAliveIdleMs()).toBe(90 * 1_000);
+        expect(getLatchedTabIdleReleaseMs()).toBe(3 * 60 * 1_000);
     });
 });

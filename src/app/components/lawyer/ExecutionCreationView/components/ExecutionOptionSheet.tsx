@@ -1,6 +1,6 @@
 import React from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
-import { Check } from 'lucide-react';
+import { Check } from '@/app/components/ui/lucideIcons';
 import { ecg } from './executionCreationGlassUi';
 
 export type ExecutionOptionSheetMultiSelectPanel = {

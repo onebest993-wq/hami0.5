@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@/app/components/ui/lucideIcons';
 
 type ProfileSettingsSheetFooterProps = {
     saving: boolean;

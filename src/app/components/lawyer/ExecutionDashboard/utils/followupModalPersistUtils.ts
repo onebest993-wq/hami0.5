@@ -1,3 +1,9 @@
+import {
+    normalizeLegacyFollowupTabOnOpen,
+    type LegacyFollowupModalTab,
+    LEGACY_FOLLOWUP_MODAL_TABS,
+} from './followupLegacyTabNormalization';
+
 export type FollowupModalTabId =
     | 'personal'
     | 'coercive'
@@ -8,6 +14,9 @@ export type FollowupModalTabId =
     | 'admin'
     | 'special'
     | 'dossier_controls';
+
+export type { LegacyFollowupModalTab };
+export { LEGACY_FOLLOWUP_MODAL_TABS };
 
 export type FollowupModalPersistState = {
     tab?: string;
@@ -44,11 +53,27 @@ export function resolveFollowupTabOnOpen(input: {
 }): { tab: FollowupModalTabId | null; routeSeizureRequests: boolean } {
     const { explicitTab, savedTab, allowedTabOrder } = input;
 
+    const explicitLegacy = normalizeLegacyFollowupTabOnOpen(explicitTab);
+    if (explicitLegacy.routeSeizureRequests) {
+        return { tab: null, routeSeizureRequests: true };
+    }
+    if (explicitLegacy.tab && allowedTabOrder.includes(explicitLegacy.tab)) {
+        return { tab: explicitLegacy.tab as FollowupModalTabId, routeSeizureRequests: false };
+    }
+
     if (explicitTab === 'seizure_requests') {
         return { tab: null, routeSeizureRequests: true };
     }
     if (explicitTab && allowedTabOrder.includes(explicitTab)) {
         return { tab: explicitTab, routeSeizureRequests: false };
+    }
+
+    const savedLegacy = normalizeLegacyFollowupTabOnOpen(savedTab);
+    if (savedLegacy.routeSeizureRequests) {
+        return { tab: null, routeSeizureRequests: true };
+    }
+    if (savedLegacy.tab && allowedTabOrder.includes(savedLegacy.tab)) {
+        return { tab: savedLegacy.tab as FollowupModalTabId, routeSeizureRequests: false };
     }
 
     if (savedTab === 'seizure_requests') {

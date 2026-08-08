@@ -46,4 +46,15 @@ describe('filterTransactionsList', () => {
         expect(filterTransactionsList(SAMPLE, 'معاملة', TransactionStatus.Completed)).toHaveLength(1);
         expect(filterTransactionsList(SAMPLE, 'معاملة', TransactionStatus.Paused)).toHaveLength(0);
     });
+
+    it('يستبعد المؤرشفة والمحذوفة من القائمة الرئيسية', () => {
+        const withBuckets = [
+            ...SAMPLE,
+            baseTx({ id: '4', title: 'مؤرشفة', archivedAt: '2026-01-03T00:00:00.000Z' }),
+            baseTx({ id: '5', title: 'محذوفة', deletedAt: '2026-01-04T00:00:00.000Z' }),
+        ];
+        expect(filterTransactionsList(withBuckets, '', 'all')).toHaveLength(3);
+        expect(filterTransactionsList(withBuckets, '', 'archived')).toHaveLength(1);
+        expect(filterTransactionsList(withBuckets, '', 'deleted')).toHaveLength(1);
+    });
 });

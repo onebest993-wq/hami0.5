@@ -10,7 +10,7 @@ import { EVICTION_TIMELINE_ACTION_IDS, isSpecificDeliveryClaim } from '@/app/uti
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
-import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
+import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
 
 
 export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupModalPortalController }) {
@@ -21,7 +21,6 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
         CommunicationsTab,
         DebtorFinancialProgressBar,
         DossierControlsTab,
-        FinancialTab,
         OtherPartyTab,
         PersonalTab,
         ProgressBar,
@@ -30,7 +29,6 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
         TabCoercive,
         TabCommunications,
         TabDossierControls,
-        TabFinancial,
         TabOtherParty,
         TabPersonal,
         TabRequests,
@@ -141,7 +139,6 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
         openDecisionsModalWithBoot,
         openEvictionResidentialGraceModal,
         openExecutionSeizuresTab,
-        openFinancialHubLedger,
         openGuarantorDetailsModal,
         openOtherPartyAppealsModal,
         openPoliceAssistanceDetailsForDecision,
@@ -231,17 +228,6 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
 
     return (
         <>
-{panelsToRender.has('financial') ? (
-                                    <FollowupTabKeepAlivePanel
-                                        key={`financial:${String(activeFollowupDebtorKey ?? '')}`}
-                                        panelId="financial"
-                                        active={activePanelKey === 'financial'}
-                                        className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
-                                    >
-                                    <TabFinancial openFinancialHubLedger={openFinancialHubLedger} />
-                                    </FollowupTabKeepAlivePanel>
-                                ) : null}
-
 {panelsToRender.has('other_party') ? (
                                     <FollowupTabKeepAlivePanel
                                         key={`other_party:${String(activeFollowupDebtorKey ?? '')}`}
@@ -257,6 +243,10 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
                                         EXEC_OVERLAY_LAZY_FALLBACK={EXEC_SECTION_LAZY_FALLBACK}
                                         LazyOtherPartyActionsLog={LazyOtherPartyActionsLog}
                                         showCreditorRequestsMirror={isRepresentingDebtor}
+                                        isRepresentingDebtor={isRepresentingDebtor}
+                                        showToast={showToast}
+                                        pushTimelineEvent={pushTimelineEvent}
+                                        nextTimelineId={nextTimelineId}
                                         creditorRequestsMirror={otherPartyCreditorMirrorProps ?? undefined}
                                         onOpenAppeals={openOtherPartyAppealsModal}
                                         creditorTrackHandlers={creditorOtherPartyTrackHandlers}
@@ -265,7 +255,9 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
                                     </FollowupTabKeepAlivePanel>
                                 ) : null}
 
-                                {panelsToRender.has('seizure_requests') ? (
+                                {panelsToRender.has('seizure_requests') &&
+                                !spec.hideFollowupSeizureRequestsTab &&
+                                !seizureMatrix.hideSeizureTab ? (
                                     <FollowupTabKeepAlivePanel
                                         key={`seizure_requests:${String(activeFollowupDebtorKey ?? '')}`}
                                         panelId="seizure_requests"
@@ -273,7 +265,11 @@ export function ExecutionFollowupModalMidPanels({ c }: { c: ExecutionFollowupMod
                                         className="rounded-2xl border border-white/10 bg-[#0B1120]/72 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] sm:p-5"
                                     >
                                     <TabSeizureRequests
-                                        executionId={decisionsStorageExecutionId ?? executionId}
+                                        executionId={requireDecisionsStorageExecutionId({
+                                            decisionsStorageExecutionId,
+                                            executionId,
+                                            executionData: viewExecutionData as Record<string, unknown> | null,
+                                        })}
                                         executionData={viewExecutionData}
                                         remainingBalanceIqd={remainingBalanceForSeizure}
                                         financialCenterTotalIqd={remainingBalanceForSeizure}

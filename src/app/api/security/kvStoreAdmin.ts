@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+﻿import { createClient } from '@supabase/supabase-js';
 import { readSupabasePrivilegedKey } from './supabasePrivilegedEnv.ts';
 
 const DEFAULT_TABLE = 'kv_store_f09713ba';

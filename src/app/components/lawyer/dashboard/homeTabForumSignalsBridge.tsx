@@ -12,7 +12,7 @@ export function HomeTabForumSignalsBridge({
     enabled: boolean;
     onCount: (count: number) => void;
 }) {
-    const count = useForumUnreadCount(userId, enabled);
+    const { count } = useForumUnreadCount(userId, enabled);
     useForumNotificationStream(userId, enabled);
 
     useEffect(() => {

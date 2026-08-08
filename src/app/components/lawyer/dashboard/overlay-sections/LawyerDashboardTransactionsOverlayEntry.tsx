@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { resolveShellAuthUserId } from '@/app/services/auth/shellAuth';
 import type { LawyerDashboardOverlaysBundleProps } from '../lawyerDashboardOverlaysBundles';
 import { TransactionsThreadingHost } from '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingHost';
@@ -49,8 +49,13 @@ export function LawyerDashboardTransactionsOverlayEntry({
         transactionsHostMounted,
         transactionsSessionKey,
         transactionsFocusId,
+        setTransactionsFocusId,
         closeTransactionsHub,
     } = overlays;
+
+    const clearTransactionsFocus = useCallback(() => {
+        setTransactionsFocusId(undefined);
+    }, [setTransactionsFocusId]);
 
     const transactionsUserId = resolveShellAuthUserId(authUserId, userId) ?? userId;
     const shouldMount =
@@ -63,10 +68,11 @@ export function LawyerDashboardTransactionsOverlayEntry({
             <TransactionsThreadingHost
                 key={`transactions-hub-${transactionsSessionKey}`}
                 open={showTransactions}
-                keepAlive={transactionsHostMounted}
+                keepAlive={transactionsHostMounted && !showTransactions}
                 onBack={closeTransactionsHub}
                 userId={transactionsUserId}
                 initialTransactionId={transactionsFocusId}
+                onInitialFocusConsumed={clearTransactionsFocus}
             />
         </TransactionsErrorBoundaryGate>
     );

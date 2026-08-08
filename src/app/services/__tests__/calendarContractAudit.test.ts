@@ -17,6 +17,7 @@ import { buildStableBridgeId } from '../calendarBridge';
 import { isBridgedCalendarEvent } from '../calendarBridgePersistence';
 import {
     cleanupCalendarForUser,
+    ensureCalendarPopulatedFromLiveDossiers,
     purgeExcludedDossierBridgedEvents,
     reconcileAllDossierDates,
     shouldExcludeExecutionFromCalendar,
@@ -149,7 +150,7 @@ describe('calendar contract audit — فحص مجهري للربط', () => {
     });
 
     it('🛡️ WHITELIST: مهام الدعاوى (lawsuit tasks) لا تُرفع للتقويم — فقط appointments', async () => {
-        saveLawsuitFilesRaw([
+        const lawsuitFiles = [
             {
                 id: 'user-tasks',
                 status: 'active',
@@ -168,10 +169,13 @@ describe('calendar contract audit — فحص مجهري للربط', () => {
                     },
                 ],
             },
-        ]);
-        const stats = await reconcileAllDossierDates(USER);
+        ];
+        saveLawsuitFilesRaw(lawsuitFiles);
+        await ensureCalendarPopulatedFromLiveDossiers(
+            { lawyerId: USER, lawsuitFiles, executionFiles: [] },
+            { emitUpdated: false },
+        );
         await wait();
-        expect(stats.lawsuitTasks).toBe(0);
         const taskBridge = buildStableBridgeId('lawsuit', 'user-tasks', 'task_user-task-1');
         const events = await CalendarDB.getEvents(USER);
         expect(events.some((e) => e.id === taskBridge)).toBe(false);

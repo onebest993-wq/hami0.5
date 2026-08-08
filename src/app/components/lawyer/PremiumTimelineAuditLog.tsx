@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { motion } from 'motion/react';
-import { Pin, Trash2, Pencil } from 'lucide-react';
+import { Pin, Trash2, Pencil } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent as ExecutionTimelineEvent } from '@/app/types/execution';
 import {
     cleanTimelineCardTitle,

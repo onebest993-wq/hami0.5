@@ -1,21 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifySensitiveSettingsAction } from '@/app/services/settings/verifySensitiveSettingsAction';
 
-vi.mock('@/app/runtime/nativeBiometricBridge', () => ({
-    hasNativeBiometricEnrollment: vi.fn(() => false),
-    verifyNativeBiometricUnlock: vi.fn(),
+vi.mock('@/app/services/security/biometricSessionService', () => ({
+    verifyBiometricSessionUnlock: vi.fn(),
 }));
 
 vi.mock('@/app/services/settings/settingsRuntime', () => ({
     getLawyerSettingsSnapshot: vi.fn(() => ({
         security: { biometricLock: false },
     })),
-}));
-
-vi.mock('@/app/services/security/webAuthnLock', () => ({
-    isWebAuthnLockSupported: vi.fn(() => false),
-    hasStoredBiometricCredential: vi.fn(() => false),
-    verifyBiometricUnlock: vi.fn(),
 }));
 
 vi.mock('@/app/components/ui/SmartDialog', () => ({
@@ -51,18 +44,16 @@ describe('verifySensitiveSettingsAction', () => {
         expect(ok).toBe(false);
     });
 
-    it('يستخدم البيومتري عند تفعيله', async () => {
+    it('يستخدم BiometricSessionService عند تفعيل القفل', async () => {
         const runtime = await import('@/app/services/settings/settingsRuntime');
-        const webAuthn = await import('@/app/services/security/webAuthnLock');
+        const biometric = await import('@/app/services/security/biometricSessionService');
         vi.mocked(runtime.getLawyerSettingsSnapshot).mockReturnValue({
             security: { biometricLock: true },
         } as ReturnType<typeof runtime.getLawyerSettingsSnapshot>);
-        vi.mocked(webAuthn.isWebAuthnLockSupported).mockReturnValue(true);
-        vi.mocked(webAuthn.hasStoredBiometricCredential).mockReturnValue(true);
-        vi.mocked(webAuthn.verifyBiometricUnlock).mockResolvedValue(true);
+        vi.mocked(biometric.verifyBiometricSessionUnlock).mockResolvedValue(true);
 
         const ok = await verifySensitiveSettingsAction({ confirmPhrase: 'ignored' });
         expect(ok).toBe(true);
-        expect(webAuthn.verifyBiometricUnlock).toHaveBeenCalled();
+        expect(biometric.verifyBiometricSessionUnlock).toHaveBeenCalled();
     });
 });

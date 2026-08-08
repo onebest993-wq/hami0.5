@@ -1,6 +1,8 @@
 import type { CaseStage } from '@/app/types/criminal';
 import type { CriminalCase, TimelineEvent } from './criminalStore';
-import { isCorruptTimelineEvent, resolveMergedCaseIds, resolveOfficialCaseNumber } from './criminalStore';
+import { isCorruptTimelineEvent } from './criminalCaseTimelineUtils';
+import { resolveMergedCaseIds } from './criminalCaseMergeUtils';
+import { resolveOfficialCaseNumber } from './criminalCaseReferenceUtils';
 import { resolveMergeStageBucket } from './criminalStageUtils';
 
 /** عرض مؤقت في الذاكرة فقط — لا يُخزَّن في Zustand. */

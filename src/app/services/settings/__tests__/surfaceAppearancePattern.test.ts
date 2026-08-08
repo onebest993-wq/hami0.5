@@ -35,7 +35,7 @@ describe('resolvePatternOverlayStyle', () => {
         const style = resolvePatternOverlayStyle(
             {
                 backgroundPreset: 'babylon-gate',
-                backgroundPatternOpacity: 0.2,
+                backgroundPatternOpacity: 0.32,
                 theme: 'navy',
                 themeMode: 'dark',
             },
@@ -44,18 +44,23 @@ describe('resolvePatternOverlayStyle', () => {
         expect(style?.backgroundImage).toMatch(/^url\("data:image\/svg\+xml,/);
         expect(style?.backgroundRepeat).toBe('repeat');
         expect(typeof style?.opacity).toBe('number');
-        expect((style?.opacity as number) >= 0.42).toBe(true);
+        expect((style?.opacity as number) > 0.1).toBe(true);
     });
 });
 
 describe('resolveHomeBlockPatternStyle', () => {
-    it('maps slider linearly so customizer intensity is visible on the card', () => {
-        const low = resolveHomeBlockPatternStyle('moroccan-zellige', '#E6C673', 0.1, 'dark');
+    it('maps intensity linearly — خفيف أضعف بكثير من واضح', () => {
+        const low = resolveHomeBlockPatternStyle('moroccan-zellige', '#E6C673', 0.08, 'dark');
+        const mid = resolveHomeBlockPatternStyle('moroccan-zellige', '#E6C673', 0.32, 'dark');
         const high = resolveHomeBlockPatternStyle('moroccan-zellige', '#E6C673', 0.78, 'dark');
         expect(high?.backgroundImage).toMatch(/^url\("data:image\/svg\+xml,/);
-        expect((low?.opacity as number) < (high?.opacity as number)).toBe(true);
-        expect((high?.opacity as number) >= 0.3).toBe(true);
-        expect((high?.opacity as number) <= 0.5).toBe(true);
+        const lowOp = low?.opacity as number;
+        const midOp = mid?.opacity as number;
+        const highOp = high?.opacity as number;
+        expect(lowOp).toBeLessThan(midOp);
+        expect(midOp).toBeLessThan(highOp);
+        expect(lowOp).toBeLessThan(0.12);
+        expect(highOp).toBeGreaterThan(0.55);
     });
 
     it('returns null for none', () => {
@@ -64,8 +69,11 @@ describe('resolveHomeBlockPatternStyle', () => {
 });
 
 describe('resolvePatternLayerOpacity', () => {
-    it('raises low saved opacities above an invisible floor', () => {
-        expect(resolvePatternLayerOpacity(0.05, 'dark')).toBeGreaterThanOrEqual(0.42);
-        expect(resolvePatternLayerOpacity(0.78, 'dark')).toBeLessThanOrEqual(1);
+    it('يسمح بخفيف بالكاد ظاهر دون أرضية 0.42', () => {
+        expect(resolvePatternLayerOpacity(0.08, 'dark')).toBeLessThan(0.12);
+        expect(resolvePatternLayerOpacity(0.78, 'dark')).toBeGreaterThan(0.55);
+        expect(resolvePatternLayerOpacity(0.08, 'dark')).toBeLessThan(
+            resolvePatternLayerOpacity(0.32, 'dark'),
+        );
     });
 });

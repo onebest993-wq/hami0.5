@@ -7,6 +7,7 @@ export type TransactionsThreadingSystemProps = {
     onBack: () => void;
     userId: string;
     initialTransactionId?: string;
+    onInitialFocusConsumed?: () => void;
     open?: boolean;
     /** مركّب مخفياً — الشجرة دافئة؛ الفتح = إظهار فقط */
     keepAlive?: boolean;

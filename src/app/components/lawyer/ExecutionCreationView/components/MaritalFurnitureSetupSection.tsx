@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Plus, Search, Sofa, Trash2 } from 'lucide-react';
+import { Plus, Search, Sofa, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { MaritalFurnitureItem } from '@/app/types/maritalFurniture';
 import {
     createEmptyMaritalFurnitureItem,

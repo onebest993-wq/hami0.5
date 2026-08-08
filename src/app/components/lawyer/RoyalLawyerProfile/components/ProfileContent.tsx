@@ -54,6 +54,8 @@ export interface ProfileContentProps {
     /** يُمرَّر من الشاشة — يخفي بوابات التعديل/المعرض عند keepAlive */
     screenActive?: boolean;
     pageHidden?: boolean;
+    /** تبويب اللوحة — إخفاء شريط التنقل الداخلي */
+    isScreenMode?: boolean;
 }
 
 export function ProfileContent({
@@ -93,6 +95,7 @@ export function ProfileContent({
     onRegisterCloseGalleryViewer,
     screenActive = true,
     pageHidden = false,
+    isScreenMode = false,
 }: ProfileContentProps) {
     const user = useAuthUser();
     const viewerId = resolveCalendarUserId(user?.id ?? null);
@@ -168,6 +171,7 @@ export function ProfileContent({
                 profileViewAllowed={canView}
                 startEdit={startEdit}
                 openSettings={openSettings}
+                isScreenMode={isScreenMode}
             />
 
             {!showProfileBody && !followCheckPending ? (

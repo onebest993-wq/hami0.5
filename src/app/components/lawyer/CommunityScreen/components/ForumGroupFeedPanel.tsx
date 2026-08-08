@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { ArrowRight, LogOut, Shield, Users } from 'lucide-react';
+import { ArrowRight, LogOut, Shield, Users } from '@/app/components/ui/lucideIcons';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { ForumPostList } from './ForumPostList';

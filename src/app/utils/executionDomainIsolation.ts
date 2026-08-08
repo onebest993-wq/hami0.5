@@ -96,6 +96,55 @@ export interface DomainGateResult {
     reasonAr?: string;
 }
 
+/** عنوان قرار مخاطبة في سجل محضر المتابعة — يتجاوز بوابة special_followup للاختصاص */
+export const COMMUNICATION_JOURNAL_TITLE_KEYWORD = 'إرسال كتاب / مخاطبة جهة';
+
+export function isCommunicationJournalTitle(title: unknown): boolean {
+    const t = String(title ?? '').trim();
+    if (!t) return false;
+    return t.includes(COMMUNICATION_JOURNAL_TITLE_KEYWORD) || /مخاطبة جهة/i.test(t);
+}
+
+export type ExecutorRequestGateMeta = {
+    personalCoerciveSubtype?: string;
+    executionData?: Record<string, unknown> | null;
+    decisionTitle?: string;
+    /** تسجيل مخاطبة في تبويب المخاطبات — مسموح لكل الاختصاصات */
+    communicationJournal?: boolean;
+    /** طلب من تبويب نماذج الطلبات — مسموح لكل الاختصاصات */
+    adminRequestsTab?: boolean;
+    /** تحركات الطرف الآخر — مسموح لكل الاختصاصات */
+    otherPartyFollowup?: boolean;
+    payloadJson?: string;
+};
+
+function isCommunicationJournalGate(meta?: ExecutorRequestGateMeta): boolean {
+    if (!meta) return false;
+    if (meta.communicationJournal) return true;
+    return isCommunicationJournalTitle(meta.decisionTitle);
+}
+
+function isAdminRequestsTabGate(meta?: ExecutorRequestGateMeta): boolean {
+    if (!meta) return false;
+    if (meta.adminRequestsTab) return true;
+    const raw = String(meta.payloadJson || '').trim();
+    if (!raw) return false;
+    try {
+        const v = JSON.parse(raw) as { kind?: unknown };
+        const kind = String(v?.kind ?? '').trim();
+        return kind === 'manual_followup' || kind === 'admin_template';
+    } catch {
+        return false;
+    }
+}
+
+function isOtherPartyFollowupGate(meta?: ExecutorRequestGateMeta): boolean {
+    if (!meta) return false;
+    if (meta.otherPartyFollowup) return true;
+    const title = String(meta.decisionTitle ?? '').trim();
+    return /تحرك\s*الطرف\s*الآخر/i.test(title);
+}
+
 const SHARIA_MODULES = new Set<ExecutionClaimModule>([
     'visitation_personal',
     'matwaa',
@@ -239,24 +288,11 @@ export function resolveExecutionDomainContext(
     const primaryClaimModule = claimTypeToModule(primaryType, data);
     const jurisdiction = resolveJurisdictionDomain(claimModules);
     const perspective = resolveAppealUiPerspective(data);
-    const flags = resolveFollowupSpecializationFromExecution(
-        {
-            claimType: String(data.claimType || ''),
-            claimTypes: data.claimTypes as string[] | undefined,
-            specificDeliveryItemNature: data.specificDeliveryItemNature as string | undefined,
-            specificDeliveryFinancialized: data.specificDeliveryFinancialized as boolean | undefined,
-            specificDeliveryItems: data.specificDeliveryItems as
-                | import('@/app/utils/specificDeliveryItemsUtils').SpecificDeliveryItem[]
-                | undefined,
-            docType: String(data.docType || ''),
-            classification: String(data.classification || ''),
-            category: String(data.category || ''),
-            debtorEntityKind,
-        },
-        isEmployeeDebtor,
-        primaryType,
-        debtorEntityKind
-    );
+    const flags = resolveFollowupFlagsForDebtorContext(data, {
+        isEmployeeDebtor: isEmployeeDebtor,
+        fallbackClaimType: primaryType,
+        debtorEntityKind,
+    });
 
     return {
         dossierId,
@@ -290,6 +326,17 @@ export function isDecisionVisibleInDomainContext(
     ctx: ExecutionDomainContext,
     row: Record<string, unknown>
 ): boolean {
+    const requestKind = String(row.requestKind || '').trim();
+    if (requestKind === 'eviction_procedure') {
+        const gate = canPersistExecutorRequestKind(ctx, requestKind, {
+            decisionTitle: String(row.title || ''),
+            payloadJson: String(row.payloadJson || ''),
+        });
+        if (gate.allowed) {
+            return true;
+        }
+    }
+
     const taggedNamespace = String((row as { domainNamespace?: string }).domainNamespace || '').trim();
     if (taggedNamespace) {
         return isDecisionAllowedForPerspective(ctx, row);
@@ -299,10 +346,21 @@ export function isDecisionVisibleInDomainContext(
         return isDecisionAllowedForPerspective(ctx, row);
     }
 
-    const requestKind = String(row.requestKind || '').trim();
     if (requestKind) {
+        if (requestKind === 'special_followup') {
+            const title = String(row.title || '').trim();
+            if (
+                isCommunicationJournalTitle(title) ||
+                /تحرك\s*الطرف\s*الآخر/i.test(title) ||
+                String(row.appealRequestOrigin || '').trim() === 'debtor_side'
+            ) {
+                return isDecisionAllowedForPerspective(ctx, row);
+            }
+        }
         const gate = canPersistExecutorRequestKind(ctx, requestKind as ExecutorRequestKind, {
             personalCoerciveSubtype: String(row.personalCoerciveSubtype || ''),
+            decisionTitle: String(row.title || ''),
+            payloadJson: String(row.payloadJson || ''),
         });
         if (!gate.allowed) {
             return false;
@@ -352,9 +410,7 @@ export function filterDecisionsForDomainContext<T extends Record<string, unknown
 export function canPersistExecutorRequestKind(
     ctx: ExecutionDomainContext,
     requestKind: ExecutorRequestKind | string,
-    meta?: {
-        personalCoerciveSubtype?: string;
-    }
+    meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
     const kind = String(requestKind || '').trim() as ExecutorRequestKind;
     const flags = ctx.flags;
@@ -419,6 +475,13 @@ export function canPersistExecutorRequestKind(
 
     if (kind === 'special_followup') {
         if (
+            isCommunicationJournalGate(meta) ||
+            isAdminRequestsTabGate(meta) ||
+            isOtherPartyFollowupGate(meta)
+        ) {
+            return { allowed: true };
+        }
+        if (
             ctx.jurisdiction === 'sharia' &&
             flags.hideFollowupCoerciveTab &&
             flags.hideDossierFinancialTools &&
@@ -436,7 +499,7 @@ export function canPersistExecutorRequestKind(
 export function gateExecutorRequestPersist(
     executionId: string | undefined,
     requestKind: ExecutorRequestKind | string,
-    meta?: { personalCoerciveSubtype?: string; executionData?: Record<string, unknown> | null }
+    meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
     const data = resolveExecutionDataForDomainGate(executionId, meta?.executionData);
     const ctx = resolveExecutionDomainContext(data, executionId);
@@ -504,7 +567,7 @@ export function isFollowupRequestKindAllowed(
     executionData: Record<string, unknown> | null | undefined,
     executionId: string | undefined,
     requestKind: ExecutorRequestKind | string,
-    meta?: { personalCoerciveSubtype?: string }
+    meta?: ExecutorRequestGateMeta,
 ): DomainGateResult {
     const ctx = resolveExecutionDomainContext(executionData, executionId);
     return canPersistExecutorRequestKind(ctx, requestKind, meta);
@@ -535,6 +598,23 @@ export function resolveFollowupFlagsFromExecution(
     executionId?: string
 ): FollowupSpecializationVisibility {
     return resolveExecutionDomainContext(executionData, executionId).flags;
+}
+
+/** أعلام محضر المتابعة لمدين محدّد (كاسب/موظف + كيان) — المسار الموحّد للبوابات */
+export function resolveFollowupFlagsForDebtorContext(
+    executionData: Record<string, unknown> | null | undefined,
+    options: {
+        isEmployeeDebtor: boolean;
+        fallbackClaimType?: string;
+        debtorEntityKind?: DebtorEntityKind | string | null;
+    },
+): FollowupSpecializationVisibility {
+    return resolveFollowupSpecializationFromExecution(
+        executionData,
+        options.isEmployeeDebtor,
+        options.fallbackClaimType,
+        options.debtorEntityKind,
+    );
 }
 
 export function buildDomainReconcileSignature(ctx: ExecutionDomainContext): string {

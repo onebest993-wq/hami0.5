@@ -23,12 +23,7 @@ describe('phase-13 remaining LD static edges', () => {
         expect(src).toContain("import('@/app/stores/executionDashboardStore')");
     });
 
-    it('lawyerCommunityPostsStorage يستخدم vaultBlobPathLite', () => {
-        const src = readFileSync(
-            join(root, 'src/app/services/cloud/lawyerCommunityPostsStorage.ts'),
-            'utf8',
-        );
-        expect(src).toContain('vaultBlobPathLite');
-        expect(src).not.toContain("from '@/app/services/vaultBlobStore'");
-    });
+    // حُذف فحص lawyerCommunityPostsStorage: كان يحرس حدّ استيراد في جزيرة ميتة
+    // (Api + PostsMerge + PostsStorage) خلّفتها إعادة هيكلة لم تكتمل، بينما
+    // الخدمة الحيّة lawyerCommunityCloud لم تستوردها قط.
 });

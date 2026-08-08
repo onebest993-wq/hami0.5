@@ -19,5 +19,7 @@ export async function loadCaseLinkingRuntime() {
         assertDistinctConsolidationPair: consolidation.assertDistinctConsolidationPair,
         alignSecondaryFileLitigationStage: consolidation.alignSecondaryFileLitigationStage,
         linkExistingLawsuitFiles: linking.linkExistingLawsuitFiles,
+        linkCriminalPeerToOrigin: linking.linkCriminalPeerToOrigin,
+        rejectCaseLinkPair: linking.rejectCaseLinkPair,
     };
 }

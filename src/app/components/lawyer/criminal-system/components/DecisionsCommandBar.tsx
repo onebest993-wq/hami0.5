@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import type { DecisionsLedgerKindFilter } from './JudicialDecisionsLedger';
 import type { InvestigationDefendantsPartyMix } from '../juvenileInvestigationRules';
 

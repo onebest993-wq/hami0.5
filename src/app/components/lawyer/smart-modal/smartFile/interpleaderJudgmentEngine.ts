@@ -1,14 +1,15 @@
 import type { Party } from '../../LawyerShared';
 import {
+    extractParentheticalUnderlyingSide,
+    isAbsentObjectedRole,
+    isAbsentObjectorRole,
     isDefendantSideRole,
     isInterpleaderThirdPartyRole,
     isPlaintiffSideRole,
     partitionPartiesForHeader,
 } from './partyRoleClassification';
 import {
-    JUDGMENT_TYPE_SULH,
     JUDGMENT_TYPE_VOID,
-    JUDGMENT_TYPE_WAIVER,
     type FirstInstanceAppealRights,
     resolveLawyerSide,
 } from './judgmentTypes';
@@ -88,11 +89,7 @@ export function interpleaderFirstInstanceJudgmentOptions(): JudgmentOptionWithHi
 }
 
 export function interpleaderTerminationJudgmentOptions(): JudgmentOptionWithHint[] {
-    return [
-        { value: JUDGMENT_TYPE_SULH, label: JUDGMENT_TYPE_SULH },
-        { value: JUDGMENT_TYPE_WAIVER, label: JUDGMENT_TYPE_WAIVER },
-        { value: JUDGMENT_TYPE_VOID, label: JUDGMENT_TYPE_VOID },
-    ];
+    return [{ value: JUDGMENT_TYPE_VOID, label: JUDGMENT_TYPE_VOID }];
 }
 
 /** الطرف المعلّم موكلاً — isClient أو مكتبي */
@@ -129,6 +126,11 @@ export function resolveClientPartyBucket(
 
     const role = String(client.role ?? '');
     if (isInterpleaderThirdPartyRole(role)) return 'interpleader';
+    if (isAbsentObjectedRole(role) || isAbsentObjectorRole(role)) {
+        const underlying = extractParentheticalUnderlyingSide(role);
+        if (underlying === 'المدعي') return 'plaintiff';
+        if (underlying === 'المدعى عليه') return 'defendant';
+    }
     if (isDefendantSideRole(role)) return 'defendant';
     if (isPlaintiffSideRole(role)) return 'plaintiff';
     if (client.side === 'left') return 'defendant';
@@ -239,26 +241,22 @@ export function resolveInterpleaderHadoriAppealRights(
     }
 
     if (outcome === 'full_win') {
-        const roleLabel =
-            bucket === 'plaintiff' ? 'المدعي' : bucket === 'defendant' ? 'المدعى عليه' : 'الشخص الثالث الاختصامي';
         return {
             action: 'wait_opponent',
-            hint: `كسبتم الدعوى بصفة ${roleLabel} — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.`,
+            hint: 'كسبتم الدعوى — لا يحق لموكلك الطعن. تُقفل المرافعة بانتظار طعن الخصم.',
         };
     }
 
     if (outcome === 'full_loss') {
-        const roleLabel =
-            bucket === 'plaintiff' ? 'المدعي' : bucket === 'defendant' ? 'المدعى عليه' : 'الشخص الثالث الاختصامي';
         return {
             action: 'self_appeal',
-            hint: `صدر حكم ضد موكلك بصفة ${roleLabel} — يحق لموكلك الطعن بالاستئناف أو التمييز.`,
+            hint: 'صدر حكم لصالح الخصم — يحق لموكلك الطعن بالاستئناف أو التمييز.',
         };
     }
 
     return {
         action: 'self_appeal',
-        hint: 'حكم جزئي — يحق لموكلك وللخصم الطعن فيما حُسم عليه.',
+        hint: 'حكم جزئي — يحق لموكلك والخصم الطعن فيما حُسم عليه.',
     };
 }
 

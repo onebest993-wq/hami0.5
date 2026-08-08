@@ -1,5 +1,7 @@
 import type { LawyerProfileData } from '@/app/services/profile/profileTypes';
-import { ProfileDB } from '@/app/services/cloud/lawyerProfileCloud';
+import { ProfileDB, readLocalProfileSync } from '@/app/services/cloud/lawyerProfileCloud';
+import { DEFAULT_LAWYER_PROFILE } from '@/app/services/cloud/lawyerProfileTypes';
+import { resolveLawyerDisplayName } from '@/app/services/profile/resolveLawyerDisplayName';
 import { LAWYER_PROFILE_UPDATED } from '@/app/services/profile/profileEvents';
 import {
     hasProfileWarmCache,
@@ -22,6 +24,55 @@ export {
 };
 
 const inflight = new Map<string, Promise<LawyerProfileData>>();
+
+/**
+ * يملأ الكاش الدافئ متزامناً من التخزين المحلي أو بذرة الاسم من الجلسة —
+ * قبل fetchLawyerProfile/async getProfile (مثل FieldTasksWarmSheetBridge).
+ */
+export function hydrateProfileWarmCachePeekSync(
+    userId?: string | null,
+    userMeta?: Record<string, unknown> | null,
+    viewerId?: string | null,
+): LawyerProfileData | null {
+    const uid = userId?.trim();
+    if (!uid || typeof window === 'undefined') return null;
+
+    const existing = peekProfileWarmCache(uid);
+    if (existing?.header?.name?.trim()) return existing;
+
+    const viewer = viewerId?.trim() || uid;
+    if (existing && viewer === uid) {
+        const name = resolveLawyerDisplayName(existing.header?.name, uid, userMeta ?? {}).trim();
+        if (name && name !== existing.header?.name?.trim()) {
+            const enriched: LawyerProfileData = {
+                ...existing,
+                header: { ...existing.header, name },
+            };
+            setProfileWarmCache(uid, enriched);
+            return peekProfileWarmCache(uid) ?? enriched;
+        }
+        if (existing) return existing;
+    }
+
+    const local = readLocalProfileSync(uid);
+    if (local) {
+        setProfileWarmCache(uid, local);
+        return peekProfileWarmCache(uid) ?? local;
+    }
+
+    if (viewer !== uid) return null;
+
+    const name = resolveLawyerDisplayName(undefined, uid, userMeta ?? {}).trim();
+    if (!name) return null;
+
+    const stub: LawyerProfileData = {
+        ...DEFAULT_LAWYER_PROFILE,
+        header: { ...DEFAULT_LAWYER_PROFILE.header, name },
+        sections: DEFAULT_LAWYER_PROFILE.sections.map((section) => ({ ...section })),
+    };
+    setProfileWarmCache(uid, stub);
+    return peekProfileWarmCache(uid) ?? stub;
+}
 
 function writeWarmPreferRich(uid: string, data: LawyerProfileData): LawyerProfileData {
     const existing = peekProfileWarmCache(uid);

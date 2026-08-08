@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Trash2, UserCheck } from 'lucide-react';
+import { Trash2, UserCheck } from '@/app/components/ui/lucideIcons';
 import type { Party } from '@/app/types/common';
 import { DebtorEntityKindSegment } from '@/app/components/lawyer/ExecutionDashboard/components/DebtorEntityKindSegment';
 import { normalizeDebtorEntityKind } from '@/app/utils/debtorEntityKindUtils';

@@ -70,6 +70,10 @@ function AlertsBackgroundRuntime({
     refreshAppAlertsRef,
     refreshAlertsLightRef,
 }: AlertsBackgroundRuntimeProps) {
+    const deferAlertsUntilIdle =
+        typeof document === 'undefined' ||
+        document.documentElement.dataset.hamiInitialBoot !== '1';
+
     const { alerts, loading, error, refresh, refreshLight } = useAppAlerts({
         lawyerId,
         files,
@@ -77,7 +81,7 @@ function AlertsBackgroundRuntime({
         criminalCases,
         notes: globalNotes,
         fieldTasks,
-        deferUntilIdle: true,
+        deferUntilIdle: deferAlertsUntilIdle,
     });
 
     const onAlertsRef = useRef(onAlerts);

@@ -1,6 +1,10 @@
 // @ts-nocheck
 /** توجيه handleCoerciveAction — موجة 7 */
 import { useCallback, type MutableRefObject } from 'react';
+import {
+    openFollowupSeizureRequestsModal,
+    type OpenFollowupModalPersistedFn,
+} from '../../utils/followupModalOpen';
 import { readExecutorDecisionsArray } from '@/app/utils/executorSeizureDecisionQueue';
 import { buildInitialExecutorSeizureDetails } from '../../helpers/buildInitialExecutorSeizureDetails';
 import {
@@ -22,6 +26,7 @@ export type UseExecutionDashboardCoerciveActionHandlersParams = {
     effectiveDebtors: Array<{ name?: string }>;
     coerciveSubjectRef: MutableRefObject<{ id: string; name: string }>;
     openSeizureRequestsTabRef: MutableRefObject<() => void>;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowUnifiedExecutionModal: (open: boolean) => void;
     showToast: (message: string, type?: string, opts?: Record<string, unknown>) => void;
     saveCoerciveAction: (actionType: string, details: Record<string, string>) => void;
@@ -42,6 +47,7 @@ export function useExecutionDashboardCoerciveActionHandlers(
         effectiveDebtors,
         coerciveSubjectRef,
         openSeizureRequestsTabRef,
+        openFollowupModalPersisted,
         setShowUnifiedExecutionModal,
         showToast,
         saveCoerciveAction,
@@ -78,8 +84,10 @@ export function useExecutionDashboardCoerciveActionHandlers(
             }
 
             if (route.kind === 'redirect_followup') {
-                setShowUnifiedExecutionModal(true);
-                openSeizureRequestsTabRef.current();
+                openFollowupSeizureRequestsModal(openFollowupModalPersisted, {
+                    setShowUnifiedExecutionModal,
+                    openSeizureRequestsTabRef,
+                });
                 showToast('يوجد طلب حجز موافق عليه يحتاج إكمال البيانات داخل محضر المتابعة.', 'info', {
                     decisionsLink: true,
                     decisionId: route.decisionId,

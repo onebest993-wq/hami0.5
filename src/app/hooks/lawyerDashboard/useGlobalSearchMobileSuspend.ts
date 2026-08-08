@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react';
 
-const OPEN_INPUT =
-    '[data-search-open="true"] [data-testid="global-search-input"], [data-search-instant-shell="true"] [data-testid="global-search-input"]';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 
-/** خلفية: blur لوحة المفاتيح؛ عودة للمقدمة: استعادة التركيز إن كان البحث مفتوحاً. */
+const OPEN_INPUT =
+    '[data-search-open="true"] [data-testid="global-search-input"]';
+
+/** خلفية: blur لوحة المفاتيح؛ عودة للمقدمة: استعادة التركيز إن كان البحث مفتوحاً (ويب فقط). */
 export function useGlobalSearchMobileSuspend(isOpen: boolean): void {
     const wasSuspendedRef = useRef(false);
 
     useEffect(() => {
-        if (!isOpen || typeof document === 'undefined') {
+        if (!isOpen || typeof document === 'undefined' || isCapacitorNativePlatform()) {
             wasSuspendedRef.current = false;
             return;
         }

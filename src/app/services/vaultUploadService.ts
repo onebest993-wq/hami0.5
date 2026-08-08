@@ -167,6 +167,9 @@ export async function saveFileToVault(
     notifySmartVaultDocsUpdated(userId, [doc]);
     await SmartVaultDB.saveDoc(doc);
     const persistTask = scheduleVaultBlobPersist(uploadResult.persistTask, normalized.name);
+    void import('@/app/services/vault/scheduleVaultTextExtraction').then(({ scheduleVaultTextExtraction }) => {
+        scheduleVaultTextExtraction(doc, persistTask);
+    });
     return { doc, localOnly: uploadResult.localOnly, persistTask };
 }
 
@@ -209,6 +212,9 @@ export async function saveScannedImageToVault(
     notifySmartVaultDocsUpdated(userId, [doc]);
     await SmartVaultDB.saveDoc(doc);
     const persistTask = scheduleVaultBlobPersist(uploadResult.persistTask, file.name);
+    void import('@/app/services/vault/scheduleVaultTextExtraction').then(({ scheduleVaultTextExtraction }) => {
+        scheduleVaultTextExtraction(doc, persistTask);
+    });
     return { doc, localOnly: uploadResult.localOnly, persistTask };
 }
 

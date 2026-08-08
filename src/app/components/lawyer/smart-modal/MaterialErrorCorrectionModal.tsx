@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, AlertTriangle, Edit3 } from 'lucide-react';
+import { X, AlertTriangle, Edit3 } from '@/app/components/ui/lucideIcons';
 
 interface MaterialErrorCorrectionModalProps {
     isOpen: boolean;

@@ -1,0 +1,361 @@
+/**
+ * رادار المواعيد — فحمي / رصاصي أساس، لؤلؤي جانبي
+ */
+.hami-radar-page {
+    --radar-bg-main: #121212;
+    --radar-bg-card: #1a1a1a;
+    --radar-bg-elevated: #242424;
+    --radar-bg-card-hover: #2a2a2a;
+    --radar-border: #64748b;
+    --radar-border-soft: #334155;
+    --radar-text-primary: #fbf9f5;
+    --radar-text-secondary: #94a3b8;
+    --radar-accent-pearl: #fbf9f5;
+    --radar-accent-pearl-muted: #e2e8f0;
+    --radar-btn-surface: #fbf9f5;
+    --radar-btn-text: #121212;
+    --radar-border-accent: #ffffff;
+    color: var(--radar-text-primary);
+}
+
+/* سطح أساسي داكن — فحمي مع لمسة معدنية خفيفة */
+.hami-radar-dark-surface {
+    background-color: var(--radar-bg-main);
+    background-image:
+        repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.025) 0px,
+            rgba(255, 255, 255, 0.025) 1px,
+            transparent 1px,
+            transparent 4px
+        ),
+        linear-gradient(168deg, #1c1c1c 0%, var(--radar-bg-main) 54%, #0a0a0a 100%);
+}
+
+.hami-radar-card-surface {
+    background-color: var(--radar-bg-card);
+    border-color: color-mix(in srgb, var(--radar-border-accent) 92%, transparent);
+}
+
+.hami-radar-elevated-surface {
+    background-color: var(--radar-bg-elevated);
+    border-color: color-mix(in srgb, var(--radar-border-accent) 88%, transparent);
+}
+
+.hami-radar-text-primary {
+    color: var(--radar-text-primary);
+}
+
+.hami-radar-text-secondary {
+    color: var(--radar-text-secondary);
+}
+
+.hami-radar-page :is(input, textarea, select) {
+    color: var(--radar-text-primary);
+    color-scheme: dark;
+}
+
+.hami-radar-page :is(input, textarea)::placeholder {
+    color: color-mix(in srgb, var(--radar-text-secondary) 78%, transparent);
+}
+
+.hami-radar-glass-panel {
+    border-color: color-mix(in srgb, var(--radar-border-accent) 92%, transparent);
+}
+
+/* أطر خفيفة مميّزة — تنقّل / ملخص / تنبيهات */
+.hami-radar-border-nav {
+    border-color: color-mix(in srgb, #e6c673 34%, transparent) !important;
+}
+
+.hami-radar-border-briefing {
+    border-color: color-mix(in srgb, #7dd3fc 26%, transparent) !important;
+}
+
+.hami-radar-border-briefing-conflict {
+    border-color: color-mix(in srgb, #fbbf24 38%, transparent) !important;
+}
+
+.hami-radar-alert-border-overload {
+    border-color: color-mix(in srgb, #f59e0b 44%, transparent) !important;
+}
+
+.hami-radar-alert-border-location {
+    border-color: color-mix(in srgb, #a78bfa 40%, transparent) !important;
+}
+
+.hami-radar-alert-border-travel {
+    border-color: color-mix(in srgb, #fb7185 42%, transparent) !important;
+}
+
+.hami-radar-alert-border-time {
+    border-color: color-mix(in srgb, #f472b6 36%, transparent) !important;
+}
+
+.hami-radar-alert-border-default {
+    border-color: color-mix(in srgb, #94a3b8 38%, transparent) !important;
+}
+
+/* لؤلؤي — أزرار وتمييزات جانبية */
+.hami-radar-pearl-surface {
+    color: var(--radar-btn-text) !important;
+    background-color: var(--radar-accent-pearl);
+    background-image:
+        repeating-linear-gradient(
+            118deg,
+            transparent 0px,
+            transparent 5px,
+            color-mix(in srgb, #e8dcc8 14%, transparent) 5px,
+            color-mix(in srgb, #e8dcc8 14%, transparent) 6px
+        ),
+        linear-gradient(168deg, #ffffff 0%, var(--radar-accent-pearl) 54%, #f3ece4 100%);
+    box-shadow:
+        0 8px 22px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.hami-radar-pearl-surface:hover {
+    background-image:
+        repeating-linear-gradient(
+            118deg,
+            transparent 0px,
+            transparent 5px,
+            color-mix(in srgb, #e8dcc8 18%, transparent) 5px,
+            color-mix(in srgb, #e8dcc8 18%, transparent) 6px
+        ),
+        linear-gradient(168deg, #ffffff 0%, #fdfaf6 54%, #f5efe8 100%);
+}
+
+.hami-radar-pearl-surface:active {
+    box-shadow:
+        0 5px 14px rgba(0, 0, 0, 0.22),
+        inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.hami-radar-pearl-surface svg {
+    color: var(--radar-btn-text) !important;
+}
+
+/* زر إضافة موعد — هادئ ومتوافق مع السطح الداكن */
+.hami-radar-add-btn {
+    color: var(--radar-text-primary) !important;
+    background-color: color-mix(in srgb, var(--radar-bg-elevated) 94%, #0a0a0a);
+    border: 1px solid color-mix(in srgb, #e6c673 32%, transparent) !important;
+    box-shadow:
+        0 4px 14px rgba(0, 0, 0, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.hami-radar-add-btn:hover {
+    border-color: color-mix(in srgb, #e6c673 48%, transparent) !important;
+    background-color: color-mix(in srgb, var(--radar-bg-card-hover) 92%, #0a0a0a);
+}
+
+.hami-radar-add-btn:active {
+    transform: scale(0.99);
+}
+
+.hami-radar-add-btn svg {
+    color: color-mix(in srgb, #e6c673 88%, var(--radar-text-primary)) !important;
+}
+
+/* شريط تنقّل الشهر — صفّان: شهر + يوم محدد */
+.hami-radar-month-nav {
+    gap: 0;
+}
+
+.hami-radar-month-nav__month-row {
+    min-height: 2.75rem;
+}
+
+.hami-radar-month-nav__calendar-btn {
+    min-height: 2.5rem !important;
+    padding-inline: 0.65rem !important;
+}
+
+.hami-radar-month-nav__divider {
+    height: 1px;
+    margin: 0.4rem 0.15rem;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        color-mix(in srgb, #e6c673 28%, transparent) 18%,
+        color-mix(in srgb, var(--radar-border-accent) 22%, transparent) 50%,
+        color-mix(in srgb, #e6c673 28%, transparent) 82%,
+        transparent 100%
+    );
+}
+
+.hami-radar-month-nav__day-row {
+    min-height: 2.75rem;
+    padding: 0.15rem 0.1rem 0.05rem;
+    border-radius: 0.75rem;
+}
+
+.hami-radar-month-nav__day-row--today {
+    padding-inline: 0.35rem;
+    background: color-mix(in srgb, #e6c673 7%, var(--radar-bg-card));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #e6c673 22%, transparent);
+}
+
+.hami-radar-month-nav__date-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--radar-border-accent) 16%, transparent);
+    background: color-mix(in srgb, var(--radar-bg-elevated) 90%, transparent);
+}
+
+.hami-radar-month-nav__today-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.75rem;
+    padding: 0 0.55rem;
+    border-radius: 9999px;
+    border: 1px solid color-mix(in srgb, #e6c673 38%, transparent);
+    background: color-mix(in srgb, #e6c673 14%, transparent);
+    font-size: 10px;
+    font-weight: 800;
+    color: #e6c673;
+    letter-spacing: 0.01em;
+}
+
+.hami-radar-month-nav__today-btn {
+    color: var(--radar-text-primary);
+    border-radius: 0.65rem;
+    border: 1px solid color-mix(in srgb, #e6c673 32%, transparent);
+    background: color-mix(in srgb, #e6c673 10%, var(--radar-bg-elevated));
+}
+
+.hami-radar-month-nav__today-btn:hover {
+    background: color-mix(in srgb, #e6c673 16%, var(--radar-bg-card-hover));
+    border-color: color-mix(in srgb, #e6c673 44%, transparent);
+}
+
+.hami-radar-month-nav__today-btn:active {
+    transform: scale(0.98);
+}
+
+.hami-radar-hover-row:hover {
+    background-color: var(--radar-bg-card-hover);
+    color: var(--radar-text-primary);
+}
+
+.hami-radar-ghost-hover:hover {
+    color: var(--radar-text-primary);
+    border-color: color-mix(in srgb, var(--radar-accent-pearl-muted) 55%, var(--radar-border));
+    background-color: color-mix(in srgb, var(--radar-bg-card-hover) 88%, #000);
+}
+
+.hami-radar-day-today {
+    background-color: var(--radar-bg-elevated);
+    color: var(--radar-text-primary);
+    border-color: color-mix(in srgb, var(--radar-accent-pearl-muted) 65%, var(--radar-border));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--radar-accent-pearl-muted) 22%, transparent);
+}
+
+.hami-radar-day-selected {
+    color: var(--radar-btn-text) !important;
+}
+
+.hami-radar-day-has-events {
+    background-color: var(--radar-bg-card);
+    color: var(--radar-text-primary);
+    border-color: color-mix(in srgb, var(--radar-border) 45%, transparent);
+}
+
+.hami-radar-day-muted {
+    color: color-mix(in srgb, var(--radar-text-secondary) 72%, transparent);
+}
+
+.hami-radar-day-muted:hover {
+    color: var(--radar-text-secondary);
+    background-color: var(--radar-bg-card-hover);
+}
+
+.hami-radar-skeleton {
+    background-color: color-mix(in srgb, var(--radar-border) 35%, var(--radar-bg-card));
+}
+
+.hami-radar-accent-chip {
+    background-color: color-mix(in srgb, var(--radar-accent-pearl-muted) 12%, var(--radar-bg-card));
+    border-color: color-mix(in srgb, var(--radar-border-accent) 55%, var(--radar-border));
+}
+
+/* نموذج الموعد — لؤلؤي صلب (portal خارج .hami-radar-page — ألوان صريحة) */
+.hami-radar-form-panel {
+    color: #121212;
+    background-color: #f8f6f2;
+    border: 1px solid #dfe5ec;
+    background-image: linear-gradient(168deg, #ffffff 0%, #f8f6f2 50%, #f0ebe3 100%);
+    box-shadow:
+        0 28px 72px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 rgba(255, 255, 255, 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.hami-radar-form-panel :is(h2, h3, label) {
+    color: #1c1917;
+}
+
+.hami-radar-form-input {
+    width: 100%;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.75rem;
+    color: #121212;
+    font-size: 0.875rem;
+    outline: none;
+    color-scheme: light;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.hami-radar-form-input::placeholder {
+    color: color-mix(in srgb, #64748b 72%, transparent);
+}
+
+.hami-radar-form-input:focus {
+    border-color: color-mix(in srgb, #121212 28%, #e2e8f0);
+    box-shadow: 0 0 0 1px color-mix(in srgb, #121212 12%, transparent);
+}
+
+.hami-radar-form-label {
+    display: block;
+    color: #5c534a;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 0.375rem;
+}
+
+.hami-radar-form-icon-btn {
+    display: flex;
+    height: 44px;
+    width: 44px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: #64748b;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.hami-radar-form-icon-btn:hover {
+    background-color: #f1f5f9;
+    color: #121212;
+}
+
+.hami-radar-form-btn-disabled {
+    background-color: #e2e8f0;
+    color: #94a3b8;
+    cursor: not-allowed;
+    border: 1px solid #cbd5e1;
+}
+
+.hami-radar-form-panel .hami-radar-skeleton {
+    background-color: #e2e8f0;
+}

@@ -70,7 +70,6 @@ export const HeaderToolbarIcon = memo(function HeaderToolbarIcon({
                 }
             }}
             onPointerCancel={clearArm}
-            onFocus={onPointerEnter}
             aria-label={label}
             title={label}
             data-testid={testId}

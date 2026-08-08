@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { FocModalPortal } from './FocModalPortal';
 import { formatNumberInput } from '../utils';
 import type { LawyerFeeRow } from '../types';

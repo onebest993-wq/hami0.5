@@ -6,6 +6,7 @@ import {
     isDossierFinalized,
     isExtraordinaryTypeConsumed,
     resolveRetrialTargetStageIndex,
+    resolveCorrectionAcceptReturnTargetStageIndex,
     shouldShowExtraordinaryLegalEntry,
 } from '../extraordinaryAppealGateway';
 
@@ -43,6 +44,23 @@ describe('extraordinaryAppealGateway', () => {
         ] as CaseStage[];
         expect(resolveRetrialTargetStageIndex(firstOnly)).toBe(0);
         expect(findCassationStageIndex(firstOnly)).toBe(1);
+    });
+
+    it('resolves correction accept return to last pleading stage before correction (not cassation)', () => {
+        const withAppeal = [
+            { stageName: 'البداءة', status: 'locked' },
+            { stageName: 'الاستئناف', status: 'locked' },
+            { stageName: 'التمييز', status: 'completed' },
+            { stageName: 'تصحيح قرار', status: 'active' },
+        ] as CaseStage[];
+        expect(resolveCorrectionAcceptReturnTargetStageIndex(withAppeal)).toBe(1);
+
+        const appealOnly = [
+            { stageName: 'البداءة', status: 'locked' },
+            { stageName: 'الاستئناف', status: 'locked' },
+            { stageName: 'تصحيح قرار', status: 'active' },
+        ] as CaseStage[];
+        expect(resolveCorrectionAcceptReturnTargetStageIndex(appealOnly)).toBe(1);
     });
 
     it('resolves personal status retrial to أحوال شخصية not تمييز', () => {

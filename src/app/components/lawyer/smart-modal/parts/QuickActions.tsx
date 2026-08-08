@@ -1,7 +1,8 @@
 import React, { memo } from 'react';
-import { Calendar, FileText, Paperclip, Scale, type LucideIcon } from 'lucide-react';
+import { Calendar, FileText, Paperclip, Scale, type LucideIcon } from '@/app/components/ui/lucideIcons';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import { MOROCCAN_ZELLIGE_BG } from '../smartFile/moroccanGlassShell';
+import type { ViewOnlyQuickActionId } from '../smartFile/viewOnlyQuickActions';
 
 type QuickActionItem = {
     id: string;
@@ -27,6 +28,12 @@ const DOCUMENT_ACTION: QuickActionItem = {
     label: 'مستند',
 };
 
+const VIEW_ONLY_LABELS: Record<ViewOnlyQuickActionId, string> = {
+    appointment: 'مواعيد',
+    note: 'ملاحظات',
+    document: 'مستندات',
+};
+
 const LEGAL_ACTION: QuickActionItem = {
     id: 'legal',
     icon: Scale,
@@ -39,6 +46,8 @@ const QUICK_ACTION_TEST_IDS: Record<string, string> = {
     document: CIVIL_LAWSUIT_TEST_IDS.quickActionDocument,
     legal: CIVIL_LAWSUIT_TEST_IDS.quickActionLegal,
 };
+
+const ALL_CONTENT_ACTIONS: QuickActionItem[] = [APPOINTMENT_ACTION, NOTE_ACTION, DOCUMENT_ACTION];
 
 function QuickActionButton({
     action,
@@ -80,30 +89,50 @@ function QuickActionButton({
     );
 }
 
+function gridColsClass(count: number): string {
+    if (count <= 1) return 'grid-cols-1';
+    if (count === 2) return 'grid-cols-2';
+    return 'grid-cols-3';
+}
+
 export const QuickActions = memo(function QuickActions({
     onAction,
-    onPause,
     onOpenLegalActions,
     variant = 'full',
+    viewOnlyActionIds,
 }: {
     onAction: (type: string) => void;
-    onPause: () => void;
     onOpenLegalActions: () => void;
     variant?: 'full' | 'notes-only';
+    /** وضع الاطلاع — يُظهر فقط الأزرار التي بها محتوى؛ بلا إجراءات الدعوى */
+    viewOnlyActionIds?: ViewOnlyQuickActionId[];
 }) {
-    void onPause;
+    const isViewOnlyBrowse = viewOnlyActionIds !== undefined;
 
-    const actions =
-        variant === 'notes-only'
-            ? [NOTE_ACTION, DOCUMENT_ACTION]
-            : [APPOINTMENT_ACTION, NOTE_ACTION, DOCUMENT_ACTION];
+    const actions = isViewOnlyBrowse
+        ? viewOnlyActionIds
+              .map((id) => {
+                  const base = ALL_CONTENT_ACTIONS.find((a) => a.id === id);
+                  if (!base) return null;
+                  return { ...base, label: VIEW_ONLY_LABELS[id] };
+              })
+              .filter((a): a is QuickActionItem => Boolean(a))
+        : variant === 'notes-only'
+          ? [NOTE_ACTION, DOCUMENT_ACTION]
+          : [APPOINTMENT_ACTION, NOTE_ACTION, DOCUMENT_ACTION];
+
+    if (isViewOnlyBrowse && actions.length === 0) {
+        return null;
+    }
+
+    const gridClass = isViewOnlyBrowse
+        ? gridColsClass(actions.length)
+        : variant === 'notes-only'
+          ? 'grid-cols-2'
+          : 'grid-cols-4';
 
     return (
-        <div
-            className={`mb-4 grid w-full gap-2.5 ${
-                variant === 'notes-only' ? 'grid-cols-2' : 'grid-cols-4'
-            }`}
-        >
+        <div className={`mb-4 grid w-full gap-2.5 ${gridClass}`}>
             {actions.map((action) => (
                 <QuickActionButton
                     key={action.id}
@@ -111,7 +140,7 @@ export const QuickActions = memo(function QuickActions({
                     onClick={() => onAction(action.id)}
                 />
             ))}
-            {variant === 'full' ? (
+            {variant === 'full' && !isViewOnlyBrowse ? (
                 <QuickActionButton action={LEGAL_ACTION} onClick={onOpenLegalActions} />
             ) : null}
         </div>

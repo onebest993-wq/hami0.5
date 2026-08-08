@@ -134,7 +134,7 @@ test.describe('مهام اليوم الميدانية', () => {
 
         const panel = manager.getByTestId(`tasks-task-requirements-panel-${taskId}`);
         await expect(panel).toBeVisible({ timeout: 8_000 });
-        await expect(panel.getByPlaceholder('طلب أو مستند…')).toBeVisible();
+        await expect(panel.getByTestId('tasks-doc-add-input')).toBeVisible();
     });
 
     test('إنهاء المهمة من الأجندة', async ({ page }) => {

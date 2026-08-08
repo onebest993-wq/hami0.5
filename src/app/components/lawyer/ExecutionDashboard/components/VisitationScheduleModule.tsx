@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, ChevronDown, ChevronLeft, ChevronUp, Clock, MapPin, Users, X } from 'lucide-react';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronUp, CheckCircle, Clock, MapPin, UserX, Users, X } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile, TimelineEvent } from '@/app/types/execution';
 import type {
     VisitationScheduleBundle,
@@ -78,7 +78,6 @@ function sessionsSignature(list: VisitationSession[]): string {
 function VisitationLauncherCard({
     ready,
     visitChildNames,
-    nearestDate,
     scheduledCount,
     documentedCount,
     scheduleHint,
@@ -86,92 +85,60 @@ function VisitationLauncherCard({
 }: {
     ready: boolean;
     visitChildNames: string[];
-    nearestDate: string | null;
     scheduledCount: number;
     documentedCount: number;
     scheduleHint: string;
     onOpen: (tab?: WorkspaceTab) => void;
 }) {
-    const previewDots = Math.min(scheduledCount, 5);
+    const childPreview =
+        visitChildNames.length > 0
+            ? `${visitChildNames.slice(0, 2).join('، ')}${
+                  visitChildNames.length > 2 ? ` +${visitChildNames.length - 2}` : ''
+              }`
+            : null;
 
     return (
         <button
             type="button"
             data-testid="visitation-schedule-launcher"
             onClick={() => onOpen(ready ? 'appointment' : 'setup')}
-            className="mx-3 mt-2 w-[calc(100%-1.5rem)] rounded-2xl border border-[#E6C673]/25 bg-gradient-to-br from-[#E6C673]/10 via-[#0B1120]/90 to-[#0B1120]/90 px-3.5 py-3 text-right ring-1 ring-white/[0.04] transition-colors hover:border-[#E6C673]/40 hover:bg-[#E6C673]/12 touch-manipulation"
+            className="mx-3 mt-2 w-[calc(100%-1.5rem)] rounded-xl border border-[#E6C673]/20 bg-[#0B1120]/75 px-3 py-2.5 text-right ring-1 ring-white/[0.03] transition-colors hover:border-[#E6C673]/35 hover:bg-[#E6C673]/8 touch-manipulation"
             dir="rtl"
         >
-            <div className="flex items-start justify-between gap-3 flex-row-reverse">
-                <div className="flex items-center gap-2 flex-row-reverse min-w-0">
-                    <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#E6C673]/30 bg-[#E6C673]/12 text-[#E6C673]">
-                        <Users size={17} strokeWidth={2} />
-                    </span>
-                    <div className="min-w-0">
-                        <p className="text-sm font-bold text-[#E6C673]">جدول التنفيذ والمتابعة</p>
-                        <p className="mt-0.5 text-[10px] text-slate-400 truncate">{scheduleHint}</p>
-                    </div>
-                </div>
-                <ChevronLeft size={18} className="shrink-0 text-[#E6C673]/55 rotate-180" aria-hidden />
-            </div>
-
-            {visitChildNames.length > 0 ? (
-                <div className="mt-2 flex flex-wrap gap-1 justify-end">
-                    {visitChildNames.slice(0, 3).map((name, i) => (
-                        <span
-                            key={`${name}-${i}`}
-                            className={`inline-flex max-w-[8rem] truncate px-2 py-0.5 rounded-full border text-[10px] font-bold ${
-                                CHILD_CHIP_COLORS[i % CHILD_CHIP_COLORS.length]
-                            }`}
-                        >
-                            {name}
-                        </span>
-                    ))}
-                    {visitChildNames.length > 3 ? (
-                        <span className="text-[10px] text-slate-500 font-bold">+{visitChildNames.length - 3}</span>
+            <div className="flex items-center gap-2 flex-row-reverse">
+                <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[#E6C673]/25 bg-[#E6C673]/10 text-[#E6C673]">
+                    <Users size={15} strokeWidth={2} />
+                </span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold leading-tight text-[#E6C673]">
+                        جدول التنفيذ والمتابعة
+                    </p>
+                    <p className="mt-0.5 truncate text-[10px] text-slate-400">{scheduleHint}</p>
+                    {childPreview ? (
+                        <p className="mt-0.5 truncate text-[10px] text-slate-500">{childPreview}</p>
                     ) : null}
                 </div>
-            ) : null}
+                <ChevronLeft size={16} className="shrink-0 text-[#E6C673]/50 rotate-180" aria-hidden />
+            </div>
 
-            <div className="mt-2.5 flex flex-wrap items-center gap-2 flex-row-reverse text-[10px]">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5 flex-row-reverse text-[9px]">
                 {ready ? (
                     <>
-                        {nearestDate ? (
-                            <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-bold text-amber-100">
-                                أقرب: {formatDateCompactAr(nearestDate)}
-                            </span>
-                        ) : null}
-                        <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 font-bold text-slate-200">
+                        <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-bold text-slate-300">
                             {scheduledCount} موعد
                         </span>
                         {documentedCount > 0 ? (
-                            <span className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-1 font-bold text-emerald-200">
+                            <span className="rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 font-bold text-emerald-200/90">
                                 {documentedCount} موثّق
                             </span>
                         ) : null}
-                        <span className="rounded-lg border border-sky-500/25 bg-sky-500/10 px-2 py-1 font-bold text-sky-200">
-                            موعد + تقويم
-                        </span>
                     </>
                 ) : (
-                    <span className="rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1 font-bold text-amber-100">
+                    <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 font-bold text-amber-100">
                         إعداد الجدول
                     </span>
                 )}
             </div>
-
-            {ready && previewDots > 0 ? (
-                <div className="mt-2 flex items-center justify-end gap-1" aria-hidden>
-                    {Array.from({ length: previewDots }).map((_, i) => (
-                        <span
-                            key={i}
-                            className={`h-1.5 w-1.5 rounded-full ${
-                                i === 0 ? 'bg-[#E6C673]' : 'bg-[#E6C673]/35'
-                            }`}
-                        />
-                    ))}
-                </div>
-            ) : null}
         </button>
     );
 }
@@ -589,23 +556,48 @@ export const VisitationScheduleModule: React.FC<VisitationScheduleModuleProps> =
                             }
                         >
                             {canDocument && docActions && (
-                                <div className="flex flex-col sm:flex-row-reverse gap-1.5 pt-1">
-                                    <button
-                                        type="button"
-                                        data-testid="visitation-document-success"
-                                        onClick={handleDocumentSuccess}
-                                        className="flex-1 py-2 rounded-lg bg-emerald-600/20 border border-emerald-500/40 text-emerald-100 text-[11px] font-bold hover:bg-emerald-600/30 touch-manipulation min-h-[44px]"
-                                    >
-                                        {docActions.successLabel}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        data-testid="visitation-document-absence"
-                                        onClick={handleDocumentAbsence}
-                                        className="flex-1 py-2 rounded-lg bg-rose-600/15 border border-rose-500/35 text-rose-100 text-[11px] font-bold hover:bg-rose-600/25 touch-manipulation min-h-[44px]"
-                                    >
-                                        {docActions.absenceLabel}
-                                    </button>
+                                <div className="space-y-2 pt-1">
+                                    <p className="text-[9px] font-bold text-amber-200/80 text-right">
+                                        توثيق الموعد المستحق
+                                    </p>
+                                    <div className="grid gap-2 sm:grid-cols-2">
+                                        <button
+                                            type="button"
+                                            data-testid="visitation-document-success"
+                                            onClick={handleDocumentSuccess}
+                                            className="group flex flex-row-reverse items-center gap-3 rounded-xl border border-emerald-500/35 bg-gradient-to-b from-emerald-500/14 to-emerald-950/20 px-3 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition-all hover:border-emerald-400/45 hover:from-emerald-500/20 active:scale-[0.99] touch-manipulation min-h-[48px]"
+                                        >
+                                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-400/30 bg-emerald-500/15 text-emerald-100">
+                                                <CheckCircle size={18} aria-hidden />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-[11px] font-black text-emerald-50 leading-snug">
+                                                    تنفيذ ناجح
+                                                </span>
+                                                <span className="mt-0.5 block text-[9px] font-medium text-emerald-200/75 leading-relaxed">
+                                                    {docActions.successLabel}
+                                                </span>
+                                            </span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            data-testid="visitation-document-absence"
+                                            onClick={handleDocumentAbsence}
+                                            className="group flex flex-row-reverse items-center gap-3 rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-600/12 to-rose-950/20 px-3 py-3 text-right shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition-all hover:border-rose-400/40 hover:from-rose-600/18 active:scale-[0.99] touch-manipulation min-h-[48px]"
+                                        >
+                                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-rose-400/30 bg-rose-600/15 text-rose-100">
+                                                <UserX size={18} aria-hidden />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className="block text-[11px] font-black text-rose-50 leading-snug">
+                                                    نكول / عدم تنفيذ
+                                                </span>
+                                                <span className="mt-0.5 block text-[9px] font-medium text-rose-200/75 leading-relaxed">
+                                                    {docActions.absenceLabel}
+                                                </span>
+                                            </span>
+                                        </button>
+                                    </div>
                                 </div>
                             )}
                             {canDocument ? (
@@ -667,7 +659,6 @@ export const VisitationScheduleModule: React.FC<VisitationScheduleModuleProps> =
             <VisitationLauncherCard
                 ready={ready}
                 visitChildNames={visitChildNames}
-                nearestDate={nearestSession?.date ?? null}
                 scheduledCount={scheduledCount}
                 documentedCount={documentedCount}
                 scheduleHint={scheduleHint}

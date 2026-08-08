@@ -69,22 +69,24 @@ describe('useExecutionDashboardOtherPartyHandlers', () => {
 
         const pushTimelineEvent = vi.fn();
         const showToast = vi.fn();
+        const persistExecutionMerge = vi.fn(() => true);
 
         const { result } = renderHook(() =>
             useExecutionDashboardOtherPartyHandlers({
                 ...baseParams(),
                 pushTimelineEvent,
+                persistExecutionMerge,
                 showToast,
                 isRepresentingDebtor: false,
             }),
         );
 
-        let output: { ok: boolean; decisionId?: string } | undefined;
+        let output: { ok: boolean; decisionId?: string; logEntryId?: string } | undefined;
         act(() => {
             output = result.current.otherPartyTabSubmitHandler({
                 date: '2026-07-11',
                 content: 'اعتراض جديد من الطرف الآخر',
-            }) as { ok: boolean; decisionId?: string };
+            }) as { ok: boolean; decisionId?: string; logEntryId?: string };
         });
 
         expect(appendSpecialFollowupRequestMock).toHaveBeenCalledWith(
@@ -94,7 +96,10 @@ describe('useExecutionDashboardOtherPartyHandlers', () => {
                 decisionTitle: 'تحرك الطرف الآخر — قيد البت',
             }),
         );
-        expect(output).toEqual({ ok: true, decisionId: 'decision-1' });
+        expect(output?.ok).toBe(true);
+        expect(output?.decisionId).toBe('decision-1');
+        expect(output?.logEntryId).toMatch(/^opa-/);
+        expect(persistExecutionMerge).toHaveBeenCalled();
         expect(pushTimelineEvent).toHaveBeenCalledWith(
             expect.objectContaining({
                 title: 'تحرك الطرف الآخر — قيد البت',
@@ -104,6 +109,6 @@ describe('useExecutionDashboardOtherPartyHandlers', () => {
                 }),
             }),
         );
-        expect(showToast).toHaveBeenCalledWith('تم حفظ التحرك في السجل.', 'success');
+        expect(showToast).toHaveBeenCalledWith('تم حفظ التحرك في السجل.', 'success', undefined);
     });
 });

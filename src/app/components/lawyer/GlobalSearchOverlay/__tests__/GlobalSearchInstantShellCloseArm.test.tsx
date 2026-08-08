@@ -16,7 +16,7 @@ describe('GlobalSearchInstantShell close arm', () => {
         const { container } = render(<GlobalSearchInstantShell open onClose={onClose} />);
 
         const backdrop = container.querySelector(
-            'button.absolute.inset-0',
+            'button.hami-gs-backdrop',
         ) as HTMLButtonElement;
         expect(backdrop).toBeTruthy();
 

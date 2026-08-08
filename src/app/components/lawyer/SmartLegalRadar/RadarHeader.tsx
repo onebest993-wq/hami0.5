@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowRight, Calendar, ChevronRight, ChevronLeft, ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowRight, Calendar, ChevronRight, ChevronLeft, Loader2 } from '@/app/components/ui/lucideIcons';
 import { prefetchRadarCalendarGrid } from '@/app/runtime/radarWidgetLoader';
-import { MONTHS, getDayName } from './utils';
+import { MONTHS, getDayName, isToday } from './utils';
 import {
     RADAR_BTN_GHOST,
     RADAR_BTN_GHOST_ACTIVE,
@@ -9,6 +9,11 @@ import {
     RADAR_MONTH_NAV,
     RADAR_ICON_GOLD,
     RADAR_ICON_ACCENT,
+    RADAR_BACK_BTN,
+    RADAR_TITLE,
+    RADAR_NAV_ICON_BTN,
+    RADAR_TEXT,
+    RADAR_TEXT_MUTED,
 } from './radarTheme';
 
 interface RadarHeaderProps {
@@ -21,17 +26,19 @@ export const RadarHeader = React.memo(function RadarHeader({ onBack, syncing = f
         <header className={RADAR_HEADER}>
             <button
                 type="button"
-                onClick={onBack}
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onBack();
+                }}
                 data-testid="radar-back"
-                className="flex min-h-[44px] items-center gap-2 rounded-lg px-3 py-2 text-[#E8DCC8]/75 transition-colors touch-manipulation hover:bg-[#F5EDE0]/[0.06] hover:text-[#F5EDE0]"
+                className={RADAR_BACK_BTN}
+                style={{ WebkitTapHighlightColor: 'transparent', touchAction: 'manipulation' }}
             >
                 <ArrowRight size={20} />
                 <span className="font-bold text-sm">رجوع</span>
             </button>
-            <h1 className="text-base sm:text-lg font-bold text-[#F5EDE0]/95 flex items-center gap-2">
-                <span className="bg-gradient-to-l from-[#FAF7F2] via-[#F5EDE0] to-[#E8DCC8] bg-clip-text text-transparent">
-                    رادار المواعيد
-                </span>
+            <h1 className={RADAR_TITLE}>
+                <span>رادار المواعيد</span>
             </h1>
             <div
                 className="w-10 flex items-center justify-end"
@@ -49,6 +56,26 @@ export const RadarHeader = React.memo(function RadarHeader({ onBack, syncing = f
         </header>
     );
 });
+
+function formatSelectedDayLabel(selectedDate: string): { title: string; meta: string } {
+    const d = new Date(`${selectedDate}T12:00:00`);
+    if (Number.isNaN(d.getTime())) {
+        return { title: selectedDate, meta: getDayName(selectedDate) };
+    }
+    try {
+        const title = new Intl.DateTimeFormat('ar-IQ', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+        }).format(d);
+        const meta = new Intl.DateTimeFormat('ar-IQ', {
+            year: 'numeric',
+        }).format(d);
+        return { title, meta };
+    } catch {
+        return { title: `${getDayName(selectedDate)} · ${selectedDate}`, meta: '' };
+    }
+}
 
 export const MonthNav = React.memo(function MonthNav({
     viewYear,
@@ -69,71 +96,88 @@ export const MonthNav = React.memo(function MonthNav({
     onToggleFullMonth: () => void;
     selectedDate?: string;
 }) {
+    const todaySelected = Boolean(selectedDate && isToday(selectedDate));
+    const dayLabel = selectedDate ? formatSelectedDayLabel(selectedDate) : null;
+
     return (
         <div className={RADAR_MONTH_NAV} dir="rtl" data-testid="radar-month-nav">
-            <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 flex-1">
-                <button
-                    type="button"
-                    onClick={onPrevMonth}
-                    aria-label="الشهر السابق"
-                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#E8DCC8]/65 transition-colors touch-manipulation hover:bg-[#F5EDE0]/[0.08] hover:text-[#F5EDE0]"
-                >
-                    <ChevronRight size={18} />
-                </button>
-                <span
-                    className="text-[#F5EDE0]/95 font-bold text-[15px] sm:text-base shrink-0 tabular-nums"
-                    aria-live="polite"
-                >
-                    {MONTHS[viewMonth]} {viewYear}
-                </span>
-                <button
-                    type="button"
-                    onClick={onNextMonth}
-                    aria-label="الشهر التالي"
-                    className="flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-[#E8DCC8]/65 transition-colors touch-manipulation hover:bg-[#F5EDE0]/[0.08] hover:text-[#F5EDE0]"
-                >
-                    <ChevronLeft size={18} />
-                </button>
+            <div className="hami-radar-month-nav__month-row flex items-center gap-2 min-w-0 w-full">
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-0.5">
+                    <button
+                        type="button"
+                        onClick={onPrevMonth}
+                        aria-label="الشهر السابق"
+                        className={RADAR_NAV_ICON_BTN}
+                    >
+                        <ChevronRight size={18} />
+                    </button>
+                    <p
+                        className={`min-w-0 px-1 text-center text-[15px] sm:text-base font-bold tabular-nums truncate ${RADAR_TEXT}`}
+                        aria-live="polite"
+                    >
+                        {MONTHS[viewMonth]} {viewYear}
+                    </p>
+                    <button
+                        type="button"
+                        onClick={onNextMonth}
+                        aria-label="الشهر التالي"
+                        className={RADAR_NAV_ICON_BTN}
+                    >
+                        <ChevronLeft size={18} />
+                    </button>
+                </div>
 
-                <span
-                    className="h-5 w-px shrink-0 bg-[#F5EDE0]/18 mx-0.5"
-                    aria-hidden
-                />
-
-                <p
-                    className="min-w-0 flex-1 text-[11px] sm:text-[12px] font-bold text-[#F5EDE0]/80 truncate"
-                    data-testid="radar-selected-day-label"
-                    aria-live="polite"
-                >
-                    {selectedDate ? (
-                        <span className="inline-flex items-center gap-1 max-w-full">
-                            <Calendar size={12} className="text-[#F5EDE0]/70 shrink-0" aria-hidden />
-                            <span className="truncate">
-                                {getDayName(selectedDate)} — {selectedDate}
-                            </span>
-                        </span>
-                    ) : (
-                        'اختر تاريخاً'
-                    )}
-                </p>
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-                <button type="button" onClick={onGoToToday} className={RADAR_BTN_GHOST} data-testid="radar-today">
-                    <ArrowLeft size={13} className={RADAR_ICON_ACCENT} />
-                    اليوم
-                </button>
                 <button
                     type="button"
                     onClick={onToggleFullMonth}
                     onPointerEnter={prefetchRadarCalendarGrid}
                     onPointerDown={prefetchRadarCalendarGrid}
                     data-testid="radar-toggle-full-month"
-                    className={showFullMonth ? RADAR_BTN_GHOST_ACTIVE : RADAR_BTN_GHOST}
+                    aria-label={showFullMonth ? 'إغلاق التقويم' : 'فتح التقويم'}
+                    className={`${showFullMonth ? RADAR_BTN_GHOST_ACTIVE : RADAR_BTN_GHOST} hami-radar-month-nav__calendar-btn shrink-0`}
                 >
-                    <Calendar size={14} className={showFullMonth ? RADAR_ICON_ACCENT : RADAR_ICON_GOLD} />
-                    {showFullMonth ? 'إغلاق' : 'التقويم'}
+                    <Calendar size={15} className={showFullMonth ? RADAR_ICON_ACCENT : RADAR_ICON_GOLD} />
+                    <span className="hidden sm:inline">{showFullMonth ? 'إغلاق' : 'التقويم'}</span>
                 </button>
+            </div>
+
+            <div className="hami-radar-month-nav__divider" aria-hidden />
+
+            <div
+                className={`hami-radar-month-nav__day-row flex items-center justify-between gap-2 min-w-0 w-full ${
+                    todaySelected ? 'hami-radar-month-nav__day-row--today' : ''
+                }`}
+                data-testid="radar-selected-day-label"
+                aria-live="polite"
+            >
+                <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <span className="hami-radar-month-nav__date-icon shrink-0" aria-hidden>
+                        <Calendar size={14} className={RADAR_ICON_GOLD} />
+                    </span>
+                    <div className="min-w-0">
+                        <p className={`truncate text-[13px] sm:text-sm font-bold leading-tight ${RADAR_TEXT}`}>
+                            {dayLabel?.title ?? 'اختر تاريخاً'}
+                        </p>
+                        {dayLabel?.meta ? (
+                            <p className={`truncate text-[10px] sm:text-[11px] mt-0.5 ${RADAR_TEXT_MUTED}`}>
+                                {dayLabel.meta}
+                            </p>
+                        ) : null}
+                    </div>
+                </div>
+
+                {todaySelected ? (
+                    <span className="hami-radar-month-nav__today-badge shrink-0">اليوم</span>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={onGoToToday}
+                        className="hami-radar-month-nav__today-btn shrink-0 min-h-[40px] px-3 text-[11px] font-extrabold touch-manipulation"
+                        data-testid="radar-today"
+                    >
+                        اليوم
+                    </button>
+                )}
             </div>
         </div>
     );

@@ -242,6 +242,15 @@ export async function resolveCommunityAttachmentUrl(
 ): Promise<string | null> {
     if (!attachment) return null;
 
+    if (attachment.encrypted === true || attachment.bucket === 'forum-media') {
+        try {
+            const { resolveEncryptedForumImageUrl } = await import('@/lib/forumService.js');
+            return await resolveEncryptedForumImageUrl(attachment);
+        } catch {
+            return null;
+        }
+    }
+
     const storagePath = attachment.storagePath?.trim() ?? '';
     if (isCloudStoragePath(storagePath)) {
         const fresh = await LawyerStorage.getSignedUrl(storagePath);

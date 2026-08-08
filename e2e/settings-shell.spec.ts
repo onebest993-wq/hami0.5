@@ -2,9 +2,9 @@
  * E2E — مركز الإعدادات: فتح، تبويبات، اختيارات، Escape، إعادة فتح.
  */
 import { test, expect } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { gotoLawyerHomeE2E } from './helpers/bootFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
-import { openSettingsFromHeader, switchSettingsTab, readSettingsOpenToInteractiveMs, clearSettingsPerfMarksInPage, E2E_SETTINGS_COLD_OPEN_MS, E2E_SETTINGS_CACHED_OPEN_MS, prepareSettingsE2E, teardownSettingsE2E, enableLocalOnlyModeFromSecurity } from './helpers/settingsFixtures';
+import { openSettingsFromHeader, switchSettingsTab, readSettingsOpenToInteractiveMs, clearSettingsPerfMarksInPage, E2E_SETTINGS_COLD_OPEN_MS, E2E_SETTINGS_CACHED_OPEN_MS, prepareSettingsE2E, teardownSettingsE2E, enableLocalOnlyModeFromSecurity, openSettingsDataTab, ensureSmartDialogInfrastructure } from './helpers/settingsFixtures';
 
 async function openSettings(page: import('@playwright/test').Page) {
     return openSettingsFromHeader(page);
@@ -16,7 +16,6 @@ test.describe('مركز الإعدادات', () => {
     test.beforeEach(async ({ page }) => {
         await prepareProductivityE2E(page);
         await prepareSettingsE2E(page);
-        await seedLawyerFiles(page);
     });
 
     test.afterEach(async ({ page }) => {
@@ -24,8 +23,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('يفتح من الهيدر ويعرض تبويب المنظر', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -37,8 +35,7 @@ test.describe('مركز الإعدادات', () => {
 
     test('التبويبات تتبدّل بين الأقسام الأربعة', async ({ page }) => {
         test.setTimeout(240_000);
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -57,8 +54,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('Escape يغلق الإعدادات', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         await openSettings(page);
@@ -67,8 +63,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('إعادة الفتح تحافظ على آخر تبويب في الجلسة', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -84,8 +79,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('مفتاح تقليل الحركة يُحفظ بعد الإغلاق وإعادة الفتح', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -107,8 +101,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('اختيار حجم الخط يُطبَّق', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -117,8 +110,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('Tab يبقى داخل الإعدادات (focus trap)', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         await openSettings(page);
@@ -133,24 +125,21 @@ test.describe('مركز الإعدادات', () => {
         expect(focusInside).toBe(true);
     });
 
-    test('يعرض حالة المزامنة الصادقة في تبويب البيانات', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+    test('تبويب البيانات — تبديل المزامنة السحابية', async ({ page }) => {
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
         await switchSettingsTab(shell, 'data');
-        await expect(shell.getByTestId('settings-sync-status')).toBeVisible({ timeout: 12_000 });
-        const statusText = await shell.getByTestId('settings-sync-status').innerText();
-        expect(statusText.length).toBeGreaterThan(4);
-        expect(
-            /متوقفة|غير متاحة|آخر مزامنة|جاري المزامنة|لم تُنفَّذ|فشلت/.test(statusText),
-        ).toBe(true);
+        const toggle = shell.getByTestId('settings-toggle-data-cloudSync');
+        await expect(toggle).toBeVisible({ timeout: 12_000 });
+        const before = await toggle.getAttribute('aria-checked');
+        await toggle.click();
+        expect(await toggle.getAttribute('aria-checked')).not.toBe(before);
     });
 
     test('تبويب الأمان — تبديل حماية لقطة الشاشة', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -163,8 +152,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('تبويب الأمان — تبديل تمويه الخروج يُحدّث aria-checked', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -178,8 +166,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('تبويب الأمان — قطع الاتصال يُظهر البanner', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -188,8 +175,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('تبويب البيانات — تبديل الحفظ التلقائي', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -202,8 +188,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('تبويب الحساب يعرض الدعم الفني', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -213,8 +198,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('يفتح بزمن تفاعل مقبول (performance marks)', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         await openSettings(page);
@@ -226,8 +210,7 @@ test.describe('مركز الإعدادات', () => {
     });
 
     test('إعادة الفتح ضمن حد زمني مع chunk محمّل', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page, false, undefined, { requireHub: false });
+        await gotoLawyerHomeE2E(page);
         await dismissProductivityBlockers(page);
 
         const shell = await openSettings(page);
@@ -242,5 +225,24 @@ test.describe('مركز الإعدادات', () => {
         const perfMs = await readSettingsOpenToInteractiveMs(page);
         expect(perfMs, 'marks مع فتح متكرر').not.toBeNull();
         expect(perfMs!).toBeLessThan(E2E_SETTINGS_CACHED_OPEN_MS);
+    });
+
+    test('Escape يغلق حوار التأكيد قبل الإعدادات', async ({ page }) => {
+        await gotoLawyerHomeE2E(page);
+        await dismissProductivityBlockers(page);
+
+        const shell = await openSettingsDataTab(page);
+        await ensureSmartDialogInfrastructure(page);
+        await expect(async () => {
+            await shell.getByRole('button', { name: 'إعادة ضبط' }).click({ force: true, noWaitAfter: true });
+            await expect(page.getByTestId('smart-dialog-overlay')).toBeVisible({ timeout: 4_000 });
+        }).toPass({ timeout: 20_000 });
+
+        await page.keyboard.press('Escape');
+        await expect(page.getByTestId('smart-dialog-overlay')).toBeHidden({ timeout: 5_000 });
+        await expect(shell).toBeVisible();
+
+        await page.keyboard.press('Escape');
+        await expect(shell).toBeHidden({ timeout: 5_000 });
     });
 });

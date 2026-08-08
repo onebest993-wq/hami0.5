@@ -196,7 +196,10 @@ export function DebtorCardRowBadgesCluster({
                                                                                     evictionGracePinned={evictionGracePinned}
                                                                                     onToggleEvictionGracePinned={toggleEvictionGracePinned}
                                                                                     onEvictionGraceActivate={
-                                                                                        isPrimary && evictionGraceBadgeInfo
+                                                                                        isPrimary &&
+                                                                                        evictionGraceBadgeInfo &&
+                                                                                        typeof openEvictionResidentialGraceModal ===
+                                                                                            'function'
                                                                                             ? () => {
                                                                                                   setEvictionGraceDecisionId(null);
                                                                                                   openEvictionResidentialGraceModal();
@@ -204,7 +207,10 @@ export function DebtorCardRowBadgesCluster({
                                                                                             : undefined
                                                                                     }
                                                                                     onCompleteEvictionGrace={
-                                                                                        isPrimary && evictionGraceBadgeInfo
+                                                                                        isPrimary &&
+                                                                                        evictionGraceBadgeInfo &&
+                                                                                        typeof completeEvictionResidentialGrace ===
+                                                                                            'function'
                                                                                             ? completeEvictionResidentialGrace
                                                                                             : undefined
                                                                                     }
@@ -214,12 +220,18 @@ export function DebtorCardRowBadgesCluster({
                                                                                             : null
                                                                                     }
                                                                                     onPoliceAssistanceActivate={
-                                                                                                    isPrimary && policeAssistanceBadgeInfo
+                                                                                                    isPrimary &&
+                                                                                                    policeAssistanceBadgeInfo &&
+                                                                                                    typeof openPoliceAssistanceFromBadge ===
+                                                                                                        'function'
                                                                                                         ? openPoliceAssistanceFromBadge
                                                                                                         : undefined
                                                                                                 }
                                                                                                 onCompletePoliceAssistance={
-                                                                                                    isPrimary && policeAssistanceBadgeInfo
+                                                                                                    isPrimary &&
+                                                                                                    policeAssistanceBadgeInfo &&
+                                                                                                    typeof completePoliceAssistance ===
+                                                                                                        'function'
                                                                                                         ? completePoliceAssistance
                                                                                                         : undefined
                                                                                                 }

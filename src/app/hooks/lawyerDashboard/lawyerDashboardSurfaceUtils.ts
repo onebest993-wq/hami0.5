@@ -1,11 +1,8 @@
+import type { CSSProperties } from 'react';
 import type { AppearanceSettings } from '@/app/services/settings/types';
+import { resolveLawyerDashboardCanvasBg } from '@/app/services/settings/boardSurfaceResolve';
 import { resolveWallpaperSrc } from '@/app/services/settings/apply';
-import { resolveLawyerSurfaceBaseColor } from '@/app/services/settings/surfaceAppearance';
-import {
-    appliesToBoard,
-    NEUTRAL_SURFACE_BG,
-    normalizeSurfaceApplyTarget,
-} from '@/app/services/settings/surfaceApplyTarget';
+import { resolvePatternOverlayStyle } from '@/app/services/settings/surfaceAppearance';
 
 export function hexToRgba(hex: string, alpha: number): string {
     const h = (hex || '').trim();
@@ -29,17 +26,10 @@ export function buildLawyerDashboardSurface({
 }) {
     const wallpaperSrc = resolveWallpaperSrc(appearance);
     const hasWallpaper = !!wallpaperSrc;
-    const themeTarget = normalizeSurfaceApplyTarget(appearance.themeApplyTarget);
-    const themedBoardBg = resolveLawyerSurfaceBaseColor(
-        appearance.theme,
-        appearance.themeMode,
-        hasWallpaper,
-    );
-    const dashboardBg = appliesToBoard(themeTarget) ? themedBoardBg : NEUTRAL_SURFACE_BG;
-    const navBase = appliesToBoard(themeTarget) ? themeBg : NEUTRAL_SURFACE_BG;
+    const dashboardBg = resolveLawyerDashboardCanvasBg(appearance, hasWallpaper);
+    const navBase = themeBg;
     const dashboardSurfaceStyle = {
-        backgroundColor: dashboardBg,
-        fontSize: `${appearance.fontSize}px`,
+        backgroundColor: 'var(--hami-board-surface-bg, #0a0f1c)',
     } as const;
     const navUnderlayStyle = {
         background: `linear-gradient(to top, ${navBase} 0%, ${hexToRgba(navBase, 0.94)} 60%, rgba(0,0,0,0) 100%)`,
@@ -51,5 +41,21 @@ export function buildLawyerDashboardSurface({
         dashboardBg,
         dashboardSurfaceStyle,
         navUnderlayStyle,
+    };
+}
+
+/** لون + زخرفة اللوحة في طبقة CSS واحدة — بلا div منفصل */
+export function mergeLawyerDashboardShellCanvasStyle(
+    dashboardSurfaceStyle: CSSProperties,
+    appearance: AppearanceSettings,
+    boardPatternEnabled: boolean,
+): CSSProperties {
+    if (!boardPatternEnabled) return dashboardSurfaceStyle;
+    const pattern = resolvePatternOverlayStyle(appearance, true);
+    if (!pattern) return dashboardSurfaceStyle;
+    const { opacity: _opacity, ...patternLayers } = pattern;
+    return {
+        ...dashboardSurfaceStyle,
+        ...patternLayers,
     };
 }

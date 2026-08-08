@@ -1,3 +1,5 @@
+import { isSentryEnabledInBuild as isSentryConfigured } from '@/app/observability/sentryBuildPolicy';
+
 export type GlobalSearchPerfReportContext = {
     userId?: string;
     hadLocalCache?: boolean;

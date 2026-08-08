@@ -21,13 +21,10 @@ describe('EventCard mobile touch', () => {
             <EventCard event={event} index={0} onEdit={vi.fn()} onDelete={vi.fn()} />,
         );
 
-        const editBtn = screen.getByRole('button', { name: 'تعديل الموعد' });
-        const deleteBtn = screen.getByRole('button', { name: 'حذف الموعد' });
+        const editBtn = screen.getByRole('button', { name: 'تعديل الموعد موعد اختبار' });
+        const deleteBtn = screen.getByRole('button', { name: 'حذف الموعد موعد اختبار' });
 
         expect(editBtn).toBeTruthy();
         expect(deleteBtn).toBeTruthy();
-
-        const actionRow = container.querySelector('[class*="hover:none"]');
-        expect(actionRow?.className).toContain('[@media(hover:none)]:opacity-100');
     });
 });

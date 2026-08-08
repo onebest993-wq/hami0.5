@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X, UserCheck } from 'lucide-react';
+import { Plus, X, UserCheck } from '@/app/components/ui/lucideIcons';
 import type { ThirdParty } from '../types';
 import { NC_GLASS_CARD, NC_SECTION_TITLE } from '../newCaseGlassTheme';
 import { buildThirdPartyRoleLabel } from '../clientRepresentation';

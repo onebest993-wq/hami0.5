@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useLawyerDashboardTransactions } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTransactions';
+import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
 import { HAMI_DISMISS_OVERLAYS_EVENT } from '@/app/utils/bodyScrollLock';
 import { LAWYER_TRANSACTIONS_OPEN_KEY } from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
 
@@ -24,6 +25,11 @@ vi.mock('@/app/services/auth/shellAuth', () => ({
 
 vi.mock('@/app/modules/transactionsThreading/store', () => ({
     warmTransactionsThreadingStore: vi.fn(() => Promise.resolve()),
+    ensureTransactionsUserBound: vi.fn(),
+}));
+
+vi.mock('@/app/services/transactions/transactionsDiskWarm', () => ({
+    warmTransactionsDiskRead: vi.fn(),
 }));
 
 vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
@@ -75,6 +81,7 @@ describe('useLawyerDashboardTransactions', () => {
         });
 
         await waitFor(() => expect(result.current.showTransactions).toBe(true));
+        expect(warmTransactionsDiskRead).toHaveBeenCalledWith('lawyer-1');
         expect(result.current.transactionsHostMounted).toBe(true);
         expect(result.current.transactionsSessionKey).toBe(0);
         expect(setArchiveType).toHaveBeenCalledWith(null);
@@ -135,6 +142,27 @@ describe('useLawyerDashboardTransactions', () => {
 
         expect(result.current.transactionsHostMounted).toBe(true);
         expect(result.current.showTransactions).toBe(false);
+    });
+
+    it('يمسح focus عند إعادة فتح hub بدون focusId وهو مفتوح', () => {
+        const { result } = renderHook(() =>
+            useLawyerDashboardTransactions({
+                userId: 'lawyer-1',
+                setArchiveType: vi.fn(),
+                setShowLawsuitsWorkspace: vi.fn(),
+            }),
+        );
+
+        act(() => {
+            result.current.openTransactionsHub('tx-focus');
+        });
+        expect(result.current.transactionsFocusId).toBe('tx-focus');
+
+        act(() => {
+            result.current.openTransactionsHub();
+        });
+
+        expect(result.current.transactionsFocusId).toBeUndefined();
     });
 
     it('يغلق ويمسح focus عند dismiss-transient-overlays', () => {

@@ -1,4 +1,5 @@
 import { DossierHeaderNavButtons } from '@/app/components/lawyer/dashboard/DossierHeaderNavButtons';
+import { resolveDossierHeaderNavVisibility } from '@/app/components/lawyer/dashboard/resolveDossierHeaderNavVisibility';
 import { CRIMINAL_DOSSIER_TEST_IDS } from './criminalDossierTestIds';
 
 /** الحالة الاستثنائية: لم يُعثر على الإضبارة (محذوفة/رقم غير صحيح) — مستخرَجة من الـ runtime بلا أي تغيير بصري. */
@@ -10,6 +11,7 @@ export function MissingCaseShell({
     onExitToHome?: () => void;
 }) {
     const handleExit = onExitToHome ?? onClose;
+    const nav = resolveDossierHeaderNavVisibility(false);
 
     return (
         <div
@@ -23,6 +25,8 @@ export function MissingCaseShell({
                     <DossierHeaderNavButtons
                         onBack={onClose}
                         onExit={handleExit}
+                        showBack={nav.showBack}
+                        showExit={nav.showExit}
                         backTestId={CRIMINAL_DOSSIER_TEST_IDS.back}
                         exitTestId={CRIMINAL_DOSSIER_TEST_IDS.exit}
                     />

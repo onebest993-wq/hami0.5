@@ -7,6 +7,8 @@ export {
     type HomeWidgetPlacement,
     type HomeWidgetPlacements,
     buildDefaultPlacements,
+    CANONICAL_MAIN_WIDGET_ORDER,
+    applyCanonicalMainWidgetOrder,
     getWidgetsInZone,
     getWidgetZone,
     isDockCompactWidget,
@@ -25,14 +27,18 @@ import { isDockShellOrderWidget } from './homeWidgetPlacements';
 import type { HomeWidgetId, HomeWidgetPlacements } from './homeWidgetPlacements';
 import {
     buildDefaultPlacements,
+    applyCanonicalMainWidgetOrder,
     getWidgetsInZone,
     migrateLegacyOrdersToPlacements,
 } from './homeWidgetPlacements';
+import { evacuateDockShellIconsToMain } from './homeLayoutDockControls';
 import {
     normalizeBackgroundPatternOpacity,
     normalizeGlassOpacity,
 } from './surfaceAppearance';
 import type { BackgroundPresetId } from './backgroundPresets';
+import { LAWYER_THEME_TOKENS } from './lawyerThemeTokens';
+import type { ThemeKey } from '@/app/types/common';
 
 export const HOME_SCROLL_BLOCK_IDS = ['alerts', 'hub', 'forum'] as const;
 export type HomeScrollBlockId = (typeof HOME_SCROLL_BLOCK_IDS)[number];
@@ -51,6 +57,10 @@ export type HomeBlockPattern = 'glass' | 'solid' | 'gradient' | 'rim' | 'minimal
 
 export interface HomeBlockStyleOverride {
     accentColor?: string;
+    /** لون بطاقة هذا القسم — يتجاوز cardTheme العام */
+    cardTheme?: ThemeKey;
+    /** لون نقوش هذا القسم — يتجاوز patternTheme العام */
+    patternTheme?: ThemeKey;
     shape?: HomeBlockShape;
     pattern?: HomeBlockPattern;
     size?: HomeBlockSize;
@@ -109,6 +119,13 @@ function normalizeOverride(raw: unknown): HomeBlockStyleOverride | undefined {
     if (typeof o.accentColor === 'string' && /^#[0-9A-Fa-f]{3,8}$/.test(o.accentColor)) {
         out.accentColor = o.accentColor;
     }
+    const themeKeys = new Set(Object.keys(LAWYER_THEME_TOKENS));
+    if (typeof o.cardTheme === 'string' && themeKeys.has(o.cardTheme)) {
+        out.cardTheme = o.cardTheme as ThemeKey;
+    }
+    if (typeof o.patternTheme === 'string' && themeKeys.has(o.patternTheme)) {
+        out.patternTheme = o.patternTheme as ThemeKey;
+    }
     if (o.shape === 'pill' || o.shape === 'rounded' || o.shape === 'sharp' || o.shape === 'circle') {
         out.shape = o.shape;
     }
@@ -162,21 +179,25 @@ export function normalizeHomeLayout(raw: unknown): HomeLayoutSettings {
         }
     }
 
-    const dockVisible =
-        typeof obj.dockVisible === 'boolean'
-            ? obj.dockVisible
-            : getWidgetsInZone(placements, 'dock').filter(isDockShellOrderWidget).length > 0;
-
     const quickNoteVisible =
         typeof obj.quickNoteVisible === 'boolean' ? obj.quickNoteVisible : false;
 
-    const dockHiddenWidgetIds = Array.isArray(obj.dockHiddenWidgetIds)
+    let dockHiddenWidgetIds = Array.isArray(obj.dockHiddenWidgetIds)
         ? obj.dockHiddenWidgetIds.filter(
               (id): id is HomeWidgetId => typeof id === 'string' && isDockShellOrderWidget(id as HomeWidgetId),
           )
         : [];
 
-    const resolvedPlacements = placements;
+    const shellStillInDock = getWidgetsInZone(placements, 'dock').some(isDockShellOrderWidget);
+    let resolvedPlacements = placements;
+    if (shellStillInDock) {
+        const evacuated = evacuateDockShellIconsToMain(resolvedPlacements);
+        resolvedPlacements = applyCanonicalMainWidgetOrder(evacuated.placements);
+        dockHiddenWidgetIds = [...dockHiddenWidgetIds, ...evacuated.dockHiddenWidgetIds];
+    }
+
+    /** الشريط السفلي أُزيل — أيقونات الدوك في الشبكة الرئيسية */
+    const dockVisible = false;
 
     return {
         placements: resolvedPlacements,

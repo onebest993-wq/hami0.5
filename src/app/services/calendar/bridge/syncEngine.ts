@@ -1,5 +1,6 @@
 import { CalendarDB } from '@/app/services/cloud/lawyerCalendarCloud';
 import type { CalendarEvent } from '@/app/services/calendar/calendarTypes';
+import { reportCalendarBridgeSyncFailure } from '@/app/services/calendar/calendarSentryReporting';
 import { debug } from '@/app/utils/debug';
 import type { CalendarBridgePayload, CalendarSourceModule } from '@/app/services/calendarBridge.types';
 import {
@@ -87,6 +88,7 @@ async function processFlushBatch(): Promise<void> {
     if (queue.pendingUpserts.length === 0) return;
     const batch = queue.pendingUpserts;
     queue.pendingUpserts = [];
+    let firstError: unknown;
 
     try {
         const byUser = new Map<string, PendingUpsert[]>();
@@ -125,14 +127,22 @@ async function processFlushBatch(): Promise<void> {
                 }
                 for (const it of items) it.resolve();
             } catch (err) {
-                debug.warn('[CalendarBridge] batch upsert failed (non-fatal):', err);
-                for (const it of items) it.resolve();
+                firstError ??= err;
+                debug.warn('[CalendarBridge] batch upsert failed:', err);
+                reportCalendarBridgeSyncFailure(err, { phase: 'batch-upsert', userId: uid });
+                for (const it of items) it.reject(err);
             }
         }
         if (dispatchedAny) notifyCalendarUpdated();
     } catch (err) {
+        firstError ??= err;
         debug.warn('[CalendarBridge] processFlushBatch fatal:', err);
-        for (const it of batch) it.resolve();
+        reportCalendarBridgeSyncFailure(err, { phase: 'process-flush-batch' });
+        for (const it of batch) it.reject(err);
+    }
+
+    if (firstError) {
+        throw firstError;
     }
 }
 
@@ -144,19 +154,24 @@ function scheduleFlush(): void {
         const q = getSyncQueue();
         q.flushScheduled = false;
         const run = processFlushBatch();
-        q.activeFlushPromise = q.activeFlushPromise.then(() => run).catch(() => undefined);
+        q.activeFlushPromise = q.activeFlushPromise
+            .then(() => run)
+            .catch((err) => {
+                debug.warn('[CalendarBridge] scheduled flush failed (non-fatal):', err);
+            });
     });
 }
 
 /** ينتظر اكتمال كل عمليات الربط الجارية قبل التنظيف أو القراءة */
 export async function flushPendingCalendarSyncs(): Promise<void> {
     const queue = getSyncQueue();
-    if (queue.flushScheduled || queue.pendingUpserts.length > 0) {
+    if (queue.flushScheduled) {
         queue.flushScheduled = false;
-        const run = processFlushBatch();
-        queue.activeFlushPromise = queue.activeFlushPromise.then(() => run).catch(() => undefined);
     }
-    await queue.activeFlushPromise;
+    if (queue.pendingUpserts.length > 0) {
+        await processFlushBatch();
+        return;
+    }
     await queue.activeFlushPromise;
 }
 

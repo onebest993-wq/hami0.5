@@ -3,9 +3,12 @@ import type { CaseStage, Party } from '../../../LawyerShared';
 import {
     applyAppealStageTransition,
     applyCassationRemand,
+    applyCorrectionComplete,
+    applyCorrectionRejected,
     flipPartiesForAppealStage,
     migrateAppealIncidentalCases,
     normalizeLegacyCassationRemandStages,
+    resolveAppealStageName,
     resolveCassationRemandTarget,
     resolveOpponentAsAppellant,
     shouldShowFirstInstanceIncidentalUi,
@@ -67,6 +70,28 @@ const baseStage = {
 } as unknown as CaseStage;
 
 describe('appealStageTransition', () => {
+    it('maps استئناف to الاستئناف on civil absent-objection stage with بداءة history', () => {
+        const stages = [
+            { stageName: 'بداءة بدرجة أولى' },
+            { stageName: 'الاعتراض على الحكم الغيابي' },
+        ];
+        expect(
+            resolveAppealStageName('استئناف', {
+                sourceStageName: 'الاعتراض على الحكم الغيابي',
+                stages,
+            }),
+        ).toBe('الاستئناف');
+    });
+
+    it('maps استئناف to تمييز on personal-status dossier objection stage', () => {
+        expect(
+            resolveAppealStageName('استئناف', {
+                sourceStageName: 'اعتراض على الحكم الغيابي',
+                file: { lawsuitJurisdiction: 'personal' },
+            }),
+        ).toBe('تمييز');
+    });
+
     it('flips plaintiff to appellee when defendant appeals', () => {
         const flipped = flipPartiesForAppealStage(baseParties, 'المدعى عليه', 'استئناف');
         expect(flipped[0]?.role).toContain('المستأنف عليه');
@@ -81,6 +106,34 @@ describe('appealStageTransition', () => {
         expect(resolveOpponentAsAppellant('المدعي', [])).toBe('المدعى عليه');
         expect(resolveOpponentAsAppellant('المدعى عليه', [])).toBe('المدعي');
         expect(resolveOpponentAsAppellant('المدعي', baseParties)).toBe('المدعى عليه');
+    });
+
+    it('resolves opponent appellant on absent objection from original sides', () => {
+        const objectionParties: Party[] = [
+            {
+                id: 1,
+                name: 'موكل',
+                role: 'المعترض عليه بالحكم الغيابي (المدعي)',
+                isClient: true,
+                side: 'left',
+            },
+            {
+                id: 2,
+                name: 'خصم',
+                role: 'المعترض على الحكم الغيابي (المدعى عليه)',
+                isClient: false,
+                side: 'right',
+            },
+        ];
+        expect(resolveOpponentAsAppellant(null, objectionParties)).toBe('المدعى عليه');
+
+        const flipped = flipPartiesForAppealStage(
+            objectionParties,
+            resolveOpponentAsAppellant(null, objectionParties),
+            'استئناف',
+        );
+        expect(flipped.find((p) => p.id === 1)?.role).toContain('المستأنف عليه');
+        expect(flipped.find((p) => p.id === 2)?.role).toContain('المستأنف');
     });
 
     it('locks previous stage with clean appeal timeline and no counterclaim carryover', () => {
@@ -284,5 +337,63 @@ describe('appealStageTransition', () => {
         expect(normalized[1]?.wasReopened).toBe(true);
         expect(normalized[1]?.timeline?.some((e) => e.id === 'old')).toBe(true);
         expect(normalized[1]?.timeline?.some((e) => e.id === 'remand')).toBe(true);
+    });
+
+    it('rejects correction request and finalizes dossier without reopening litigation', () => {
+        const cassation = {
+            ...baseStage,
+            id: 'stage_cass',
+            stageName: 'التمييز',
+            status: 'completed',
+            finalDecision: 'مكتسبة الدرجة القطعية',
+        } as CaseStage;
+        const correction = {
+            ...baseStage,
+            id: 'stage_corr',
+            stageName: 'تصحيح قرار',
+            status: 'active',
+            isPleadingsClosed: false,
+        } as CaseStage;
+        const stages = [cassation, correction];
+
+        const { updatedStages } = applyCorrectionRejected(stages, 1, {
+            outcome: 'رد طلب التصحيح',
+        });
+        expect(updatedStages[1]?.status).toBe('completed');
+        expect(updatedStages[1]?.finalDecision).toContain('مكتسبة الدرجة القطعية');
+        expect(updatedStages[1]?.timeline?.[0]?.title).toContain('رد طلب التصحيح');
+    });
+
+    it('accepts correction and returns to last pleading stage (not cassation)', () => {
+        const appeal = {
+            ...baseStage,
+            id: 'stage_appeal',
+            stageName: 'الاستئناف',
+            status: 'locked',
+        } as CaseStage;
+        const cassation = {
+            ...baseStage,
+            id: 'stage_cass',
+            stageName: 'التمييز',
+            status: 'completed',
+            finalDecision: 'مكتسبة الدرجة القطعية',
+        } as CaseStage;
+        const correction = {
+            ...baseStage,
+            id: 'stage_corr',
+            stageName: 'تصحيح قرار',
+            status: 'active',
+            isPleadingsClosed: false,
+        } as CaseStage;
+        const stages = [appeal, cassation, correction];
+
+        const { updatedStages, newActiveIndex, targetStageName } = applyCorrectionComplete(stages, 2, {
+            outcome: 'قبول طلب التصحيح',
+        });
+        expect(newActiveIndex).toBe(0);
+        expect(targetStageName).toBe('الاستئناف');
+        expect(updatedStages[0]?.status).toBe('active');
+        expect(updatedStages[0]?.wasReopened).toBe(true);
+        expect(updatedStages[2]?.status).toBe('completed');
     });
 });

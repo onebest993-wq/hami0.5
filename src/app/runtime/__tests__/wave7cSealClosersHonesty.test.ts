@@ -15,18 +15,16 @@ function walkTs(dir: string, out: string[] = []): string[] {
 }
 
 describe('wave7c BFF + fossils + privileged-role honesty', () => {
-    it('GoldButton و screenTransitions محذوفان', () => {
+    it('GoldButton و fossil animations/shared PerformanceMonitor محذوفان', () => {
         const shared = fs.readFileSync(
             path.join(root, 'src/app/components/SharedComponents.tsx'),
             'utf8',
         );
         expect(shared).not.toContain('GoldButton');
-        const transitions = fs.readFileSync(
-            path.join(root, 'src/app/animations/transitions.ts'),
-            'utf8',
-        );
-        expect(transitions).not.toContain('screenTransitions');
-        expect(transitions).toContain('fadeTransitions');
+        expect(fs.existsSync(path.join(root, 'src/app/animations/transitions.ts'))).toBe(false);
+        expect(
+            fs.existsSync(path.join(root, 'src/app/components/shared/PerformanceMonitor.tsx')),
+        ).toBe(false);
     });
 
     it('task-help و notifications يستخدمان requireWifeUser عبر _auth', () => {

@@ -7,11 +7,12 @@ import {
 } from '../surfaceApplyTarget';
 
 describe('surfaceApplyTarget', () => {
-    it('normalizeSurfaceApplyTarget يفترض both', () => {
-        expect(normalizeSurfaceApplyTarget(undefined)).toBe('both');
+    it('normalizeSurfaceApplyTarget يفترض board', () => {
+        expect(normalizeSurfaceApplyTarget(undefined)).toBe('board');
         expect(normalizeSurfaceApplyTarget('board')).toBe('board');
         expect(normalizeSurfaceApplyTarget('blocks')).toBe('blocks');
-        expect(normalizeSurfaceApplyTarget('nope')).toBe('both');
+        expect(normalizeSurfaceApplyTarget('both')).toBe('both');
+        expect(normalizeSurfaceApplyTarget('nope')).toBe('board');
     });
 
     it('appliesToBoard / appliesToBlocks', () => {
@@ -23,11 +24,7 @@ describe('surfaceApplyTarget', () => {
         expect(appliesToBlocks('both')).toBe(true);
     });
 
-    it('خيارات الواجهة ثلاثية', () => {
-        expect(SURFACE_APPLY_TARGET_OPTIONS.map((o) => o.value)).toEqual([
-            'board',
-            'blocks',
-            'both',
-        ]);
+    it('خيارات الواجهة ثنائية (لوحة + أقسام)', () => {
+        expect(SURFACE_APPLY_TARGET_OPTIONS.map((o) => o.value)).toEqual(['board', 'blocks']);
     });
 });

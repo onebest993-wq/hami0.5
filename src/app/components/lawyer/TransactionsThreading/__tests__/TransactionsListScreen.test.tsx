@@ -91,14 +91,18 @@ describe('TransactionsListScreen', () => {
 
     it('يفلتر بالبحث', () => {
         render(<TransactionsListScreen />);
+        expect(screen.queryByTestId('transactions-results-summary')).not.toBeInTheDocument();
         fireEvent.change(screen.getByTestId('transactions-search'), { target: { value: 'سارة' } });
+        expect(screen.getByTestId('transactions-results-summary')).toBeInTheDocument();
         expect(screen.getByText('معاملة نشطة')).toBeInTheDocument();
         expect(screen.queryByText('معاملة مكتملة')).not.toBeInTheDocument();
     });
 
     it('يفلتر بالحالة', () => {
         render(<TransactionsListScreen />);
+        expect(screen.queryByTestId('transactions-results-summary')).not.toBeInTheDocument();
         fireEvent.click(screen.getByTestId('transactions-filter-Completed'));
+        expect(screen.queryByTestId('transactions-results-summary')).not.toBeInTheDocument();
         expect(screen.queryByText('معاملة نشطة')).not.toBeInTheDocument();
         expect(screen.getByText('معاملة مكتملة')).toBeInTheDocument();
     });

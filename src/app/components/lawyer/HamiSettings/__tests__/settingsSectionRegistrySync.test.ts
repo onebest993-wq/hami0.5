@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { getResolvedSettingsSection, resetSettingsSectionRegistryForTests } from '../settingsSectionRegistry';
+import {
+    getResolvedSettingsSection,
+    resetSettingsSectionRegistryForTests,
+} from '../settingsSectionRegistry';
 
-describe('settingsSectionRegistry appearance sync', () => {
-    it('AppearanceSection متاح فوراً بلا انتظار lazy chunk', () => {
+const ALL_SECTIONS = ['appearance', 'security', 'data', 'account'] as const;
+
+describe('settingsSectionRegistry sync', () => {
+    it('كل التبويبات متاحة فوراً بلا lazy chunk', () => {
         resetSettingsSectionRegistryForTests();
-        const appearance = getResolvedSettingsSection('appearance');
-        expect(appearance).toBeTruthy();
-        expect(typeof appearance).toBe('function');
+        for (const id of ALL_SECTIONS) {
+            const section = getResolvedSettingsSection(id);
+            expect(section, id).toBeTruthy();
+            expect(typeof section === 'function' || typeof section === 'object').toBe(true);
+        }
     });
 });

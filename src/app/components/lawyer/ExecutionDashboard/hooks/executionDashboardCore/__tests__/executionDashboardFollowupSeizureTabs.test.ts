@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     canOpenSeizureRequestsTab,
+    buildRestrictedFollowupTabIds,
     computeShowGuarantorInSeizureFollowupTab,
     filterSeizureFromFollowupModalTabs,
     filterSeizureFromFollowupSectionTabOrder,
@@ -33,6 +34,20 @@ describe('executionDashboardFollowupSeizureTabs', () => {
         expect(
             filterSeizureFromFollowupSectionTabOrder(order, true, false),
         ).toEqual(['personal', 'correspondences']);
+    });
+
+    it('buildRestrictedFollowupTabIds includes coercive when flag allows', () => {
+        const ids = buildRestrictedFollowupTabIds({
+            specialization: {
+                hideFollowupCoerciveTab: false,
+                hideFollowupSeizureRequestsTab: true,
+                hidePersonalCoerciveFollowupTab: true,
+            },
+            showPersonalCoerciveFollowupTab: false,
+        });
+        expect(ids.has('coercive')).toBe(true);
+        expect(ids.has('personal')).toBe(false);
+        expect(ids.has('seizure_requests')).toBe(false);
     });
 
     it('filterSeizureFromFollowupModalTabs respects restricted tab ids', () => {

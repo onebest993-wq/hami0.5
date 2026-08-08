@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File, Download, Loader2 } from 'lucide-react';
+import { X, ZoomIn, ExternalLink, FileText, ImageIcon, Music, File, Download, Loader2 } from '@/app/components/ui/lucideIcons';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import { formatDate, formatFileSize } from '@/app/components/lawyer/hooks/useSmartVault';
 import { downloadVaultDocToDevice, type VaultDocViewerKind } from '@/app/services/vaultUploadService';

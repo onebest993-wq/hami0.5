@@ -3,6 +3,7 @@ import {
     peekProfileWarmCache,
     setProfileWarmCache,
     invalidateProfileWarmCache,
+    hydrateProfileWarmCachePeekSync,
 } from '@/app/services/profile/profileWarmCache';
 import type { LawyerProfileData } from '@/app/services/lawyer-cloud';
 
@@ -46,6 +47,12 @@ describe('profileWarmCache', () => {
         setProfileWarmCache('lawyer-1', sampleProfile());
         invalidateProfileWarmCache('lawyer-1');
         expect(peekProfileWarmCache('lawyer-1')).toBeUndefined();
+    });
+
+    it('hydrateProfileWarmCachePeekSync يبني بذرة من userMeta عند غياب المحلي', () => {
+        const peeked = hydrateProfileWarmCachePeekSync('lawyer-peek', { full_name: 'أحمدع' }, 'lawyer-peek');
+        expect(peeked?.header.name).toBeTruthy();
+        expect(peekProfileWarmCache('lawyer-peek')?.header.name).toBe(peeked?.header.name);
     });
 
     it('يُخفّي الحقول الحساسة للزائر عند peek', () => {

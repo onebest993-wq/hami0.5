@@ -6,7 +6,7 @@
 
 import { test, expect } from '@playwright/test';
 
-test.describe('Execution Management Flow', () => {
+test.describe.skip('Execution Management Flow (legacy — replaced by execution-critical-paths.spec.ts)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
   });

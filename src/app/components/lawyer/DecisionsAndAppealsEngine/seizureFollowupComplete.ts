@@ -2,7 +2,7 @@ import type { ExecutionFile, SeizedMovable, SeizedProperty } from '@/app/types/e
 import {
     normalizePropertySeizureStatus,
     parseSeizedPropertyIdFromDecision,
-} from '@/app/components/lawyer/ExecutionDashboard/utils/propertySeizureWorkflowUtils';
+} from '@/app/domain/seizure/seizureWorkflowPropertyAdapter';
 import type { Decision } from './types';
 
 function parseSeizedMovableIdFromDecision(row: Record<string, unknown>): string {

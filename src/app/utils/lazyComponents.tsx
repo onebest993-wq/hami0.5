@@ -26,13 +26,12 @@ import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 import { loadNotificationPanelModule, prefetchNotificationPanel as prefetchNotificationPanelModule } from '@/app/runtime/notificationPanelLoader';
 import {
     loadProfileSettingsSheetModule as loadProfileSettingsSheetLoaderModule,
-    prefetchProfileSettingsSheetModule,
     resetProfileSettingsSheetLoaderForTests as resetProfileSettingsSheetLoaderModuleForTests,
 } from '@/app/runtime/profileSettingsSheetLoader';
 import {
-    prefetchProfileSettingsStudioTabsModule,
     resetProfileSettingsStudioTabsLoaderForTests as resetProfileSettingsStudioTabsLoaderModuleForTests,
 } from '@/app/runtime/profileSettingsStudioTabsLoader';
+import { primeProfileStudio } from '@/app/runtime/profileShellPrime';
 import {
     loadRoyalLawyerProfileModule,
     prefetchRoyalLawyerProfile as prefetchRoyalLawyerProfileModule,
@@ -79,14 +78,6 @@ export const LazyArchivePortal = lazyWithRetry(() =>
     }))
 );
 
-export const LazyLawsuitsWorkspace = lazyWithRetry(() =>
-    import('@/app/components/lawyer/LawsuitsWorkspace').then((m) => ({ default: m.LawsuitsWorkspace as unknown as LazyComponent }))
-);
-
-export function resetLawsuitsWorkspacePrefetch(): void {
-    /* prefetch يُدار عبر warmLawsuitWorkspace */
-}
-
 /** أرشيف الدعاوى — يفوض إلى lawsuitWorkspaceWarm (بلا SmartFile عاجل على أول فتح) */
 export function warmLawsuitWorkspace(options?: {
     includeSecondary?: boolean;
@@ -101,11 +92,6 @@ export function warmLawsuitWorkspace(options?: {
             }),
         )
         .catch(() => undefined);
-}
-
-/** تحميل مسبق مسار الدعاوى — workspace + أرشيف + إضبارة الدعوى */
-export function prefetchLawsuitsWorkspace(): void {
-    warmLawsuitWorkspace();
 }
 
 let urgentOrdersViewPrefetch: Promise<unknown> | null = null;
@@ -128,21 +114,17 @@ export const LazyViewUrgentAndOrdersDashboard = lazyWithRetry(() =>
         default: m.View_Urgent_And_Orders_Dashboard as unknown as LazyComponent,
     }))
 );
-export const LazySmartRepositoryModal = lazyWithRetry(() =>
-    import('@/app/components/lawyer/SmartRepositoryModal').then((m) => ({
-        default: m.SmartRepositoryModal as unknown as LazyComponent,
-    })),
-);
 
+/** prefetch فقط — المستودع يُفتح عبر SmartRepositoryHost وليس lazy modal */
 export function prefetchSmartRepositoryModal(): void {
     prefetchRepositoryHubModule();
 }
 
-/** تبويبات الاستوديو — تُحمَّل بالتوازي لتسريع التنقل الداخلي */
+/** @deprecated استخدم primeProfileStudio — محفوظ للتوافق */
 export function prefetchProfileSettingsStudioTabs(): void {
     if (typeof window === 'undefined') return;
     try {
-        prefetchProfileSettingsStudioTabsModule();
+        primeProfileStudio();
     } catch {
         /* optional prefetch */
     }
@@ -153,11 +135,10 @@ export function resetProfileSettingsPrefetchForTests(): void {
     resetProfileSettingsSheetLoaderModuleForTests();
 }
 
-/** استوديو الملف المهني — chunk منفصل داخل ProfileContent */
+/** استوديو الملف المهني — نقطة دخول موحّدة عبر profileShellPrime */
 export function prefetchProfileSettingsSheet(): void {
     if (typeof window === 'undefined') return;
-    prefetchProfileSettingsStudioTabs();
-    prefetchProfileSettingsSheetModule();
+    primeProfileStudio();
 }
 
 export function loadProfileSettingsSheetModule(): Promise<
@@ -403,8 +384,16 @@ export const LazyFieldTasksBottomSheet = lazyWithRetry(() =>
 
 export function prefetchLawyerHomeHubCard(): void {
     if (typeof window === 'undefined') return;
-    void import('@/app/components/lawyer/LawyerHomeHubCard');
+    void import('@/app/runtime/homeHubCardLoader').then((m) => m.prefetchLawyerHomeHubCardModule());
 }
+
+export const LazyLawyerHomeHubCard = lazyWithRetry(() =>
+    import('@/app/runtime/homeHubCardLoader').then((loader) =>
+        loader.loadLawyerHomeHubCardModule().then((m) => ({
+            default: m.LawyerHomeHubCard as unknown as LazyComponent,
+        })),
+    ),
+);
 
 /** الحد الأدنى لواجهة الرئيسية — الهيدر وبطاقات الأرشيف وبطاقة التنبيهات (أول عنصر) */
 export function warmLawyerHomeShellCritical(): void {

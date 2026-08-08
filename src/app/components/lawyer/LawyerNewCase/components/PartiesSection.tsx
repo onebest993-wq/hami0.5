@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus } from '@/app/components/ui/lucideIcons';
 import { PartyCard } from './PartyCard';
 import type { Party } from '../types';
 import { NC_GLASS_CARD } from '../newCaseGlassTheme';
@@ -14,11 +14,13 @@ export interface PartiesSectionProps {
     errorMap: Record<string, string>;
     addButtonText: string;
     clientError?: string;
+    /** منع إضافة/حذف أطراف — دعوى حادثة موروثة */
+    lockStructure?: boolean;
 }
 
 export const PartiesSection = ({
     side, parties, onUpdate, onRemove, onAdd,
-    labels, errorMap, addButtonText, clientError,
+    labels, errorMap, addButtonText, clientError, lockStructure = false,
 }: PartiesSectionProps) => {
     return (
         <div className="px-4 py-4 border-b border-white/[0.06]">
@@ -35,12 +37,14 @@ export const PartiesSection = ({
                             side={side}
                             onUpdate={(f, v) => onUpdate(side, p.id, f, v)}
                             onRemove={() => onRemove(side, p.id)}
-                            canRemove={parties.length > 1}
+                            canRemove={!lockStructure && parties.length > 1}
                             labels={labels}
                             errorMap={errorMap}
+                            lockNames={lockStructure}
                         />
                     ))}
                 </div>
+                {!lockStructure ? (
                 <button
                     type="button"
                     onClick={() => onAdd(side)}
@@ -48,6 +52,7 @@ export const PartiesSection = ({
                 >
                     <Plus size={14} /> <span>{addButtonText}</span>
                 </button>
+                ) : null}
             </div>
         </div>
     );

@@ -93,4 +93,44 @@ describe('useRepositoryEscapeStack', () => {
         expect(nativeBackHandler?.()).toBe(true);
         expect(onCloseModal).toHaveBeenCalledTimes(1);
     });
+
+    it('Escape يغلق المسجّل الصوتي قبل المستودع', () => {
+        const onCloseVoice = vi.fn();
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: true,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseVoice,
+                onCloseModal,
+            }),
+        );
+        pressEscape();
+        expect(onCloseVoice).toHaveBeenCalledTimes(1);
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
+
+    it('Cap native back يغلق المسجّل الصوتي قبل المستودع', () => {
+        const onCloseVoice = vi.fn();
+        const onCloseModal = vi.fn();
+        renderHook(() =>
+            useRepositoryEscapeStack({
+                enabled: true,
+                composing: false,
+                scannerOpen: false,
+                showVoiceRecorder: true,
+                onResetComposer: vi.fn(),
+                onCloseScanner: vi.fn(),
+                onCloseVoice,
+                onCloseModal,
+            }),
+        );
+        expect(nativeBackHandler?.()).toBe(true);
+        expect(onCloseVoice).toHaveBeenCalledTimes(1);
+        expect(onCloseModal).not.toHaveBeenCalled();
+    });
 });

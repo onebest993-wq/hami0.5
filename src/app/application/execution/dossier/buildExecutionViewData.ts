@@ -9,6 +9,10 @@ import {
 } from '@/app/infrastructure/execution/ExecutionDossierRepository';
 import { normalizeExecutionFileArrays } from './normalizeExecutionFileArrays';
 import { recordHasPartyDeathMarkers } from '@/app/utils/partyDeathPersistGuards';
+import { maritalFurnitureFinancialContentSignature } from '@/app/utils/maritalFurniture';
+import {
+    PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS,
+} from '@/app/components/lawyer/execution/coerciveStackUtils';
 
 type ExecutionFileLegacyShape = ExecutionFile & {
     parentId?: string;
@@ -202,6 +206,14 @@ export function buildExecutionViewData({
                     [resolved.realEstateSeizureAssets ?? null, stored.realEstateSeizureAssets ?? null],
                     [resolved.other_party_request_tracks ?? null, stored.other_party_request_tracks ?? null],
                     [resolved.other_party_actions_log ?? null, stored.other_party_actions_log ?? null],
+                    [
+                        maritalFurnitureFinancialContentSignature(resolved),
+                        maritalFurnitureFinancialContentSignature(stored),
+                    ],
+                    ...PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS.map((key) => [
+                        (resolved as Record<string, unknown>)[key] ?? null,
+                        (stored as Record<string, unknown>)[key] ?? null,
+                    ]),
                 ];
                 for (const [fromFile, fromStore] of pairs) {
                     if (JSON.stringify(fromFile) !== JSON.stringify(fromStore)) {

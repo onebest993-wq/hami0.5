@@ -18,6 +18,7 @@ import {
     urgentToEntry,
 } from '@/app/services/search/globalSearchIndexExtrasEntries';
 import { fileToEntry } from '@/app/services/search/globalSearchIndexFileEntries';
+import { lawsuitLifecycleIndexToSearchEntries } from '@/app/services/search/globalSearchIndexLawsuitLifecycleEntries';
 import { blob, isSearchEntryVisible, norm, withLifecycle } from '@/app/services/search/globalSearchIndexPureHelpers';
 import {
     docsVaultEntriesFromPrepared,
@@ -41,6 +42,13 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
         list.push(e);
     };
 
+    /** metadata من lifecycleIndex — يُسمح بـ deleted للوصول إلى المهملات غير المحمّلة */
+    const pushLifecycleIndexEntry = (e: GlobalSearchEntry) => {
+        if (seen.has(e.id)) return;
+        seen.add(e.id);
+        list.push(e);
+    };
+
     const indexFile = (f: FileData & { executionTrashDeletedAt?: string | null }) => {
         const cached = getCachedFileSearchEntries(f);
         const entries = cached ?? fileToEntry(f);
@@ -55,6 +63,15 @@ export function buildGlobalSearchIndex(input: BuildGlobalSearchIndexInput): Glob
 
     for (const f of input.files) {
         indexFile(f);
+    }
+
+    const indexedLawsuitIds = new Set<string>();
+    for (const f of input.files) indexedLawsuitIds.add(String(f.id));
+    for (const entry of lawsuitLifecycleIndexToSearchEntries(
+        input.lawsuitLifecycleIndex,
+        indexedLawsuitIds,
+    )) {
+        pushLifecycleIndexEntry(entry);
     }
 
     for (const f of input.executionFiles ?? []) {

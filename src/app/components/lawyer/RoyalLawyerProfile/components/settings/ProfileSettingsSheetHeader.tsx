@@ -1,5 +1,5 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 
 type ProfileSettingsSheetHeaderProps = {
     onClose: () => void;

@@ -1,14 +1,31 @@
-import { useEffect } from 'react';
 import type { HandlerClusterContextSpreads } from './handlerClusterContextShared';
 import { collectThirdPartySeizureHandlerClusterContext } from './collectThirdPartySeizureHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdParty } from './useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdParty';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterThirdPartySeizureBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
+
+function thirdPartySeizureClusterFingerprint(
+    cluster: Record<string, unknown>,
+    executionId: string | undefined,
+): unknown[] {
+    const push = cluster.pushTimelineEventBinding as Record<string, unknown> | undefined;
+    const handlers = cluster.thirdPartySeizureHandlers as Record<string, unknown> | undefined;
+    return [
+        executionId,
+        push?.pushTimelineEvent,
+        cluster.pushTimelineEvent,
+        ...handlerBagKeyFingerprint(handlers),
+    ];
+}
 
 export function ExecutionDashboardHandlerClusterThirdPartySeizureBridge({
     input,
@@ -17,6 +34,7 @@ export function ExecutionDashboardHandlerClusterThirdPartySeizureBridge({
     const resolvedInput = collectThirdPartySeizureHandlerClusterContext(
         input as HandlerClusterContextSpreads,
     );
+    const executionId = (resolvedInput as { executionId?: string }).executionId;
     const { pushTimelineEventBinding, pushTimelineEvent } =
         useExecutionDashboardCoreHandlerClusterFoundationTimeline(resolvedInput);
     const thirdPartySeizureHandlers = useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdParty(
@@ -24,13 +42,17 @@ export function ExecutionDashboardHandlerClusterThirdPartySeizureBridge({
         pushTimelineEvent,
     );
 
-    useEffect(() => {
-        onCluster({
-            pushTimelineEventBinding,
-            pushTimelineEvent,
-            thirdPartySeizureHandlers,
-        });
-    }, [onCluster, pushTimelineEvent, pushTimelineEventBinding, thirdPartySeizureHandlers]);
+    const cluster: Record<string, unknown> = {
+        pushTimelineEventBinding,
+        pushTimelineEvent,
+        thirdPartySeizureHandlers,
+    };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        thirdPartySeizureClusterFingerprint(cluster, executionId),
+        onCluster,
+    );
 
     return null;
 }

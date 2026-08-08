@@ -1,7 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { FileText, Download, Loader2, Trash2, Pencil, Flag, Share2, FileImage, Eye } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { FileText, Download, Loader2, Trash2, Pencil, Flag, Share2, FileImage, Eye } from '@/app/components/ui/lucideIcons';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { peekRepositoryThumbUrl, clearRepositoryThumbUrl } from '@/app/services/forum/repositoryThumbUrlCache';
+import { imgFetchPriorityAttr } from '@/app/utils/imgFetchPriority';
 import { getRepositoryMediaKind, repositoryMediaLabel } from './repositoryMedia';
 import { resolveRepositoryStorageUrl } from '../repositoryStorageService';
 
@@ -10,6 +12,7 @@ interface RepositoryCardProps {
     isOwner: boolean;
     downloadingId: string | null;
     deletingId: string | null;
+    priorityThumb?: boolean;
     onDownload: (doc: RepositoryDocument) => void;
     onDelete: (doc: RepositoryDocument) => void;
     onEdit: (doc: RepositoryDocument) => void;
@@ -22,6 +25,7 @@ export const RepositoryCard = ({
     isOwner,
     downloadingId,
     deletingId,
+    priorityThumb = false,
     onDownload,
     onDelete,
     onEdit,
@@ -31,15 +35,58 @@ export const RepositoryCard = ({
     const mediaKind = getRepositoryMediaKind(doc.mimeType, doc.fileName);
     const mediaLabel = repositoryMediaLabel(mediaKind);
     const isImage = mediaKind === 'image';
-    const [thumbUrl, setThumbUrl] = useState<string | null>(null);
-    const [thumbLoading, setThumbLoading] = useState(isImage && Boolean(doc.storagePath));
+    const cardRef = useRef<HTMLDivElement | null>(null);
+    const thumbRetryRef = useRef(0);
+    const [thumbInView, setThumbInView] = useState(priorityThumb);
+    const cachedThumb = isImage && doc.storagePath ? peekRepositoryThumbUrl(doc.storagePath) : null;
+    const [thumbUrl, setThumbUrl] = useState<string | null>(cachedThumb);
+    const [thumbLoading, setThumbLoading] = useState(
+        isImage && Boolean(doc.storagePath) && !cachedThumb && priorityThumb,
+    );
 
     useEffect(() => {
-        if (!isImage || !doc.storagePath) {
-            setThumbUrl(null);
+        if (!isImage || priorityThumb) {
+            setThumbInView(true);
+            return;
+        }
+        const node = cardRef.current;
+        if (!node || typeof IntersectionObserver === 'undefined') {
+            setThumbInView(true);
+            return;
+        }
+        const observer = new IntersectionObserver(
+            (entries) => {
+                if (entries.some((entry) => entry.isIntersecting)) {
+                    setThumbInView(true);
+                    observer.disconnect();
+                }
+            },
+            { rootMargin: '280px 0px' },
+        );
+        observer.observe(node);
+        return () => observer.disconnect();
+    }, [isImage, priorityThumb]);
+
+    useEffect(() => {
+        thumbRetryRef.current = 0;
+    }, [doc.storagePath]);
+
+    useEffect(() => {
+        if (!isImage || !doc.storagePath || !thumbInView) {
+            if (!isImage || !doc.storagePath) {
+                setThumbUrl(null);
+                setThumbLoading(false);
+            }
+            return;
+        }
+
+        const cached = peekRepositoryThumbUrl(doc.storagePath);
+        if (cached) {
+            setThumbUrl(cached);
             setThumbLoading(false);
             return;
         }
+
         let cancelled = false;
         setThumbLoading(true);
         void resolveRepositoryStorageUrl(doc.storagePath)
@@ -52,7 +99,7 @@ export const RepositoryCard = ({
         return () => {
             cancelled = true;
         };
-    }, [doc.id, doc.storagePath, isImage]);
+    }, [doc.id, doc.storagePath, isImage, thumbInView]);
 
     const handleNativeShare = async (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -101,7 +148,10 @@ export const RepositoryCard = ({
     const feedImageClass = 'max-w-full max-h-[280px] w-auto h-auto object-contain';
 
     return (
-        <div className="bg-[#1A1D2D] rounded-2xl border border-white/5 hover:border-[#E6C673]/20 transition-all overflow-hidden">
+        <div
+            ref={cardRef}
+            className="bg-[#1A1D2D] rounded-2xl border border-white/5 hover:border-[#E6C673]/20 transition-all overflow-hidden"
+        >
             {isImage ? (
                 <button
                     type="button"
@@ -116,8 +166,17 @@ export const RepositoryCard = ({
                                 src={thumbUrl}
                                 alt={doc.title}
                                 className={feedImageClass}
-                                loading="lazy"
+                                loading={priorityThumb ? 'eager' : 'lazy'}
+                                decoding="async"
+                                {...imgFetchPriorityAttr(priorityThumb ? 'high' : 'auto')}
                                 onError={() => {
+                                    if (thumbRetryRef.current >= 1) {
+                                        setThumbUrl(null);
+                                        setThumbLoading(false);
+                                        return;
+                                    }
+                                    thumbRetryRef.current += 1;
+                                    clearRepositoryThumbUrl(doc.storagePath);
                                     setThumbUrl(null);
                                     setThumbLoading(true);
                                     void resolveRepositoryStorageUrl(doc.storagePath).then((url) => {
@@ -188,38 +247,39 @@ export const RepositoryCard = ({
             </div>
 
             <div
-                className="flex items-center justify-between gap-2 px-3 py-2 border-t border-white/5"
+                className="border-t border-white/5 px-3 py-2.5 space-y-2"
                 onClick={(e) => e.stopPropagation()}
+                data-testid={`repository-card-actions-${doc.id}`}
             >
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="grid grid-cols-2 gap-2">
                     <button
                         type="button"
                         onClick={() => onPreview(doc)}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all bg-white/5 border border-white/10 text-white/75 hover:bg-white/10"
+                        className="flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 px-2 py-2 text-[11px] font-bold text-white/80 transition-all hover:bg-white/10 touch-manipulation"
                     >
-                        <Eye size={13} />
+                        <Eye size={14} />
                         اطلاع
                     </button>
                     <button
                         type="button"
                         onClick={() => onDownload(doc)}
                         disabled={downloadingId === doc.id}
-                        className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                        className={`flex min-h-[44px] items-center justify-center gap-1.5 rounded-xl border px-2 py-2 text-[11px] font-bold transition-all touch-manipulation ${
                             downloadingId === doc.id
-                                ? 'bg-white/10 text-white/30 cursor-not-allowed'
-                                : 'bg-[#E6C673]/10 border border-[#E6C673]/20 text-[#E6C673] hover:bg-[#E6C673]/15'
+                                ? 'border-white/10 bg-white/5 text-white/30 cursor-not-allowed'
+                                : 'border-[#E6C673]/25 bg-[#E6C673]/10 text-[#E6C673] hover:bg-[#E6C673]/15'
                         }`}
                     >
                         {downloadingId === doc.id ? (
-                            <Loader2 size={13} className="animate-spin" />
+                            <Loader2 size={14} className="animate-spin" />
                         ) : (
-                            <Download size={13} />
+                            <Download size={14} />
                         )}
-                        {downloadingId === doc.id ? 'جاري الحفظ...' : 'حفظ في الجهاز'}
+                        <span className="truncate">{downloadingId === doc.id ? 'جاري الحفظ...' : 'حفظ في الجهاز'}</span>
                     </button>
                 </div>
 
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center justify-end gap-0.5">
                     {isOwner ? (
                         <>
                             <button
@@ -228,10 +288,11 @@ export const RepositoryCard = ({
                                     e.stopPropagation();
                                     onEdit(doc);
                                 }}
-                                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/30 hover:bg-white/5 hover:text-white/60 transition-all"
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white/35 transition-all hover:bg-white/5 hover:text-white/70 touch-manipulation"
                                 title="تعديل"
+                                aria-label="تعديل"
                             >
-                                <Pencil size={13} />
+                                <Pencil size={15} />
                             </button>
                             <button
                                 type="button"
@@ -240,17 +301,18 @@ export const RepositoryCard = ({
                                     onDelete(doc);
                                 }}
                                 disabled={deletingId === doc.id}
-                                className={`w-7 h-7 rounded-lg flex items-center justify-center transition-all ${
+                                className={`inline-flex h-11 w-11 items-center justify-center rounded-xl transition-all touch-manipulation ${
                                     deletingId === doc.id
-                                        ? 'bg-white/5 text-white/20 cursor-not-allowed'
-                                        : 'bg-red-500/5 text-red-400/60 hover:bg-red-500/15 hover:text-red-400'
+                                        ? 'text-white/20 cursor-not-allowed'
+                                        : 'text-red-400/65 hover:bg-red-500/10 hover:text-red-400'
                                 }`}
                                 title="حذف"
+                                aria-label="حذف"
                             >
                                 {deletingId === doc.id ? (
-                                    <Loader2 size={13} className="animate-spin" />
+                                    <Loader2 size={15} className="animate-spin" />
                                 ) : (
-                                    <Trash2 size={13} />
+                                    <Trash2 size={15} />
                                 )}
                             </button>
                         </>
@@ -261,18 +323,20 @@ export const RepositoryCard = ({
                             e.stopPropagation();
                             onReport(doc);
                         }}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white/20 hover:bg-white/5 hover:text-amber-400/60 transition-all"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white/30 transition-all hover:bg-white/5 hover:text-amber-400/70 touch-manipulation"
                         title="إبلاغ"
+                        aria-label="إبلاغ"
                     >
-                        <Flag size={13} />
+                        <Flag size={15} />
                     </button>
                     <button
                         type="button"
                         onClick={handleNativeShare}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white/20 hover:bg-white/5 hover:text-[#E6C673]/60 transition-all"
+                        className="inline-flex h-11 w-11 items-center justify-center rounded-xl text-white/30 transition-all hover:bg-white/5 hover:text-[#E6C673]/70 touch-manipulation"
                         title="مشاركة"
+                        aria-label="مشاركة"
                     >
-                        <Share2 size={13} />
+                        <Share2 size={15} />
                     </button>
                 </div>
             </div>

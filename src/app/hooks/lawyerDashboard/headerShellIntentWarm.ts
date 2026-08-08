@@ -144,9 +144,12 @@ function scheduleHeaderShellHeavyWarm(userId: string): void {
         () => {
             if (typeof document !== 'undefined' && document.hidden) return;
             void loadNotificationPanelModule().catch(() => undefined);
+            void import('@/app/runtime/notificationBootHydrator')
+                .then((m) => m.hydrateNotificationShellForInstantOpen(true))
+                .catch(() => undefined);
         },
         {
-            minDelayMs: import.meta.env.DEV ? 600 : 1_500,
+            minDelayMs: import.meta.env.DEV ? 200 : 600,
             timeoutMs: 8_000,
         },
     );
@@ -170,14 +173,17 @@ function scheduleHeaderShellHeavyWarm(userId: string): void {
  * لا warm*OnOpen دفعة واحدة — يُحجّب التفاعل الأول.
  */
 export function hydrateLawyerDashboardHeaderShellChunks(userId: string | null | undefined): void {
-    if (!isRealSignedIn(userId)) return;
+    const uid = userId?.trim();
+    if (!uid || !isRealSignedIn(uid)) return;
     if (headerShellHydrateStarted) return;
     headerShellHydrateStarted = true;
 
-    warmLawyerDashboardHeaderShell(userId, 'hover');
+    warmLawyerDashboardHeaderShell(uid, 'hover');
 
     void shouldAggressiveHeaderShellWarm().then((aggressive) => {
-        if (!aggressive) return;
-        scheduleHeaderShellHeavyWarm(userId);
+        if (aggressive) {
+            warmLawyerDashboardHeaderShell(uid, 'open');
+        }
+        scheduleHeaderShellHeavyWarm(uid);
     });
 }

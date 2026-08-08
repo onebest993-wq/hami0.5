@@ -17,7 +17,6 @@ export function LawyerDashboardSettingsOverlayEntry({
         settingsSessionKey,
         closeSettings,
         resetSettingsShell,
-        enterHomeLayoutEdit,
     } = overlays;
 
     const settingsUserId = resolveShellAuthUserId(authUserId, userId);
@@ -34,7 +33,6 @@ export function LawyerDashboardSettingsOverlayEntry({
             onShellReset={resetSettingsShell}
             onClose={closeSettings}
             onLogout={onLogout}
-            onEnterHomeLayoutEdit={enterHomeLayoutEdit}
         />
     );
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { isRealSignedIn } from '@/app/services/auth/shellAuth';
@@ -6,7 +6,13 @@ import {
     FIELD_TASKS_SHELL_FEATURE,
     openFieldTasksFromShell,
 } from '@/app/services/fieldTasks/fieldTasksShellNavigation';
-import { warmFieldTasksOnOpen } from '@/app/hooks/lawyerDashboard/fieldTasksIntentWarm';
+import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import { BOOT_REVEAL_DONE_EVENT, isBootRevealDone } from '@/app/bootstrap/bootReveal';
+import { ensureDeferredFeatureStylesLoaded } from '@/app/runtime/deferredFeatureStyles';
+import { FIELD_TASKS_PRIME_HOST_EVENT } from '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksPrimeHost';
+function loadFieldTasksIntentWarm() {
+    return import('@/app/hooks/lawyerDashboard/fieldTasksIntentWarm');
+}
 import { useLawyerDashboardTasksOverlayEscape } from '@/app/hooks/lawyerDashboard/useLawyerDashboardTasksOverlayEscape';
 import { useKeepAliveIdleRelease } from '@/app/hooks/lawyerDashboard/useKeepAliveIdleRelease';
 import {
@@ -84,7 +90,48 @@ export function useLawyerDashboardFieldTasks({
 
     const primeFieldTasksShellMount = useCallback(() => {
         primeFieldTasksHostMount(setFieldTasksHostMounted);
+        queueMicrotask(() => {
+            void ensureDeferredFeatureStylesLoaded();
+        });
     }, []);
+
+    /** ركّب Host مخفياً فور تسجيل الدخول — قبل أول لمسة «مهام» (مثل التقويم) */
+    useLayoutEffect(() => {
+        if (!isRealSignedIn(userId)) return;
+        primeFieldTasksShellMount();
+        void loadFieldTasksIntentWarm().then((m) => m.warmFieldTasksOnHover());
+    }, [primeFieldTasksShellMount, userId]);
+
+    useEffect(() => {
+        if (!isRealSignedIn(userId)) return;
+        const warmAfterReveal = () => {
+            void loadFieldTasksBootHydrator()
+                .then((m) => m.prefetchFieldTasksAfterBootReveal())
+                .catch(() => undefined);
+        };
+        if (isBootRevealDone()) {
+            warmAfterReveal();
+        } else {
+            window.addEventListener(BOOT_REVEAL_DONE_EVENT, warmAfterReveal, { once: true });
+        }
+        const unbindInteractive = onDashboardInteractive(() => {
+            void loadFieldTasksIntentWarm().then((m) => m.warmFieldTasksOnHover());
+        });
+        return () => {
+            window.removeEventListener(BOOT_REVEAL_DONE_EVENT, warmAfterReveal);
+            unbindInteractive();
+        };
+    }, [userId]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onPrime = () => {
+            primeFieldTasksShellMount();
+            void loadFieldTasksIntentWarm().then((m) => m.warmFieldTasksOnOpen());
+        };
+        window.addEventListener(FIELD_TASKS_PRIME_HOST_EVENT, onPrime);
+        return () => window.removeEventListener(FIELD_TASKS_PRIME_HOST_EVENT, onPrime);
+    }, [primeFieldTasksShellMount]);
 
     const armFieldTasksManagerHost = useCallback(() => {
         setFieldTasksManagerHostMounted(true);
@@ -190,7 +237,7 @@ export function useLawyerDashboardFieldTasks({
     }, [closeCommunity, instantPaintRef, setActiveTab, userId]);
 
     const afterTasksManagerOpen = useCallback(() => {
-        warmFieldTasksOnOpen();
+        void loadFieldTasksIntentWarm().then((m) => m.warmFieldTasksOnOpen());
         void loadFieldTasksBootHydrator()
             .then((m) => m.hydrateFieldTasksShellForInstantOpen(true))
             .catch(() => undefined);

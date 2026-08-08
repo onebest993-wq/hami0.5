@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Trash2 } from '@/app/components/ui/lucideIcons';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
@@ -13,7 +13,7 @@ import {
 } from '@/app/services/repository/repositoryDossierNoteSync';
 import { emitDossierNotesChanged } from '@/app/services/dossier-notes/dossierNoteSyncEvents';
 import { RepositoryEntryContentLayout } from '../RepositoryEntryContentLayout';
-import { REPO_BADGE_GOLD, REPO_CARD_ICON_BTN } from '../smartRepositoryTheme';
+import { REPO_BADGE_GOLD, REPO_CARD_ACTIONS, REPO_CARD_EDIT_LINK, REPO_CARD_ICON_BTN, REPO_CARD_ICON_BTN_ACTIVE, REPO_CARD_META, REPO_CARD_TIMESTAMP } from '../smartRepositoryTheme';
 import { EntryCardInlineEditor } from './EntryCardInlineEditor';
 import { useUniversalEntryCardEdit } from './useUniversalEntryCardEdit';
 import type { UniversalEntryCardProps } from './universalEntryCardTypes';
@@ -90,11 +90,10 @@ export const DossierEntryCard = React.memo(function DossierEntryCard({
                 />
             ) : (
                 <>
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                        <span className="text-[11px] text-white/45">{timestamp}</span>
+                    <div className={REPO_CARD_META}>
+                        <span className={REPO_CARD_TIMESTAMP}>{timestamp}</span>
                         <span className={REPO_BADGE_GOLD}>
-                            📌 {item.ref.dossierKind === 'lawsuit' ? 'إضبارة دعوى' : 'إضبارة تنفيذ'} —{' '}
-                            {item.ref.dossierLabel}
+                            {item.ref.dossierKind === 'lawsuit' ? 'دعوى' : 'تنفيذ'} — {item.ref.dossierLabel}
                         </span>
                     </div>
                     <RepositoryEntryContentLayout
@@ -102,18 +101,14 @@ export const DossierEntryCard = React.memo(function DossierEntryCard({
                         title={item.ref.title}
                         bodyHtml={item.body}
                     />
-                    <button
-                        type="button"
-                        onClick={edit.startEdit}
-                        className="mt-3 inline-flex items-center min-h-[44px] text-xs font-bold text-[#E6C673] hover:underline touch-manipulation"
-                    >
-                        تعديل مباشر
-                    </button>
-                    <div className="flex justify-end mt-2 pt-2 border-t border-white/[0.06]">
+                    <div className={REPO_CARD_ACTIONS}>
+                        <button type="button" onClick={edit.startEdit} className={REPO_CARD_EDIT_LINK}>
+                            تعديل
+                        </button>
                         <button
                             type="button"
                             onClick={() => void deleteDossierNote()}
-                            className={`${REPO_CARD_ICON_BTN} text-white/40 hover:text-red-400`}
+                            className={`${REPO_CARD_ICON_BTN} text-white/40 hover:text-red-400 hover:border-red-400/25`}
                             aria-label="حذف"
                         >
                             <Trash2 size={14} />

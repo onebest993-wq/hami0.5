@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Gavel } from 'lucide-react';
+import { Gavel } from '@/app/components/ui/lucideIcons';
 import type { JudicialDecision, OrderEnforcementTracking } from '@/app/types/criminal';
 import { formatJudicialLedgerDate } from '../judicialDecisionsEngine';
 import {

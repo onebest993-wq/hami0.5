@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { onDashboardInteractive } from '@/app/bootstrap/bootMetrics';
+import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { useLawyerDashboardCalendarCluster } from '@/app/hooks/lawyerDashboard/useLawyerDashboardCalendarCluster';
 import {
     useLawyerDashboardRuntimeEffects,
 } from '@/app/hooks/lawyerDashboard/useLawyerDashboardRuntimeEffects';
+import { CalendarReminderHost } from '@/app/components/lawyer/SmartLegalRadar/CalendarReminderHost';
 import type { LawyerDashboardPostInteractiveRuntimeProps } from '@/app/components/lawyer/dashboard/LawyerDashboardPostInteractiveRuntime.types';
 
 /**
@@ -14,12 +16,12 @@ function LawyerDashboardPostInteractiveRuntimeInner(
     props: LawyerDashboardPostInteractiveRuntimeProps,
 ) {
     const { onClusterScanSources, ...rest } = props;
-    useLawyerDashboardCalendarCluster({
+    const { calendarUserId } = useLawyerDashboardCalendarCluster({
         ...rest,
         onClusterScanSources,
     });
     useLawyerDashboardRuntimeEffects(rest);
-    return null;
+    return <CalendarReminderHost userId={calendarUserId} enabled={rest.enabled} />;
 }
 
 /** hooks خلفية — بعد interactive + idle قصير حتى لا تُسحق اللوحة عند أول إطار */
@@ -32,6 +34,7 @@ export function LawyerDashboardPostInteractiveRuntime(
         let cancelIdle = () => undefined;
         let delayTimer: number | null = null;
         const unbind = onDashboardInteractive(() => {
+            const delayMs = isCapacitorNativePlatform() ? 450 : 700;
             delayTimer = window.setTimeout(() => {
                 delayTimer = null;
                 const ric =
@@ -42,7 +45,7 @@ export function LawyerDashboardPostInteractiveRuntime(
                 } else {
                     setArmed(true);
                 }
-            }, 900);
+            }, delayMs);
         });
         return () => {
             unbind();

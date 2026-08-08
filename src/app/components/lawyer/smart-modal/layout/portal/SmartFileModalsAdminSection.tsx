@@ -1,13 +1,15 @@
 import React from 'react';
 import type { SmartFileModalsPortalProps } from './smartFileModalsPortalTypes';
+import { readPendingCourtReferral } from '@/app/domain/lawsuit/courtReferral';
+/** Eager imports — avoid first-open lazy chunk flash from LegalActionsMenu. */
+import { TransferJurisdictionModal } from '../../procedural-modals/TransferJurisdictionModal';
+import { CaseConsolidationModal } from '../../procedural-modals/CaseConsolidationModal';
+import { CaseLinkModal } from '../../procedural-modals/CaseLinkModal';
+import { CorrespondenceModal } from '../../procedural-modals/CorrespondenceModal';
 import {
     LazyExtraordinaryAppealModal,
     LazyMaterialErrorCorrectionModal,
     LazyJudgeRecusalModal,
-    LazyTransferJurisdictionModal,
-    LazyCaseConsolidationModal,
-    LazyCaseLinkModal,
-    LazyCorrespondenceModal,
     LazyAppealBriefOutcomeModal,
 } from '../../lazySmartFileModalChunks';
 
@@ -47,6 +49,8 @@ export function SmartFileModalsAdminSection(props: SmartFileModalsPortalProps) {
         handlers: h,
     } = props;
 
+    const pendingCourtReferral = readPendingCourtReferral(currentStage);
+
     return (
         <>
                 {!!showExtraordinaryAppealModal && (
@@ -80,50 +84,45 @@ export function SmartFileModalsAdminSection(props: SmartFileModalsPortalProps) {
                         onConfirm={h.handleJudgeRecusal}
                     />
                 )}
-                {showTransferJurisdictionModal && (
-                    <LazyTransferJurisdictionModal
-                        key="transfer-jurisdiction"
-                        isOpen={showTransferJurisdictionModal}
-                        onClose={() => setShowTransferJurisdictionModal(false)}
-                        onConfirm={h.handleTransferJurisdiction}
-                    />
-                )}
-                {showCaseConsolidationModal && (
-                    <LazyCaseConsolidationModal
-                        key="case-consolidation"
-                        isOpen={showCaseConsolidationModal}
-                        onClose={() => setShowCaseConsolidationModal(false)}
-                        currentFileId={consolidationCurrentFileId}
-                        currentCaseNo={consolidationCurrentCaseNo}
-                        currentClientName={consolidationCurrentClientName}
-                        currentCourt={consolidationCurrentCourt}
-                        currentStageLabel={consolidationCurrentStageLabel}
-                        candidates={consolidationCandidates}
-                        onCreateNew={(data) => onConsolidationCreateNew?.(data)}
-                        onMergeExisting={(data) => onConsolidationMergeExisting?.(data)}
-                        onExternalRef={(data) => onConsolidationExternalRef?.(data)}
-                    />
-                )}
-                {showCaseLinkModal && (
-                    <LazyCaseLinkModal
-                        key="case-link"
-                        isOpen={showCaseLinkModal}
-                        onClose={() => setShowCaseLinkModal(false)}
-                        currentFileId={caseLinkCurrentFileId}
-                        currentCaseNo={caseLinkCurrentCaseNo}
-                        candidates={caseLinkCandidates}
-                        onLinkExisting={(data) => onCaseLinkExisting?.(data)}
-                        onLinkExternal={(data) => onCaseLinkExternal?.(data)}
-                    />
-                )}
-                {showCorrespondenceModal && (
-                    <LazyCorrespondenceModal
-                        key="correspondence"
-                        isOpen={showCorrespondenceModal}
-                        onClose={() => setShowCorrespondenceModal(false)}
-                        onConfirm={h.handleCorrespondence}
-                    />
-                )}
+                <TransferJurisdictionModal
+                    key="transfer-jurisdiction"
+                    isOpen={showTransferJurisdictionModal}
+                    onClose={() => setShowTransferJurisdictionModal(false)}
+                    onRegister={h.handleTransferJurisdiction}
+                    onResolveAcceptance={h.handleCourtReferralAcceptance}
+                    currentCourt={currentStage.court}
+                    pendingReferral={pendingCourtReferral}
+                />
+                <CaseConsolidationModal
+                    key="case-consolidation"
+                    isOpen={showCaseConsolidationModal}
+                    onClose={() => setShowCaseConsolidationModal(false)}
+                    currentFileId={consolidationCurrentFileId}
+                    currentCaseNo={consolidationCurrentCaseNo}
+                    currentClientName={consolidationCurrentClientName}
+                    currentCourt={consolidationCurrentCourt}
+                    currentStageLabel={consolidationCurrentStageLabel}
+                    candidates={consolidationCandidates}
+                    onCreateNew={(data) => onConsolidationCreateNew?.(data)}
+                    onMergeExisting={(data) => onConsolidationMergeExisting?.(data)}
+                    onExternalRef={(data) => onConsolidationExternalRef?.(data)}
+                />
+                <CaseLinkModal
+                    key="case-link"
+                    isOpen={showCaseLinkModal}
+                    onClose={() => setShowCaseLinkModal(false)}
+                    currentFileId={caseLinkCurrentFileId}
+                    currentCaseNo={caseLinkCurrentCaseNo}
+                    candidates={caseLinkCandidates}
+                    onLinkExisting={(data) => onCaseLinkExisting?.(data)}
+                    onLinkExternal={(data) => onCaseLinkExternal?.(data)}
+                />
+                <CorrespondenceModal
+                    key="correspondence"
+                    isOpen={showCorrespondenceModal}
+                    onClose={() => setShowCorrespondenceModal(false)}
+                    onConfirm={h.handleCorrespondence}
+                />
                 {appealOutcomeTask ? (
                     <LazyAppealBriefOutcomeModal
                         key="appeal-brief-outcome"

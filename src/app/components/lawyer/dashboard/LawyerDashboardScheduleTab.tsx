@@ -1,11 +1,14 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { resolveCalendarUserId } from '@/app/services/calendarBridge';
 import { SmartLegalRadar } from '@/app/components/lawyer/SmartLegalRadar';
 import { RadarErrorBoundary } from '@/app/components/lawyer/SmartLegalRadar/RadarErrorBoundary';
 import type { FileData } from '../LawyerShared';
 import type { ExecutionFile } from '@/app/types/execution';
-import { isFileData } from '../LawyerDashboardParts/utils';
+import { RADAR_BG_MAIN } from '@/app/components/lawyer/SmartLegalRadar/radarTheme';
+import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
+import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
+import { buildCalendarSparkSupplementalInput } from '@/app/spark/calendar/calendarSparkSupplementalScan';
 
 export type LawyerDashboardScheduleTabProps = {
     visible: boolean;
@@ -18,6 +21,8 @@ export type LawyerDashboardScheduleTabProps = {
     onBackToHome: () => void;
     files: FileData[];
     executionFiles: ExecutionFile[];
+    clusterScanSources?: ClusterScanSources;
+    secretaryAlerts?: SecretaryAlert[];
     onOpenLawsuitFile: (file: FileData) => void;
     onOpenExecutionFile: (file: ExecutionFile) => void;
     onOpenCriminalCase: (caseId: string) => void;
@@ -37,6 +42,8 @@ export function LawyerDashboardScheduleTab({
     onBackToHome,
     files,
     executionFiles,
+    clusterScanSources,
+    secretaryAlerts = [],
     onOpenLawsuitFile,
     onOpenExecutionFile,
     onOpenCriminalCase,
@@ -52,18 +59,33 @@ export function LawyerDashboardScheduleTab({
 
     const calendarUserId = resolveCalendarUserId(userId ?? authUserId ?? null);
 
+    const calendarSparkSupplemental = useMemo(() => {
+        if (clusterScanSources) {
+            return buildCalendarSparkSupplementalInput(clusterScanSources, secretaryAlerts);
+        }
+        return {
+            lawsuitFiles: files,
+            executionFiles,
+            secretaryAlerts,
+        };
+    }, [clusterScanSources, files, executionFiles, secretaryAlerts]);
+
     return (
         <div
-            className="block h-[100dvh] bg-[#1f1712]"
+            className="block h-[100dvh]"
+            style={{ backgroundColor: RADAR_BG_MAIN }}
             data-testid="lawyer-schedule-tab-shell"
             aria-hidden={!visible}
         >
             <RadarErrorBoundary onBack={handleBack}>
                 <SmartLegalRadar
+                    screenActive={visible}
                     onBack={handleBack}
                     userId={calendarUserId}
                     initialDate={calendarSearchFocus?.date}
                     initialEventId={calendarSearchFocus?.eventId}
+                    calendarSparkSupplemental={calendarSparkSupplemental}
+                    onOpenRepositoryNote={onOpenNote}
                     onOpenSource={(sourceModule, sourceEntityId) => {
                         switch (sourceModule) {
                             case 'lawsuit': {

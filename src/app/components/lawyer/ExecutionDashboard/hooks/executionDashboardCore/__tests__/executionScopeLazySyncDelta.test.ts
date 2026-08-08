@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     EXECUTION_LAZY_SYNC_DRAFT_CHURN_KEYS,
+    areScopeValuesEqual,
     fingerprintLazySyncPrimitiveBucket,
     hasSelectedScopeDeltaForLazySync,
 } from '../executionScopeLazySyncDelta';
@@ -93,5 +94,45 @@ describe('executionScopeLazySyncDelta draft churn', () => {
         const a = { flag: true, payload: shared, noop: () => undefined };
         const b = { flag: true, payload: shared, noop: a.noop };
         expect(hasSelectedScopeDeltaForLazySync(a, b)).toBe(false);
+    });
+
+    it('areScopeValuesEqual survives circular object graphs', () => {
+        const a: Record<string, unknown> = { id: '1' };
+        const b: Record<string, unknown> = { id: '1' };
+        a.self = a;
+        b.self = b;
+        expect(() => areScopeValuesEqual(a, b)).not.toThrow();
+        expect(areScopeValuesEqual(a, b)).toBe(true);
+    });
+
+    it('fingerprint timelineEvents — new reference same content is no-delta', () => {
+        const events = [{ id: '1', type: 'other', title: 't', date: '2026-01-01' }];
+        expect(
+            hasSelectedScopeDeltaForLazySync(
+                { timelineEvents: events },
+                { timelineEvents: [...events] },
+            ),
+        ).toBe(false);
+    });
+
+    it('fingerprint savedNotesSplit — detects note count change', () => {
+        const empty = { notes: [], doneTasks: [] };
+        const withNote = {
+            notes: [{ id: 'n1', title: 'ملاحظة', body: 'x', createdAt: '2026-01-01' }],
+            doneTasks: [],
+        };
+        expect(hasSelectedScopeDeltaForLazySync({ savedNotesSplit: empty }, { savedNotesSplit: withNote })).toBe(
+            true,
+        );
+    });
+
+    it('detects seizedMovablesForSeizureLog content change', () => {
+        const empty: { seizedMovablesForSeizureLog: unknown[] } = { seizedMovablesForSeizureLog: [] };
+        const saved = {
+            seizedMovablesForSeizureLog: [
+                { id: 'sm_1', decisionRowId: 'dec-1', status: 'seized' },
+            ],
+        };
+        expect(hasSelectedScopeDeltaForLazySync(empty, saved)).toBe(true);
     });
 });

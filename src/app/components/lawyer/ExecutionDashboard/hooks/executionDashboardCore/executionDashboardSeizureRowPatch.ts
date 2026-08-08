@@ -135,3 +135,32 @@ export function buildUndoReleaseSeizureTimelineEvent(
         },
     };
 }
+
+export type SeizureAssetRowReleasePatch = {
+    nextAssets: SeizedAsset[];
+    timelineEvent: TimelineEvent;
+    nextActiveCoerciveActions: string[];
+};
+
+/** Pure release patch for unified log when handler cluster is not wired yet. */
+export function buildSeizureAssetRowReleasePatch(
+    seizedAssets: SeizedAsset[],
+    asset: SeizedAsset,
+    activeCoerciveActions: string[],
+    todayYmd: string,
+    nextTimelineId: () => string,
+): SeizureAssetRowReleasePatch | null {
+    if (asset.seizure_record_locked) return null;
+    const now = new Date().toISOString();
+    const { cleanedType, nextAsset } = mapSeizedAssetReleased(asset, todayYmd);
+    const nextActiveCoerciveActions = resolveCoerciveActionsAfterRelease(activeCoerciveActions, asset);
+    const nextAssets = seizedAssets.map((a) => (a.id === asset.id ? nextAsset : a));
+    const timelineEvent = buildReleaseSeizureTimelineEvent(
+        asset,
+        cleanedType,
+        todayYmd,
+        now,
+        nextTimelineId,
+    );
+    return { nextAssets, timelineEvent, nextActiveCoerciveActions };
+}

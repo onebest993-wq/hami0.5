@@ -5,9 +5,12 @@ import {
     GLOBAL_SEARCH_LAYER_CLASS,
     GlobalSearchOverlayDialogChrome,
 } from '@/app/components/lawyer/GlobalSearchOverlay/GlobalSearchOverlayDialogChrome';
+import '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlay.css';
 import type { GlobalSearchOverlayShellProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
 import { useOverlayCloseArm } from '@/app/hooks/useOverlayCloseArm';
 import { inertProps } from '@/app/utils/inertProps';
+import { clearGlobalSearchLayerImperativeStyles } from '@/app/runtime/globalSearchInstantPaint';
+import { resolveGlobalSearchSheetStyle } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayLayout';
 
 /** غلاف ثابت — keepWarm يبقي DOM مخفياً لفتح فوري بلا إعادة تركيب */
 export function GlobalSearchOverlayStaticShell({
@@ -38,10 +41,12 @@ export function GlobalSearchOverlayStaticShell({
     setActiveIndex,
     searchScope,
     onSearchScopeChange,
+    focusArmed = true,
 }: GlobalSearchOverlayShellProps) {
     const wasOpenRef = React.useRef(open);
     const layerRef = React.useRef<HTMLDivElement | null>(null);
     const { requestClose } = useOverlayCloseArm(open);
+    const backdropArmed = open;
 
     React.useEffect(() => {
         if (wasOpenRef.current && !open) {
@@ -50,19 +55,16 @@ export function GlobalSearchOverlayStaticShell({
         wasOpenRef.current = open;
     }, [open, onExitComplete]);
 
-    /* يزيل بقايا conceal/reveal على الـ DOM حتى لا يبقى input «hidden» لـ a11y/Playwright */
+    /* يزيل بقايا conceal/reveal على الـ DOM — CSS + React يتحكمان بالرؤية */
     React.useLayoutEffect(() => {
         const el = layerRef.current;
         if (!el) return;
+        clearGlobalSearchLayerImperativeStyles(el);
         if (open) {
-            el.style.setProperty('visibility', 'visible');
-            el.style.setProperty('pointer-events', 'auto');
             el.setAttribute('data-search-open', 'true');
             el.removeAttribute('aria-hidden');
             el.removeAttribute('inert');
         } else if (keepWarm) {
-            el.style.setProperty('visibility', 'hidden');
-            el.style.setProperty('pointer-events', 'none');
             el.setAttribute('data-search-open', 'false');
             el.setAttribute('aria-hidden', 'true');
             el.setAttribute('inert', '');
@@ -97,6 +99,7 @@ export function GlobalSearchOverlayStaticShell({
         setActiveIndex,
         searchScope,
         onSearchScopeChange,
+        focusArmed,
     };
 
     const hidden = !open;
@@ -109,10 +112,6 @@ export function GlobalSearchOverlayStaticShell({
             aria-hidden={hidden || undefined}
             data-search-warm={keepWarm ? 'true' : undefined}
             data-search-open={open ? 'true' : 'false'}
-            style={{
-                visibility: hidden ? 'hidden' : 'visible',
-                pointerEvents: hidden ? 'none' : 'auto',
-            }}
             {...inertProps(hidden)}
         >
             <button
@@ -120,6 +119,7 @@ export function GlobalSearchOverlayStaticShell({
                 aria-label="إغلاق البحث"
                 tabIndex={hidden ? -1 : 0}
                 className={GLOBAL_SEARCH_BACKDROP_CLASS}
+                style={{ pointerEvents: hidden || !backdropArmed ? 'none' : 'auto' }}
                 onClick={() => requestClose(onClose)}
             />
 
@@ -131,10 +131,7 @@ export function GlobalSearchOverlayStaticShell({
                 data-testid="global-search-overlay"
                 ref={overlayRef}
                 onKeyDownCapture={onKeyDownCapture}
-                style={{
-                    paddingBottom:
-                        keyboardInset > 0 ? `max(8px, ${keyboardInset}px)` : undefined,
-                }}
+                style={resolveGlobalSearchSheetStyle(keyboardInset)}
                 className={GLOBAL_SEARCH_DIALOG_CHROME_CLASS}
                 onClick={(e) => e.stopPropagation()}
             >

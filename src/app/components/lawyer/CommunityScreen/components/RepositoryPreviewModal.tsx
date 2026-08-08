@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { FileText, X, Download, FileImage, Eye } from 'lucide-react';
+import { FileText, X, Download, FileImage, Eye } from '@/app/components/ui/lucideIcons';
 import type { RepositoryDocument } from '@/app/services/lawyer-cloud';
 import { getRepositoryMediaKind, getRepositoryMediaIconKind } from './repositoryMedia';
 import {

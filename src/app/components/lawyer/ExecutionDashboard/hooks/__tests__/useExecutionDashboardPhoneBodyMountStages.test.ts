@@ -2,8 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useExecutionDashboardPhoneBodyMountStages } from '../useExecutionDashboardPhoneBodyMountStages';
 
-const { prefetchExecutionOverlayModals } = vi.hoisted(() => ({
+const {
+    prefetchExecutionOverlayModals,
+    prefetchMaritalFurnitureModule,
+    prefetchVisitationScheduleModule,
+} = vi.hoisted(() => ({
     prefetchExecutionOverlayModals: vi.fn(),
+    prefetchMaritalFurnitureModule: vi.fn(),
+    prefetchVisitationScheduleModule: vi.fn(),
 }));
 
 vi.mock('@/app/utils/scheduleIdleWork', () => ({
@@ -15,6 +21,8 @@ vi.mock('@/app/utils/scheduleIdleWork', () => ({
 
 vi.mock('../../executionDashboardLazyRegistry', () => ({
     prefetchExecutionOverlayModals,
+    prefetchMaritalFurnitureModule,
+    prefetchVisitationScheduleModule,
 }));
 
 describe('useExecutionDashboardPhoneBodyMountStages', () => {
@@ -41,5 +49,29 @@ describe('useExecutionDashboardPhoneBodyMountStages', () => {
         expect(result.current.tertiaryStageReady).toBe(true);
         expect(result.current.tertiaryStageUrgent).toBe(true);
         expect(prefetchExecutionOverlayModals).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens quaternary stage immediately for visitation claims and preloads module', () => {
+        const { result } = renderHook(() =>
+            useExecutionDashboardPhoneBodyMountStages({
+                isVisitationClaim: true,
+            }),
+        );
+
+        expect(result.current.quaternaryStageReady).toBe(true);
+        expect(result.current.quaternaryStageUrgent).toBe(true);
+        expect(prefetchVisitationScheduleModule).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens quaternary stage immediately for marital furniture claims and preloads module', () => {
+        const { result } = renderHook(() =>
+            useExecutionDashboardPhoneBodyMountStages({
+                isMaritalFurnitureClaim: true,
+            }),
+        );
+
+        expect(result.current.quaternaryStageReady).toBe(true);
+        expect(result.current.quaternaryStageUrgent).toBe(true);
+        expect(prefetchMaritalFurnitureModule).toHaveBeenCalledTimes(1);
     });
 });

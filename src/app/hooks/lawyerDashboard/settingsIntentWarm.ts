@@ -1,5 +1,6 @@
 import { prefetchHamiSettingsModule } from '@/app/runtime/hamiSettingsLoader';
 import { prefetchSettingsOverlayEntry } from '@/app/runtime/settingsOverlayEntryLoader';
+import { prefetchSettingsDialogs } from '@/app/components/lawyer/HamiSettings/settingsDialogPrefetch';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { shouldAllowIntentWarmFromDom } from '@/app/services/settings/intentWarmGate';
@@ -39,6 +40,7 @@ function warmRemainingSectionsIdle(): void {
 /** عند hover/لمس أيقونة الإعدادات — shell + بوابة MainView + التبويب النشط؛ الباقي idle */
 export function warmSettingsOnHover(): void {
     if (typeof window === 'undefined') return;
+    prefetchSettingsDialogs();
     prefetchSettingsOverlayEntry();
     if (!shouldAllowIntentWarmFromDom()) {
         prefetchHamiSettingsModule();
@@ -52,50 +54,35 @@ export function warmSettingsOnHover(): void {
     void loadSettingsWarmModules()
         .then((m) => {
             m.prefetchPersistedSettingsSection();
+            queueMicrotask(() => {
+                void m.preloadAllSettingsSectionComponents().catch(() => undefined);
+            });
         })
         .catch(() => undefined);
     warmRemainingSectionsIdle();
 }
 
-/**
- * عند فتح الإعدادات — التبويب الظاهر فوراً + باقي الأقسام في microtask
- * حتى يكون التنقل بين التبويبات فورياً بلا انتظار idle طويل.
- */
 export function warmSettingsOnOpen(): void {
+    prefetchSettingsDialogs();
     prefetchSettingsOverlayEntry();
     prefetchHamiSettingsModule();
     void loadSettingsWarmModules()
         .then((m) => {
             const persisted = m.readPersistedSettingsSection();
-            const first = [
+            return Promise.all([
                 m.resolveSettingsSectionComponent(persisted),
-                ...(persisted !== 'appearance'
-                    ? [m.resolveSettingsSectionComponent('appearance')]
-                    : []),
-            ];
-            return Promise.all(first).then(() => {
-                if (!shouldAllowIntentWarmFromDom()) return;
-                queueMicrotask(() => {
-                    m.prefetchAllSettingsSections();
-                    void m.preloadAllSettingsSectionComponents().catch(() => undefined);
-                });
-            });
+                m.preloadAllSettingsSectionComponents(),
+            ]);
         })
         .catch(() => undefined);
 }
 
-/** pointerdown — بوابة MainView + shell + تبويب محفوظ + المظهر */
+/** pointerdown — shell + كل التبويبات بالتوازي */
 export function primeSettingsShellForOpen(): void {
+    prefetchSettingsDialogs();
     prefetchSettingsOverlayEntry();
     prefetchHamiSettingsModule();
     void loadSettingsWarmModules()
-        .then((m) => {
-            const persisted = m.readPersistedSettingsSection();
-            const jobs = [m.resolveSettingsSectionComponent(persisted)];
-            if (persisted !== 'appearance') {
-                jobs.push(m.resolveSettingsSectionComponent('appearance'));
-            }
-            return Promise.all(jobs);
-        })
+        .then((m) => m.preloadAllSettingsSectionComponents())
         .catch(() => undefined);
 }

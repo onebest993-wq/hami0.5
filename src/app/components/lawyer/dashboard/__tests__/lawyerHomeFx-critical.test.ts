@@ -14,11 +14,19 @@ describe('lawyerHomeFx-critical', () => {
         expect(css).toContain('[data-hami-block].hami-sovereign-glass');
         expect(css).toContain('hami-home-block-solid');
         expect(css).toContain('data-hami-home-container-border');
+        expect(css).toContain("[data-hami-block-border='0'] .hami-home-themed-border");
+        expect(css).toContain('border-width: 0');
         expect(css).toContain('.hami-forum-overlay-layer');
         expect(css).toContain('.hami-forum-overlay-layer--visible');
         expect(css).toContain('hami-dashboard-tab-preserve');
         expect(css).toContain('.hami-below-lawyer-header');
+        expect(css).toMatch(/\.hami-lawyer-header\s*\{[^}]*background-color:\s*transparent/s);
         expect(css).toContain('--hami-lawyer-header-offset');
+        expect(css).toContain('--hami-lawyer-header-safe-top');
+        expect(css).toContain('.hami-home-main-zone-pad');
+        expect(css).not.toMatch(
+            /\[data-hami-lawyer-dashboard\][^{]*\{[^}]*--hami-lawyer-header-offset/s,
+        );
         expect(css).toContain('.hami-forum-overlay-layer');
         expect(css).toContain('[data-testid=\'forum-screen-loading\']');
         expect(css).toContain('#0a0f1c');

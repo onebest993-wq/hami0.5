@@ -13,6 +13,13 @@ import { gateExecutorRequestPersist } from '@/app/utils/executionDomainIsolation
 import type { EvictionRequestKind } from '@/app/utils/executorSeizureDecisionQueue';
 
 import { hasBlockingEvictionProcedureDuplicate } from '@/app/utils/executorSeizureDecisionQueue';
+import { resolveAllEvictionAppealSync } from '@/app/utils/evictionAppealSync';
+import { readExecutorDecisionsUnionForExecution } from '@/app/utils/executionDecisionsNamespace';
+import {
+    assertEvictionBranchSubmitAllowed,
+    createEmptyEvictionAppealSyncView,
+    getEvictionAppealBranchForActionId,
+} from '@/app/utils/evictionBranchSignals';
 
 
 
@@ -126,7 +133,27 @@ export function appendEvictionProcedureRequest(
 
     }
 
-
+    const appealBranch = getEvictionAppealBranchForActionId(input.actionId);
+    if (appealBranch) {
+        const rows = readExecutorDecisionsUnionForExecution(
+            deps.decisionsStorageExecutionId,
+            deps.executionData,
+        );
+        const sync =
+            resolveAllEvictionAppealSync({
+                executionId: deps.decisionsStorageExecutionId,
+                allDecisions: rows,
+            })[appealBranch] ?? createEmptyEvictionAppealSyncView(appealBranch);
+        const submitGuard = assertEvictionBranchSubmitAllowed(sync);
+        if (!submitGuard.ok) {
+            deps.showToast(submitGuard.message, 'warning', {
+                decisionsLink: Boolean(sync.decisionId),
+                decisionId: sync.decisionId ?? undefined,
+                decisionsTab: sync.decisionsNav?.decisionsTab,
+            });
+            return false;
+        }
+    }
 
     const workflowKey = EVICTION_WORKFLOW_BY_ACTION_ID[input.actionId];
 

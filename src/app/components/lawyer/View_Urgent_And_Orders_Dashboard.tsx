@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState, Suspense } from 'react';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { ArrowLeft, Plus } from '@/app/components/ui/lucideIcons';
 import { isUrgentCaseClosed } from './Component_Urgent_Card';
 import { Modal_Quick_Log } from './Modal_Quick_Log';
 import { SmartToast } from '@/app/components/ui/SmartToast';
@@ -19,6 +19,7 @@ import { useUrgentLifecycleModals } from './View_Urgent_And_Orders_Dashboard/hoo
 import { useUrgentQuickLog } from './View_Urgent_And_Orders_Dashboard/hooks/useUrgentQuickLog';
 import { UrgentLifecycleModals } from './View_Urgent_And_Orders_Dashboard/UrgentLifecycleModals';
 import { UrgentDashboardSections } from './View_Urgent_And_Orders_Dashboard/UrgentDashboardSections';
+import { SparkUrgentArchiveInsight } from '@/app/spark/ui/SparkUrgentArchiveInsight';
 import {
     DossierPanelErrorFallback,
     FormModalErrorFallback,
@@ -175,6 +176,12 @@ export const View_Urgent_And_Orders_Dashboard: React.FC<Props> = ({
                     trashedCount={trashedCount}
                 />
             </div>
+
+            <SparkUrgentArchiveInsight
+                cases={cases as Array<Record<string, unknown>>}
+                scope={scope}
+                onOpenCase={handleCaseClickWithPreload}
+            />
 
             <UrgentDashboardSections
                 scope={scope}

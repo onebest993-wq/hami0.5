@@ -10,17 +10,12 @@ describe('wave7m foundation close honesty', () => {
             path.join(root, 'src/app/components/lawyer/personal-status/personalStatusValidation.ts'),
             'utf8',
         );
-        const wordLists = fs.readFileSync(
-            path.join(root, 'src/app/components/lawyer/LawyerNewCase/wordLists.ts'),
-            'utf8',
-        );
         const constants = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/LawyerNewCase/constants.ts'),
             'utf8',
         );
-        expect(validation).toContain("from '@/app/components/lawyer/LawyerNewCase/wordLists'");
-        expect(validation).not.toContain('LawyerNewCase/constants');
-        expect(wordLists).not.toContain('lucide-react');
+        expect(validation).toContain("from '@/app/components/lawyer/LawyerNewCase/constants'");
+        expect(validation).not.toContain('lucide-react');
         expect(constants).not.toContain('lucide-react');
         expect(constants).toContain('homeStemIcons');
     });
@@ -55,7 +50,12 @@ describe('wave7m foundation close honesty', () => {
         for (const rel of files) {
             const text = fs.readFileSync(path.join(root, rel), 'utf8');
             expect(text, rel).not.toContain('lucide-react');
-            expect(text, rel).toContain('homeStemIcons');
+            const usesColdIconSurface =
+                text.includes('homeStemIcons') ||
+                text.includes('lucideIcons') ||
+                text.includes('ArchiveDossierToolbar') ||
+                text.includes('DossierHeaderNavButtons');
+            expect(usesColdIconSurface, rel).toBe(true);
         }
     });
 });

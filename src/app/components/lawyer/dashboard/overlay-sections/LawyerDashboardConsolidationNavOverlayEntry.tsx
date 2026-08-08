@@ -11,9 +11,9 @@ type Props = Pick<LawyerDashboardOverlaysBundleProps, 'dossier'>;
 export function LawyerDashboardConsolidationNavOverlayEntry({
     dossier,
 }: Props): React.ReactElement | null {
-    const { activeFile, setActiveFile, caseLinkNav, consolidationSpawnNav } = dossier;
+    const { consolidationSpawnNav } = dossier;
 
-    if (!consolidationSpawnNav && !caseLinkNav) return null;
+    if (!consolidationSpawnNav) return null;
 
     return (
         <AnimatePresence>
@@ -25,19 +25,6 @@ export function LawyerDashboardConsolidationNavOverlayEntry({
                     activeView={consolidationSpawnNav.activeView}
                     onSelectPrimary={consolidationSpawnNav.onSelectPrimary}
                     onSelectSecondary={consolidationSpawnNav.onSelectSecondary}
-                />
-            ) : caseLinkNav ? (
-                <ConsolidationNavBar
-                    key="case-link-nav"
-                    primaryCaseNo={caseLinkNav.first.caseNo}
-                    secondaryLabel={`الدعوى المربوطة (${caseLinkNav.second.caseNo})`}
-                    activeView={
-                        activeFile && activeFile.id === caseLinkNav.second.id
-                            ? 'secondary'
-                            : 'primary'
-                    }
-                    onSelectPrimary={() => setActiveFile(caseLinkNav.first)}
-                    onSelectSecondary={() => setActiveFile(caseLinkNav.second)}
                 />
             ) : null}
         </AnimatePresence>

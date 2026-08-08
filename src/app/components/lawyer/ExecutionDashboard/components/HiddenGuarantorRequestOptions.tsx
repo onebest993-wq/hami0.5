@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { Building2, Send, Shield, Wallet, Package } from 'lucide-react';
+import { Building2, Send, Shield, Wallet, Package } from '@/app/components/ui/lucideIcons';
 import type { ExecutionFile } from '@/app/types/execution';
 import { InlineActionGate } from './InlineActionGate';
 import type { InlineActionGateKey } from '../types';

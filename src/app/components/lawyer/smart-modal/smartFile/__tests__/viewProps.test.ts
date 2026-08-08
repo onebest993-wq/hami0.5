@@ -47,6 +47,7 @@ function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): Smart
         handleToggleClient: noop,
         handleInterruptionToggle: noop,
         handleOpenPauseModal: noop,
+        handleOpenPauseResume: noop,
         handleAbandonment: noop,
         handleRegisterPetitionVoid: noop,
         handlePetitionVoidAppeal: noop,
@@ -59,6 +60,7 @@ function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): Smart
         handleOpenDefendantCassationAppeal: noop,
         handleDefaultObjection: noop,
         handleWaiveObjection: noop,
+        handleOpponentAppealWaived: noop,
         handleOtherAppeals: noop,
         handleExportPDF: noop,
         handleResolveIncidentalCase: noop,
@@ -101,6 +103,10 @@ function minimalInput(overrides: Partial<SmartFileLayoutBuildInput> = {}): Smart
             setShowInterruptionModal: noop,
             showResumeInterruptionModal: false,
             setShowResumeInterruptionModal: noop,
+            showAbandonmentRenewalModal: false,
+            setShowAbandonmentRenewalModal: noop,
+            showPauseResumeModal: false,
+            setShowPauseResumeModal: noop,
             showInterlocutoryModal: false,
             setShowInterlocutoryModal: noop,
             showObjectionRegistrationModal: false,
@@ -166,5 +172,71 @@ describe('viewProps builders', () => {
         expect(buildChromeProps(input)).toEqual(layout.chrome);
         expect(buildMainPanelProps(input)).toEqual(layout.mainPanel);
         expect(buildModalsPortalProps(input)).toEqual(layout.modalsPortal);
+    });
+
+    it('appealRoute uses live stage claim when file root is empty', () => {
+        const input = minimalInput({
+            file: { id: 'f1', isUndeterminedValue: true },
+            currentStage: {
+                id: 's1',
+                stageName: 'البداءة',
+                claimValue: '2,500,000',
+                timeline: [],
+            } as SmartFileLayoutBuildInput['currentStage'],
+            stages: [
+                {
+                    id: 's1',
+                    stageName: 'البداءة',
+                    claimValue: '2,500,000',
+                    timeline: [],
+                } as SmartFileLayoutBuildInput['stages'][number],
+            ],
+            displayStage: {
+                id: 's1',
+                stageName: 'البداءة',
+                claimValue: '2,500,000',
+                timeline: [],
+            } as SmartFileLayoutBuildInput['displayStage'],
+        });
+
+        const portal = buildModalsPortalProps(input);
+        expect(portal.appealRoute.claimValue).toBe('2,500,000');
+        expect(portal.appealRoute.isUndeterminedValue).toBe(false);
+    });
+
+    it('appealRoute prefers locked first-instance stage on absent-objection dossier', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'بداءة بدرجة أولى',
+                status: 'locked',
+                claimValue: '2,500,000',
+                timeline: [],
+            },
+            {
+                id: 's2',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                status: 'active',
+                claimValue: '2,500,000',
+                timeline: [],
+                appealMetadata: { previousStage: 'بداءة بدرجة أولى' },
+            },
+        ] as SmartFileLayoutBuildInput['stages'];
+        const input = minimalInput({
+            file: {
+                id: 'f1',
+                retrialTargetStage: 'بداءة بدرجة أخيرة',
+                claimValue: '2,500,000',
+            },
+            stages,
+            activeStageIndex: 1,
+            viewingStageIndex: 1,
+            currentStage: stages[1],
+            displayStage: stages[1],
+        });
+
+        const portal = buildModalsPortalProps(input);
+        expect(portal.appealRoute.retrialTargetStage).toBe('بداءة بدرجة أولى');
+        expect(buildSmartFileLayoutProps(input).modalsPortal.appealRoute).toEqual(portal.appealRoute);
     });
 });

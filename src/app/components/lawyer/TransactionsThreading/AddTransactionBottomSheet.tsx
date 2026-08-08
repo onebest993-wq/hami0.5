@@ -129,7 +129,6 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
             <form onSubmit={onFormSubmit} aria-busy={isSubmitting}>
                 <TxGlassDrawerFrame
                     title="إضافة معاملة"
-                    subtitle="معلومات المعاملة الأساسية — ثم تُطبَّق الإجراءات من الدليل إن وُجد"
                     footer={
                         <button
                             type="submit"
@@ -148,7 +147,6 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                             name="title"
                             value={title}
                             onChange={(e) => setTitle(clampTransactionText(e.target.value, TX_TITLE_MAX))}
-                            placeholder="مثال: نقل ملكية"
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="off"
@@ -162,7 +160,6 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                             name="clientName"
                             value={clientName}
                             onChange={(e) => setClientName(clampTransactionText(e.target.value, TX_CLIENT_NAME_MAX))}
-                            placeholder="اسم الموكل الكامل"
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="name"
@@ -170,7 +167,7 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                         />
                     </div>
                     <div>
-                        <TxFieldLabel htmlFor={departmentInputId}>الدائرة المختصة</TxFieldLabel>
+                        <TxFieldLabel htmlFor={departmentInputId}>الجهة المختصة</TxFieldLabel>
                         <input
                             id={departmentInputId}
                             name="targetDepartment"
@@ -184,7 +181,6 @@ export const AddTransactionBottomSheet = memo(function AddTransactionBottomSheet
                                     void submit();
                                 }
                             }}
-                            placeholder="مثال: دائرة الضريبة"
                             className={GLASS_FIELD}
                             disabled={isSubmitting}
                             autoComplete="off"

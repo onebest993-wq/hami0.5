@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import type { TimeBucket } from '@/app/components/lawyer/NotificationPanel/types';
 import { BUCKET_LABELS } from '@/app/components/lawyer/NotificationPanel/constants';

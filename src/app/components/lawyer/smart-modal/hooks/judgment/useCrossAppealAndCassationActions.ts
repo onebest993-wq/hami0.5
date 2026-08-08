@@ -42,6 +42,12 @@ import {
     markPartiesAsCrossAppellants,
     resolveCrossAppealEligibility,
 } from '../../smartFile/crossAppealEngine';
+import {
+    buildCassationRemandTimelineTitle,
+    resolveCassationClientOutcome,
+    resolveClientAppealRole,
+    resolvePriorAppealJudgmentForCassation,
+} from '../../smartFile/appealStageJudgmentEngine';
 import type { UseSmartFileJudgmentActionsOptions } from './judgmentHookTypes';
 
 export function useCrossAppealAndCassationActions(options: UseSmartFileJudgmentActionsOptions) {
@@ -147,27 +153,59 @@ const handleCrossAppeal = (crossAppealData: CrossAppealPayload) => {
 const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
     const updatedStages = [...stages];
     const now = getLocalTodayYmd();
+    const clientRole = resolveClientAppealRole(currentStage.parties);
+    const priorAppealJudgment = resolvePriorAppealJudgmentForCassation(
+        updatedStages,
+        activeStageIndex,
+    );
 
     if (decision === 'ratified') {
-        // Ratified: Close the case stage as successful/final
+        const cassationJudgment = 'تصديق الحكم';
+        const outcome = resolveCassationClientOutcome(
+            cassationJudgment,
+            clientRole,
+            priorAppealJudgment,
+        );
+        const clientLost = outcome === 'loss';
+
         updatedStages[activeStageIndex] = {
             ...currentStage,
             status: 'completed',
-            finalDecision: 'مصدق (القرار اكتسب الدرجة القطعية)',
-            decisionDate: now
+            finalDecision: 'مكتسبة الدرجة القطعية',
+            decisionDate: now,
         };
-        
+
         updatedStages[activeStageIndex].timeline = [{
             id: `cass_ratified_${Date.now()}`,
             type: 'decision',
             date: now,
-            title: '✅ قرار تصديق الحكم (مصدق)',
-            details: 'قررت محكمة التمييز الاتحادية تصديق الحكم المميز ورد الطعون، واكتسب القرار الدرجة القطعية.',
-            isNew: true
+            title: clientLost
+                ? 'تصديق الحكم — اكتسب الدرجة القطعية (حكم نهائي ضد الموكل)'
+                : '✅ قرار تصديق الحكم (مصدق)',
+            details: clientLost
+                ? 'صدقت محكمة التمييز حكم محكمة الاستئناف.\nالحكم مكتسب الدرجة القطعية — نهائي ضد موكلك.'
+                : 'قررت محكمة التمييز الاتحادية تصديق الحكم المميز ورد الطعون، واكتسب القرار الدرجة القطعية.',
+            isNew: true,
+            color: clientLost ? 'red' : 'gold',
         }, ...(currentStage.timeline ?? [])];
 
-        SmartToast.success('تم تصديق الحكم واكتسب الدرجة القطعية');
+        SmartToast.success(
+            clientLost
+                ? 'خُتمت الإضبارة — الحكم نهائي ضد الموكل'
+                : 'تم تصديق الحكم واكتسب الدرجة القطعية',
+        );
     } else {
+        const cassationJudgment = 'نقض الحكم وإعادة الإضبارة';
+        const remandTitle = buildCassationRemandTimelineTitle(
+            cassationJudgment,
+            clientRole,
+            priorAppealJudgment,
+        );
+        const remandOutcome = resolveCassationClientOutcome(
+            cassationJudgment,
+            clientRole,
+            priorAppealJudgment,
+        );
         const { updatedStages: remandedStages, newActiveIndex, target } = applyCassationRemand(
             stages,
             activeStageIndex,
@@ -178,9 +216,10 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
                     id: `cass_quashed_${Date.now()}`,
                     type: 'decision',
                     date: now,
-                    title: '❌ قرار بنقض الحكم (منقوض)',
+                    title: remandTitle,
                     details: 'قررت محكمة التمييز نقض الحكم المميز وإعادة الإضبارة إلى محكمتها للسير فيها مجدداً.',
                     isNew: true,
+                    color: remandOutcome === 'remand_favorable' ? 'gold' : 'red',
                 },
             },
         );
@@ -190,7 +229,7 @@ const handleCassationDecision = (decision: 'ratified' | 'quashed') => {
         setViewingStageIndex(newActiveIndex);
         setStatus(`مرحلة ${target.stageName}`);
         saveToCloud(remandedStages, parentData, newActiveIndex, `مرحلة ${target.stageName}`);
-        SmartToast.error(cassationRemandSuccessMessage(target));
+        SmartToast[remandOutcome === 'remand_favorable' ? 'success' : 'error'](cassationRemandSuccessMessage(target));
         return;
     }
 

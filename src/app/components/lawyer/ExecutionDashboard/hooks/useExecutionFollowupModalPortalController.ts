@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     LazyCoerciveTab,
     LazyCommunicationsTab,
@@ -9,6 +9,7 @@ import {
     LazyRequestsTab,
     LazySeizureRequestsTab,
 } from '../executionDashboardLazyRegistry';
+import { isEncroachmentRemovalClaim } from '@/app/utils/executionModuleStrategies';
 import { DebtorFinancialProgressBar as DebtorFinancialProgressBarComponent } from '../components/DebtorFinancialProgressBar';
 import { useFollowupModal } from '../followupModalContext';
 import {
@@ -169,6 +170,7 @@ export function useExecutionFollowupModalPortalController() {
         saveCoerciveAction,
         saveMaritalFurnitureDeliveryInventoryEntry,
         savePoliceAssistanceEntry,
+        saveJudicialCustodianEntry,
         saveSeizedMovableInitForDecision,
         saveSeizedPropertyInitForDecision,
         saveStandaloneExecutionMarkForDecision,
@@ -219,6 +221,41 @@ export function useExecutionFollowupModalPortalController() {
         voluntaryEndOptimistic
     } = useFollowupModal();
 
+    const handleDossierActionRef = useRef(handleDossierAction);
+    const submitSpecialFollowupRequestRef = useRef(submitSpecialFollowupRequest);
+    useEffect(() => {
+        handleDossierActionRef.current = handleDossierAction;
+    }, [handleDossierAction]);
+    useEffect(() => {
+        submitSpecialFollowupRequestRef.current = submitSpecialFollowupRequest;
+    }, [submitSpecialFollowupRequest]);
+
+    const awaitLiveFollowupHandler = useCallback(
+        async <T extends (...args: never[]) => unknown>(
+            readHandler: () => T | undefined,
+            loadBridge: () => Promise<void>,
+            prefetchMode: 'followup-dossier-controls' | 'followup-admin-special',
+        ): Promise<T | null> => {
+            const immediate = readHandler();
+            if (typeof immediate === 'function' && !isExecutionHandlerStubLeaf(immediate)) {
+                return immediate;
+            }
+            const { prefetchExecutionCoreHandlers } = await import('../executionCoreHandlersPrefetch');
+            prefetchExecutionCoreHandlers(prefetchMode);
+            await loadBridge();
+            const deadline = Date.now() + 2400;
+            while (Date.now() < deadline) {
+                const candidate = readHandler();
+                if (typeof candidate === 'function' && !isExecutionHandlerStubLeaf(candidate)) {
+                    return candidate;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 80));
+            }
+            return null;
+        },
+        [],
+    );
+
     const TabPersonal = PersonalTab ?? LazyPersonalTab;
     const TabCoercive = CoerciveTab ?? LazyCoerciveTab;
     const TabSeizureRequests = SeizureRequestsTab ?? LazySeizureRequestsTab;
@@ -228,7 +265,17 @@ export function useExecutionFollowupModalPortalController() {
     const TabDossierControls = DossierControlsTab ?? LazyDossierControlsTab;
     const TabRequests = RequestsTab ?? LazyRequestsTab;
     const ProgressBar = DebtorFinancialProgressBar ?? DebtorFinancialProgressBarComponent;
-    const spec = followupSpecialization ?? {};
+    const spec = useMemo(() => {
+        const base = (followupSpecialization ?? {}) as Record<string, unknown>;
+        const encroachmentClaimActive = isEncroachmentRemovalClaim(
+            String(claimTypeForExecutionModule || claimType || ''),
+        );
+        if (!encroachmentClaimActive) return base;
+        return {
+            ...base,
+            showEncroachmentRemovalRequestCards: true,
+        };
+    }, [claimType, claimTypeForExecutionModule, followupSpecialization]);
     const workspaceCtx = assignmentWorkspaceCtx ?? { activeDebtorKey: '' };
     const safeCloseFollowupModalPersisted = useCallback(() => {
         try {
@@ -247,6 +294,10 @@ export function useExecutionFollowupModalPortalController() {
 
     const debtorsUnified = Array.isArray(allDebtorsUnified) ? allDebtorsUnified : [];
     const followupModalTabs = Array.isArray(effectiveFollowupModalTabs) ? effectiveFollowupModalTabs : [];
+    const followupSectionTabOrder = useMemo(
+        () => followupModalTabs.map((tab) => String(tab.id)),
+        [followupModalTabs],
+    );
     const [localUnifiedModalTab, setLocalUnifiedModalTab] = useState(unifiedModalTab);
 
     useEffect(() => {
@@ -270,8 +321,9 @@ export function useExecutionFollowupModalPortalController() {
                 unifiedModalTab: localUnifiedModalTab,
                 showPersonalCoerciveFollowupTab,
                 hideFollowupCoerciveTab: spec.hideFollowupCoerciveTab,
+                effectiveFollowupSectionTabOrder: followupSectionTabOrder,
             }),
-        [localUnifiedModalTab, showPersonalCoerciveFollowupTab, spec.hideFollowupCoerciveTab],
+        [localUnifiedModalTab, showPersonalCoerciveFollowupTab, spec.hideFollowupCoerciveTab, followupSectionTabOrder],
     );
     const activeChipTabId = useMemo(
         () =>
@@ -279,8 +331,9 @@ export function useExecutionFollowupModalPortalController() {
                 unifiedModalTab: localUnifiedModalTab,
                 showPersonalCoerciveFollowupTab,
                 hideFollowupCoerciveTab: spec.hideFollowupCoerciveTab,
+                effectiveFollowupSectionTabOrder: followupSectionTabOrder,
             }),
-        [localUnifiedModalTab, showPersonalCoerciveFollowupTab, spec.hideFollowupCoerciveTab],
+        [localUnifiedModalTab, showPersonalCoerciveFollowupTab, spec.hideFollowupCoerciveTab, followupSectionTabOrder],
     );
     const panelsToRender = useFollowupModalTabKeepAlive(activePanelKey);
 
@@ -335,24 +388,51 @@ export function useExecutionFollowupModalPortalController() {
             showToast('غير متاح لوكيل المدين: طلبات الإدارة الخاصة', 'warning');
             return undefined;
         }
-        if (
-            typeof submitSpecialFollowupRequest !== 'function' ||
-            isExecutionHandlerStubLeaf(submitSpecialFollowupRequest)
-        ) {
-            showToast('جاري تجهيز أدوات الطلبات — أعد المحاولة بعد لحظات', 'warning');
-            return undefined;
+        const immediate = submitSpecialFollowupRequestRef.current;
+        if (typeof immediate === 'function' && !isExecutionHandlerStubLeaf(immediate)) {
+            return immediate();
         }
-        return submitSpecialFollowupRequest();
-    }, [
-        activePanelKey,
-        isRepresentingDebtor,
-        specialRequestDate,
-        specialRequestManualTitle,
-        specialRequestTemplatePick,
-        submitSpecialFollowupRequest,
-        localUnifiedModalTab,
-        showToast,
-    ]);
+        void (async () => {
+            const { loadExecutionHandlerClusterFollowupAdminSpecialBridge } = await import(
+                '../executionDashboardHandlerClusterBridgeLazy'
+            );
+            const live = await awaitLiveFollowupHandler(
+                () => submitSpecialFollowupRequestRef.current,
+                loadExecutionHandlerClusterFollowupAdminSpecialBridge,
+                'followup-admin-special',
+            );
+            if (live) {
+                live();
+                return;
+            }
+            showToast('جاري تجهيز أدوات الطلبات — أعد المحاولة بعد لحظة.', 'info');
+        })();
+        return undefined;
+    }, [awaitLiveFollowupHandler, isRepresentingDebtor, showToast]);
+
+    const safeHandleDossierAction = useCallback(
+        async (payload: unknown) => {
+            const immediate = handleDossierActionRef.current;
+            if (typeof immediate === 'function' && !isExecutionHandlerStubLeaf(immediate)) {
+                return await immediate(payload);
+            }
+            const { loadExecutionHandlerClusterFollowupDossierControlsBridge } = await import(
+                '../executionDashboardHandlerClusterBridgeLazy'
+            );
+            const live = await awaitLiveFollowupHandler(
+                () => handleDossierActionRef.current,
+                loadExecutionHandlerClusterFollowupDossierControlsBridge,
+                'followup-dossier-controls',
+            );
+            if (live) {
+                return await live(payload);
+            }
+            showToast('جاري تجهيز أدوات الإضبارة — أعد المحاولة بعد لحظة.', 'info');
+            setDossierActionModalSaving(false);
+            return false;
+        },
+        [awaitLiveFollowupHandler, setDossierActionModalSaving, showToast],
+    );
 
     useEffect(() => {
         prefetchExecutionFollowupTab(activePanelKey);
@@ -450,7 +530,7 @@ export function useExecutionFollowupModalPortalController() {
         getLocalTodayYmd,
         gracePeriodEnded,
         handleCoerciveAction,
-        handleDossierAction,
+        handleDossierAction: safeHandleDossierAction,
         handleEmployeeAssignmentRequestForcedBring,
         handleEmployeeAssignmentRequestInvestigation,
         handleEmployeeAssignmentResolveForcedBringOutcome,
@@ -521,6 +601,7 @@ export function useExecutionFollowupModalPortalController() {
         saveCoerciveAction,
         saveMaritalFurnitureDeliveryInventoryEntry,
         savePoliceAssistanceEntry,
+        saveJudicialCustodianEntry,
         saveSeizedMovableInitForDecision,
         saveSeizedPropertyInitForDecision,
         saveStandaloneExecutionMarkForDecision,

@@ -1,12 +1,16 @@
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
-import { sanitizeProfileMediaUrl } from '@/app/services/profile/profileUrlSanitize';
+import { sanitizeProfileMediaUrl, sanitizeProfileCanvasMediaUrl } from '@/app/services/profile/profileUrlSanitize';
 import type { ProfilePageCustomization } from '@/app/services/profile/profilePageCustomization';
 import {
+    compressCanvasBackgroundToDataUrl,
     compressImageToDataUrl,
-    compressWallpaperToDataUrl,
 } from '@/app/services/profileMediaCompress';
 
-export { compressImageToDataUrl, compressWallpaperToDataUrl } from '@/app/services/profileMediaCompress';
+export {
+    compressImageToDataUrl,
+    compressWallpaperToDataUrl,
+    compressCanvasBackgroundToDataUrl,
+} from '@/app/services/profileMediaCompress';
 
 /** حد خام قبل الضغط — يمنع قراءة ملفات ضخمة/غير صور */
 const MAX_SOURCE_FILE_BYTES = 12 * 1024 * 1024;
@@ -40,8 +44,27 @@ export async function uploadProfileMedia(
         throw new Error('image too large');
     }
 
-    const compress =
-        opts?.variant === 'canvasBg' ? compressWallpaperToDataUrl : compressImageToDataUrl;
+    if (opts?.variant === 'canvasBg') {
+        try {
+            const cloudRes = await LawyerStorage.uploadSmartFile(userId, file, 'repository');
+            if (cloudRes.downloadUrl) {
+                return {
+                    displayUrl: cloudRes.downloadUrl,
+                    storagePath: cloudRes.path,
+                    source: 'cloud',
+                };
+            }
+        } catch {
+            /* fallback to high-fidelity local storage below */
+        }
+
+        const dataUrl = await compressCanvasBackgroundToDataUrl(file);
+        const safe = sanitizeProfileCanvasMediaUrl(dataUrl);
+        if (!safe) throw new Error('image too large');
+        return { displayUrl: safe, source: 'local' };
+    }
+
+    const compress = compressImageToDataUrl;
     const dataUrl = await compress(file);
     const safe = sanitizeProfileMediaUrl(dataUrl);
     if (!safe) throw new Error('image too large');

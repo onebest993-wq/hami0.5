@@ -1,5 +1,8 @@
+import { whenNativeBridgeReady } from './nativeBridgeReady';
 import { getBootCapacitorPlatformId, type BootNativePlatformId } from './bootNativePlatform';
-import { applyNativeSecurityFromSettings, wireNativeSecuritySettingsListener } from './nativeSecurityBoot';
+import { BOOT_REVEAL_DONE_EVENT } from '@/app/bootstrap/bootReveal';
+import { wireNativeSecuritySettingsListener } from './nativeSecurityBoot';
+import { wireNativeResumeFastPath } from './nativeResumeFastPath';
 
 type CapacitorLike = {
     isNativePlatform?: () => boolean;
@@ -41,13 +44,36 @@ export function applyCapacitorShellBoot(): void {
     applyNativeDataset(isNative, platform);
 
     if (isNative) {
-        void applyCapacitorNativePlugins();
+        wireNativeBootRevealHandoff();
+        wireNativeResumeFastPath();
         void import('./capacitorAppLifecycle').then((m) => m.wireCapacitorAppLifecycle());
     }
 }
 
-/** StatusBar + Keyboard + أمان أصلي — يُستدعى على الجهاز فقط */
+function wireNativeBootRevealHandoff(): void {
+    if (typeof window === 'undefined') return;
+    const w = window as Window & { __hamiNativeBootHandoff__?: boolean };
+    if (w.__hamiNativeBootHandoff__) return;
+    w.__hamiNativeBootHandoff__ = true;
+
+    const settleSurface = () => {
+        try {
+            document.body.style.backgroundColor = '#0a0f1c';
+            document.documentElement.style.backgroundColor = '#0a0f1c';
+        } catch {
+            /* ignore */
+        }
+    };
+
+    window.addEventListener(BOOT_REVEAL_DONE_EVENT, settleSurface, { once: true });
+    if (document.documentElement.dataset.hamiBootRevealed === '1') {
+        settleSurface();
+    }
+}
+
+/** StatusBar + Keyboard + أمان أصلي — يُستدعى بعد جاهزية الجسر فقط */
 export async function applyCapacitorNativePlugins(): Promise<void> {
+    await whenNativeBridgeReady();
     try {
         const { StatusBar, Style } = await import('@capacitor/status-bar');
         await StatusBar.setStyle({ style: Style.Dark });
@@ -56,6 +82,10 @@ export async function applyCapacitorNativePlugins(): Promise<void> {
         if (getBootCapacitorPlatformId() === 'android') {
             await StatusBar.setOverlaysWebView({ overlay: false });
             await StatusBar.setBackgroundColor({ color: '#0A0F1C' });
+            if (typeof document !== 'undefined') {
+                /* env(safe-area-inset-top) غالباً 0 — احتياط لإنزال الهيدر عن الساعة/البطارية */
+                document.documentElement.style.setProperty('--hami-android-status-pad', '12px');
+            }
         }
     } catch {
         /* plugin غير متاح على الويب */
@@ -69,7 +99,6 @@ export async function applyCapacitorNativePlugins(): Promise<void> {
     }
 
     try {
-        await applyNativeSecurityFromSettings();
         wireNativeSecuritySettingsListener();
     } catch {
         /* optional */

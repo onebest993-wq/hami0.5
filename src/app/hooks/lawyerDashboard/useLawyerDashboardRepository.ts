@@ -25,11 +25,7 @@ import {
     REPOSITORY_SHELL_HYDRATED_EVENT,
 } from '@/app/hooks/lawyerDashboard/repository/repositoryLazyImports';
 import { commitRepositoryClose, commitRepositoryOpen } from '@/app/hooks/lawyerDashboard/repository/repositoryShellOpenFlow';
-import {
-    persistRepositorySessionOpen,
-    readInitialRepositorySession,
-} from '@/app/hooks/lawyerDashboard/lawyerDashboardNav';
-import { paintRepositoryInstantChrome, markRepositoryShellOpenCommitted } from '@/app/runtime/repositoryInstantPaint';
+import { paintRepositoryInstantChrome } from '@/app/runtime/repositoryInstantPaint';
 
 /** @deprecated use OpenRepositoryOptions — kept for navigation typings */
 export type OpenNotepadOptions = {
@@ -49,15 +45,14 @@ export type UseLawyerDashboardRepositoryParams = {
 };
 
 export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepositoryParams) {
-    const [initialSession] = useState(() => readInitialRepositorySession());
-    const [isRepositoryOpen, setIsRepositoryOpen] = useState(() => initialSession.open);
-    const [repositoryTab, setRepositoryTab] = useState<RepositoryTab>(() => initialSession.tab);
+    const [isRepositoryOpen, setIsRepositoryOpen] = useState(false);
+    const [repositoryTab, setRepositoryTab] = useState<RepositoryTab>('notepad');
     const [notepadMode, setNotepadMode] = useState<'list' | 'create'>('list');
     const [focusNoteId, setFocusNoteId] = useState<string | undefined>();
     const [vaultOpenScanner, setVaultOpenScanner] = useState(false);
     const [repositorySessionKey, setRepositorySessionKey] = useState(0);
-    const [repositoryOpenEpoch, setRepositoryOpenEpoch] = useState(() => (initialSession.open ? 1 : 0));
-    const [repositoryHostMounted, setRepositoryHostMounted] = useState(() => initialSession.open);
+    const [repositoryOpenEpoch, setRepositoryOpenEpoch] = useState(0);
+    const [repositoryHostMounted, setRepositoryHostMounted] = useState(false);
 
     const armRepositoryHost = useCallback(() => {
         setRepositoryHostMounted(true);
@@ -74,7 +69,6 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
     /** جلسة مستودع مفتوحة بلا هوية — أغلق وامسح الـ host (R2) */
     useEffect(() => {
         if (isRealSignedIn(userId)) return;
-        persistRepositorySessionOpen(false);
         setIsRepositoryOpen(false);
         setFocusNoteId(undefined);
         setVaultOpenScanner(false);
@@ -98,16 +92,6 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
     }, [armRepositoryHost, userId]);
 
     useLayoutEffect(() => {
-        if (!initialSession.open || !isRealSignedIn(userId)) return;
-        markRepositoryShellOpenCommitted(true);
-        paintRepositoryInstantChrome();
-        if (typeof performance !== 'undefined') {
-            const openMark = performance.getEntriesByName('hami:repository:open-request', 'mark')[0];
-            if (!openMark) markRepositoryPerfPhase('open-request');
-        }
-    }, [initialSession.open, userId]);
-
-    useLayoutEffect(() => {
         if (isRepositoryOpen) paintRepositoryInstantChrome();
     }, [isRepositoryOpen]);
 
@@ -126,17 +110,17 @@ export function useLawyerDashboardRepository({ userId }: UseLawyerDashboardRepos
 
     useLayoutEffect(() => {
         if (!isRepositoryOpen || repositoryOpenEpoch <= 0) return;
-        if (typeof performance !== 'undefined') {
-            const openMark = performance.getEntriesByName('hami:repository:open-request', 'mark')[0];
-            if (!openMark) markRepositoryPerfPhase('open-request');
-        }
         markRepositoryPerfPhase('first-paint');
         markRepositoryPerfPhase('interactive');
     }, [isRepositoryOpen, repositoryOpenEpoch]);
 
     useEffect(() => {
-        return registerDashboardOverlayCloser('repository', closeRepository);
-    }, [closeRepository]);
+        return registerDashboardOverlayCloser('repository', () => {
+            setIsRepositoryOpen(false);
+            setFocusNoteId(undefined);
+            setVaultOpenScanner(false);
+        });
+    }, []);
 
     useEffect(() => {
         let disposed = false;

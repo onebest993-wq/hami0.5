@@ -45,13 +45,13 @@ export function ProfileSettingsAppearanceTab({
                             }
                             data-selected={draft.appearance.accentColor === c.id}
                             className="profile-settings-color-swatch min-h-[44px]"
-                            style={{
-                                backgroundColor: c.hex,
-                                color:
-                                    c.id === 'navy' || c.id === 'wine' ? '#F4F0E8' : '#0a0c12',
-                            }}
+                            style={{ '--accent-swatch-hex': c.hex } as React.CSSProperties}
                         >
-                            {c.label}
+                            <span
+                                className="profile-settings-color-swatch__chip"
+                                aria-hidden
+                            />
+                            <span className="profile-settings-color-swatch__label">{c.label}</span>
                         </button>
                     ))}
                 </div>

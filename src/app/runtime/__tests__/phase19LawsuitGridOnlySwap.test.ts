@@ -45,9 +45,9 @@ describe('phase-19 lawsuit grid-only swap inside InstantShell', () => {
         );
     });
 
-    it('ArchivePortalChrome و LawsuitSurface يذكران gridOnly', () => {
+    it('LawsuitArchiveChrome و LawsuitSurface يذكران gridOnly', () => {
         const chrome = readFileSync(
-            join(root, 'src/app/components/lawyer/ArchivePortal/ArchivePortalChrome.tsx'),
+            join(root, 'src/app/components/lawyer/ArchivePortal/LawsuitArchiveChrome.tsx'),
             'utf8',
         );
         const surface = readFileSync(
@@ -57,7 +57,7 @@ describe('phase-19 lawsuit grid-only swap inside InstantShell', () => {
         expect(chrome).toContain('gridOnly');
         expect(chrome).toMatch(/if \(gridOnly\)/);
         expect(chrome).toContain('relative flex min-h-0 flex-1 flex-col');
-        expect(surface).toContain('ArchivePortalChrome {...props}');
+        expect(surface).toContain('LawsuitArchiveChrome {...props}');
     });
 
     it('LawsuitSurface يرفع onLawsuitShellChrome عبر useLayoutEffect', () => {

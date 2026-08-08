@@ -13,6 +13,15 @@ const REPO_FEED_LAYOUT_STORAGE_KEY = 'hami:repository-feed-layout';
 
 export const REPOSITORY_FEED_LAYOUT_DEFAULT: RepositoryFeedLayoutId = 'grid';
 
+/** أنماط العرض الأساسية في واجهة المستخدم — شبكة أو قائمة فقط */
+export const REPOSITORY_PRIMARY_LAYOUT_IDS = ['grid', 'list'] as const;
+export type RepositoryPrimaryFeedLayoutId = (typeof REPOSITORY_PRIMARY_LAYOUT_IDS)[number];
+
+/** يحوّل التخطيطات القديمة (مدمج، زمني، معرض) إلى أقرب نمط أساسي */
+export function normalizeRepositoryFeedLayout(id: RepositoryFeedLayoutId): RepositoryPrimaryFeedLayoutId {
+    return id === 'list' ? 'list' : 'grid';
+}
+
 export interface RepositoryFeedLayoutOption {
     id: RepositoryFeedLayoutId;
     label: string;
@@ -58,13 +67,13 @@ const VALID_LAYOUT_IDS = new Set<string>(REPOSITORY_FEED_LAYOUT_OPTIONS.map((o) 
 export function loadRepositoryFeedLayout(): RepositoryFeedLayoutId {
     const stored = persistenceRepository.load<string>(REPO_FEED_LAYOUT_STORAGE_KEY);
     if (stored && VALID_LAYOUT_IDS.has(stored)) {
-        return stored as RepositoryFeedLayoutId;
+        return normalizeRepositoryFeedLayout(stored as RepositoryFeedLayoutId);
     }
     return REPOSITORY_FEED_LAYOUT_DEFAULT;
 }
 
 export function persistRepositoryFeedLayout(id: RepositoryFeedLayoutId): void {
-    persistenceRepository.save(REPO_FEED_LAYOUT_STORAGE_KEY, id);
+    persistenceRepository.save(REPO_FEED_LAYOUT_STORAGE_KEY, normalizeRepositoryFeedLayout(id));
 }
 
 export function resolveRepositoryCardVariant(item: RepositoryFeedItem): RepositoryCardVariant {

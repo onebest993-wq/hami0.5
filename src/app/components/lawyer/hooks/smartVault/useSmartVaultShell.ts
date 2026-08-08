@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 
@@ -36,7 +36,7 @@ export function useSmartVaultShell({
 
     useEffect(() => {
         if (!mounted || currentUserId || embedded) return;
-        SmartToast.error('يرجى تسجيل الدخول أولاً لاستخدام المستودع الذكي');
+        SmartToast.error('┘è╪▒╪ش┘ë ╪ز╪│╪ش┘è┘ ╪د┘╪»╪«┘ê┘ ╪ث┘ê┘╪د┘ï ┘╪د╪│╪ز╪«╪»╪د┘à ╪د┘┘à╪│╪ز┘ê╪»╪╣ ╪د┘╪░┘â┘è');
         onClose();
     }, [mounted, currentUserId, onClose, embedded]);
 
@@ -46,7 +46,7 @@ export function useSmartVaultShell({
         setIsSearching(true);
         await new Promise((r) => setTimeout(r, 120));
         if (filteredDocs.length === 0) {
-            SmartToast.info('لم يتم العثور على نتائج مطابقة');
+            SmartToast.info('┘┘à ┘è╪ز┘à ╪د┘╪╣╪س┘ê╪▒ ╪╣┘┘ë ┘╪ز╪د╪خ╪ش ┘à╪╖╪د╪ذ┘é╪ر');
         }
         setIsSearching(false);
     };

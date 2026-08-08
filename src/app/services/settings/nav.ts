@@ -1,3 +1,4 @@
+import type { FontSize } from '@/app/types/common';
 import type { SettingsNavItem } from './types';
 
 /** أقسام الإعدادات المعروضة — فقط ما يطابق التطبيق ويُستخدم فعلياً. */
@@ -32,8 +33,29 @@ export const FONT_PRESETS = [
     { id: 'small' as const, label: 'صغير', px: 14 },
     { id: 'medium' as const, label: 'متوسط', px: 16 },
     { id: 'large' as const, label: 'كبير', px: 18 },
-    { id: 'xlarge' as const, label: 'واضح', px: 20 },
-];
+] as const;
+
+export type FontPresetId = (typeof FONT_PRESETS)[number]['id'];
+
+/** يُطبّق ثلاثة أحجام فقط — يُحوّل «واضح»/20px إلى كبير/18px. */
+export function normalizeFontSizePx(px: unknown): number {
+    const n = typeof px === 'number' && Number.isFinite(px) ? px : 16;
+    if (n <= 14) return 14;
+    if (n >= 18) return 18;
+    if (n <= 15) return 14;
+    if (n <= 17) return 16;
+    return 18;
+}
+
+export function normalizeFontPreset(preset: unknown, fontSize?: unknown): FontPresetId {
+    if (preset === 'xlarge') return 'large';
+    if (preset === 'small' || preset === 'medium' || preset === 'large') return preset;
+    const px = normalizeFontSizePx(fontSize);
+    return FONT_PRESETS.find((p) => p.px === px)?.id ?? 'medium';
+}
+
+/** نوع الإعدادات — يستبعد xlarge بعد التطبيع. */
+export type SettingsFontPreset = Exclude<FontSize, 'xlarge'>;
 
 export const AUTO_LOCK_OPTIONS = [
     { value: 0, label: 'معطّل' },

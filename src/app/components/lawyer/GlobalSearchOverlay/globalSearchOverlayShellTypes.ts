@@ -4,14 +4,7 @@ import type { WorkspacePinLookupContext } from '@/app/workspace/buildPinFromSear
 import type { ClusterScanRecord } from '@/app/workspace/types';
 import type { GlobalSearchScopeId } from '@/app/components/lawyer/GlobalSearchOverlay/searchScopes';
 
-export type GlobalSearchOverlayShellProps = {
-    open: boolean;
-    /** إبقاء DOM مخفياً للتسخين — فتح فوري بلا إعادة تركيب */
-    keepWarm?: boolean;
-    onExitComplete?: () => void;
-    onClose: () => void;
-    overlayRef: RefObject<HTMLDivElement>;
-    inputRef: RefObject<HTMLInputElement>;
+export type GlobalSearchOverlayShellContentProps = {
     onKeyDownCapture: (event: KeyboardEvent<HTMLDivElement>) => void;
     keyboardInset: number;
     resultsMaxHeight: string;
@@ -33,4 +26,16 @@ export type GlobalSearchOverlayShellProps = {
     setActiveIndex: (index: number) => void;
     searchScope?: GlobalSearchScopeId;
     onSearchScopeChange?: (scope: GlobalSearchScopeId) => void;
+};
+
+export type GlobalSearchOverlayShellProps = GlobalSearchOverlayShellContentProps & {
+    open: boolean;
+    /** إبقاء DOM مخفياً للتسخين — فتح فوري بلا إعادة تركيب */
+    keepWarm?: boolean;
+    onExitComplete?: () => void;
+    onClose: () => void;
+    overlayRef: RefObject<HTMLDivElement>;
+    inputRef: RefObject<HTMLInputElement>;
+    /** false أثناء فتح الورقة — يمنع autofocus والكيبورد المبكر على الموبايل */
+    focusArmed?: boolean;
 };

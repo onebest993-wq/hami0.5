@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Loader2, X } from 'lucide-react';
+import { Loader2, X } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import type { EventForm } from '@/app/components/lawyer/SmartLegalRadar/EventForm';
@@ -8,7 +8,7 @@ import {
     getCachedRadarEventForm,
     loadRadarEventFormModule,
 } from '@/app/runtime/radarWidgetLoader';
-import { RADAR_FORM_OVERLAY, RADAR_GLASS_PANEL } from './radarTheme';
+import { RADAR_FORM_OVERLAY, RADAR_FORM_PANEL, RADAR_FORM_ICON_BTN, RADAR_SKELETON } from './radarTheme';
 
 type EventFormProps = React.ComponentProps<typeof EventForm>;
 type EventFormComponent = React.ComponentType<EventFormProps>;
@@ -29,23 +29,23 @@ function EventFormLoadingShell({ onClose }: { onClose: () => void }): React.Reac
             onClick={onClose}
         >
             <div
-                className={`w-full sm:max-w-lg ${RADAR_GLASS_PANEL} rounded-t-2xl sm:rounded-2xl p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t sm:border border-[#F5EDE0]/12 bg-[#1f1712]`}
+                className={RADAR_FORM_PANEL}
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="flex items-center justify-between mb-5">
-                    <h2 className="text-[#F5EDE0] font-bold text-lg">إضافة موعد جديد</h2>
+                <div className="flex items-center justify-between mb-5 pb-4 border-b border-[#E2E8F0]">
+                    <h2 className="font-bold text-lg text-[#121212]">إضافة موعد جديد</h2>
                     <button
                         type="button"
                         aria-label="إغلاق"
                         onClick={onClose}
-                        className="flex h-[44px] w-[44px] items-center justify-center rounded-lg text-[#E8DCC8]/55 touch-manipulation"
+                        className={RADAR_FORM_ICON_BTN}
                     >
                         <X size={18} />
                     </button>
                 </div>
                 <div className="flex flex-col items-center justify-center gap-3 py-10">
-                    <Loader2 size={22} className="animate-spin text-[#E8DCC8]/70" aria-hidden />
-                    <p className="text-sm text-[#E8DCC8]/55">جاري تجهيز النموذج…</p>
+                    <Loader2 size={22} className="animate-spin text-[#64748B]" aria-hidden />
+                    <p className="text-sm text-[#64748B]">جاري تجهيز النموذج…</p>
                 </div>
             </div>
         </div>,
@@ -103,6 +103,9 @@ export function EventFormHost(props: EventFormProps): React.ReactElement | null 
     }, [show, Component, onClose]);
 
     if (!show) return null;
-    if (!Component) return <EventFormLoadingShell onClose={onClose} />;
-    return <Component {...props} />;
+
+    const ResolvedForm = Component ?? getCachedRadarEventForm();
+    if (ResolvedForm) return <ResolvedForm {...props} />;
+
+    return <EventFormLoadingShell onClose={onClose} />;
 }

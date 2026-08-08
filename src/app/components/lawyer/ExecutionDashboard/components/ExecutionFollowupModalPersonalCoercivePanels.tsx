@@ -11,7 +11,7 @@ import SecureStoreService from '@/app/services/SecureStoreService';
 import { normalizeDossierLifecycleStatus } from '@/app/types/execution';
 import { isCustodyRemovalExecutionClaim } from '@/app/utils/executionClaimIsolation';
 import { FollowupTabKeepAlivePanel } from './FollowupTabKeepAlivePanel';
-import type { ExecutionFollowupModalPortalController } from '../hooks/useExecutionFollowupModalPortalController';
+import { requireDecisionsStorageExecutionId } from '../utils/requireDecisionsStorageExecutionId';
 
 
 export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: ExecutionFollowupModalPortalController }) {
@@ -37,6 +37,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
         TabRequests,
         TabSeizureRequests,
         activeChipTabId,
+        activeCoerciveActions,
         activeDebtorIsDeceased,
         activeDebtorIsEmployee,
         activeDebtorIsLegalEntity,
@@ -87,6 +88,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
         finalizeBreakInventoryEntry,
         followupEmployeeFinancialSalaryOnlyCoercive,
         followupExpandProcedureKey,
+        followupGarnishmentAmountPreview,
         followupModalBodyScrollRef,
         followupModalChipTablistRef,
         followupModalDebtorTabsRef,
@@ -99,6 +101,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
         forcedSummoningAnalysis,
         getLocalTodayYmd,
         gracePeriodEnded,
+        handleCoerciveAction,
         handleDossierAction,
         handleEmployeeAssignmentRequestForcedBring,
         handleEmployeeAssignmentRequestInvestigation,
@@ -170,6 +173,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
         saveCoerciveAction,
         saveMaritalFurnitureDeliveryInventoryEntry,
         savePoliceAssistanceEntry,
+        saveJudicialCustodianEntry,
         saveSeizedMovableInitForDecision,
         saveSeizedPropertyInitForDecision,
         saveStandaloneExecutionMarkForDecision,
@@ -381,6 +385,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
                                             tryOpenPendingCustodianDetails={tryOpenPendingCustodianDetails}
                                             openPoliceAssistanceDetails={openPoliceAssistanceDetailsForDecision}
                                             savePoliceAssistance={savePoliceAssistanceEntry}
+                                            saveJudicialCustodianDetails={saveJudicialCustodianEntry}
                                             saveBreakInventoryLedger={saveBreakInventoryLedgerEntry}
                                             finalizeBreakInventoryRequest={finalizeBreakInventoryEntry}
                                             isMaritalFurnitureClaim={isMaritalFurnitureClaim}
@@ -400,6 +405,7 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
                                             showEncroachmentRemovalRequestCards={
                                                 spec.showEncroachmentRemovalRequestCards
                                             }
+                                            claimType={claimTypeForExecutionModule || claimType}
                                             showSpecificDeliverySurveyorCard={
                                                 spec.showSpecificDeliverySurveyorCard
                                             }
@@ -449,9 +455,16 @@ export function ExecutionFollowupModalPersonalCoercivePanels({ c }: { c: Executi
                                             executionCoerciveButtonDisabled={executionCoerciveButtonDisabled}
                                             inlineActionGateKey={inlineActionGateKey}
                                             setInlineActionGateKey={setInlineActionGateKey}
+                                            handleCoerciveAction={handleCoerciveAction}
+                                            activeCoerciveActions={activeCoerciveActions}
+                                            followupGarnishmentAmountPreview={followupGarnishmentAmountPreview}
                                             handleEndGracePeriod={handleEndGracePeriod}
                                             appendEvictionExecutorRequest={appendEvictionExecutorRequest}
-                                            decisionsStorageExecutionId={decisionsStorageExecutionId}
+                                            decisionsStorageExecutionId={requireDecisionsStorageExecutionId({
+                                                decisionsStorageExecutionId,
+                                                executionId,
+                                                executionData: viewExecutionData as Record<string, unknown> | null,
+                                            })}
                                             showToast={showToast}
                                             EVICTION_TIMELINE_ACTION_IDS={EVICTION_TIMELINE_ACTION_IDS}
                                             activeDebtorIsEmployee={activeDebtorIsEmployee}

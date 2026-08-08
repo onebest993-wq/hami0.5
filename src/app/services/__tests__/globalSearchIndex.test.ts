@@ -239,4 +239,46 @@ describe('buildGlobalSearchIndex (تغطية موسّعة)', () => {
         expect(index.some((e) => e.id === 'file-99')).toBe(false);
         expect(index.some((e) => e.id === 'cal-cal-1')).toBe(false);
     });
+
+    it('يفهرس مخزن/مهملات الدعاوى من lifecycleIndex دون تحميل الملفات الكاملة', () => {
+        const index = buildGlobalSearchIndex({
+            files: [{ id: 1, caseNo: 'نشط-1', court: 'بغداد', parties: [], history: [], notes: [], images: [], date: '', tasks: [] }],
+            globalNotes: [],
+            cases: [],
+            userId: 'u1',
+            lawsuitLifecycleIndex: {
+                v: 1,
+                entries: {
+                    '1': { id: '1', status: 'active', caseNo: 'نشط-1' },
+                    'arch-2': {
+                        id: 'arch-2',
+                        status: 'archived',
+                        caseNo: 'أرشيف-2',
+                        title: 'دعوى مؤرشفة',
+                        clientName: 'علي الموكل',
+                        court: 'محكمة الرصافة',
+                        searchHaystack: 'علي الموكل ملاحظة أرشيفية',
+                    },
+                    'trash-3': {
+                        id: 'trash-3',
+                        status: 'deleted',
+                        caseNo: 'مهمل-3',
+                        title: 'دعوى محذوفة',
+                        clientName: 'فاطمة الزبون',
+                        searchHaystack: 'فاطمة الزبون نص ملاحظة مهملات',
+                    },
+                },
+                counts: { active: 1, archived: 1, trash: 1 },
+            },
+        });
+
+        const archived = index.find((e) => e.id === 'file-arch-2');
+        expect(archived?.lifecycle).toBe('archived');
+        expect(archived?.title).toBe('علي الموكل');
+        const trashed = index.find((e) => e.id === 'file-trash-3');
+        expect(trashed?.lifecycle).toBe('deleted');
+        expect(trashed?.title).toBe('فاطمة الزبون');
+        expect(trashed?.subtitle).toContain('سلة المهملات');
+        expect(trashed?._searchStr).toContain('فاطمه');
+    });
 });

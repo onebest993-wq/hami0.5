@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { X, Shield } from 'lucide-react';
+import { X, Shield } from '@/app/components/ui/lucideIcons';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 import { PoliceAssistanceInlineForm } from '@/app/components/lawyer/execution/PoliceAssistanceInlineForm';
 

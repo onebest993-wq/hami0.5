@@ -24,48 +24,69 @@ for (const rel of files) {
 }
 
 /**
- * عقد shellAuth.ts المقصود:
- * - تجاوز صريح عبر VITE_SHELL_AUTH_OPEN=true|false
- * - DEV مفتوح افتراضياً
- * - إنتاج SPA ثابت بدون VITE_BFF_AUTH=true مفتوح للمعاينة (isStaticSpaProduction)
- * - إنتاج مع BFF لا يفتح إلا بعلم صريح (flag === 'true')
+ * عقد shellAuth.ts المقصود (fail-closed):
+ * - تجاوز صريح عبر VITE_SHELL_AUTH_OPEN=true|false ولا شيء غيره
+ * - الافتراضي خارج الإنتاج فقط: PROD !== true
+ * - ممنوع أي مسار يفتح الإنتاج ضمنياً
+ *
+ * كان العقد السابق يشترط isStaticSpaProduction: أي أن الإنتاج يُفتح كلّما لم
+ * يساوِ VITE_BFF_AUTH القيمة 'true' بالضبط، فنسيان متغيّر بيئة واحد يُلغي
+ * تسجيل الدخول عن التطبيق كلّه. الحارس الآن يمنع عودة ذلك المسار.
  */
 const shellAuth = fs.readFileSync(path.join(ROOT, 'src/app/services/auth/shellAuth.ts'), 'utf8');
 const hasExplicitFlag =
   shellAuth.includes("flag === 'true'") && shellAuth.includes("flag === 'false'");
-const hasStaticSpaGate =
-  shellAuth.includes('isStaticSpaProduction') &&
-  shellAuth.includes("VITE_BFF_AUTH !== 'true'");
 const hasNonProdDefault = shellAuth.includes('PROD !== true');
+const hasImplicitOpenPath =
+  shellAuth.includes('isStaticSpaProduction') || shellAuth.includes("VITE_BFF_AUTH !== 'true'");
 
-if (!hasExplicitFlag || !hasStaticSpaGate || !hasNonProdDefault) {
+if (!hasExplicitFlag || !hasNonProdDefault) {
   console.error(
-    '[guard-shell-auth-prod] BLOCKED: shellAuth.ts missing production bypass contract ' +
-      '(need explicit VITE_SHELL_AUTH_OPEN true/false, isStaticSpaProduction + BFF gate, PROD !== true default)',
+    '[guard-shell-auth-prod] BLOCKED: shellAuth.ts missing the fail-closed contract ' +
+      '(need explicit VITE_SHELL_AUTH_OPEN true/false and a PROD !== true default)',
+  );
+  failed = true;
+} else if (hasImplicitOpenPath) {
+  console.error(
+    '[guard-shell-auth-prod] BLOCKED: shellAuth.ts reintroduced an implicit production bypass ' +
+      '(isStaticSpaProduction / VITE_BFF_AUTH fallback) — production must open only on an explicit flag',
   );
   failed = true;
 } else {
-  console.log('[guard-shell-auth-prod] OK shellAuth.ts contract');
+  console.log('[guard-shell-auth-prod] OK shellAuth.ts fail-closed contract');
 }
 
-// Netlify: [build.environment] يجب أن يكون مغلقاً؛ الفتح مسموح فقط في preview/branch
+/**
+ * Netlify: الفتح مسموح في المعاينات وفروع التجربة وحدها.
+ *
+ * [build.environment] يسري على كل السياقات بما فيها الإنتاج، فوضع العلم فيه
+ * كان يفتح نطاق الإنتاج للجميع. لذلك يُفحص هذا الجدول وجدول الإنتاج معاً.
+ */
 const netlifyPath = path.join(ROOT, 'netlify.toml');
 if (fs.existsSync(netlifyPath)) {
   const toml = fs.readFileSync(netlifyPath, 'utf8');
-  const buildEnvMatch = toml.match(
-    /\[build\.environment\]([\s\S]*?)(?=\n\[|\n*$)/,
-  );
-  const buildEnv = buildEnvMatch?.[1] ?? '';
-  const buildOpenTrue = /VITE_SHELL_AUTH_OPEN\s*=\s*"true"/i.test(buildEnv);
-  if (buildOpenTrue) {
+  const blockOf = (header) =>
+    toml.match(new RegExp(`\\[${header.replace(/[.[\]]/g, '\\$&')}\\]([\\s\\S]*?)(?=\\n\\[|\\n*$)`))?.[1] ?? '';
+  const isOpen = (block) => /VITE_SHELL_AUTH_OPEN\s*=\s*"true"/i.test(block);
+  const isClosed = (block) => /VITE_SHELL_AUTH_OPEN\s*=\s*"false"/i.test(block);
+
+  const buildEnv = blockOf('build.environment');
+  const prodEnv = blockOf('context.production.environment');
+
+  if (isOpen(buildEnv)) {
     console.error(
-      '[guard-shell-auth-prod] BLOCKED: netlify.toml [build.environment] sets VITE_SHELL_AUTH_OPEN="true" (production path)',
+      '[guard-shell-auth-prod] BLOCKED: netlify.toml [build.environment] sets VITE_SHELL_AUTH_OPEN="true" — it applies to every context including production',
     );
     failed = true;
-  } else if (/VITE_SHELL_AUTH_OPEN\s*=\s*"false"/i.test(buildEnv)) {
-    console.log('[guard-shell-auth-prod] OK netlify.toml [build.environment] closed');
+  } else if (isOpen(prodEnv)) {
+    console.error(
+      '[guard-shell-auth-prod] BLOCKED: netlify.toml [context.production.environment] sets VITE_SHELL_AUTH_OPEN="true"',
+    );
+    failed = true;
+  } else if (isClosed(prodEnv) || isClosed(buildEnv)) {
+    console.log('[guard-shell-auth-prod] OK netlify.toml production context closed');
   } else {
-    console.log('[guard-shell-auth-prod] OK netlify.toml (no open flag in build.environment)');
+    console.log('[guard-shell-auth-prod] OK netlify.toml (no open flag on the production path)');
   }
 }
 

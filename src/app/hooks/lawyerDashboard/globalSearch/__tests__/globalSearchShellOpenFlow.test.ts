@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
     dismissMock: vi.fn(),
     persistMock: vi.fn(),
     revealMock: vi.fn(() => false),
+    snapOpenMock: vi.fn(),
     takeDraftMock: vi.fn(() => 'مسودة'),
     warmOnOpenMock: vi.fn(),
     hydrateMock: vi.fn(() => Promise.resolve(true)),
@@ -12,10 +13,14 @@ const mocks = vi.hoisted(() => ({
     clearPerfMock: vi.fn(),
     markPerfMock: vi.fn(),
     isResolvedMock: vi.fn(() => false),
+    flushOrder: [] as string[],
 }));
 
 vi.mock('react-dom', () => ({
-    flushSync: (fn: () => void) => fn(),
+    flushSync: (fn: () => void) => {
+        mocks.flushOrder.push('flush');
+        fn();
+    },
 }));
 
 vi.mock('@/app/utils/bodyScrollLock', () => ({
@@ -48,6 +53,13 @@ vi.mock('@/app/hooks/lawyerDashboard/globalSearchIntentWarm', () => ({
     warmGlobalSearchOnOpen: mocks.warmOnOpenMock,
 }));
 
+vi.mock('@/app/services/search/globalSearchShellSnap', () => ({
+    snapGlobalSearchShellOpen: () => {
+        mocks.snapOpenMock();
+        mocks.flushOrder.push('snap');
+    },
+}));
+
 vi.mock('@/app/services/search/globalSearchPerfMetrics', () => ({
     clearGlobalSearchPerfMarks: mocks.clearPerfMock,
     markGlobalSearchPerfPhase: mocks.markPerfMock,
@@ -56,6 +68,7 @@ vi.mock('@/app/services/search/globalSearchPerfMetrics', () => ({
 describe('globalSearchShellOpenFlow', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        mocks.flushOrder.length = 0;
     });
 
     it('commitGlobalSearchShellOpen يفتح ويُسجّل الجلسة', async () => {
@@ -82,6 +95,8 @@ describe('globalSearchShellOpenFlow', () => {
         expect(setShowGlobalSearch).toHaveBeenCalledWith(true);
         expect(mocks.persistMock).toHaveBeenCalledWith(true);
         expect(mocks.revealMock).toHaveBeenCalled();
+        expect(mocks.snapOpenMock).toHaveBeenCalled();
+        expect(mocks.flushOrder).toEqual(['snap', 'flush']);
         expect(mocks.takeDraftMock).not.toHaveBeenCalled();
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));

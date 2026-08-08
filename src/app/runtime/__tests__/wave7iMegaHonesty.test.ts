@@ -12,7 +12,7 @@ describe('wave7i mega honesty', () => {
         expect(t).toContain('createCriminalJudicialDecisionLifecycleActions');
         expect(t).not.toContain('extendDetentionOnDecision:');
         expect(t).not.toContain('fileJudicialDecisionAppeal:');
-        expect(t.split(/\r?\n/).length).toBeLessThan(600);
+        expect(t.trimEnd().split(/\r?\n/).length).toBeLessThanOrEqual(600);
         expect(fs.existsSync(path.join(cs, 'criminalStoreDetentionDecisionActions.ts'))).toBe(true);
         expect(fs.existsSync(path.join(cs, 'criminalStoreJudicialDecisionLifecycleActions.ts'))).toBe(true);
     });

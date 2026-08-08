@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { ecg } from './executionCreationGlassUi';
@@ -15,7 +15,7 @@ interface LawyerFeesToggleCardProps {
     onLawyerFeesAmountChange: (v: string) => void;
 }
 
-/** بطاقة تفعيل المطالبة بأتعاب المحاماة المحكوم بها — مستخرجة من ExecutionCreationView (Phase-1 split). */
+/** ╪ذ╪╖╪د┘é╪ر ╪ز┘╪╣┘è┘ ╪د┘┘à╪╖╪د┘╪ذ╪ر ╪ذ╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د ظ¤ ┘à╪│╪ز╪«╪▒╪ش╪ر ┘à┘ ExecutionCreationView (Phase-1 split). */
 export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
     includeLawyerFees,
     onIncludeLawyerFeesChange,
@@ -51,7 +51,7 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                 {includeLawyerFees ? <Check size={12} strokeWidth={3} /> : null}
             </span>
             <span className="flex-1 text-right text-sm font-bold text-[#F0DFA8]">
-                المطالبة بأتعاب المحاماة المحكوم بها
+                ╪د┘┘à╪╖╪د┘╪ذ╪ر ╪ذ╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د
             </span>
         </label>
 
@@ -66,7 +66,7 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                     className="overflow-hidden"
                 >
                     <div className="border-t border-white/10 px-3.5 pb-3.5 pt-3">
-                        <label className={ecg.labelGold}>المبلغ (دينار)</label>
+                        <label className={ecg.labelGold}>╪د┘┘à╪ذ┘╪║ (╪»┘è┘╪د╪▒)</label>
                         <div className={ecg.moneyWrap}>
                             <input
                                 type="text"
@@ -75,9 +75,9 @@ export const LawyerFeesToggleCard: React.FC<LawyerFeesToggleCardProps> = ({
                                     handleAmountChange(e, onLawyerFeesAmountChange)
                                 }
                                 className={ecg.moneyInput}
-                                aria-label="أتعاب المحاماة المحكوم بها (دينار)"
+                                aria-label="╪ث╪ز╪╣╪د╪ذ ╪د┘┘à╪ص╪د┘à╪د╪ر ╪د┘┘à╪ص┘â┘ê┘à ╪ذ┘ç╪د (╪»┘è┘╪د╪▒)"
                             />
-                            <span className="text-slate-500 text-[10px] font-bold shrink-0">د.ع</span>
+                            <span className="text-slate-500 text-[10px] font-bold shrink-0">╪».╪╣</span>
                         </div>
                     </div>
                 </motion.div>

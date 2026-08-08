@@ -48,6 +48,40 @@ function findPreloadedChunks(indexHtml) {
 
 
 
+function collectTransitiveJsChunks(entryFile, assetsDir) {
+
+    const visited = new Set();
+
+    const queue = [entryFile];
+
+    while (queue.length) {
+
+        const file = queue.shift();
+
+        if (!file || visited.has(file)) continue;
+
+        visited.add(file);
+
+        const abs = path.join(assetsDir, file);
+
+        if (!fs.existsSync(abs)) continue;
+
+        const source = fs.readFileSync(abs, 'utf8');
+
+        for (const match of source.matchAll(/from"\.\/([^"]+\.js)"/g)) {
+
+            queue.push(match[1]);
+
+        }
+
+    }
+
+    return visited;
+
+}
+
+
+
 function findEntry(files) {
 
     const indexHtml = fs.readFileSync(path.join(__dirname, '..', 'dist', 'index.html'), 'utf8');
@@ -88,7 +122,9 @@ if (!entryName) {
 
 
 
-const criticalSet = new Set([entryName, ...preloaded]);
+const transitiveEntry = collectTransitiveJsChunks(entryName, assetsDir);
+
+const criticalSet = new Set([entryName, ...preloaded, ...transitiveEntry]);
 
 
 
@@ -170,7 +206,7 @@ for (const file of jsFiles) {
 
 report.sort((a, b) => b.rawKb - a.rawKb);
 
-console.log(`[check-bundle-size] critical path (preloaded): ~${criticalPathGzip}KB gzip`);
+console.log(`[check-bundle-size] critical path (entry+preload+static imports): ~${criticalPathGzip}KB gzip (${criticalSet.size} files)`);
 
 if (criticalPathGzip > LIMITS.criticalPathGzipKb) {
 

@@ -30,6 +30,7 @@ type SessionStore = {
   listActiveBySub(sub: string, nowMs: number): Promise<TokenSessionRecord[]>;
   upsertSession(record: TokenSessionRecord): Promise<void>;
   deleteExpired(nowMs: number): Promise<void>;
+  deleteActiveBySub(sub: string, nowMs: number): Promise<void>;
 };
 
 const IN_MEMORY_SESSIONS = new Map<string, TokenSessionRecord>();
@@ -69,6 +70,12 @@ const memoryStore: SessionStore = {
   },
   async deleteExpired(nowMs: number): Promise<void> {
     pruneInMemory(nowMs);
+  },
+  async deleteActiveBySub(sub: string, nowMs: number): Promise<void> {
+    pruneInMemory(nowMs);
+    for (const [key, record] of IN_MEMORY_SESSIONS.entries()) {
+      if (record.sub === sub && record.expiresAt > nowMs) IN_MEMORY_SESSIONS.delete(key);
+    }
   },
 };
 
@@ -129,6 +136,36 @@ const redisStore: SessionStore = {
   async deleteExpired(_nowMs: number): Promise<void> {
     /* Redis TTL handles expiry */
   },
+  async deleteActiveBySub(sub: string, nowMs: number): Promise<void> {
+    const redisUrl = getEnv('WIFE_REDIS_REST_URL');
+    const redisToken = getEnv('WIFE_REDIS_REST_TOKEN');
+    if (!redisUrl || !redisToken) throw new Error('Redis session store is not configured.');
+
+    const prefix = encodeURIComponent(`wife:toksess:${sub}:`);
+    const scanUrl = `${redisUrl.replace(/\/+$/, '')}/keys/${prefix}*`;
+    const scanRes = await fetch(scanUrl, {
+      headers: { Authorization: `Bearer ${redisToken}` },
+    });
+    if (!scanRes.ok) throw new Error(`Redis session scan failed: ${scanRes.status}`);
+
+    const scanBody = (await scanRes.json().catch(() => null)) as { result?: unknown } | null;
+    const keys = Array.isArray(scanBody?.result) ? scanBody.result.filter((k): k is string => typeof k === 'string') : [];
+    for (const key of keys) {
+      const getUrl = `${redisUrl.replace(/\/+$/, '')}/get/${encodeURIComponent(key)}`;
+      const getRes = await fetch(getUrl, { headers: { Authorization: `Bearer ${redisToken}` } });
+      if (!getRes.ok) continue;
+      const getBody = (await getRes.json().catch(() => null)) as { result?: unknown } | null;
+      if (typeof getBody?.result !== 'string' || !getBody.result) continue;
+      try {
+        const parsed = JSON.parse(getBody.result) as TokenSessionRecord;
+        if (parsed.sub !== sub || parsed.expiresAt <= nowMs) continue;
+      } catch {
+        continue;
+      }
+      const delUrl = `${redisUrl.replace(/\/+$/, '')}/del/${encodeURIComponent(key)}`;
+      await fetch(delUrl, { method: 'POST', headers: { Authorization: `Bearer ${redisToken}` } });
+    }
+  },
 };
 
 function hasSupabaseConfig(): boolean {
@@ -154,7 +191,7 @@ const supabaseStore: SessionStore = {
       .gt('expires_at_ms', nowMs);
     if (error) throw new Error(`Supabase session list failed: ${error.message}`);
 
-    return (data ?? []).map((row) => ({
+    return (data ?? []).map((row: Record<string, unknown>) => ({
       sub: String(row.sub ?? ''),
       jti: String(row.jti ?? ''),
       iat: Number(row.iat_ms ?? 0),
@@ -184,6 +221,13 @@ const supabaseStore: SessionStore = {
     if (!admin) return;
     const table = getEnv('WIFE_TOKEN_SESSION_TABLE') || DEFAULT_SESSION_TABLE;
     void admin.from(table).delete().lt('expires_at_ms', nowMs);
+  },
+  async deleteActiveBySub(sub: string, nowMs: number): Promise<void> {
+    const admin = getSupabaseAdminClientForSessions();
+    if (!admin) throw new Error('Supabase session store is not configured.');
+    const table = getEnv('WIFE_TOKEN_SESSION_TABLE') || DEFAULT_SESSION_TABLE;
+    const { error } = await admin.from(table).delete().eq('sub', sub).gt('expires_at_ms', nowMs);
+    if (error) throw new Error(`Supabase session revoke failed: ${error.message}`);
   },
 };
 
@@ -303,6 +347,16 @@ export async function detectStolenTokenServer(
   }
 
   return storeResult;
+}
+
+export async function revokeTokenSessionsForSubject(subject: string): Promise<void> {
+  const trimmed = subject.trim();
+  if (!trimmed) return;
+  const nowMs = Date.now();
+  await withStore(async (store) => {
+    await store.deleteActiveBySub(trimmed, nowMs);
+    return true;
+  });
 }
 
 /** Test-only: clears in-memory session fallback between isolated scenarios. */

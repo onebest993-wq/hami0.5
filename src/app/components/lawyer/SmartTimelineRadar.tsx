@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, memo } from 'react';
 import { motion, LayoutGroup, AnimatePresence } from 'motion/react';
-import { ChevronDown, History, Pin } from 'lucide-react';
+import { ChevronDown, History, Pin } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '@/app/types/execution';
 import {
     cleanTimelineCardTitle,

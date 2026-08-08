@@ -16,6 +16,10 @@ const HANDLER_CLUSTER_ASSEMBLY_HANDLER_KEYS = [
     'moduleExpenseHandlers',
     'followupSeizureHandlers',
     'seizureAssetModalHandlers',
+    'focusSeizurePropertyInlineCompletion',
+    'focusSeizureMovableInlineCompletion',
+    'focusSeizureThirdPartyInlineCompletion',
+    'focusSeizureNoticeInlineCompletion',
     'coerciveActionBridge',
     'coerciveActionHandlers',
     'seizureReleaseHandlers',
@@ -54,6 +58,7 @@ export function pickHandlerClusterAssemblyHandlers(
 export function pickHandlerClusterRestExtras(handlerCluster: Record<string, unknown>) {
     return {
         showResidentialEvictionGraceControl: handlerCluster.showResidentialEvictionGraceControl,
+        residentialGracePeriodSaved: handlerCluster.residentialGracePeriodSaved,
         showResidentialGraceEarlyEndRequest: handlerCluster.showResidentialGraceEarlyEndRequest,
         residentialGraceAllowsFieldwork: handlerCluster.residentialGraceAllowsFieldwork,
         showBreakInventoryRequest: handlerCluster.showBreakInventoryRequest,

@@ -4,13 +4,72 @@ import type { SmartFileChromeProps } from '../layout/SmartFileChrome';
 import type { SmartFileMainPanelProps } from '../layout/SmartFileMainPanel';
 import type { SmartFileModalsPortalProps } from '../layout/SmartFileModalsPortal';
 import type { SmartFileParentData } from './parentDataInit';
-import { resolveAppealRouteContext } from './appealRouteEligibility';
+import {
+    findFirstInstanceBasisStage,
+    pickQuantifiedClaimValue,
+    readPersistedClaimValue,
+    resolveAppealRouteContext,
+} from './appealRouteEligibility';
+import { readFileDetailsField } from '../layout/mainPanel/smartFileMainPanelUtils';
 import type { ConsolidationCandidate } from './caseConsolidationLinking';
 import type { JudgmentPayload } from './judgmentTypes';
-import { isFirstInstanceStageName } from './judgmentTypes';
 import { shouldShowPetitionVoidFooterPanel } from './petitionVoidFlow';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import type { SmartFileModalVisualVariant } from './smartFileModalTheme';
+
+function resolveAppealRouteForDossier(input: SmartFileLayoutBuildInput) {
+    const fileRecord = input.file as Record<string, unknown>;
+    const file = input.file as Parameters<typeof resolveAppealRouteContext>[0];
+    const liveStages = Array.isArray(input.stages) ? input.stages : [];
+    if (!input.currentStage) {
+        return resolveAppealRouteContext(file, null);
+    }
+    const basisStage =
+        findFirstInstanceBasisStage(liveStages, input.currentStage) ?? input.currentStage;
+    const stageClaimValues = liveStages.map((stage) => stage?.claimValue);
+    const persistedClaim = pickQuantifiedClaimValue(
+        basisStage?.claimValue,
+        readPersistedClaimValue(file),
+        readFileDetailsField(fileRecord, 'claimValue'),
+        input.currentStage?.claimValue,
+        input.displayStage?.claimValue,
+        ...stageClaimValues,
+    );
+
+    return resolveAppealRouteContext(
+        {
+            ...file,
+            stages: liveStages,
+            claimValue: persistedClaim,
+            activeStage: input.currentStage,
+            docType:
+                input.parentData?.docType ||
+                input.currentStage?.docType ||
+                input.displayStage?.docType ||
+                file?.docType,
+            type:
+                input.currentStage?.type ||
+                input.displayStage?.type ||
+                file?.type,
+            currentStage:
+                input.currentStage?.stageName ??
+                (typeof file?.currentStage === 'string' ? file.currentStage : undefined),
+        },
+        {
+            ...basisStage,
+            stageName:
+                String(basisStage?.stageName ?? basisStage?.name ?? '').trim() ||
+                input.currentStage?.stageName,
+            claimValue: persistedClaim,
+            docType:
+                basisStage?.docType ||
+                input.currentStage?.docType ||
+                input.displayStage?.docType ||
+                input.parentData?.docType,
+            type: basisStage?.type || input.currentStage?.type || input.displayStage?.type,
+        },
+    );
+}
 
 /** Flat scope from SmartFileModalContent — passed once into layout builders. */
 export type SmartFileLayoutBuildInput = {
@@ -47,6 +106,7 @@ export type SmartFileLayoutBuildInput = {
     deletedEvents: TimelineEvent[];
     handlers: Record<string, (...args: unknown[]) => void>;
     onOpenLinkedFile?: (fileId: number) => void;
+    lawsuitFiles?: import('../../LawyerShared').FileData[];
     consolidationCurrentFileId: number;
     consolidationCurrentCaseNo: string;
     consolidationCurrentClientName?: string;
@@ -79,6 +139,7 @@ export type SmartFileLayoutBuildInput = {
     handleToggleClient: SmartFileMainPanelProps['handleToggleClient'];
     handleInterruptionToggle: SmartFileMainPanelProps['handleInterruptionToggle'];
     handleOpenPauseModal: () => void;
+    handleOpenPauseResume: () => void;
     handleAbandonment: SmartFileMainPanelProps['handleAbandonment'];
     handleRegisterPetitionVoid: () => void;
     handlePetitionVoidAppeal: SmartFileMainPanelProps['handlePetitionVoidAppeal'];
@@ -91,6 +152,8 @@ export type SmartFileLayoutBuildInput = {
     handleOpenDefendantCassationAppeal: () => void;
     handleDefaultObjection: SmartFileMainPanelProps['handleDefaultObjection'];
     handleWaiveObjection: SmartFileMainPanelProps['handleWaiveObjection'];
+    handleOpponentAppealWaived: SmartFileMainPanelProps['handleOpponentAppealWaived'];
+    handleOpponentAppealWaived: SmartFileMainPanelProps['handleOpponentAppealWaived'];
     handleOtherAppeals: SmartFileMainPanelProps['handleOtherAppeals'];
     handleOpenAbsentJudgmentNotification: () => void;
     handleOpenOpponentAbsentObjection: () => void;
@@ -139,6 +202,10 @@ export type SmartFileLayoutBuildInput = {
         setShowInterruptionModal: (v: boolean) => void;
         showResumeInterruptionModal: boolean;
         setShowResumeInterruptionModal: (v: boolean) => void;
+        showAbandonmentRenewalModal: boolean;
+        setShowAbandonmentRenewalModal: (v: boolean) => void;
+        showPauseResumeModal: boolean;
+        setShowPauseResumeModal: (v: boolean) => void;
         showInterlocutoryModal: boolean;
         setShowInterlocutoryModal: (v: boolean) => void;
         showObjectionRegistrationModal: boolean;
@@ -219,7 +286,7 @@ export function buildChromeProps(input: SmartFileLayoutBuildInput): SmartFileChr
         onStageSelect: input.onStageSelect,
         onInterrupt: editable ? input.handleInterruptionToggle : undefined,
         onPause: editable ? input.handleOpenPauseModal : undefined,
-        onResume: editable ? input.handleResume : undefined,
+        onResume: editable ? input.handleOpenPauseResume : undefined,
         onAbandon: editable ? input.handleAbandonment : undefined,
         onPetitionVoid: editable ? input.handleRegisterPetitionVoid : undefined,
         flowStage: input.displayStage,
@@ -270,6 +337,7 @@ export function buildMainPanelProps(input: SmartFileLayoutBuildInput): SmartFile
         handleOpenDefendantCassationAppeal: input.handleOpenDefendantCassationAppeal,
         handleDefaultObjection: input.handleDefaultObjection,
         handleWaiveObjection: input.handleWaiveObjection,
+        handleOpponentAppealWaived: input.handleOpponentAppealWaived,
         handleOtherAppeals: input.handleOtherAppeals,
         onAbsentJudgmentNotification: input.handleOpenAbsentJudgmentNotification,
         onOpponentAbsentObjection: input.handleOpenOpponentAbsentObjection,
@@ -285,6 +353,8 @@ export function buildMainPanelProps(input: SmartFileLayoutBuildInput): SmartFile
         handleQuickAction: input.handleQuickAction,
         setShowPauseModal: flags.setShowPauseModal,
         setShowResumeInterruptionModal: flags.setShowResumeInterruptionModal,
+        setShowAbandonmentRenewalModal: flags.setShowAbandonmentRenewalModal,
+        setShowPauseResumeModal: flags.setShowPauseResumeModal,
         setShowNotificationModal: flags.setShowNotificationModal,
         setShowPaymentModal: flags.setShowPaymentModal,
         setParentData: input.setParentData,
@@ -311,6 +381,7 @@ export function buildMainPanelProps(input: SmartFileLayoutBuildInput): SmartFile
         stepperStages: input.stepperStages,
         currentStageId: input.currentStageId,
         onOpenLinkedFile: input.onOpenLinkedFile,
+        lawsuitFiles: input.lawsuitFiles,
     };
 }
 
@@ -348,6 +419,10 @@ export function buildModalsPortalProps(input: SmartFileLayoutBuildInput): SmartF
         setShowInterruptionModal: flags.setShowInterruptionModal,
         showResumeInterruptionModal: flags.showResumeInterruptionModal,
         setShowResumeInterruptionModal: flags.setShowResumeInterruptionModal,
+        showAbandonmentRenewalModal: flags.showAbandonmentRenewalModal,
+        setShowAbandonmentRenewalModal: flags.setShowAbandonmentRenewalModal,
+        showPauseResumeModal: flags.showPauseResumeModal,
+        setShowPauseResumeModal: flags.setShowPauseResumeModal,
         showInterlocutoryModal: flags.showInterlocutoryModal,
         setShowInterlocutoryModal: flags.setShowInterlocutoryModal,
         showObjectionRegistrationModal: flags.showObjectionRegistrationModal,
@@ -408,6 +483,7 @@ export function buildModalsPortalProps(input: SmartFileLayoutBuildInput): SmartF
         activeStageIndex: input.activeStageIndex,
         viewingStageIndex: input.viewingStageIndex,
         parentData: input.parentData,
+        lawsuitFile: input.file,
         consolidationCurrentFileId: input.consolidationCurrentFileId,
         consolidationCurrentCaseNo: input.consolidationCurrentCaseNo,
         consolidationCurrentClientName: input.consolidationCurrentClientName,
@@ -423,10 +499,7 @@ export function buildModalsPortalProps(input: SmartFileLayoutBuildInput): SmartF
         onCaseLinkExisting: input.onCaseLinkExisting,
         onCaseLinkExternal: input.onCaseLinkExternal,
         handlers: input.handlers,
-        appealRoute: resolveAppealRouteContext(
-            input.file as Parameters<typeof resolveAppealRouteContext>[0],
-            input.stages.find((s) => isFirstInstanceStageName(s.stageName)) ?? input.currentStage,
-        ),
+        appealRoute: resolveAppealRouteForDossier(input),
         modalVisualVariant: (isPersonalStatusFile(input.file) ? 'personal-pearl' : 'civil') as SmartFileModalVisualVariant,
     };
 }

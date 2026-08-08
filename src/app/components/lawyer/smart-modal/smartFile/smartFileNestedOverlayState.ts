@@ -20,6 +20,8 @@ export function isSmartFileNestedOverlayOpen(portal: SmartFileModalsPortalProps 
         portal.showPauseModal ||
         portal.showInterruptionModal ||
         portal.showResumeInterruptionModal ||
+        portal.showAbandonmentRenewalModal ||
+        portal.showPauseResumeModal ||
         portal.showInterlocutoryModal ||
         portal.showObjectionRegistrationModal ||
         portal.showObjectionJudgmentModal ||

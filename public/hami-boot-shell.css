@@ -1,93 +1,10 @@
-/* شاشة الإقلاع — canvas كامل + شعار حامي الكامل */
+/* شاشة الإقلاع — navy + كلمة «حامي» (نص في index.html) */
 :root {
     --hami-boot-canvas: #0a0f1c;
     --hami-boot-canvas-deep: #05060d;
     --hami-boot-gold: #e6c673;
-    --hami-boot-gold-bright: #f5dfa0;
 }
 
-@keyframes hami-boot-pulse {
-    0%,
-    100% {
-        opacity: 0.62;
-    }
-    50% {
-        opacity: 1;
-    }
-}
-
-@keyframes hami-boot-brand-stage-in {
-    0% {
-        opacity: 0;
-        transform: none;
-        filter: none;
-    }
-    100% {
-        opacity: 1;
-        transform: none;
-        filter: none;
-    }
-}
-
-@keyframes hami-boot-brand-stage-out {
-    0% {
-        opacity: 1;
-        transform: none;
-        filter: none;
-    }
-    100% {
-        opacity: 0;
-        transform: none;
-        filter: none;
-    }
-}
-
-@keyframes hami-boot-overlay-out {
-    0% {
-        opacity: 1;
-        backdrop-filter: blur(0);
-    }
-    100% {
-        opacity: 0;
-        backdrop-filter: blur(6px);
-        visibility: hidden;
-    }
-}
-
-@keyframes hami-boot-skeleton-deferred-in {
-    0%,
-    55% {
-        opacity: 0;
-        transform: translateY(18px);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-@keyframes hami-boot-skeleton-pulse {
-    0%,
-    100% {
-        opacity: 0.35;
-    }
-    50% {
-        opacity: 0.55;
-    }
-}
-
-@keyframes hami-wordmark-ornament-in {
-    0% {
-        opacity: 0;
-        transform: scaleX(0.2);
-    }
-    100% {
-        opacity: 1;
-        transform: scaleX(1);
-    }
-}
-
-/* ——— Canvas مشترك (static + React) ——— */
 .hami-boot-cinematic,
 #hami-static-boot {
     position: fixed;
@@ -100,268 +17,76 @@
     background: var(--hami-boot-canvas, #0a0f1c);
     color: var(--hami-boot-gold);
     direction: rtl;
-    font-family: 'Amiri', 'Cairo', 'Tajawal', system-ui, sans-serif;
-}
-
-.hami-boot-canvas,
-#hami-static-boot::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    background:
-        linear-gradient(90deg, rgba(230, 198, 115, 0.055) 1px, transparent 1px),
-        linear-gradient(rgba(230, 198, 115, 0.04) 1px, transparent 1px),
-        radial-gradient(ellipse 60% 48% at 50% 42%, rgba(230, 198, 115, 0.12), transparent 72%),
-        radial-gradient(ellipse 120% 80% at 50% 100%, rgba(5, 6, 13, 0.88), transparent 55%),
-        linear-gradient(180deg, rgba(7, 12, 28, 0.96) 0%, rgba(10, 15, 28, 0.98) 58%, rgba(4, 6, 12, 1) 100%);
-    background-size: 86px 86px, 86px 86px, auto, auto, auto;
-    background-position: center center, center center, center, center, center;
-    pointer-events: none;
-}
-
-#hami-static-boot::before {
-    z-index: 0;
-}
-
-#hami-static-boot::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    background:
-        radial-gradient(circle at 50% 22%, rgba(245, 223, 160, 0.08), transparent 34%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 28%, rgba(0, 0, 0, 0.14) 100%);
-    pointer-events: none;
 }
 
 .hami-boot-cinematic--exiting {
-    /* احتياط إن استُخدم exiting — قطع فوري بلا تلاشي فوق فراغ */
     opacity: 0 !important;
     visibility: hidden !important;
     pointer-events: none;
     animation: none !important;
+    transition: opacity 60ms linear, visibility 60ms linear;
 }
 
-.hami-boot-center-stage,
-#hami-static-boot .hami-boot-center-stage {
-    position: absolute;
-    inset: 0;
-    z-index: 10;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: max(1.25rem, env(safe-area-inset-top, 0px)) 1.25rem
-        max(1.25rem, env(safe-area-inset-bottom, 0px));
-    pointer-events: none;
-}
-
-/* ——— شعار حامي الكامل ——— */
-.hami-boot-wordmark-stage,
-#hami-static-boot .hami-boot-wordmark-stage {
-    position: relative;
+/* هيكل إقلاع قديم — لم يعد يُستخدم */
+.hami-boot-skeleton {
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    gap: 0.8rem;
-    width: min(88vw, 25rem);
-    padding: 0;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    box-shadow: none;
-    backdrop-filter: none;
+    gap: 16px;
+    min-height: 100%;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
-.hami-boot-wordmark-stage--enter,
-#hami-static-boot .hami-boot-wordmark-stage--enter {
-    animation: hami-boot-brand-stage-in 0.18s ease-out both;
+.hami-boot-skeleton__header {
+    height: 56px;
+    border-radius: 14px;
+    background: linear-gradient(
+        90deg,
+        rgba(230, 198, 115, 0.06) 0%,
+        rgba(230, 198, 115, 0.12) 50%,
+        rgba(230, 198, 115, 0.06) 100%
+    );
+    background-size: 200% 100%;
+    animation: hami-boot-shimmer 1.4s ease-in-out infinite;
 }
 
-.hami-boot-wordmark-glow,
-#hami-static-boot .hami-boot-wordmark-glow {
-    display: none;
+.hami-boot-skeleton__hub {
+    height: 132px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.04);
 }
 
-.hami-boot-brand-mark-shell,
-#hami-static-boot .hami-boot-brand-mark-shell {
-    position: relative;
-    z-index: 2;
-    width: min(100%, 18rem);
-    aspect-ratio: 1 / 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0.2rem;
-    border-radius: 1.4rem;
-    border: 1px solid rgba(230, 198, 115, 0.12);
-    background: linear-gradient(180deg, rgba(11, 14, 25, 0.78), rgba(8, 10, 18, 0.82));
-    box-shadow: 0 16px 40px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
+.hami-boot-skeleton__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    flex: 1;
 }
 
-.hami-boot-brand-mark-frame,
-#hami-static-boot .hami-boot-brand-mark-frame {
-    display: none;
+.hami-boot-skeleton__tile {
+    min-height: 108px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.035);
 }
 
-.hami-boot-brand-mark,
-#hami-static-boot .hami-boot-brand-mark {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-    user-select: none;
-    -webkit-user-drag: none;
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.22));
-}
-
-.hami-boot-brand-credit,
-#hami-static-boot .hami-boot-brand-credit {
-    display: none !important;
-}
-
-.hami-boot-brand-credit-kicker,
-#hami-static-boot .hami-boot-brand-credit-kicker {
-    display: none;
-}
-
-.hami-boot-brand-credit-line,
-#hami-static-boot .hami-boot-brand-credit-line {
-    display: none;
-}
-
-.hami-boot-brand-credit-role,
-#hami-static-boot .hami-boot-brand-credit-role {
-    font-size: clamp(0.72rem, 1.9vw, 0.82rem);
-    letter-spacing: 0.06em;
-    color: rgba(230, 198, 115, 0.72);
-}
-
-.hami-boot-brand-credit-name,
-#hami-static-boot .hami-boot-brand-credit-name {
-    font-family: 'Amiri', 'Traditional Arabic', 'Cairo', 'Tajawal', serif;
-    font-size: clamp(1.05rem, 3vw, 1.35rem);
-    font-weight: 700;
-    letter-spacing: 0.02em;
-    color: #f1d488;
-}
-
-.hami-boot-wordmark-title {
-    font-family: 'Amiri', 'Traditional Arabic', 'Cairo', 'Tajawal', serif;
-    font-size: clamp(3rem, 11vw, 4.25rem);
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.05;
-    color: #e6c673;
-}
-
-.hami-boot-wordmark-stage--text {
-    gap: 0.85rem;
-    width: min(88vw, 22rem);
-}
-
-/* بلا حركة دخول — أسرع إقلاع؛ الشكل من الخط والذهب فقط */
-.hami-boot-wordmark-stage--enter,
-.hami-boot-wordmark-stage--idle,
-#hami-static-boot .hami-boot-wordmark-stage--enter,
-#hami-static-boot .hami-boot-wordmark-stage--idle {
-    animation: none;
-    opacity: 1;
-    transform: none;
-    filter: none;
-}
-
-.hami-boot-wordmark-stage--exit,
-.hami-boot-cinematic--exiting .hami-boot-wordmark-stage,
-#hami-static-boot.hami-boot-cinematic--exiting .hami-boot-wordmark-stage {
-    animation: none;
-    opacity: 0;
-}
-
-.hami-boot-brand-credit-seal,
-#hami-static-boot .hami-boot-brand-credit-seal {
-    display: none;
-}
-
-.hami-boot-brand-credit-product,
-#hami-static-boot .hami-boot-brand-credit-product {
-    display: none;
-}
-
-.hami-boot-brand-credit-tagline,
-#hami-static-boot .hami-boot-brand-credit-tagline {
-    display: none;
-}
-
-.hami-boot-wordmark-ornament,
-#hami-static-boot .hami-boot-wordmark-ornament {
-    display: none;
-}
-
-.hami-boot-wordmark-ornament--top,
-#hami-static-boot .hami-boot-wordmark-ornament--top {
-    animation-delay: 0.55s;
-}
-
-.hami-boot-wordmark-ornament--bottom,
-#hami-static-boot .hami-boot-wordmark-ornament--bottom {
-    animation-delay: 0.72s;
-}
-
-.hami-boot-wordmark-shimmer,
-#hami-static-boot .hami-boot-wordmark-shimmer {
-    display: none;
-}
-
-#hami-static-boot .hami-boot-status {
-    position: fixed;
-    inset-inline: 0;
-    bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-    z-index: 60;
-    display: flex;
-    justify-content: center;
-    pointer-events: none;
-}
-
-#hami-static-boot .hami-boot-status-pill {
-    padding: 0.35rem 0.85rem;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 700;
-    color: rgba(230, 198, 115, 0.72);
-    border: 1px solid rgba(230, 198, 115, 0.18);
-    background: rgba(4, 6, 12, 0.55);
-    backdrop-filter: blur(8px);
-    animation: none;
+@keyframes hami-boot-shimmer {
+    0% {
+        background-position: 100% 0;
+    }
+    100% {
+        background-position: -100% 0;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .hami-boot-wordmark-char,
-    #hami-static-boot .hami-boot-wordmark-char {
+    .hami-boot-skeleton__header {
         animation: none;
-        opacity: 1;
-        transform: none;
-        filter: none;
-    }
-
-    .hami-boot-wordmark,
-    .hami-boot-wordmark-glow,
-    .hami-boot-cinematic--exiting {
-        animation: none !important;
-    }
-
-    .hami-boot-cinematic--exiting {
-        opacity: 0;
-        visibility: hidden;
     }
 }
 
 html.hami-boot-static-active,
 html.hami-boot-static-active body {
-    background: var(--hami-boot-canvas);
+    background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
 
 html.hami-native-shell,
@@ -371,14 +96,12 @@ html[data-hami-native='1'] {
     overscroll-behavior-x: none;
 }
 
-/* الهيدر الثابت لا يُسحب مع مطاطية الـ WebView */
 html.hami-native-shell .hami-lawyer-header,
 html[data-hami-native='1'] .hami-lawyer-header {
     transform: translateZ(0);
     backface-visibility: hidden;
 }
 
-/* إخفاء صلب خارج تبويب الرئيسية — opacity وحده يسرّب شريط الأدوات فوق الملف */
 .hami-lawyer-header[aria-hidden='true'],
 .hami-lawyer-header[data-header-visible='false'] {
     opacity: 0 !important;
@@ -391,42 +114,26 @@ html[data-hami-native='1'] body {
     min-height: 100dvh;
     overscroll-behavior-y: none;
     touch-action: manipulation;
-    background: var(--hami-boot-canvas);
+    background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
 
 html.hami-native-shell #root,
 html[data-hami-native='1'] #root {
     min-height: 100dvh;
-    background: var(--hami-boot-canvas);
-}
-
-/* إقلاع أصلي: نص خفيف على خلفية صلبة موحّدة — بلا إخفاء للهيكل */
-html[data-hami-native='1'] .hami-boot-canvas,
-html[data-hami-native='1'] #hami-static-boot::before,
-html[data-hami-native='1'] #hami-static-boot::after,
-html.hami-native-shell .hami-boot-canvas,
-html.hami-native-shell #hami-static-boot::before,
-html.hami-native-shell #hami-static-boot::after {
-    content: none !important;
-    display: none !important;
-    background: none !important;
+    background: var(--hami-board-surface-bg, var(--hami-boot-canvas));
 }
 
 html[data-hami-native='1'] .hami-boot-cinematic,
 html[data-hami-native='1'] #hami-static-boot,
 html.hami-native-shell .hami-boot-cinematic,
 html.hami-native-shell #hami-static-boot {
-    background: #0a0f1c !important;
+    background: var(--hami-board-surface-bg, var(--hami-boot-canvas, #0a0f1c)) !important;
 }
 
-html[data-hami-native='1'] .hami-boot-brand-mark-shell,
-html[data-hami-native='1'] #hami-static-boot .hami-boot-brand-mark-shell,
-html.hami-native-shell .hami-boot-brand-mark-shell {
+/* شعار الإقلاع — يُخفى بعد إزالة DOM أو أثناء البحث (لا يطفو فوق الكيبورد) */
+html[data-hami-global-search-open='1'] #hami-static-boot {
     display: none !important;
-}
-
-html[data-hami-native='1'] .hami-boot-brand-mark,
-html[data-hami-native='1'] #hami-static-boot .hami-boot-brand-mark,
-html.hami-native-shell .hami-boot-brand-mark {
-    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+    z-index: -1 !important;
 }

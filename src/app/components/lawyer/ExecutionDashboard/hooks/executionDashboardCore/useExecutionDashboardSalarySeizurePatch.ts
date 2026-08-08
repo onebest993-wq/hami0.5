@@ -1,7 +1,19 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
 import type { ExecutionFile, SeizedAsset } from '@/app/types/execution';
 import type { SalarySeizureDetailsPatch } from '@/app/components/lawyer/ExecutionDashboard/components/SalarySeizureLogDetailCard';
+import { coalesceDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 import { applySalarySeizureAssetDetailsPatch } from './executionDashboardSalarySeizurePatch';
+import { mergeSeizedAssetLists } from '@/app/components/lawyer/ExecutionDashboard/utils/executionPhoneBodyExecutionDataMerge';
+
+function readSeizedAssetsForSalaryPatch(
+    seizedAssets: SeizedAsset[],
+    executionData: ExecutionFile | null | undefined,
+): SeizedAsset[] {
+    const fromFile = Array.isArray(executionData?.seizedAssets)
+        ? (executionData.seizedAssets as SeizedAsset[])
+        : [];
+    return mergeSeizedAssetLists(fromFile, seizedAssets);
+}
 
 export type UseExecutionDashboardSalarySeizurePatchParams = {
     seizedAssets: SeizedAsset[];
@@ -24,15 +36,19 @@ export function useExecutionDashboardSalarySeizurePatch({
 }: UseExecutionDashboardSalarySeizurePatchParams) {
     const patchSalarySeizureAssetDetails = useCallback(
         (assetId: string, patch: SalarySeizureDetailsPatch) => {
+            const mergedAssets = readSeizedAssetsForSalaryPatch(seizedAssets, executionData);
             const nextAssets = applySalarySeizureAssetDetailsPatch(
-                seizedAssets,
+                mergedAssets,
                 assetId,
                 patch,
                 {
                     activeDebtorIsDeceased,
                     executionData,
-                    storageExecutionId:
-                        String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined,
+                    storageExecutionId: coalesceDecisionsStorageExecutionId({
+                        decisionsStorageExecutionId,
+                        executionId,
+                        executionData: executionData as Record<string, unknown> | null,
+                    }),
                 },
             );
             setSeizedAssets(nextAssets);

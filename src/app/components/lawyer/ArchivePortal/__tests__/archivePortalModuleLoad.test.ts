@@ -11,8 +11,13 @@ describe('archive portal module graph', () => {
         expect(card.LawsuitArchiveCard).toBeTypeOf('function');
 
         const grid = await import(
-            '@/app/components/lawyer/ArchivePortal/components/ArchivePortalFileGrid'
+            '@/app/components/lawyer/ArchivePortal/components/LawsuitArchiveFileGrid'
         );
-        expect(grid.ArchivePortalFileGrid).toBeTypeOf('function');
+        expect(grid.LawsuitArchiveFileGrid).toBeTypeOf('function');
+
+        const lawsuitEntry = await import(
+            '@/app/components/lawyer/ArchivePortal/ArchivePortalLawsuitEntry.tsx'
+        );
+        expect(lawsuitEntry.ArchivePortal).toBeTypeOf('function');
     });
 });

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     APPELLATE_CLAIM_THRESHOLD_IQD,
+    findFirstInstanceBasisStage,
     filterMethodsForAppealRoute,
+    inferRetrialTargetStageLabel,
     isAppellateAppealAllowed,
     parseClaimValueIqd,
     resolveAppealEffectiveStage,
@@ -31,10 +33,23 @@ describe('appealRouteEligibility', () => {
         expect(isAppellateAppealAllowed({ isFixedFee: true, claimValue: '5,000,000' })).toBe(false);
     });
 
-    it('blocks appellate appeal for last-instance stage label', () => {
-        expect(isAppellateAppealAllowed({ stageName: 'البداءة بدرجة أخيرة', claimValue: '2,000,000' })).toBe(
+    it('blocks appellate appeal for last-instance stage label when value is within threshold', () => {
+        expect(isAppellateAppealAllowed({ stageName: 'البداءة بدرجة أخيرة', claimValue: '500,000' })).toBe(
             false,
         );
+    });
+
+    it('allows appellate appeal for last-instance label when quantified value exceeds threshold', () => {
+        expect(isAppellateAppealAllowed({ stageName: 'بداءة بدرجة أخيرة', claimValue: '2,000,000' })).toBe(
+            true,
+        );
+    });
+
+    it('parses Arabic-Indic claim values', () => {
+        expect(parseClaimValueIqd('٢٬٥٠٠٬٠٠٠')).toBe(2_500_000);
+        expect(
+            isAppellateAppealAllowed({ stageName: 'البداءة', claimValue: '٢٬٥٠٠٬٠٠٠' }),
+        ).toBe(true);
     });
 
     it('filters out استئناف when appellate appeal is not allowed', () => {
@@ -64,9 +79,65 @@ describe('appealRouteEligibility', () => {
                 stageName: 'البداءة',
             },
         );
-        expect(ctx.claimValue).toBe('1,000,000');
-        expect(ctx.isUndeterminedValue).toBe(true);
-        expect(ctx.stageName).toBe('البداءة');
+        expect(ctx.claimValue).toBe('3,000,000');
+        expect(ctx.isUndeterminedValue).toBe(false);
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+    });
+
+    it('allows appellate appeal when file claim exceeds threshold despite stale last-instance stage', () => {
+        const ctx = resolveAppealRouteContext(
+            {
+                claimValue: '2,500,000',
+                currentStage: 'بداءة بدرجة أخيرة',
+                isUndeterminedValue: true,
+            },
+            { stageName: 'البداءة', isUndeterminedValue: true },
+        );
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+    });
+
+    it('prefers active first-instance stage over stale last-instance currentStage label', () => {
+        expect(
+            resolveAppealEffectiveStage({
+                currentStage: 'بداءة بدرجة أخيرة',
+                stageName: 'البداءة',
+            }),
+        ).toBe('البداءة');
+    });
+
+    it('resolves claim value from lawsuit file details fallback', () => {
+        const ctx = resolveAppealRouteContext(
+            {
+                details: { claimValue: '3,000,000' },
+                currentStage: 'بداءة بدرجة أخيرة',
+                isUndeterminedValue: true,
+            },
+            { stageName: 'بداءة بدرجة أخيرة', isUndeterminedValue: true },
+        );
+        expect(ctx.claimValue).toBe('3,000,000');
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+    });
+
+    it('resolves claim value from lawsuit file root and stages', () => {
+        const ctx = resolveAppealRouteContext(
+            {
+                claimValue: '3,000,000',
+                currentStage: 'البداءة',
+                stages: [{ claimValue: '500,000', stageName: 'البداءة' }],
+            },
+            { stageName: 'البداءة', claimValue: '800,000' },
+        );
+        expect(ctx.claimValue).toBe('3,000,000');
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+    });
+
+    it('allows appellate appeal when file claim exceeds threshold despite stale stage flags', () => {
+        const ctx = resolveAppealRouteContext(
+            { claimValue: '2,500,000', isUndeterminedValue: false },
+            { isUndeterminedValue: true, isFixedFee: true, stageName: 'البداءة' },
+        );
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+        expect(filterMethodsForAppealRoute(['استئناف', 'تمييز'], ctx)).toEqual(['استئناف', 'تمييز']);
     });
 
     it('returns cassation-only hint for low value claims', () => {
@@ -96,6 +167,95 @@ describe('appealRouteEligibility', () => {
                 retrialTargetStage: 'بداءة بدرجة أولى',
             }),
         ).toBe(true);
+    });
+
+    it('inferRetrialTargetStageLabel prefers locked basis stage over stale file retrialTargetStage', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'بداءة بدرجة أولى',
+                status: 'locked',
+            },
+            {
+                id: 's2',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                status: 'active',
+            },
+        ];
+        const basis = findFirstInstanceBasisStage(stages, stages[1]!);
+        expect(
+            inferRetrialTargetStageLabel('بداءة بدرجة أخيرة', basis, stages[1]!),
+        ).toBe('بداءة بدرجة أولى');
+    });
+
+    it('resolveAppealRouteContext uses activeStage for extraordinary procedure inference', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'بداءة بدرجة أولى',
+                status: 'locked',
+                claimValue: '2,500,000',
+            },
+            {
+                id: 's2',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                status: 'active',
+                claimValue: '2,500,000',
+                appealMetadata: { previousStage: 'بداءة بدرجة أولى' },
+            },
+        ];
+        const ctx = resolveAppealRouteContext(
+            {
+                currentStage: 'الاعتراض على الحكم الغيابي',
+                retrialTargetStage: 'بداءة بدرجة أخيرة',
+                isUndeterminedValue: true,
+                stages,
+                activeStage: stages[1],
+            },
+            stages[0],
+        );
+        expect(ctx.retrialTargetStage).toBe('بداءة بدرجة أولى');
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+        expect(filterMethodsForAppealRoute(['استئناف', 'تمييز'], ctx)).toEqual([
+            'استئناف',
+            'تمييز',
+        ]);
+    });
+
+    it('absent objection stage: allows appellate appeal when underlying value exceeds threshold', () => {
+        const stages = [
+            {
+                id: 's1',
+                stageName: 'بداءة بدرجة أولى',
+                status: 'locked',
+                claimValue: '2,500,000',
+            },
+            {
+                id: 's2',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                status: 'active',
+                claimValue: '2,500,000',
+                appealMetadata: { previousStage: 'بداءة بدرجة أولى' },
+            },
+        ];
+        const basis = findFirstInstanceBasisStage(stages, stages[1]!);
+        expect(String(basis?.stageName ?? basis?.name ?? '')).toBe('بداءة بدرجة أولى');
+
+        const ctx = resolveAppealRouteContext(
+            {
+                currentStage: 'الاعتراض على الحكم الغيابي',
+                retrialTargetStage: 'بداءة بدرجة أخيرة',
+                isUndeterminedValue: true,
+                stages,
+            },
+            stages[1],
+        );
+        expect(ctx.retrialTargetStage).toBe('بداءة بدرجة أولى');
+        expect(isAppellateAppealAllowed(ctx)).toBe(true);
+        expect(filterMethodsForAppealRoute(['استئناف', 'تمييز'], ctx)).toEqual([
+            'استئناف',
+            'تمييز',
+        ]);
     });
 
     it('retrial: inherits appeal rules from retrialTargetStage', () => {

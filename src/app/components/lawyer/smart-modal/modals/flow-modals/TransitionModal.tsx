@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
     Gavel,
     X,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 
 
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';

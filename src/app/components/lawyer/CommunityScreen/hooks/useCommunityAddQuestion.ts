@@ -5,12 +5,12 @@ import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { LawyerStorage } from '@/app/services/lawyer-cloud';
 import { mergeCommunityPostsById, sortCommunityPosts } from '@/app/services/cloud/lawyerCommunityCloud';
-import { ForumApiService } from '@/app/services/forumApiService';
 import {
     createInstantForumAttachmentPreview,
     persistForumAttachmentFile,
     prepareForumAttachmentForPublish,
 } from '@/app/services/forumAttachmentService';
+import { uploadEncryptedForumImage, publishForumPost } from '@/lib/forumService.js';
 import { applyAutoRedaction } from '../utils';
 import { formatRepositoryTag, resolveCommunityPostTags } from '../repositoryTagUtils';
 import {
@@ -21,6 +21,12 @@ import {
 import { prefetchCommunityAddQuestionOverlay } from '../communityOverlayPrefetch';
 import type { CommunityDualPostLists } from './useCommunityDualPostLists';
 import { withForumAsyncTimeout } from '../forumAsync';
+import { checkForumRateLimit } from '../forumRateLimit';
+import {
+    requestMicrophoneStream,
+    resolveMicrophoneAccessMessage,
+    type MicrophoneAccessErrorCode,
+} from '@/app/services/platform/requestMicrophoneStream';
 
 const FORUM_ATTACHMENT_UPLOAD_TIMEOUT_MS = 8_000;
 
@@ -196,6 +202,23 @@ export function useCommunityAddQuestion({
 
             void (async () => {
                 try {
+                    if (kind === 'image') {
+                        const encryptedAttachment = await withForumAsyncTimeout(
+                            uploadEncryptedForumImage(userId, file),
+                            FORUM_ATTACHMENT_UPLOAD_TIMEOUT_MS,
+                            null,
+                        );
+                        if (encryptedAttachment) {
+                            setNewAttachment((prev) => {
+                                if (!prev || prev.name !== file.name) return prev;
+                                return {
+                                    ...encryptedAttachment,
+                                    url: prev.url,
+                                };
+                            });
+                            return;
+                        }
+                    }
                     const storageCategory = kind === 'audio' ? 'audio' : 'drafts';
                     const uploaded = await withForumAsyncTimeout(
                         LawyerStorage.uploadSmartFile(userId, file, storageCategory),
@@ -251,7 +274,7 @@ export function useCommunityAddQuestion({
         }
 
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const stream = await requestMicrophoneStream();
             voiceStreamRef.current = stream;
             voiceChunksRef.current = [];
 
@@ -313,8 +336,9 @@ export function useCommunityAddQuestion({
                     return next;
                 });
             }, 1000);
-        } catch {
-            SmartToast.warning('لم نتمكن من الوصول إلى المايكروفون. تأكد من الإذن.');
+        } catch (err) {
+            const code = (err as { hamiCode?: MicrophoneAccessErrorCode }).hamiCode;
+            SmartToast.warning(resolveMicrophoneAccessMessage(err, code));
         }
     }, [handleUploadAttachment, isRecordingVoice, stopVoiceRecording]);
 
@@ -341,6 +365,12 @@ export function useCommunityAddQuestion({
             return;
         }
         submitInFlightRef.current = true;
+        const postRate = checkForumRateLimit('post', currentUserId);
+        if (!postRate.allowed) {
+            submitInFlightRef.current = false;
+            SmartToast.warning(`انتظر ${postRate.retryAfterSec} ثانية قبل نشر منشور آخر`);
+            return;
+        }
         setSubmittingPost(true);
         let finalContent = contentForPublish;
         const redaction = applyAutoRedaction(contentForPublish);
@@ -361,11 +391,26 @@ export function useCommunityAddQuestion({
         let attachmentForPublish = newAttachment;
         if (attachmentForPublish && currentUserId) {
             try {
-                attachmentForPublish = await prepareForumAttachmentForPublish(
-                    attachmentForPublish,
-                    currentUserId,
-                    pendingAttachmentFileRef.current,
-                );
+                if (
+                    attachmentForPublish.type === 'image' &&
+                    !attachmentForPublish.encrypted &&
+                    attachmentForPublish.bucket !== 'forum-media'
+                ) {
+                    attachmentForPublish = await prepareForumAttachmentForPublish(
+                        attachmentForPublish,
+                        currentUserId,
+                        pendingAttachmentFileRef.current,
+                    );
+                } else if (
+                    attachmentForPublish.type === 'image' &&
+                    pendingAttachmentFileRef.current &&
+                    !attachmentForPublish.storagePath?.includes('/images/')
+                ) {
+                    attachmentForPublish = await uploadEncryptedForumImage(
+                        currentUserId,
+                        pendingAttachmentFileRef.current,
+                    );
+                }
             } catch {
                 SmartToast.error('تعذّر رفع المرفق — تحقق من الاتصال وحاول مرة أخرى');
                 setSubmittingPost(false);
@@ -426,7 +471,7 @@ export function useCommunityAddQuestion({
         SmartToast.success(activeGroupId ? 'تم نشر المنشور في المجموعة' : 'تم نشر الاستشارة');
 
         try {
-            const saved = await ForumApiService.createPost(post);
+            const saved = await publishForumPost(post);
             if (post.attachment && !saved.attachment) {
                 SmartToast.warning('نُشر المنشور لكن المرفق لم يُحفظ — أعد الإرفاق عند الحاجة');
             }
@@ -438,9 +483,13 @@ export function useCommunityAddQuestion({
             if (saved.groupId ?? activeGroupId) {
                 appendPublishedGroupPost(normalized);
             } else {
-                setPosts((prev) =>
-                    sortCommunityPosts(mergeCommunityPostsById(prev, [normalized])),
-                );
+                setPosts((prev) => {
+                    const withoutStaleOptimistic =
+                        saved.id !== post.id ? prev.filter((p) => p.id !== post.id) : prev;
+                    return sortCommunityPosts(
+                        mergeCommunityPostsById(withoutStaleOptimistic, [normalized]),
+                    );
+                });
             }
         } catch (err) {
             lists.removePostFromList(post.id);

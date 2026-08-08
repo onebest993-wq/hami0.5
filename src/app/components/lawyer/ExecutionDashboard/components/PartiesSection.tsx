@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useState, startTransition } from 'react';
-import { MapPin, Users } from 'lucide-react';
+import { MapPin, Users } from '@/app/components/ui/lucideIcons';
 import { ExecutionPartySpecialActionsMenu } from '@/app/components/lawyer/execution/ExecutionPartySpecialActionsMenu';
 import { ExecutionPartyInteractiveBadges } from '@/app/components/lawyer/execution/ExecutionPartyInteractiveBadges';
 import { PartyOverflowToggle } from '../executionDashboardLazyShell';

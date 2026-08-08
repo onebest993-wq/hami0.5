@@ -38,6 +38,7 @@ export function pickHandlerClusterKeys(
 ): Record<string, unknown> {
     const out: Record<string, unknown> = {};
     for (const bag of bags) {
+        if (!bag || typeof bag !== 'object') continue;
         for (const key of keys) {
             if (key in bag) out[key] = bag[key];
         }

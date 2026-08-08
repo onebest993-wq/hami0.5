@@ -11,6 +11,10 @@ import {
     inferExecutorApprovalDecisionType,
 } from '@/app/utils/executorApprovalWorkflow';
 import { evictionInclusiveCalendarDays, evictionLocalYmdToday } from '@/app/components/lawyer/ExecutionDashboard/helpers';
+import {
+    openFollowupCoerciveModal,
+    type OpenFollowupModalPersistedFn,
+} from '../../utils/followupModalOpen';
 
 export type UseExecutionDashboardEvictionResidentialGraceHandlersParams = {
     graceModalAllowResave: boolean;
@@ -65,6 +69,7 @@ export type UseExecutionDashboardEvictionResidentialGraceHandlersParams = {
     setPoliceAssistanceRequestTitle: Dispatch<SetStateAction<string>>;
     setPoliceAssistanceAgencyDraft: Dispatch<SetStateAction<string>>;
     setPoliceAssistanceModalOpen: (open: boolean) => void;
+    openFollowupModalPersisted?: OpenFollowupModalPersistedFn;
     setShowUnifiedExecutionModal: (show: boolean) => void;
     setUnifiedModalTab: Dispatch<SetStateAction<string>>;
 };
@@ -114,6 +119,7 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
     setPoliceAssistanceRequestTitle,
     setPoliceAssistanceAgencyDraft,
     setPoliceAssistanceModalOpen,
+    openFollowupModalPersisted,
     setShowUnifiedExecutionModal,
     setUnifiedModalTab,
 }: UseExecutionDashboardEvictionResidentialGraceHandlersParams) {
@@ -243,8 +249,10 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
             }
 
             if (branch === 'Residential Grace Early End') {
-                setShowUnifiedExecutionModal(true);
-                setUnifiedModalTab('coercive');
+                openFollowupCoerciveModal(openFollowupModalPersisted, {
+                    setShowUnifiedExecutionModal,
+                    setUnifiedModalTab,
+                });
                 showToast('تمت موافقة المنفذ — أكمل من بطاقة الطلب في «محضر المتابعة».', 'info', {
                     decisionsLink: true,
                     decisionId: did,
@@ -270,6 +278,7 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
             setPoliceAssistanceModalOpen,
             setPoliceAssistanceRequestTitle,
             setShowDecisionsModal,
+            openFollowupModalPersisted,
             setShowUnifiedExecutionModal,
             setUnifiedModalTab,
             showToast,
@@ -440,7 +449,10 @@ export function useExecutionDashboardEvictionResidentialGraceHandlers({
             description: 'تم إنهاء المهلة وإغلاق شارتها من البطاقة.',
             source: 'الإجراءات الجبرية — تخلية',
         };
-        const nextTimeline = [ev, ...timelineEventsRef.current];
+        const nextTimeline = [
+            ev,
+            ...stripResidentialGraceTimelineEvents(timelineEventsRef.current),
+        ];
         setEvictionResidentialGraceManuallyEndedAt(now);
         setCaseTasksPending(nextTasks);
         setTimelineEvents(nextTimeline);

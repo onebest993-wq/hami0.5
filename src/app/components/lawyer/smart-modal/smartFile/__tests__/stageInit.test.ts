@@ -7,6 +7,7 @@ import {
     isViewingArchivedStage,
     resolveInitialStageIndex,
     shouldShowFirstInstancePleadingLockUi,
+    shouldShowExtraordinaryPleadingPostJudgmentUi,
 } from '../stageInit';
 
 describe('buildInitialStagesFromFile', () => {
@@ -124,5 +125,29 @@ describe('pleading lock UI helpers', () => {
                 awaitingOpponentAppeal: true,
             }),
         ).toBe(true);
+    });
+
+    it('shows post-judgment appeal chrome on third-party objection after pleadings close', () => {
+        expect(
+            shouldShowExtraordinaryPleadingPostJudgmentUi({
+                status: 'active',
+                isPleadingsClosed: true,
+                stageName: 'اعتراض الغير',
+            }),
+        ).toBe(true);
+        expect(
+            shouldShowExtraordinaryPleadingPostJudgmentUi({
+                status: 'active',
+                isPleadingsClosed: true,
+                name: 'إعادة المحاكمة',
+            }),
+        ).toBe(true);
+        expect(
+            shouldShowExtraordinaryPleadingPostJudgmentUi({
+                status: 'active',
+                isPleadingsClosed: true,
+                stageName: 'البداءة',
+            }),
+        ).toBe(false);
     });
 });

@@ -6,7 +6,7 @@ import type {
     SeizedProperty,
     TimelineEvent,
 } from '@/app/types/execution';
-import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
+import { patchExecutorDecisionRow, dispatchDecisionsReload } from '@/app/utils/executorSeizureDecisionQueue';
 
 export type SaveSeizedPropertyInitInput = {
     decisionId: string;
@@ -28,7 +28,7 @@ export type FollowupSeizureInitDeps = {
     exId: string;
     executionDataRef: MutableRefObject<ExecutionFile | null | undefined>;
     nextTimelineId: () => string;
-    persistExecutionMerge: (patch: Record<string, unknown>) => void;
+    persistExecutionMerge: (patch: Record<string, unknown>) => boolean;
     pushTimelineEvent: (ev: TimelineEvent) => void;
     showToast: (message: string, type?: string) => void;
 };
@@ -40,7 +40,10 @@ export function runSaveSeizedPropertyInitForDecision(
     const { exId, executionDataRef, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast } =
         deps;
     const decisionId = String(input.decisionId || '').trim();
-    if (!exId || exId === 'undefined' || !decisionId) return;
+    if (!exId || exId === 'undefined' || !decisionId) {
+        showToast('تعذّر الحفظ — معرّف الإضبارة غير جاهز', 'error');
+        return;
+    }
     const propertyNumber = String(input.propertyNumber || '').trim();
     if (!propertyNumber) {
         showToast('أدخل رقم العقار.', 'warning');
@@ -89,25 +92,28 @@ export function runSaveSeizedPropertyInitForDecision(
 export function runSaveSeizedMovableInitForDecision(
     input: SaveSeizedMovableInitInput,
     deps: FollowupSeizureInitDeps,
-): void {
+): SeizedMovable | null {
     const { exId, executionDataRef, nextTimelineId, persistExecutionMerge, pushTimelineEvent, showToast } =
         deps;
     const decisionId = String(input.decisionId || '').trim();
-    if (!exId || exId === 'undefined' || !decisionId) return;
+    if (!exId || exId === 'undefined' || !decisionId) {
+        showToast('تعذّر الحفظ — معرّف الإضبارة غير جاهز', 'error');
+        return null;
+    }
     const desc = String(input.movableDescription || '').trim();
     if (!desc) {
         showToast('أدخل وصف المال المنقول.', 'warning');
-        return;
+        return null;
     }
     const loc = String(input.movableLocation || '').trim();
     if (!loc) {
         showToast('أدخل مكان تواجد المال المنقول.', 'warning');
-        return;
+        return null;
     }
     const cust = String(input.judicialCustodianName || '').trim();
     if (!cust) {
         showToast('أدخل اسم الحارس القضائي.', 'warning');
-        return;
+        return null;
     }
     const nowIso = new Date().toISOString();
     const prev = (executionDataRef.current?.seizedMovables || []) as SeizedMovable[];
@@ -125,11 +131,19 @@ export function runSaveSeizedMovableInitForDecision(
     };
     if (existingIdx >= 0) next[existingIdx] = nextRow;
     else next.unshift(nextRow);
-    persistExecutionMerge({ seizedMovables: next });
+    const persisted = persistExecutionMerge({ seizedMovables: next });
+    if (!persisted) {
+        showToast('تعذّر حفظ بيانات المال المنقول — أعد المحاولة', 'error');
+        return null;
+    }
+    if (executionDataRef.current) {
+        executionDataRef.current = { ...executionDataRef.current, seizedMovables: next };
+    }
     patchExecutorDecisionRow(exId, decisionId, {
         seizureRequestSavedAt: nowIso,
         seizureRequestDetails: `وصف المال المنقول: ${desc}\nالمكان: ${loc}\nالحارس القضائي: ${cust}`,
     });
+    dispatchDecisionsReload();
     pushTimelineEvent({
         id: nextTimelineId(),
         date: nowIso.slice(0, 10),
@@ -141,4 +155,14 @@ export function runSaveSeizedMovableInitForDecision(
         metadata: { seizedMovableId: nextRow.id, decisionRowId: decisionId },
     });
     showToast('تم حفظ بيانات المال المنقول وإنشاء البطاقة داخل الأموال المحجوزة.', 'success');
+    try {
+        window.dispatchEvent(
+            new CustomEvent('hami-seized-movable-init-saved', {
+                detail: { decisionId, movable: nextRow },
+            }),
+        );
+    } catch {
+        /* ignore */
+    }
+    return nextRow;
 }

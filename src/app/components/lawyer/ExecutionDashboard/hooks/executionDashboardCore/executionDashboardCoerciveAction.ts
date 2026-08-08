@@ -11,13 +11,23 @@ import {
 import { isSalarySeizureLaneOccupied } from '@/app/components/lawyer/ExecutionDashboard/utils/salarySeizureTabUtils';
 import {
     appendPendingExecutorSeizureDecision,
+    getExecutorDecisionRowById,
     patchExecutorDecisionRow,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import {
     upsertSeizedMovableFromDetails,
     upsertSeizedPropertyFromDetails,
 } from '../../helpers';
+import { coalesceDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 import { buildInitialExecutorSeizureDetails } from '../../helpers/buildInitialExecutorSeizureDetails';
+import {
+    buildPendingSeizureDraftAsset,
+    dispatchMovableSeizureInlineFocus,
+    dispatchOpenSeizureCompletion,
+    dispatchPropertySeizureInlineFocus,
+    mergeSeizureDecisionPayloadJson,
+    mergeSeizureDraftPatch,
+} from '@/app/components/lawyer/ExecutionDashboard/utils/seizureSalaryRequestFlow';
 import type {
     ExecutionFile,
     SeizedAsset,
@@ -29,7 +39,7 @@ import type {
 export type CoerciveSubjectRef = MutableRefObject<{ id?: string; name?: string }>;
 
 export type SaveCoerciveActionDeps = {
-    setShowCoerciveActionForm: (v: null) => void;
+    setShowCoerciveActionForm: (v: string | null) => void;
     settlementGuarantorGate: { pendingSettlement?: boolean };
     clearSettlementFromLedger: () => void;
     seizureDetailCompletion: {
@@ -94,13 +104,66 @@ export function createSaveCoerciveAction(deps: SaveCoerciveActionDeps) {
             setLastActionDate,
         } = deps;
 
-        setShowCoerciveActionForm(null);
-
         const directDecisionRowId =
             (actionType === 'salary' || actionType === 'property' || actionType === 'vehicle') &&
             /\S/.test(String((details as any).decisionRowId || '').trim())
                 ? String((details as any).decisionRowId || '').trim()
                 : '';
+
+        if (
+            actionType === 'salary' &&
+            directDecisionRowId &&
+            !seizureDetailCompletion &&
+            !/\S/.test(String(details.employerName || '').trim()) &&
+            !/\S/.test(String(details.salaryAmount || '').trim()) &&
+            !/\S/.test(String((details as any).monthlyDeductionIqd || '').trim())
+        ) {
+            showToast('أكمل بيانات الحجز في النموذج قبل التسجيل.', 'warning');
+            const dispatchId = coalesceDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionData: executionData as Record<string, unknown> | null,
+            });
+            if (dispatchId) dispatchOpenSeizureCompletion(dispatchId, directDecisionRowId);
+            return;
+        }
+
+        if (
+            actionType === 'property' &&
+            directDecisionRowId &&
+            !seizureDetailCompletion &&
+            !/\S/.test(String(details.propertyNumber || '').trim()) &&
+            !/\S/.test(String(details.propertyDistrict || '').trim()) &&
+            !/\S/.test(String(details.propertyType || '').trim())
+        ) {
+            showToast('أكمل بيانات حجز العقار في النموذج قبل التسجيل.', 'warning');
+            const dispatchId = coalesceDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionData: executionData as Record<string, unknown> | null,
+            });
+            if (dispatchId) dispatchPropertySeizureInlineFocus(dispatchId, directDecisionRowId);
+            return;
+        }
+
+        if (
+            actionType === 'vehicle' &&
+            directDecisionRowId &&
+            !seizureDetailCompletion &&
+            !/\S/.test(String(details.movableDescription || '').trim()) &&
+            !/\S/.test(String(details.movableLocation || '').trim())
+        ) {
+            showToast('أكمل بيانات حجز المال المنقول في النموذج قبل التسجيل.', 'warning');
+            const dispatchId = coalesceDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionData: executionData as Record<string, unknown> | null,
+            });
+            if (dispatchId) dispatchMovableSeizureInlineFocus(dispatchId, directDecisionRowId);
+            return;
+        }
+
+        setShowCoerciveActionForm(null);
 
         if (
             actionType === 'salary' &&
@@ -158,7 +221,11 @@ export function createSaveCoerciveAction(deps: SaveCoerciveActionDeps) {
                             },
                         },
                         executionData ?? null,
-                        String(decisionsStorageExecutionId ?? executionId ?? '').trim() || undefined,
+                        coalesceDecisionsStorageExecutionId({
+                            decisionsStorageExecutionId,
+                            executionId,
+                            executionData: executionData as Record<string, unknown> | null,
+                        }),
                     ),
                 });
             } else if (!mergedDesc && actionType === 'property') {
@@ -316,9 +383,47 @@ export function createSaveCoerciveAction(deps: SaveCoerciveActionDeps) {
                 setSeizureDraftsByDecisionId(nextDraftsAfterSave);
                 persistExecutionMerge({ seizureDraftsByDecisionId: nextDraftsAfterSave });
             }
+            const existingDecisionRow = getExecutorDecisionRowById(
+                decisionsStorageExecutionId,
+                decisionRowId,
+            ) as Record<string, unknown> | null;
+            const existingPayloadJson = String(existingDecisionRow?.seizurePayloadJson || '').trim();
+            let seizurePayloadJson: string | undefined;
+            if (actionType === 'property') {
+                const rows = (persistPatch.seizedProperties || []) as SeizedProperty[];
+                const hit = rows.find((x) => String(x.decisionRowId || '') === String(decisionRowId));
+                const propertyId = String(hit?.id || '').trim();
+                if (propertyId) {
+                    seizurePayloadJson = mergeSeizureDecisionPayloadJson(existingPayloadJson, {
+                        seizedPropertyId: propertyId,
+                        propertyNumber: String(details.propertyNumber || '').trim(),
+                        propertyDistrict: String(details.propertyDistrict || '').trim(),
+                        propertyType: String(details.propertyType || '').trim(),
+                    });
+                }
+            }
+            if (actionType === 'vehicle') {
+                const rows = (persistPatch.seizedMovables || []) as SeizedMovable[];
+                const hit = rows.find((x) => String(x.decisionRowId || '') === String(decisionRowId));
+                const movableId = String(hit?.id || '').trim();
+                if (movableId) {
+                    seizurePayloadJson = mergeSeizureDecisionPayloadJson(existingPayloadJson, {
+                        seizedMovableId: movableId,
+                        movableDescription: String(
+                            details.movableDescription ||
+                                details.movableAssetType ||
+                                details.vehicleDescription ||
+                                '',
+                        ).trim(),
+                        movableLocation: String(details.movableLocation || '').trim(),
+                        judicialCustodianName: String(details.judicialCustodianName || '').trim(),
+                    });
+                }
+            }
             patchExecutorDecisionRow(decisionsStorageExecutionId, decisionRowId, {
                 seizureRequestSavedAt: now,
                 seizureRequestDetails: descLines || mergedDesc || undefined,
+                ...(seizurePayloadJson ? { seizurePayloadJson } : {}),
             });
             showToast('تم حفظ تفاصيل الحجز بعد موافقة المنفذ.', 'success');
             setLastActionDate(getLocalTodayYmd());
@@ -407,27 +512,15 @@ export function createSaveCoerciveAction(deps: SaveCoerciveActionDeps) {
         };
         let nextDrafts = seizureDraftsByDecisionId;
         if (isSeizureRequest && seizureDecisionId) {
-            const dayYmd = now.slice(0, 10);
-            const detailsWithDecision: Record<string, string> = {
-                ...details,
-                decisionRowId: seizureDecisionId,
-            };
-            const newAsset: SeizedAsset = {
-                id: `draft_${seizureDecisionId}`,
-                type:
-                    actionType === 'salary'
-                        ? 'طلب حجز راتب (قيد البت)'
-                        : actionType === 'vehicle'
-                          ? 'طلب حجز مال منقول (قيد البت)'
-                          : 'طلب حجز عقار (قيد البت)',
-                details: detailsWithDecision,
-                status: 'pending',
-                seizureDate: dayYmd,
-            };
-            if (details.description?.trim()) {
-                newAsset.description = details.description.trim();
-            }
-            nextDrafts = { ...seizureDraftsByDecisionId, [seizureDecisionId]: newAsset };
+            const uiActionType =
+                actionType === 'salary' ? 'salary' : actionType === 'vehicle' ? 'vehicle' : 'property';
+            const newAsset = buildPendingSeizureDraftAsset({
+                decisionId: seizureDecisionId,
+                actionType: uiActionType,
+                activeDebtorIsDeceased,
+                details,
+            });
+            nextDrafts = mergeSeizureDraftPatch(seizureDraftsByDecisionId, seizureDecisionId, newAsset);
             setSeizureDraftsByDecisionId(nextDrafts);
         }
         const nextTimeline = [newEvent, ...timelineEvents];

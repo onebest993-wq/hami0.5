@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X } from '@/app/components/ui/lucideIcons';
 import { createPortal } from 'react-dom';
 import { personalPearlModalTheme } from './personalStatusPearlTheme';
 

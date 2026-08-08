@@ -12,14 +12,6 @@ const portalPath = path.join(
 );
 
 describe('ExecutionFollowupModal composition', () => {
-    it('View composes Shell + TabPanels only', () => {
-        const view = fs.readFileSync(path.join(componentsDir, 'ExecutionFollowupModalView.tsx'), 'utf8');
-        expect(view).toContain('ExecutionFollowupModalShell');
-        expect(view).toContain('ExecutionFollowupModalTabPanels');
-        expect(view).not.toContain('FollowupTabKeepAlivePanel');
-        expect(view.split('\n').length).toBeLessThan(40);
-    });
-
     it('TabPanels orchestrates personal/mid/late groups', () => {
         const panels = fs.readFileSync(
             path.join(componentsDir, 'ExecutionFollowupModalTabPanels.tsx'),
@@ -49,10 +41,15 @@ describe('ExecutionFollowupModal composition', () => {
         );
         expect(lazy).toContain("import('./ExecutionFollowupModalPortal')");
         expect(portal).toContain('createPortal');
-        expect(portal).toContain('ExecutionFollowupModalShell');
-        expect(portal).toContain('ExecutionFollowupModalTabPanels');
+        expect(portal).toContain('ExecutionFollowupModalView');
         expect(portal).toContain('useExecutionFollowupModalPortalController');
-        expect(portal.split('\n').length).toBeLessThan(40);
+        expect(portal.split('\n').length).toBeLessThan(25);
+        const view = fs.readFileSync(
+            path.join(componentsDir, 'ExecutionFollowupModalView.tsx'),
+            'utf8',
+        );
+        expect(view).toContain('ExecutionFollowupModalShell');
+        expect(view).toContain('ExecutionFollowupModalTabPanels');
         const shell = fs.readFileSync(
             path.join(componentsDir, 'ExecutionFollowupModalShell.tsx'),
             'utf8',

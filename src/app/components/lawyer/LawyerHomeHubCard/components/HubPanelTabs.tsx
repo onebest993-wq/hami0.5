@@ -1,6 +1,5 @@
-import React, { memo } from 'react';
+import React, { memo, useLayoutEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Bell, Pin } from 'lucide-react';
 import {
     formatHomeHubTabBadgeCount,
     shouldShowHomeHubTabBadge,
@@ -8,14 +7,24 @@ import {
     resolveNextHomeHubPanel,
     type HomeHubPanel,
 } from '@/app/services/alerts/homeHubCardLogic';
+import '../homeHubCardFx.css';
 
 const HUB_TAB_BUTTON_A11Y =
     'outline-none focus-visible:ring-2 focus-visible:ring-[#E6C673]/45 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0F1C]';
+
+const HUB_PANELS: HomeHubPanel[] = ['alerts', 'secretary', 'pins'];
+
+const HUB_PANEL_META: Record<HomeHubPanel, { label: string }> = {
+    alerts: { label: 'التنبيهات' },
+    secretary: { label: 'السكرتير' },
+    pins: { label: 'التثبيت' },
+};
 
 export type HubPanelTabsProps = {
     hubPanel: HomeHubPanel;
     onChange: (panel: HomeHubPanel) => void;
     alertsCount: number;
+    secretaryCount: number;
     pinsCount: number;
     reduceMotion: boolean;
     layoutEditMode?: boolean;
@@ -25,10 +34,22 @@ export const HubPanelTabs = memo(function HubPanelTabs({
     hubPanel,
     onChange,
     alertsCount,
+    secretaryCount,
     pinsCount,
     reduceMotion,
     layoutEditMode = false,
 }: HubPanelTabsProps) {
+    const [tabPillMotionReady, setTabPillMotionReady] = useState(reduceMotion);
+    useLayoutEffect(() => {
+        if (!reduceMotion) setTabPillMotionReady(true);
+    }, [reduceMotion]);
+
+    const counts: Record<HomeHubPanel, number> = {
+        alerts: alertsCount,
+        secretary: secretaryCount,
+        pins: pinsCount,
+    };
+
     const handleTabKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, panel: HomeHubPanel) => {
         if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
             e.preventDefault();
@@ -47,14 +68,11 @@ export const HubPanelTabs = memo(function HubPanelTabs({
     };
 
     return (
-        <div
-            className="relative z-[2] flex rounded-full border border-white/[0.08] bg-white/[0.04] p-0.5 mb-2"
-            role="tablist"
-            aria-label="التنبيهات والتثبيت"
-        >
-            {(['alerts', 'pins'] as const).map((panel) => {
+        <div className="hami-hub-tabs" role="tablist" aria-label="التنبيهات والسكرتير والتثبيت">
+            {HUB_PANELS.map((panel) => {
                 const active = hubPanel === panel;
-                const count = panel === 'alerts' ? alertsCount : pinsCount;
+                const count = counts[panel];
+                const meta = HUB_PANEL_META[panel];
                 return (
                     <button
                         key={panel}
@@ -66,37 +84,30 @@ export const HubPanelTabs = memo(function HubPanelTabs({
                         aria-label={resolveHomeHubTabAriaLabel(panel, count)}
                         tabIndex={active ? 0 : -1}
                         data-testid={`home-hub-tab-${panel}`}
+                        data-active={active ? 'true' : 'false'}
                         onClick={() => onChange(panel)}
                         onKeyDown={(e) => handleTabKeyDown(e, panel)}
-                        className={`relative flex-1 flex items-center justify-center gap-1.5 min-h-[44px] py-1.5 rounded-full text-[10px] font-bold transition-colors touch-manipulation ${HUB_TAB_BUTTON_A11Y} ${
-                            active ? 'text-[#F5F0E6]' : 'text-white/45'
-                        }`}
+                        className={`hami-hub-tab touch-manipulation ${HUB_TAB_BUTTON_A11Y}`}
                     >
-                        {active && !reduceMotion ? (
+                        {active && tabPillMotionReady && !reduceMotion ? (
                             <motion.span
                                 layoutId="hub-panel-pill"
-                                className="absolute inset-0 rounded-full border border-[#E6C673]/25 bg-[#E6C673]/12"
+                                className="hami-hub-tab__pill"
                                 transition={{ type: 'tween', duration: 0.12, ease: [0.22, 1, 0.36, 1] }}
+                                aria-hidden
                             />
                         ) : active ? (
-                            <span
-                                className="absolute inset-0 rounded-full border border-[#E6C673]/25 bg-[#E6C673]/12"
-                                aria-hidden
-                            />
+                            <span className="hami-hub-tab__pill" aria-hidden />
                         ) : null}
-                        {panel === 'alerts' ? (
-                            <Bell size={12} className="relative z-[1]" aria-hidden />
-                        ) : (
-                            <Pin size={12} className="relative z-[1]" aria-hidden />
-                        )}
-                        <span className="relative z-[1]" aria-hidden data-hami-edit-hide-in-layout={layoutEditMode || undefined}>
-                            {panel === 'alerts' ? 'التنبيهات' : 'التثبيت'}
+                        <span
+                            className="hami-hub-tab__label"
+                            aria-hidden
+                            data-hami-edit-hide-in-layout={layoutEditMode || undefined}
+                        >
+                            {meta.label}
                         </span>
                         {shouldShowHomeHubTabBadge(count) ? (
-                            <span
-                                className="relative z-[1] min-w-[1rem] h-4 px-1 rounded-full bg-black/25 text-[9px] font-bold tabular-nums"
-                                aria-hidden
-                            >
+                            <span className="hami-hub-tab__badge" aria-hidden>
                                 {formatHomeHubTabBadgeCount(count)}
                             </span>
                         ) : null}

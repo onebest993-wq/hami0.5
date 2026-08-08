@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check } from 'lucide-react';
+import { X, Check } from '@/app/components/ui/lucideIcons';
 import { DatePickerField } from '../components/DatePickerField';
 import { getDynamicPartyLabels, ordinalOf } from '../utils/partyLabels';
 import type { MetaEditForm } from './MetaEditModal';

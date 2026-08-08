@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 import {
     ArrowLeftRight,
     ArrowDownAZ,
@@ -18,7 +18,7 @@ import {
     Shield,
     Sparkles,
     Users,
-} from 'lucide-react';
+} from '@/app/components/ui/lucideIcons';
 import { FORUM_TOPIC_FILTERS } from './forumFilters';
 
 export const REPOSITORY_DOCUMENT_TYPES = ['الكل', 'عقد', 'قرار حكم', 'عريضة', 'بحث قانوني', 'أخرى'] as const;

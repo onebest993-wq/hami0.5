@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { lazy, type ComponentType, type LazyExoticComponent } from 'react';
 import { resetLawyerDashboardModuleCache } from '@/app/runtime/lawyerDashboardLoader';
 

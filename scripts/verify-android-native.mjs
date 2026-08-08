@@ -32,6 +32,8 @@ const capGradle = read('android/app/capacitor.build.gradle') ?? '';
 const requiredPlugins = [
     'aparajita-capacitor-biometric-auth',
     'capacitor-community-privacy-screen',
+    'capacitor-filesystem',
+    'capacitor-geolocation',
     'capacitor-keyboard',
     'capacitor-status-bar',
 ];
@@ -50,12 +52,22 @@ if (fs.existsSync(path.join(root, manifestPath))) {
     if (!manifest.includes('android.permission.CAMERA')) {
         errors.push('AndroidManifest missing CAMERA permission (required for vault camera capture)');
     }
+    if (!manifest.includes('android.permission.RECORD_AUDIO')) {
+        errors.push(
+            'AndroidManifest missing RECORD_AUDIO permission (required for voice recording)',
+        );
+    }
     if (
         !manifest.includes('android.permission.USE_BIOMETRIC') &&
         !manifest.includes('android.permission.USE_FINGERPRINT')
     ) {
         errors.push(
             'AndroidManifest missing USE_BIOMETRIC (or USE_FINGERPRINT) — required for biometric lock',
+        );
+    }
+    if (!manifest.includes('android.permission.ACCESS_FINE_LOCATION')) {
+        errors.push(
+            'AndroidManifest missing ACCESS_FINE_LOCATION — required for profile office location',
         );
     }
 } else {
@@ -69,6 +81,9 @@ if (fs.existsSync(path.join(root, iosPlistPath))) {
     const plist = read(iosPlistPath) ?? '';
     if (!plist.includes('NSFaceIDUsageDescription')) {
         errors.push('Info.plist missing NSFaceIDUsageDescription — iOS Face ID blocked');
+    }
+    if (!plist.includes('NSLocationWhenInUseUsageDescription')) {
+        errors.push('Info.plist missing NSLocationWhenInUseUsageDescription — profile geolocation blocked');
     }
 } else {
     warnings.push(
@@ -94,7 +109,9 @@ if (!colorsXml.includes('splash_background') || !colorsXml.includes('#0A0F1C')) 
 }
 if (
     !stylesXml.includes('windowSplashScreenBackground') ||
-    (!stylesXml.includes('splash_icon_blank') && !stylesXml.includes('splash_text_brand'))
+    (!stylesXml.includes('splash_icon_blank') &&
+        !stylesXml.includes('splash_text_brand') &&
+        !stylesXml.includes('hami_splash_brand'))
 ) {
     errors.push('styles.xml missing dark SplashScreen API config (double-splash guard)');
 }
@@ -106,9 +123,17 @@ if (!mainActivity.includes('SplashScreen.installSplashScreen')) {
 }
 if (
     !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable/splash_icon_blank.xml')) &&
-    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/splash_text_brand.png'))
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/splash_text_brand.png')) &&
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/hami_splash_brand.png')) &&
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/hami_splash_screen.jpg'))
 ) {
-    errors.push('missing splash_icon_blank.xml or drawable-nodpi/splash_text_brand.png');
+    errors.push('missing splash assets in drawable-nodpi (hami_splash_brand.png or hami_splash_screen.jpg)');
+}
+if (
+    stylesXml.includes('hami_splash_brand') &&
+    !fs.existsSync(path.join(root, 'android/app/src/main/res/drawable-nodpi/hami_splash_brand.png'))
+) {
+    errors.push('styles.xml references hami_splash_brand but PNG is missing');
 }
 if (
     stylesXml.includes('splash_text_brand') &&
@@ -120,6 +145,22 @@ if (
 const indexHtml = read('dist/index.html') ?? '';
 if (!indexHtml.includes('viewport-fit=cover')) {
     errors.push('dist/index.html missing viewport-fit=cover');
+}
+
+const assetsDir = path.join(root, 'dist', 'assets');
+if (fs.existsSync(assetsDir)) {
+    const bundle = fs
+        .readdirSync(assetsDir)
+        .filter((name) => name.endsWith('.js'))
+        .map((name) => fs.readFileSync(path.join(assetsDir, name), 'utf8'))
+        .join('\n');
+    if (bundle.includes('capacitorWebShims/biometricStub')) {
+        errors.push('dist bundles biometric web stub — rebuild with: npm run cap:sync:android');
+    } else if (!bundle.includes('BiometricAuthNative')) {
+        errors.push('dist missing BiometricAuthNative — run native sync build (VITE_BUILD_NATIVE=true)');
+    }
+} else {
+    warnings.push('dist/assets missing — run npm run cap:sync:android before device install');
 }
 
 const apkPath = 'android/app/build/outputs/apk/debug/app-debug.apk';

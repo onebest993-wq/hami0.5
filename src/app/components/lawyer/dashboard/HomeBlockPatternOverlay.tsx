@@ -1,49 +1,182 @@
 import React from 'react';
+
 import { useLawyerSettings } from '@/app/context/LawyerSettingsContext';
-import type { HomeBlockStyleOverride } from '@/app/services/settings/homeLayout';
+
+import type { HomeBlockStyleOverride, HomeCustomizableId } from '@/app/services/settings/homeLayout';
+
 import { normalizeBackgroundPreset } from '@/app/services/settings/backgroundPresets';
+import { resolveGlassPatternScale } from '@/app/services/settings/glassSurfacePaint';
+
 import {
+
+    BACKGROUND_PATTERN_OPACITY_MAX,
+
     normalizeBackgroundPatternOpacity,
-    resolveLawyerSurfaceBaseColor,
-    resolvePatternPreviewStyle,
+
+    resolveHomeBlockPatternStyle,
+
 } from '@/app/services/settings/surfaceAppearance';
-import { resolveHomeBlockAccent } from '@/app/services/settings/resolveHomeBlockStyle';
+
+import {
+
+    resolveBlockPatternOpacity,
+
+    resolveHomeBlockAccent,
+
+} from '@/app/services/settings/resolveHomeBlockStyle';
+
+import { resolvePatternThemePrimary, mergeBlockScopedAppearance } from '@/app/services/settings/themeResolve';
+
 import { shouldRenderDecorativeLayers } from '@/app/runtime/mobileRuntimePolicy';
 
+
+
+/** بلاطات hub — شفافية أخف قليلاً لكن مرئية */
+
+const COMPACT_HUB_BLOCK_IDS = new Set<string>([
+
+    'hubExecution',
+
+    'hubLawsuit',
+
+    'hubTransaction',
+
+    'forum',
+
+]);
+
+
+
+function scaleGlobalBlockPatternOpacity(raw: number, compact = false): number {
+
+    const n = normalizeBackgroundPatternOpacity(raw);
+
+    if (compact) return Math.min(BACKGROUND_PATTERN_OPACITY_MAX, n * 0.88);
+
+    return n;
+
+}
+
+
+
 export function HomeBlockPatternOverlay({
+
+    blockId,
+
     override,
+
     themePrimary,
+
 }: {
+
+    blockId?: HomeCustomizableId | string;
+
     override?: HomeBlockStyleOverride;
+
     themePrimary: string;
+
 }) {
+
     const { settings } = useLawyerSettings();
-    if (!shouldRenderDecorativeLayers(settings.performance.litePerformance)) return null;
-    const presetId = override?.backgroundPreset;
+
+    const appearance = mergeBlockScopedAppearance(settings.appearance, override);
+
+    const userChoseBlockPreset = Boolean(override?.backgroundPreset);
+
+    const globalPreset = normalizeBackgroundPreset(appearance.backgroundPreset);
+
+
+
+    let presetId = override?.backgroundPreset;
+
+    let usesGlobalPreset = false;
+
+
+
+    const compactHub = Boolean(blockId && COMPACT_HUB_BLOCK_IDS.has(blockId));
+
+
+
+    /* «خلفية البطاقة» — تُطبَّق دائماً على البطاقات بغضّ النظر عن patternApplyTarget */
+
+    if (!presetId && globalPreset !== 'none') {
+
+        presetId = globalPreset;
+
+        usesGlobalPreset = true;
+
+    }
+
+
+
     if (!presetId || presetId === 'none') return null;
 
-    const accent = resolveHomeBlockAccent(override, themePrimary);
-    const patternOpacity =
-        override?.patternOpacity !== undefined
-            ? normalizeBackgroundPatternOpacity(override.patternOpacity)
-            : normalizeBackgroundPatternOpacity(settings.appearance.backgroundPatternOpacity);
-    const patternStyle = resolvePatternPreviewStyle(
+
+
+    if (
+
+        !userChoseBlockPreset &&
+
+        !usesGlobalPreset &&
+
+        !shouldRenderDecorativeLayers(settings.performance.litePerformance)
+
+    ) {
+
+        return null;
+
+    }
+
+
+
+    const accent = override?.accentColor?.trim()
+
+        ? resolveHomeBlockAccent(override, themePrimary)
+
+        : resolvePatternThemePrimary(appearance);
+
+
+
+    let patternOpacity = resolveBlockPatternOpacity(override, appearance);
+
+    if (usesGlobalPreset) {
+
+        patternOpacity = scaleGlobalBlockPatternOpacity(patternOpacity, compactHub);
+
+    }
+
+
+
+    const patternStyle = resolveHomeBlockPatternStyle(
+
         normalizeBackgroundPreset(presetId),
+
         accent,
-        resolveLawyerSurfaceBaseColor(
-            settings.appearance.theme,
-            settings.appearance.themeMode,
-            Boolean(settings.appearance.wallpaper),
-        ),
-        patternOpacity,
-        settings.appearance.themeMode,
+
+        patternOpacity * resolveGlassPatternScale(appearance.glassOpacity),
+
+        appearance.themeMode,
+
     );
 
+    if (!patternStyle) return null;
+
+
+
     return (
+
         <div
-            className="absolute inset-0 pointer-events-none rounded-[inherit] z-0"
+
+            className="hami-home-block-pattern absolute inset-0 pointer-events-none rounded-[inherit] z-[1]"
+
             style={patternStyle}
+
             aria-hidden
+
         />
+
     );
+
 }
+
+

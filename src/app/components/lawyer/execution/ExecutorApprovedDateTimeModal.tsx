@@ -5,7 +5,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import type { ScheduledDateSavePayload } from '@/app/utils/executorApprovalWorkflow';
 import { EXEC_MODAL_Z } from '@/app/components/lawyer/execution/executionModalStack';
 

@@ -27,20 +27,18 @@ describe('phase-14 initial-delay stem cuts', () => {
         expect(src).toContain('useLawyerDashboardSettings');
         expect(src).toContain('useLawyerDashboardCommunity');
         expect(src).toContain('communityFeature');
+        expect(src).toContain('useLawyerDashboardScheduleTab');
+        expect(src).toContain('scheduleFeature');
+        expect(src).toContain('useLawyerDashboardRepository');
+        expect(src).toContain('repositoryFeature');
         expect(src).not.toMatch(
             /import \{[^}]*useLawyerDashboardTransactions[^}]*\} from/,
-        );
-        expect(src).not.toMatch(
-            /import \{[^}]*useLawyerDashboardRepository[^}]*\} from/,
         );
         expect(src).not.toMatch(
             /import \{[^}]*useLawyerDashboardProfileTab[^}]*\} from/,
         );
         expect(src).not.toMatch(
             /import \{[^}]*useLawyerDashboardFieldTasks[^}]*\} from/,
-        );
-        expect(src).not.toMatch(
-            /import \{[^}]*useLawyerDashboardScheduleTab[^}]*\} from/,
         );
         expect(src).not.toMatch(
             /import \{[^}]*useLawyerDashboardGlobalSearch[^}]*\} from/,

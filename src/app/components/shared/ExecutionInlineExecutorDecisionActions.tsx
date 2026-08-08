@@ -19,6 +19,7 @@ export function ExecutionInlineExecutorDecisionActions(props: {
         outcome?: 'approved' | 'rejected';
         personalCoerciveSubtype?: string;
         storageExecutionId?: string;
+        decisionId?: string;
     }) => void;
     /** داخل محضر المتابعة — لا إشعار اختصار للقرارات */
     suppressNavigatorToast?: boolean;
@@ -59,6 +60,7 @@ export function ExecutionInlineExecutorDecisionActions(props: {
                         String(props.personalCoerciveSubtype || '').trim() ||
                         undefined,
                     storageExecutionId: result.storageExecutionId,
+                    decisionId,
                 };
             } catch {
                 syncResult = { ok: false, outcome };

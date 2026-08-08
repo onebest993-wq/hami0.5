@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X, PencilLine } from 'lucide-react';
+import { X, PencilLine } from '@/app/components/ui/lucideIcons';
 import { FocModalPortal } from './FocModalPortal';
 import { formatIqdDisplay, formatNumberInput, parseAmount } from '../utils';
 

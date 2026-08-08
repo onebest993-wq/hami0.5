@@ -1,3 +1,5 @@
+import { isSentryEnabledInBuild as isSentryConfigured } from '@/app/observability/sentryBuildPolicy';
+
 export type CalendarPerfReportContext = {
     userId?: string;
     eventCount?: number;
@@ -21,11 +23,6 @@ type SentryModule = {
 };
 
 let sentryModulePromise: Promise<SentryModule | null> | null = null;
-
-function isSentryConfigured(): boolean {
-    const dsn = import.meta.env.VITE_SENTRY_DSN;
-    return Boolean(dsn && typeof dsn === 'string' && !dsn.includes('examplePublicKey'));
-}
 
 function loadSentryModule(): Promise<SentryModule | null> {
     if (!isSentryConfigured()) return Promise.resolve(null);
@@ -63,6 +60,31 @@ export function reportCalendarOpenToSentry(
             unit: 'millisecond',
             attributes: {
                 had_local_cache: Boolean(context.hadLocalCache),
+            },
+        });
+    });
+}
+
+export type CalendarBridgeSyncFailureContext = {
+    phase: string;
+    userId?: string;
+};
+
+/** breadcrumb عند فشل مزامنة جسر التقويم — لا يرمي */
+export function reportCalendarBridgeSyncFailure(
+    error: unknown,
+    context: CalendarBridgeSyncFailureContext,
+): void {
+    const message = error instanceof Error ? error.message : String(error);
+    void loadSentryModule().then((Sentry) => {
+        Sentry?.addBreadcrumb?.({
+            category: 'calendar.bridge',
+            message: `bridge sync failed: ${context.phase}`,
+            level: 'error',
+            data: {
+                phase: context.phase,
+                userId: context.userId ? '[redacted]' : null,
+                error: message.slice(0, 240),
             },
         });
     });

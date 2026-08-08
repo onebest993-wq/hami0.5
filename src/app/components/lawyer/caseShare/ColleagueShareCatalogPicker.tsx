@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp } from '@/app/components/ui/lucideIcons';
 import type {
     CaseShareSectionMode,
     CaseShareVisibleFields,

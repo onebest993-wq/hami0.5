@@ -48,6 +48,17 @@ export function readStr(o: Record<string, unknown>, key: string): string {
     return typeof v === 'string' ? v.trim() : '';
 }
 
+/** رقم الإضبارة/القضية — يُفضَّل caseNo ثم الحقول البديلة الشائعة */
+export function readDossierCaseNo(file: Record<string, unknown>): string {
+    return (
+        readStr(file, 'caseNo')
+        || readStr(file, 'caseNumber')
+        || readStr(file, 'fileNumber')
+        || readStr(file, 'dossierNumber')
+        || readStr(file, 'docketNo')
+    );
+}
+
 export function readEntityId(file: Record<string, unknown>): string | number | null {
     const id = file.id;
     if (id === undefined || id === null) return null;

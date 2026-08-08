@@ -1,8 +1,14 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    /*
+     * ES2022 يطابق build.target في vite.config.mts — الاثنان مصدر واحد للغة.
+     * كان ES2020 يجبر esbuild على خفض بناء حديث تشحنه أصلاً، ويحجب واجهات
+     * قياسية مثل Error.cause وObject.hasOwn وArray.at عن الفحص.
+     * الحدّ الأدنى: Chrome/WebView 94، Safari/iOS 15.4.
+     */
+    "target": "ES2022",
     "useDefineForClassFields": true,
-    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "skipLibCheck": true,
 
@@ -14,37 +20,33 @@
     "jsx": "react-jsx",
 
     /*
-     * TypeScript Strict Mode - Incremental Enablement
-     * Note: Heavy modules still use `// @ts-nocheck`; `src/app/components/ui` is fully checked.
-     * Core entry, context, stores, and shared execution types are checked.
-     * ------------------------------------------
-     * 🚀 Incremental improvements:
-     * - Enabled `strictFunctionTypes` ✓
-     * - Enabled `strictBindCallApply` ✓
-     * - Enabled `noImplicitThis` ✓
-     * - Enabled `alwaysStrict` ✓
-     * - Enabled `noFallthroughCasesInSwitch` ✓
+     * الصرامة تُرفع بالقياس لا بالتمنّي. كلفة كل علم قيست بتشغيل tsc عليه وحده
+     * (وعلى strictNullChecks معه حيث لا معنى له بدونه)، والأرقام مقابل أساس 287:
      *
-     * 📝 To enable more strictness over time, enable the following one by one:
-     * 1. "strict": true
-     * 2. "noImplicitAny": true
-     * 3. "strictNullChecks": true
-     * 4. "noImplicitReturns": true
-     * 5. "noUncheckedIndexedAccess": true
-     * ------------------------------------------
+     *   strictNullChecks             +169   ← مُفعَّل: أعلى قيمة بأقل كلفة
+     *   strictPropertyInitialization   +0   ← مُفعَّل: مجّاني مع ما سبق
+     *   noImplicitReturns              -4   ← مُفعَّل: مجّاني مع ما سبق
+     *   noImplicitAny               مُفعَّل — طبقة الأساس/النواة صُفِّرت تحته
+     *   noUncheckedIndexedAccess     +614   ← مؤجَّل
+     *   exactOptionalPropertyTypes  +1405   ← مؤجَّل
+     *   noUnusedLocals              +1760   ← مؤجَّل (1653 تصريحاً غير مستعمل)
+     *
+     * الأخطاء الموروثة تحتجزها مِسنَنة guard:tsc لكل ملف، فالكود الجديد يُكتب
+     * آمناً تجاه null وبدون any ضمني من اليوم. لا خطر على النشر: البناء
+     * vite build ولا يستدعي tsc إطلاقاً.
      */
     "strict": false,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
     "strictFunctionTypes": true,
     "strictBindCallApply": true,
-    "strictPropertyInitialization": false,
+    "strictPropertyInitialization": true,
     "noImplicitThis": true,
     "alwaysStrict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
-    "noImplicitReturns": false,
+    "noImplicitReturns": true,
     "noUncheckedIndexedAccess": false,
 
     /* Best Practices */
@@ -71,6 +73,5 @@
     "**/*.test.ts",
     "**/*.test.tsx",
     "**/__tests__/**"
-  ],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  ]
 }

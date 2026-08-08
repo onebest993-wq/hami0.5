@@ -6,6 +6,11 @@ import { test, expect, type BrowserContext, type Page } from '@playwright/test';
 import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import { seedSyncedExecutionStorage } from './helpers/executionStorageFixtures';
+import {
+    closeExecutionDossierE2E,
+    expectExecutionArchiveConfirmDialog,
+    expectExecutionTrashConfirmHeading,
+} from './helpers/executionE2EFixtures';
 
 const EXECUTION_ROW_TEXT = /بلوب حيّ E2E|2026\/تنفيذ\/880/;
 
@@ -83,27 +88,7 @@ async function expectLawyerHomeReady(page: Page): Promise<void> {
 }
 
 async function closeExecutionDossier(page: Page): Promise<void> {
-    const dossier = page.getByTestId('execution-dashboard-dossier');
-    const closeButton = dossier.getByTestId('execution-dashboard-close');
-    await closeButton.scrollIntoViewIfNeeded().catch(() => undefined);
-    if (await closeButton.isVisible().catch(() => false)) {
-        await closeButton.click({ force: true }).catch(() => undefined);
-    }
-    await expect(async () => {
-        const count = await dossier.count();
-        if (count === 0) return;
-
-        const visible = await dossier.isVisible().catch(() => false);
-        if (visible) {
-            await page.keyboard.press('Escape').catch(() => undefined);
-        }
-
-        const nextCount = await dossier.count();
-        if (nextCount === 0) return;
-
-        const nextVisible = await dossier.isVisible().catch(() => false);
-        expect(nextVisible).toBeFalsy();
-    }).toPass({ timeout: 30_000 });
+    await closeExecutionDossierE2E(page);
     await expectLawyerHomeReady(page);
 }
 
@@ -164,9 +149,7 @@ test.describe('Execution Dashboard E2E', () => {
     test('إجراء الأرشفة يفتح نافذة التأكيد', async () => {
         await openExecutionArchive(page);
         await page.getByTestId('execution-smart-card-archive').first().click();
-        const dialog = page.getByTestId('execution-archive-confirm-dialog');
-        await expect(dialog).toBeVisible({ timeout: 8_000 });
-        await expect(dialog.getByRole('heading', { name: /تأكيد الأرشفة/i })).toBeVisible();
+        const dialog = await expectExecutionArchiveConfirmDialog(page);
         await dialog.getByRole('button', { name: /إلغاء/i }).click();
         await expect(dialog).toBeHidden({ timeout: 8_000 });
     });
@@ -174,11 +157,9 @@ test.describe('Execution Dashboard E2E', () => {
     test('إجراء السلة يفتح نافذة التأكيد', async () => {
         await openExecutionArchive(page);
         await page.getByTestId('execution-smart-card-trash').first().click();
-        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeVisible({
-            timeout: 8_000,
-        });
+        await expectExecutionTrashConfirmHeading(page);
         await page.getByRole('button', { name: /إلغاء/i }).click();
-        await expect(page.getByRole('heading', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
+        await expect(page.getByRole('dialog', { name: /تأكيد النقل إلى سلة المهملات/i })).toBeHidden({
             timeout: 8_000,
         });
     });

@@ -28,6 +28,7 @@ vi.mock('@/app/runtime/globalSearchBootHydrator', () => ({
 vi.mock('@/app/runtime/globalSearchInstantPaint', () => ({
     revealGlobalSearchWarmShell: vi.fn(() => false),
     concealGlobalSearchWarmShell: vi.fn(),
+    scheduleGlobalSearchCloseConceal: (run: () => void) => run(),
 }));
 
 vi.mock('@/app/runtime/devicePerformanceTier', () => ({
@@ -75,6 +76,14 @@ describe('useLawyerDashboardGlobalSearch', () => {
     it('لا يفتح البحث تلقائياً', () => {
         const { result } = renderHook(() => useLawyerDashboardGlobalSearch({ userId: 'lawyer-1' }));
         expect(result.current.showGlobalSearch).toBe(false);
+    });
+
+    it('لا يستعيد البحث من sessionStorage بعد reload', () => {
+        sessionStorage.setItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY, '1');
+        const { result } = renderHook(() => useLawyerDashboardGlobalSearch({ userId: 'lawyer-1' }));
+        expect(result.current.showGlobalSearch).toBe(false);
+        expect(result.current.searchHostMounted).toBe(false);
+        expect(sessionStorage.getItem(LAWYER_GLOBAL_SEARCH_OPEN_KEY)).toBeNull();
     });
 
     it('primeGlobalSearchShellMount ي prefetch فقط — بلا فتح', () => {

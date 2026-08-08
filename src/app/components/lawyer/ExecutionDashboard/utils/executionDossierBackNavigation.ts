@@ -53,16 +53,34 @@ function getVisibleDomDialogs(): Element[] {
 }
 
 /** محاولة إغلاق أعلى حوار DOM مرئي (مودالات محلية خارج المخزن) */
+let domDialogDismissDepth = 0;
+
 export function dismissTopDomDialog(): boolean {
-    if (getVisibleDomDialogs().length === 0) return false;
-    const event = new KeyboardEvent('keydown', {
-        key: 'Escape',
-        bubbles: true,
-        cancelable: true,
-    });
-    window.dispatchEvent(event);
-    document.dispatchEvent(event);
-    return true;
+    if (typeof document === 'undefined') return false;
+    if (domDialogDismissDepth > 0) return false;
+    const dialogs = getVisibleDomDialogs();
+    if (dialogs.length === 0) return false;
+
+    domDialogDismissDepth += 1;
+    try {
+        const top = dialogs[dialogs.length - 1] as HTMLElement;
+        const closeBtn = top.querySelector<HTMLElement>(
+            'button[aria-label="إغلاق"], button[aria-label="اغلاق"], [data-hami-dialog-close]',
+        );
+        if (closeBtn) {
+            closeBtn.click();
+            return true;
+        }
+        // Escape على الحوار فقط — لا window/document (كان يعيد تشغيل مسار الرجوع → stack overflow)
+        top.dispatchEvent(
+            new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+        );
+        return true;
+    } finally {
+        queueMicrotask(() => {
+            domDialogDismissDepth = Math.max(0, domDialogDismissDepth - 1);
+        });
+    }
 }
 
 export type RunExecutionDossierBackStepInput = {

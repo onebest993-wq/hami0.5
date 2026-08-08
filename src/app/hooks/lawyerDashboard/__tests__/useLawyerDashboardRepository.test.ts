@@ -68,6 +68,12 @@ vi.mock('@/app/runtime/mobileRuntimePolicy', () => ({
     },
 }));
 
+vi.mock('@/app/runtime/repositoryInstantPaint', () => ({
+    paintRepositoryInstantChrome: vi.fn(),
+    applyRepositoryOpaqueChrome: vi.fn(),
+    concealRepositoryWarmShell: vi.fn(),
+}));
+
 describe('useLawyerDashboardRepository', () => {
     beforeEach(async () => {
         vi.clearAllMocks();
@@ -75,11 +81,11 @@ describe('useLawyerDashboardRepository', () => {
         resetDashboardInteractiveForTests();
     });
 
-    it('لا يفتح المستودع تلقائياً — intent-only حتى hover/فتح', () => {
+    it('يركّب Host المستودع مخفياً فور وجود هوية حقيقية', () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         expect(result.current.isRepositoryOpen).toBe(false);
-        expect(result.current.repositoryHostMounted).toBe(false);
+        expect(result.current.repositoryHostMounted).toBe(true);
         expect(warmRepositoryOnOpen).not.toHaveBeenCalled();
     });
 
@@ -126,7 +132,7 @@ describe('useLawyerDashboardRepository', () => {
         expect(result.current.isRepositoryOpen).toBe(true);
     });
 
-    it('يغلق المستودع فوراً عبر flushSync', async () => {
+    it('يغلق المستودع بعد conceal و rAF', async () => {
         const { result } = renderHook(() => useLawyerDashboardRepository({ userId: 'lawyer-1' }));
 
         act(() => {
@@ -138,7 +144,7 @@ describe('useLawyerDashboardRepository', () => {
             result.current.closeRepository();
         });
 
-        expect(result.current.isRepositoryOpen).toBe(false);
+        await waitFor(() => expect(result.current.isRepositoryOpen).toBe(false));
     });
 
     it('يفتح المستودع الموحّد على تبويب المفكرة', async () => {

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FileText, Paperclip, Plus } from 'lucide-react';
+import { FileText, Paperclip, Plus } from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '@/app/components/lawyer/LawyerShared';
 import type { AttachmentShieldSummary } from '@/app/components/lawyer/smart-modal/smartFile/requestTypes';
 import { SmartRequestsPanel } from '@/app/components/lawyer/smart-modal/parts/SmartRequestsPanel';

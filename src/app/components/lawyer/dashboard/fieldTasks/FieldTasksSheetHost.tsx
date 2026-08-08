@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useState } from 'react';
+﻿import React, { useCallback, useLayoutEffect, useState } from 'react';
 import type { FieldTasksBottomSheet } from '@/app/components/lawyer/dashboard/FieldTasksBottomSheet';
 import { FieldTasksInstantSheetShell } from '@/app/components/lawyer/dashboard/fieldTasks/FieldTasksInstantSheetShell';
 import {
@@ -23,20 +23,20 @@ function FieldTasksSheetLoadError({ onRetry }: { onRetry: () => void }) {
             className="fixed inset-x-0 bottom-0 z-[120] flex flex-col items-center gap-3 px-6 py-8 text-center"
             role="alert"
         >
-            <p className="text-sm font-semibold text-[#E8F5F0]/85">تعذّر تحميل ستارة الميدان</p>
+            <p className="text-sm font-semibold text-[#E8F5F0]/85">╪ز╪╣╪░┘ّ╪▒ ╪ز╪ص┘à┘è┘ ╪│╪ز╪د╪▒╪ر ╪د┘┘à┘è╪»╪د┘</p>
             <button
                 type="button"
                 data-testid="field-tasks-sheet-retry"
                 onClick={onRetry}
                 className="rounded-lg border border-[#A67C52]/35 bg-[#0c0c0e]/80 px-4 py-2 text-sm font-bold text-[#E6C673]"
             >
-                إعادة المحاولة
+                ╪ح╪╣╪د╪»╪ر ╪د┘┘à╪ص╪د┘ê┘╪ر
             </button>
         </div>
     );
 }
 
-/** يحمّل ستارة الميدان مرة واحدة — يبقي الـ chunk دافئاً عند host مركّب حتى مع open=false */
+/** ┘è╪ص┘à┘ّ┘ ╪│╪ز╪د╪▒╪ر ╪د┘┘à┘è╪»╪د┘ ┘à╪▒╪ر ┘ê╪د╪ص╪»╪ر ظ¤ ┘è╪ذ┘é┘è ╪د┘┘ chunk ╪»╪د┘╪خ╪د┘ï ╪╣┘╪» host ┘à╪▒┘â┘ّ╪ذ ╪ص╪ز┘ë ┘à╪╣ open=false */
 export function FieldTasksSheetHost(props: FieldTasksBottomSheetProps): React.ReactElement | null {
     const { open, onClose } = props;
     const [Component, setComponent] = useState<SheetComponent | null>(() => getCachedFieldTasksBottomSheet());
@@ -102,7 +102,7 @@ export function FieldTasksSheetHost(props: FieldTasksBottomSheetProps): React.Re
         void hydrateFieldTasksShellForInstantOpen(true);
     }, [open]);
 
-    /* Host مركّب + chunk جاهز: أبقِ الستارة في الشجرة (مخفية) لمسار reveal الدافئ */
+    /* Host ┘à╪▒┘â┘ّ╪ذ + chunk ╪ش╪د┘ç╪▓: ╪ث╪ذ┘é┘ ╪د┘╪│╪ز╪د╪▒╪ر ┘┘è ╪د┘╪┤╪ش╪▒╪ر (┘à╪«┘┘è╪ر) ┘┘à╪│╪د╪▒ reveal ╪د┘╪»╪د┘╪خ */
     if (!open) {
         if (Component) return <Component {...props} onClose={onClose} />;
         return null;

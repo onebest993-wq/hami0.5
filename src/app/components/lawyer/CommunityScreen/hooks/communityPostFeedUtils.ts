@@ -50,7 +50,9 @@ export function computeVisibleCommunityPosts(params: {
         filterLabels,
     } = params;
 
-    const baseList = posts.filter(
+    const uniquePosts = mergeCommunityPostsById([], posts);
+
+    const baseList = uniquePosts.filter(
         (p) =>
             !p.groupId &&
             (!mutedIds.has(p.authorId) || p.authorId === currentUserId) &&

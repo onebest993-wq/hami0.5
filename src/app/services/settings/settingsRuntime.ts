@@ -4,19 +4,23 @@ import type { AppSettingsState } from './types';
 
 import { isWithinQuietHours, shouldAllowPush } from './apply';
 
-import {
-    BUILTIN_AUTO_SUMMARY,
-    BUILTIN_NOTIFICATION_SOUND,
-    BUILTIN_NOTIFICATION_VIBRATE,
-    BUILTIN_NOTIFICATIONS_ENABLED,
-    BUILTIN_SMART_ALERTS,
-} from './builtInBehavior';
+import { BUILTIN_AUTO_SUMMARY } from './builtInBehavior';
 
 import {
     getLawyerSettingsSnapshot,
     invalidateLawyerSettingsCache,
     publishLawyerSettingsLive,
 } from './settingsSnapshot';
+
+import {
+    alertNotificationChannel,
+    filterAlertsByNotificationPolicy,
+    pushOptionsForChannel,
+    shouldShowChannelInApp,
+    shouldSendOsPush,
+    getNotificationSettings,
+    type NotificationChannelKey,
+} from '@/app/services/notifications/notificationAlertPolicy';
 
 export type { AppSettingsState };
 export {
@@ -25,49 +29,29 @@ export {
     publishLawyerSettingsLive,
 };
 
-export type NotificationChannelKey = 'lawsuits' | 'execution' | 'calendar' | 'community' | 'financial';
+export type { NotificationChannelKey };
 
-export function alertNotificationChannel(alert: SecretaryAlert): NotificationChannelKey | null {
-    switch (alert.target) {
-        case 'schedule':
-            return 'calendar';
-        case 'community':
-            return 'community';
-        case 'transactions':
-        case 'threading':
-            return 'financial';
-        case 'execution':
-            return 'execution';
-        case 'lawsuit':
-        case 'urgent':
-        case 'client_requests':
-            return 'lawsuits';
-        case 'notepad':
-            return null;
-        default:
-            return 'lawsuits';
-    }
-}
+export { alertNotificationChannel };
 
-export function isNotificationChannelAllowed(channel: NotificationChannelKey | null): boolean {
-    void channel;
-    return BUILTIN_NOTIFICATIONS_ENABLED;
+export function isNotificationChannelAllowed(
+    channel: NotificationChannelKey | null,
+    settings: AppSettingsState = getLawyerSettingsSnapshot(),
+): boolean {
+    if (!channel) return false;
+    return shouldShowChannelInApp(channel, settings);
 }
 
 export function filterAlertsByNotificationSettings(
     alerts: SecretaryAlert[],
     settings: AppSettingsState = getLawyerSettingsSnapshot(),
 ): SecretaryAlert[] {
-    void settings;
-    if (!BUILTIN_SMART_ALERTS) return [];
-    const base = alerts.filter((a) => isNotificationChannelAllowed(alertNotificationChannel(a)));
-    if (isWithinQuietHours()) {
-        return base.filter((a) => a.priority <= 1);
-    }
-    return base;
+    void BUILTIN_AUTO_SUMMARY;
+    return filterAlertsByNotificationPolicy(alerts, settings);
 }
 
 export function canSendPushNotifications(settings: AppSettingsState = getLawyerSettingsSnapshot()): boolean {
+    const n = getNotificationSettings(settings);
+    if (!n.masterEnabled) return false;
     return shouldAllowPush(settings);
 }
 
@@ -77,8 +61,9 @@ export function isCloudSyncBucketEnabled(
 ): boolean {
     if (settings.security.localOnlyMode) return false;
     if (!settings.data.cloudSync) return false;
-    void bucket;
-    return true;
+    if (bucket === 'notes') return settings.data.syncNotes;
+    if (bucket === 'files') return settings.data.syncFiles;
+    return settings.data.syncExecution;
 }
 
 export function isLocalAutoSaveEnabled(settings: AppSettingsState = getLawyerSettingsSnapshot()): boolean {
@@ -89,7 +74,6 @@ export function shouldPrefetchLawyerChunks(settings: AppSettingsState = getLawye
     return settings.performance.prefetchScreens;
 }
 
-/** هل يُسمح بتسخين intent (hover/open) — يحترم prefetch و lite. */
 export function shouldAllowIntentWarm(settings: AppSettingsState = getLawyerSettingsSnapshot()): boolean {
     if (!shouldPrefetchLawyerChunks(settings)) return false;
     if (settings.performance.litePerformance === 'on') return false;
@@ -104,7 +88,7 @@ export function isBuiltInAutoSummaryEnabled(): boolean {
 }
 
 export function pushNotificationOptionsFromSettings(
-    _settings: AppSettingsState,
+    settings: AppSettingsState,
     base: {
         title: string;
         body?: string;
@@ -112,14 +96,18 @@ export function pushNotificationOptionsFromSettings(
         data?: Record<string, unknown>;
         requireInteraction?: boolean;
     },
+    channel: NotificationChannelKey = 'secretary',
+    critical = false,
 ) {
-    return {
-        ...base,
-        silent: !BUILTIN_NOTIFICATION_SOUND,
-        vibrate: BUILTIN_NOTIFICATION_VIBRATE ? [120, 60, 120] : undefined,
-    };
+    if (!shouldSendOsPush(channel, settings, critical)) {
+        return { ...base, silent: true, vibrate: undefined };
+    }
+    return pushOptionsForChannel(channel, settings, base, critical);
 }
 
-export function areInAppNotificationsEnabled(): boolean {
-    return BUILTIN_NOTIFICATIONS_ENABLED;
+export function areInAppNotificationsEnabled(
+    settings: AppSettingsState = getLawyerSettingsSnapshot(),
+): boolean {
+    const n = getNotificationSettings(settings);
+    return n.masterEnabled;
 }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, Clock, FileText, Lock, X } from 'lucide-react';
+import { Check, Clock, FileText, Lock, X } from '@/app/components/ui/lucideIcons';
 import type { CaseShareRecord } from '@/app/services/caseShare/caseShareTypes';
 import {
     caseShareStatusLabel,

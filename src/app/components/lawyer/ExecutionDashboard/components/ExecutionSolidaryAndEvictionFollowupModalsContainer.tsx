@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { X } from '@/app/components/ui/lucideIcons';
 import { evictionInclusiveCalendarDays } from '../helpers';
 import {
     EXEC_MODAL_BACKDROP_SAFE_PAD,

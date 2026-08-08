@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { EditDraft } from '@/app/components/lawyer/RoyalLawyerProfile/types';
 import type { ProfileAction } from '@/app/services/lawyer-cloud';
 import { ActionIcon } from './ActionIcon';

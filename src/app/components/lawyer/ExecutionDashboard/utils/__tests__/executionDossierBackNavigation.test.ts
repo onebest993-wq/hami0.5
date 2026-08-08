@@ -65,4 +65,29 @@ describe('executionDossierBackNavigation', () => {
         expect(dossierContextBack).toHaveBeenCalledTimes(1);
         dismissSpy.mockRestore();
     });
+
+    it('dismissTopDomDialog does not recurse while a dismiss is in flight', () => {
+        const dialog = document.createElement('div');
+        dialog.setAttribute('role', 'dialog');
+        Object.defineProperty(dialog, 'getBoundingClientRect', {
+            value: () => ({ width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100 }),
+        });
+        const closeBtn = document.createElement('button');
+        closeBtn.setAttribute('aria-label', 'إغلاق');
+        closeBtn.addEventListener('click', () => dialog.remove());
+        dialog.appendChild(closeBtn);
+        document.body.appendChild(dialog);
+
+        const styleSpy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+            display: 'block',
+            visibility: 'visible',
+            opacity: '1',
+        } as CSSStyleDeclaration);
+
+        expect(dismissTopDomDialog()).toBe(true);
+        expect(dismissTopDomDialog()).toBe(false);
+
+        styleSpy.mockRestore();
+        dialog.remove();
+    });
 });

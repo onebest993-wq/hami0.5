@@ -1,6 +1,6 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { XIcon } from 'lucide-react';
+import { XIcon } from '@/app/components/ui/lucideIcons';
 import { DialogPortal } from '@/app/components/ui/dialog';
 import { cn } from '@/app/components/ui/utils';
 import { getHamiOverlayPortalRoot } from '@/app/utils/overlayPortal';

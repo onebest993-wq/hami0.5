@@ -1,14 +1,8 @@
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import {
-    hasNativeBiometricEnrollment,
-    verifyNativeBiometricUnlock,
-} from '@/app/runtime/nativeBiometricBridge';
-import {
-    hasStoredBiometricCredential,
-    isWebAuthnLockSupported,
-    verifyBiometricUnlock,
-} from '@/app/services/security/webAuthnLock';
+    verifyBiometricSessionUnlock,
+} from '@/app/services/security/biometricSessionService';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 
 export type VerifySensitiveSettingsOptions = {
@@ -53,30 +47,11 @@ export function mintSensitiveConfirmChallenge(basePhrase: string): {
 async function verifyWithBiometric(security: ReturnType<typeof getLawyerSettingsSnapshot>['security']): Promise<boolean | null> {
     if (!security.biometricLock) return null;
 
-    if (hasNativeBiometricEnrollment()) {
-        try {
-            const nativeOk = await verifyNativeBiometricUnlock();
-            if (nativeOk === true) return true;
-            if (nativeOk === false) {
-                SmartToast.warning('تعذّر التحقق البيومتري — ألغِ العملية أو فعّل البصمة من جديد');
-                return false;
-            }
-        } catch {
-            SmartToast.warning('تعذّر التحقق البيومتري');
-            return false;
-        }
-    }
-
-    if (isWebAuthnLockSupported() && hasStoredBiometricCredential()) {
-        try {
-            const ok = await verifyBiometricUnlock();
-            if (ok) return true;
-            SmartToast.warning('تعذّر التحقق البيومتري — ألغِ العملية أو فعّل البصمة من جديد');
-            return false;
-        } catch {
-            SmartToast.warning('تعذّر التحقق البيومتري');
-            return false;
-        }
+    const biometricOk = await verifyBiometricSessionUnlock();
+    if (biometricOk === true) return true;
+    if (biometricOk === false) {
+        SmartToast.warning('تعذّر التحقق البيومتري — ألغِ العملية أو فعّل البصمة من جديد');
+        return false;
     }
 
     return null;

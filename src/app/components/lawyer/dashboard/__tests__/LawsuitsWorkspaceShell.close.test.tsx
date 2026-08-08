@@ -28,15 +28,17 @@ describe('LawsuitsWorkspaceShell close / keepAlive', () => {
         expect(useBodyScrollLock).toHaveBeenCalledWith(false);
     });
 
-    it('زر الإغلاق يستدعي onClose على pointerdown', () => {
+    it('زر المغادرة يستدعي onExitToHome عند النقر', () => {
         const onClose = vi.fn();
+        const onExitToHome = vi.fn();
         render(
-            <LawsuitsWorkspaceShell open onClose={onClose}>
+            <LawsuitsWorkspaceShell open onClose={onClose} onExitToHome={onExitToHome}>
                 {() => <div>body</div>}
             </LawsuitsWorkspaceShell>,
         );
-        fireEvent.pointerDown(screen.getByTestId('lawsuits-workspace-close'), { button: 0 });
-        expect(onClose).toHaveBeenCalledTimes(1);
+        fireEvent.click(screen.getByTestId('lawsuits-workspace-exit'));
+        expect(onExitToHome).toHaveBeenCalledTimes(1);
+        expect(onClose).not.toHaveBeenCalled();
         expect(useBodyScrollLock).toHaveBeenCalledWith(true);
     });
 });

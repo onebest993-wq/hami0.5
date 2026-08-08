@@ -5,6 +5,8 @@ import { EXECUTION_FOLLOWUP_MODAL_SNAPSHOT_FIELD_KEYS } from '../../followupSnap
 import { assignExecutionDashboardChunkScope } from '../assignExecutionDashboardChunkScope';
 import { pickExecutionShellOverlayProps } from '../pickExecutionShellOverlayProps';
 import { pickExecutionPhoneBodyProps } from '../pickExecutionPhoneBodyProps';
+import { EXECUTION_PHONE_BODY_SCOPE_READ_KEYS } from '../pickExecutionPhoneBodyScopeReadBag';
+import { SCOPE_REST_ALL_KEYS } from '../executionDashboardCore/buildScopeBundleGroups';
 import { buildFollowupModalSnapshotInput } from '../buildFollowupModalSnapshotInput';
 
 /** Shell overlay handlers (wave 4–5) — must stay in overlay registry */
@@ -82,6 +84,19 @@ const CRITICAL_SHELL_NOTES_KEYS = [
     'showToast',
     'todayYmd',
     'decisionsStorageExecutionId',
+] as const;
+
+/** Phone body — سبارك تنفيذ (overlay + أزرار المتابعة) */
+const CRITICAL_SPARK_EXECUTION_PHONE_BODY_KEYS = [
+    'investigationMemoIssued',
+    'primaryDebtorTaklifActive',
+    'openFollowupModalPersisted',
+    'summoningRound',
+    'debtorAttendedVoluntarily',
+    'debtorArrested',
+    'voluntaryAttendanceCount',
+    'forcedPathAttendanceSecured',
+    'setTimelineAccordionExpanded',
 ] as const;
 
 function stubHandlers(keys: readonly string[], sources: Record<string, unknown>): void {
@@ -260,5 +275,51 @@ describe('execution dashboard scope wiring regression', () => {
         for (const key of CRITICAL_FOLLOWUP_HANDLERS) {
             expect(typeof (snapshot as Record<string, unknown>)[key]).toBe('function');
         }
+    });
+
+    it('lists spark execution keys in phone body prop + read registries', () => {
+        const propKeys = EXECUTION_PHONE_BODY_PROP_KEYS as readonly string[];
+        const readKeys = EXECUTION_PHONE_BODY_SCOPE_READ_KEYS as readonly string[];
+        for (const key of CRITICAL_SPARK_EXECUTION_PHONE_BODY_KEYS) {
+            expect(propKeys, `missing phone body prop: ${key}`).toContain(key);
+            expect(readKeys, `missing phone body read: ${key}`).toContain(key);
+        }
+    });
+
+    it('includes spark summons keys in scope rest flat registry', () => {
+        const restKeys = SCOPE_REST_ALL_KEYS as readonly string[];
+        for (const key of [
+            'investigationMemoIssued',
+            'primaryDebtorTaklifActive',
+            'openFollowupModalPersisted',
+            'summoningRound',
+        ] as const) {
+            expect(restKeys, `missing scope rest key: ${key}`).toContain(key);
+        }
+    });
+
+    it('assigns spark execution keys when phone body gate is open', () => {
+        const target: Record<string, unknown> = {};
+        const sources: Record<string, unknown> = {
+            investigationMemoIssued: true,
+            primaryDebtorTaklifActive: true,
+            summoningRound: 2,
+            debtorAttendedVoluntarily: true,
+            debtorArrested: false,
+            voluntaryAttendanceCount: 1,
+            forcedPathAttendanceSecured: false,
+            openFollowupModalPersisted: () => {},
+            setTimelineAccordionExpanded: () => {},
+        };
+
+        assignExecutionDashboardChunkScope(target, sources, {
+            phoneBody: true,
+            shellOverlays: false,
+        });
+        const picked = pickExecutionPhoneBodyProps(target);
+        expect(picked.investigationMemoIssued).toBe(true);
+        expect(picked.primaryDebtorTaklifActive).toBe(true);
+        expect(picked.summoningRound).toBe(2);
+        expect(typeof picked.openFollowupModalPersisted).toBe('function');
     });
 });

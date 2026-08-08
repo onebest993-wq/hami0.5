@@ -42,16 +42,18 @@ describe('useExecutionDashboardOtherPartyCreditorHandlers', () => {
         appendSpecialFollowupRequestMock.mockReturnValue('decision-1');
         const pushTimelineEvent = vi.fn();
         const showToast = vi.fn();
+        const persistExecutionMerge = vi.fn(() => true);
 
         const { result } = renderHook(() =>
             useExecutionDashboardOtherPartyCreditorHandlers({
                 ...baseParams(),
                 pushTimelineEvent,
+                persistExecutionMerge,
                 showToast,
             }),
         );
 
-        let output: { ok: boolean; decisionId?: string } | undefined;
+        let output: { ok: boolean; decisionId?: string; logEntryId?: string } | undefined;
         act(() => {
             output = result.current.otherPartyTabSubmitHandler({
                 date: '2026-07-11',
@@ -59,7 +61,19 @@ describe('useExecutionDashboardOtherPartyCreditorHandlers', () => {
             });
         });
 
-        expect(output).toEqual({ ok: true, decisionId: 'decision-1' });
+        expect(output?.ok).toBe(true);
+        expect(output?.decisionId).toBe('decision-1');
+        expect(output?.logEntryId).toMatch(/^opa-/);
+        expect(persistExecutionMerge).toHaveBeenCalledWith(
+            expect.objectContaining({
+                other_party_actions_log: expect.arrayContaining([
+                    expect.objectContaining({
+                        content: 'مذكرة من الطرف الآخر',
+                        decisionRowId: 'decision-1',
+                    }),
+                ]),
+            }),
+        );
         expect(appendSpecialFollowupRequestMock).toHaveBeenCalledWith(
             expect.objectContaining({
                 executionId: 'exec-1',
@@ -75,7 +89,7 @@ describe('useExecutionDashboardOtherPartyCreditorHandlers', () => {
                 }),
             }),
         );
-        expect(showToast).toHaveBeenCalledWith('تم حفظ التحرك في السجل.', 'success');
+        expect(showToast).toHaveBeenCalledWith('تم حفظ التحرك في السجل.', 'success', undefined);
     });
 
     it('submits creditor request card and opens decision modal', () => {

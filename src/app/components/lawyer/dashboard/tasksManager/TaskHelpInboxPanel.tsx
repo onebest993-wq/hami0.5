@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, HandHelping, Loader2, MessageSquarePlus } from 'lucide-react';
+import { CheckCircle2, HandHelping, Loader2, MessageSquarePlus } from '@/app/components/ui/lucideIcons';
 import type { TaskHelpRequest } from '@/app/types/taskHelpTypes';
 import { TaskHelpApiService } from '@/app/services/taskHelp/taskHelpApiService';
 import {

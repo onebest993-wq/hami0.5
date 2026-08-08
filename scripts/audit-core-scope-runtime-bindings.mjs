@@ -9,10 +9,10 @@ const RUNTIME_BINDINGS_PATH = path.resolve(
     'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/useExecutionDashboardCoreScopeRuntimeBindings.ts',
 );
 const RUNTIME_ASSEMBLY_PATH = path.resolve(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardRuntimeAssembly.ts',
+    'src/app/components/lawyer/ExecutionDashboard/hooks/useExecutionDashboardCore.ts',
 );
-const SCOPE_FRAGMENTS_PATH = path.resolve(
-    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/executionDashboardCoreScopeBagFragments.ts',
+const SCOPE_FRAGMENTS_DIR = path.resolve(
+    'src/app/components/lawyer/ExecutionDashboard/hooks/executionDashboardCore/scopeBagFragments',
 );
 
 const REQUIRED_RUNTIME_BINDINGS = [
@@ -27,15 +27,19 @@ const REQUIRED_RUNTIME_BINDINGS = [
 
 const bindingsSrc = fs.readFileSync(RUNTIME_BINDINGS_PATH, 'utf8');
 const assemblySrc = fs.readFileSync(RUNTIME_ASSEMBLY_PATH, 'utf8');
-const fragmentsSrc = fs.readFileSync(SCOPE_FRAGMENTS_PATH, 'utf8');
+const fragmentsSrc = fs
+    .readdirSync(SCOPE_FRAGMENTS_DIR)
+    .filter((name) => name.endsWith('.ts') && name !== 'index.ts')
+    .map((name) => fs.readFileSync(path.join(SCOPE_FRAGMENTS_DIR, name), 'utf8'))
+    .join('\n');
 
 if (!assemblySrc.includes('useExecutionDashboardCoreScopeAndChunk(')) {
-    console.error('useExecutionDashboardCoreScopeAndChunk call not found in runtime assembly');
+    console.error('useExecutionDashboardCoreScopeAndChunk call not found in useExecutionDashboardCore');
     process.exit(1);
 }
 
 if (!assemblySrc.includes('scopeRuntimeInput')) {
-    console.error('scopeRuntimeInput not found in runtime assembly');
+    console.error('scopeRuntimeInput not found in useExecutionDashboardCore');
     process.exit(1);
 }
 

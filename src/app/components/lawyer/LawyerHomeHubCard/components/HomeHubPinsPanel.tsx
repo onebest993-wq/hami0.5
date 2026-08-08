@@ -1,107 +1,91 @@
-import { lazy, Suspense } from 'react';
-import { Pin } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import type { ClusterPinView } from '@/app/workspace/types';
-import type { HomeHubPanel } from '@/app/services/alerts/homeHubCardLogic';
 import { shouldVirtualizeHomeHubPins } from '@/app/services/alerts/homeHubCarouselVirtual';
-import { useHomeHubPanelMount } from '../hooks/useHomeHubPanelMount';
+import { splitHomeHubPins } from '../homeHub/homeHubPinsOverflow';
 import { HomeHubPinRow } from './HomeHubPinRow';
-
-const HomeHubPinsVirtualList = lazy(() =>
-    import('./HomeHubPinsVirtualList').then((m) => ({ default: m.HomeHubPinsVirtualList })),
-);
+import { HomeHubPinsMoreOverlay } from './HomeHubPinsMoreOverlay';
+import { HomeHubTabMoreTrigger } from './HomeHubTabMoreTrigger';
 
 export type HomeHubPinsPanelProps = {
-    hubPanel: HomeHubPanel;
     clusterViews: ClusterPinView[];
     onNavigate: (routePath: string) => void;
     onUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
     hubFullyEmpty?: boolean;
 };
 
-function HomeHubPinsStaticList({
+export function HomeHubPinsPanel({
     clusterViews,
     onNavigate,
     onUnpin,
-}: Pick<HomeHubPinsPanelProps, 'clusterViews' | 'onNavigate' | 'onUnpin'>) {
-    return (
-        <ul className="space-y-1">
-            {clusterViews.map((view) => (
-                <li
-                    key={`${view.pin.type}:${view.pin.id}`}
-                    className="[content-visibility:auto] [contain-intrinsic-size:auto_52px]"
-                >
-                    <HomeHubPinRow view={view} onNavigate={onNavigate} onUnpin={onUnpin} />
-                </li>
-            ))}
-        </ul>
-    );
-}
-
-export function HomeHubPinsPanel({ hubPanel, clusterViews, onNavigate, onUnpin }: HomeHubPinsPanelProps) {
-    const pinsActive = hubPanel === 'pins';
-    const pinsMounted = useHomeHubPanelMount(pinsActive);
+}: HomeHubPinsPanelProps) {
+    const [moreOverlayOpen, setMoreOverlayOpen] = useState(false);
     const hasPins = clusterViews.length > 0;
-    const useVirtual = shouldVirtualizeHomeHubPins(clusterViews.length);
+
+    const { preview, overflowCount, hasOverflow } = useMemo(
+        () => splitHomeHubPins(clusterViews),
+        [clusterViews],
+    );
+
+    useEffect(() => {
+        if (!hasOverflow) setMoreOverlayOpen(false);
+    }, [hasOverflow]);
+
+    useEffect(() => {
+        if (!shouldVirtualizeHomeHubPins(clusterViews.length)) return;
+        void import('./HomeHubPinsVirtualList').catch(() => undefined);
+    }, [clusterViews.length]);
 
     return (
         <div
             id="home-hub-panel-pins"
             role="tabpanel"
             aria-labelledby="home-hub-tab-pins"
-            aria-hidden={!pinsActive}
             data-testid="home-hub-panel-pins"
-            className="flex flex-col min-h-0 flex-1"
-            style={{ display: pinsActive ? undefined : 'none' }}
+            data-pin-count={clusterViews.length}
+            className="hami-hub-pins-panel"
         >
-            <div className="flex items-center gap-2 mb-2">
+            {hasPins ? (
                 <div
-                    className="rounded-lg hami-home-accent-chip flex items-center justify-center shrink-0"
-                    style={{
-                        width: `calc(2rem * var(--hami-content-scale, 1))`,
-                        height: `calc(2rem * var(--hami-content-scale, 1))`,
-                    }}
+                    className={`hami-hub-pins-feed${hasOverflow ? ' hami-hub-pins-feed--has-more' : ''}`}
+                    data-testid="home-hub-pins-list"
                 >
-                    <Pin
-                        className="hami-home-accent-text opacity-90"
-                        aria-hidden
-                        style={{
-                            width: `calc(14px * var(--hami-content-scale, 1))`,
-                            height: `calc(14px * var(--hami-content-scale, 1))`,
-                        }}
-                    />
-                </div>
-                <h2
-                    className="text-[#F5F0E6] font-bold leading-none"
-                    style={{ fontSize: `calc(13px * var(--hami-content-scale, 1))` }}
-                >
-                    التثبيت السريع
-                </h2>
-                <span
-                    className="font-bold text-[#E6C673]/70 tabular-nums mr-auto"
-                    style={{ fontSize: `calc(9px * var(--hami-content-scale, 1))` }}
-                >
-                    {clusterViews.length}
-                </span>
-            </div>
-
-            {!pinsMounted ? null : hasPins ? (
-                useVirtual ? (
-                    <Suspense fallback={null}>
-                        <HomeHubPinsVirtualList
-                            clusterViews={clusterViews}
-                            onNavigate={onNavigate}
-                            onUnpin={onUnpin}
-                        />
-                    </Suspense>
-                ) : (
-                    <HomeHubPinsStaticList
+                    <ul
+                        className={`hami-hub-pins-stack space-y-1${hasOverflow ? ' hami-hub-pins-stack--preview' : ''}`}
+                        data-testid={hasOverflow ? 'home-hub-pins-preview' : 'home-hub-pins-stack'}
+                    >
+                        {preview.map((view) => (
+                            <li
+                                key={`${view.pin.type}:${view.pin.id}`}
+                                className="[content-visibility:auto] [contain-intrinsic-size:auto_52px]"
+                            >
+                                <HomeHubPinRow view={view} onNavigate={onNavigate} onUnpin={onUnpin} />
+                            </li>
+                        ))}
+                    </ul>
+                    {hasOverflow ? (
+                        <div className="hami-hub-pins-more-dock">
+                            <HomeHubTabMoreTrigger
+                                layout="dock"
+                                count={overflowCount}
+                                onClick={() => setMoreOverlayOpen(true)}
+                                ariaLabel={`عرض كل العناصر المثبّتة — ${clusterViews.length} عنصر`}
+                                testId="home-hub-pins-more-trigger"
+                            />
+                        </div>
+                    ) : null}
+                    <HomeHubPinsMoreOverlay
+                        open={moreOverlayOpen}
                         clusterViews={clusterViews}
+                        onClose={() => setMoreOverlayOpen(false)}
                         onNavigate={onNavigate}
                         onUnpin={onUnpin}
                     />
-                )
+                </div>
             ) : (
-                <p className="text-[10px] text-white/35 leading-relaxed py-6" data-testid="home-hub-pins-empty">
+                <p
+                    className="text-[10px] text-white/35 leading-relaxed py-2"
+                    data-testid="home-hub-pins-empty"
+                >
                     لا عناصر مثبّتة — استخدم زر التثبيت على الإضبارات.
                 </p>
             )}

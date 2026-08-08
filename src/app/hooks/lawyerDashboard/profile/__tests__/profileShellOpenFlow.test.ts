@@ -3,10 +3,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 const mocks = vi.hoisted(() => ({
     clearPerfMock: vi.fn(),
     markPerfMock: vi.fn(),
-    snapOpenMock: vi.fn(() => true),
-    snapCloseMock: vi.fn(),
-    isSnappedOpenMock: vi.fn(() => false),
-    scheduleReactSyncMock: vi.fn((fn: () => void) => fn()),
+    revealMock: vi.fn(() => true),
     dismissMock: vi.fn(),
     prefetchChunksMock: vi.fn(),
     warmSideEffectsMock: vi.fn(),
@@ -22,15 +19,20 @@ vi.mock('@/app/services/profile/profilePerfMetrics', () => ({
     markProfilePerfPhase: mocks.markPerfMock,
 }));
 
-vi.mock('@/app/services/profile/profileShellSnap', () => ({
-    snapProfileShellOpen: mocks.snapOpenMock,
-    snapProfileShellClose: mocks.snapCloseMock,
-    isProfileShellSnappedOpen: mocks.isSnappedOpenMock,
-    scheduleProfileShellReactSync: mocks.scheduleReactSyncMock,
+vi.mock('@/app/runtime/profileInstantPaint', () => ({
+    revealProfileWarmShell: mocks.revealMock,
+}));
+
+vi.mock('@/app/runtime/profileShellPrime', () => ({
+    primeProfileForOpen: vi.fn(),
 }));
 
 vi.mock('@/app/utils/bodyScrollLock', () => ({
     dismissTransientOverlays: mocks.dismissMock,
+}));
+
+vi.mock('@/app/runtime/settingsInstantPaint', () => ({
+    concealSettingsWarmShell: vi.fn(),
 }));
 
 vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importOriginal) => {
@@ -40,10 +42,9 @@ vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importO
     return {
         ...actual,
         prefetchProfileShellChunks: mocks.prefetchChunksMock,
-        warmProfileOpenSideEffects: mocks.warmSideEffectsMock,
-        loadProfileIntentWarm: vi.fn(() =>
+        loadProfileWarmCache: vi.fn(() =>
             Promise.resolve({
-                warmProfileOnOpen: mocks.warmOnOpenMock,
+                ensureProfilePaintReady: vi.fn(() => Promise.resolve(null)),
             }),
         ),
     };
@@ -52,11 +53,12 @@ vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importO
 describe('profileShellOpenFlow', () => {
     beforeEach(() => {
         vi.clearAllMocks();
-        mocks.isSnappedOpenMock.mockReturnValue(false);
-        mocks.snapOpenMock.mockReturnValue(true);
+        mocks.revealMock.mockReturnValue(true);
+        document.body.innerHTML = '';
     });
 
-    it('commitProfileOpen يفتح الملف ويُسجّل perf', async () => {
+    it('commitProfileOpen يفتح الملف ويُسجّل perf فوراً', async () => {
+        document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
         );
@@ -74,21 +76,41 @@ describe('profileShellOpenFlow', () => {
 
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
-        expect(mocks.snapOpenMock).toHaveBeenCalled();
+        expect(mocks.revealMock).toHaveBeenCalled();
         expect(setActiveTab).toHaveBeenCalledWith('profile');
         expect(mocks.dismissMock).toHaveBeenCalledWith('profile');
-        expect(mocks.warmSideEffectsMock).toHaveBeenCalledWith('lawyer-1');
+        await vi.waitFor(() => {
+            expect(mocks.prefetchChunksMock).toHaveBeenCalled();
+        });
     });
 
-    it('commitProfileOpen يتخطى إذا كان مفتوحاً', async () => {
+    it('commitProfileOpen يزامن React حتى لو كان snap مفتوحاً مسبقاً', async () => {
+        document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
         );
-        mocks.isSnappedOpenMock.mockReturnValue(true);
+        const setActiveTab = vi.fn();
 
         commitProfileOpen({
             userId: 'lawyer-1',
             openInFlightRef: { current: false },
+            setProfileHostMounted: vi.fn(),
+            setShowCommunity: vi.fn(),
+            setActiveTab,
+            setProfileOpenEpoch: vi.fn(),
+        });
+
+        expect(setActiveTab).toHaveBeenCalledWith('profile');
+    });
+
+    it('commitProfileOpen يتخطى إذا كان فتحاً قيد التنفيذ', async () => {
+        const { commitProfileOpen } = await import(
+            '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
+        );
+
+        commitProfileOpen({
+            userId: 'lawyer-1',
+            openInFlightRef: { current: true },
             setProfileHostMounted: vi.fn(),
             setShowCommunity: vi.fn(),
             setActiveTab: vi.fn(),

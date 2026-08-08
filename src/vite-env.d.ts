@@ -7,6 +7,11 @@ interface ImportMetaEnv {
     readonly VITE_SHELL_AUTH_OPEN?: string;
     readonly VITE_SECURE_STORE_PLAINTEXT_RECOVERY?: string;
     readonly VITE_SENTRY_DSN?: string;
+    readonly VITE_ENABLE_SENTRY?: string;
+    readonly VITE_PDF_MINIMAL_ASSETS?: string;
+    readonly VITE_PDF_BUNDLE_ASSETS?: string;
+    readonly VITE_PDF_CDN?: string;
+    readonly VITE_BUILD_NATIVE?: string;
     readonly VITE_ENABLE_CLOUD_SYNC?: string;
     readonly VITE_ENABLE_KV_PROXY?: string;
     readonly VITE_ENABLE_CALENDAR_TOMBSTONES_CLOUD?: string;

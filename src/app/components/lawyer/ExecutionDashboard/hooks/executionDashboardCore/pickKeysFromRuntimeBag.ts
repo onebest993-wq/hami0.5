@@ -1,4 +1,3 @@
-// @ts-nocheck
 /** Phase C Slice 25 — اختيار مفاتيح من runtime bag */
 export function pickKeysFromRuntimeBag(bag: Record<string, unknown>, keys: readonly string[]) {
     const out: Record<string, unknown> = {};

@@ -5,6 +5,7 @@ import {
     LAWSUIT_FILES_STORAGE_KEY,
     LAWSUIT_FILES_STORAGE_KEYS_LEGACY,
 } from './dossierStorageKeys';
+import { WORKSPACE_STORE_KEY } from '@/app/infrastructure/persistence/workspaceStorePersist';
 import type { BackupDomain } from './dossierPersistenceTypes';
 
 const LAWYER_NOTES_STORAGE_KEY = 'lawyer_notes';
@@ -37,6 +38,8 @@ export const BOOT_SHELL_WARM_KEYS = [
     LAWYER_SETTINGS_STORAGE_KEY,
     'lawyer_theme',
     'lawyer_shape',
+    'lawyer_wallpaper',
+    WORKSPACE_STORE_KEY,
     'hami:smartvault:docs:v1',
 ] as const;
 

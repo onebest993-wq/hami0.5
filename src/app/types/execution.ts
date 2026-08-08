@@ -972,7 +972,7 @@ export interface ExecutionFile {
     deceased_creditor_legal_name_snapshot?: string;
 
     /** محضر المتابعة — التنفيذ الجبري الشخصي (طلبات المنفذ) */
-    forced_bring_in_personal_outcome?: 'brought' | 'absconded' | null;
+    forced_bring_in_personal_outcome?: 'brought' | 'absconded' | 'dismissed' | null;
     /** سجّل مرة واحدة: مسودة مذكرة إحضار + مهمة ميدانية بعد موافقة المنفذ على طلب الإحضار */
     forced_bring_in_personal_followup_logged?: boolean;
     /** مفاتحة محكمة التحقيق لأمر قبض */
@@ -1021,6 +1021,10 @@ export interface ExecutionFile {
     executive_detention_judge_eligible_decision_id?: string | null;
     /** معرّف صف قرار قاضي البداءة المستقل عن طلب المنفذ */
     executive_detention_judge_decision_id?: string | null;
+    /** سبب إخلاء سبيل المدين من الحبس التنفيذي */
+    executive_detention_release_reason?: string | null;
+    /** سبب رفض قاضي البداءة للحبس */
+    executive_detention_judge_rejection_reason?: string | null;
     /**
      * مرحلة مسار عرض الإضبارة/الحبس — منفصلة عن صفوف القرارات
      * idle: لا مسار | handed_to_judge: وافق المنفذ | judge_decided: سُجّل قرار القاضي | detention_active: المدة جارية

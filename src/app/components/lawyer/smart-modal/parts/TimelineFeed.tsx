@@ -3,7 +3,8 @@ import {
     Search as SearchIcon,
     Clock,
     Trash2,
-} from 'lucide-react';
+    ChevronDown,
+} from '@/app/components/ui/lucideIcons';
 import type { TimelineEvent } from '../../LawyerShared';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import {
@@ -17,6 +18,7 @@ import {
     type TimelineFeedCategory,
 } from '../smartFile/timelineFeedTaxonomy';
 import { resolveTimelineVisual } from '../smartFile/timelineEventVisuals';
+import { isSessionTimelineEvent, isOpponentProceedingsEvent } from '../smartFile/sessionRecordEngine';
 
 type ExtendedTimelineEvent = TimelineEvent & {
     isPause?: boolean;
@@ -39,16 +41,19 @@ function getEvidentiaryBadge(weight: string) {
 export const TimelineFeed = ({
     events,
     onDelete,
+    onEventClick,
     visualVariant = 'civil',
 }: {
     events: TimelineEvent[];
     onDelete?: (id: string) => void;
+    onEventClick?: (event: TimelineEvent) => void;
     visualVariant?: 'civil' | 'personal' | 'personal-pearl';
 }) => {
     const isPearl = visualVariant === 'personal-pearl';
     const isPersonal = visualVariant === 'personal' || isPearl;
     const [query, setQuery] = useState('');
     const [category, setCategory] = useState<TimelineFeedCategory>('all');
+    const [expandedEventId, setExpandedEventId] = useState<string | null>(null);
 
     const counts = useMemo(() => countTimelineByCategory(events), [events]);
     const visibleCategories = useMemo(
@@ -167,14 +172,45 @@ export const TimelineFeed = ({
                     const eventCategory = classifyTimelineEvent(event);
                     const categoryMeta = getTimelineCategoryMeta(eventCategory);
                     const displayTitle = formatTimelineCardTitle(event);
+                    const fullDetails = formatTimelineCardBody(event);
                     const simplifyCivilContent = !isPearl && !isPersonal;
-                    const displayDetails = simplifyCivilContent ? '' : formatTimelineCardBody(event);
+                    const hasDetails = Boolean(fullDetails.trim());
+                    const isExpanded = expandedEventId === event.id;
+                    const displayDetails = simplifyCivilContent
+                        ? isExpanded
+                            ? fullDetails
+                            : ''
+                        : fullDetails;
 
                     const isPauseEvent = ext.isPause || event.title?.includes('استئخار');
                     const isInterruptionEvent = ext.isInterruption || event.title?.includes('انقطاع السير');
                     const evidentiaryBadge = event.evidentiaryWeight
                         ? getEvidentiaryBadge(event.evidentiaryWeight)
                         : null;
+
+                    const isSessionRecord =
+                        isSessionTimelineEvent(event) && !isOpponentProceedingsEvent(event);
+                    const isSessionClickable = Boolean(onEventClick && isSessionRecord);
+                    const isExpandable = simplifyCivilContent && hasDetails && !isSessionClickable;
+                    const isClickable = isSessionClickable || isExpandable;
+
+                    const handleCardClick = () => {
+                        if (isSessionClickable) {
+                            onEventClick?.(event);
+                            return;
+                        }
+                        if (isExpandable) {
+                            setExpandedEventId(isExpanded ? null : event.id);
+                        }
+                    };
+
+                    const handleCardKeyDown = (e: React.KeyboardEvent) => {
+                        if (!isClickable) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleCardClick();
+                        }
+                    };
 
                     return (
                         <div
@@ -184,23 +220,58 @@ export const TimelineFeed = ({
                         >
                             <div className={visual.dot} />
 
-                            <div className={visual.card}>
+                            <div
+                                className={`${visual.card} ${isClickable ? 'cursor-pointer' : ''} ${
+                                    isExpanded ? 'ring-1 ring-[#E6C673]/20' : ''
+                                }`}
+                                role={isClickable ? 'button' : undefined}
+                                tabIndex={isClickable ? 0 : undefined}
+                                aria-expanded={isExpandable ? isExpanded : undefined}
+                                onClick={isClickable ? handleCardClick : undefined}
+                                onKeyDown={isClickable ? handleCardKeyDown : undefined}
+                            >
                                 {simplifyCivilContent ? (
                                     <div className="flex items-start justify-between gap-2">
-                                        <h4
-                                            className={`min-w-0 flex-1 font-bold text-[13px] leading-snug ${visual.title}`}
-                                        >
-                                            {displayTitle}
-                                        </h4>
+                                        <div className="min-w-0 flex-1">
+                                            <h4
+                                                className={`font-bold text-[13px] leading-snug ${visual.title}`}
+                                            >
+                                                {displayTitle}
+                                            </h4>
+                                            {hasDetails && !isExpanded ? (
+                                                <p className="text-[10px] text-white/35 mt-1">
+                                                    اضغط لعرض التفاصيل
+                                                </p>
+                                            ) : null}
+                                            {displayDetails ? (
+                                                <p
+                                                    className={`text-[11px] leading-relaxed mt-2 whitespace-pre-line ${visual.detailsText} line-clamp-none`}
+                                                >
+                                                    {displayDetails}
+                                                </p>
+                                            ) : null}
+                                        </div>
                                         <div className="flex items-center gap-2 shrink-0">
+                                            {isExpandable ? (
+                                                <ChevronDown
+                                                    size={14}
+                                                    className={`text-white/35 transition-transform ${
+                                                        isExpanded ? 'rotate-180' : ''
+                                                    }`}
+                                                    aria-hidden
+                                                />
+                                            ) : null}
                                             <span className="text-[10px] tabular-nums text-white/35">
                                                 {event.date?.slice(0, 10) || '—'}
                                             </span>
                                             {onDelete ? (
-                                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden">
+                                                <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity print:hidden">
                                                     <button
                                                         type="button"
-                                                        onClick={() => onDelete(event.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onDelete(event.id);
+                                                        }}
                                                         className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
                                                         title="حذف"
                                                     >
@@ -260,10 +331,13 @@ export const TimelineFeed = ({
                                                 </div>
                                             </div>
                                             {onDelete ? (
-                                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity print:hidden shrink-0">
+                                                <div className="flex gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity print:hidden shrink-0">
                                                     <button
                                                         type="button"
-                                                        onClick={() => onDelete(event.id)}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            onDelete(event.id);
+                                                        }}
                                                         className="p-1.5 rounded-lg bg-white/[0.04] border border-white/[0.08] hover:border-rose-500/30 text-white/30 hover:text-rose-400 transition-colors"
                                                         title="حذف"
                                                     >
@@ -273,7 +347,16 @@ export const TimelineFeed = ({
                                             ) : null}
                                         </div>
                                         {displayDetails ? (
-                                            <p className={`text-[11px] leading-relaxed mt-2 pl-0.5 line-clamp-5 whitespace-pre-line ${visual.detailsText}`}>
+                                            <p
+                                                className={`text-[11px] leading-relaxed mt-2 pl-0.5 whitespace-pre-line ${visual.detailsText} ${
+                                                    event.type === 'decision'
+                                                    || event.type === 'milestone'
+                                                    || isPauseEvent
+                                                    || isInterruptionEvent
+                                                        ? 'line-clamp-none'
+                                                        : 'line-clamp-5'
+                                                }`}
+                                            >
                                                 {displayDetails}
                                             </p>
                                         ) : null}

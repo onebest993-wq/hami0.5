@@ -1,5 +1,5 @@
-import React, { useState, memo, useCallback } from 'react';
-import { Pin, Zap } from 'lucide-react';
+import React, { useState, memo, useCallback, useEffect, useRef } from 'react';
+import { Pin, Zap } from '@/app/components/ui/lucideIcons';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { useForumAttachmentUrl } from '../useForumAttachmentUrl';
 import { QuestionCardAttachment } from './QuestionCardAttachment';
@@ -85,7 +85,35 @@ export const QuestionCard = memo(function QuestionCard({
 }: QuestionCardProps) {
   const [showUserPopup, setShowUserPopup] = useState(false);
   const [showEditInfo, setShowEditInfo] = useState(false);
-  const { url: attachmentUrl, loading: attachmentLoading } = useForumAttachmentUrl(post.attachment);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [attachmentInView, setAttachmentInView] = useState(preferEagerImage);
+
+  useEffect(() => {
+    if (preferEagerImage) {
+      setAttachmentInView(true);
+      return;
+    }
+    const node = cardRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setAttachmentInView(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setAttachmentInView(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '240px 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [preferEagerImage]);
+
+  const { url: attachmentUrl, loading: attachmentLoading } = useForumAttachmentUrl(post.attachment, {
+    enabled: attachmentInView,
+  });
   const onMediaReady = useCallback(() => undefined, []);
 
   const authorId = post.authorId || post.author_id || '';
@@ -121,6 +149,7 @@ export const QuestionCard = memo(function QuestionCard({
 
   return (
     <div
+      ref={cardRef}
       id={`forum-post-${post.id}`}
       className={cardClassName}
       data-forum-card-hydrated="1"
@@ -181,6 +210,23 @@ export const QuestionCard = memo(function QuestionCard({
         onReport={onReport}
       />
 
+      {post.tags.length > 0 ? (
+        <div
+          className="mb-2.5 -mt-1 flex items-center gap-1.5 overflow-x-auto overscroll-x-contain scrollbar-hide [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="وسوم المنشور"
+          data-testid={`forum-post-tags-${post.id}`}
+        >
+          {post.tags.map((tag, i) => (
+            <span
+              key={`${post.id}-tag-${i}`}
+              className={`shrink-0 rounded-full border px-2.5 py-0.5 text-[10px] font-bold leading-none ${FORUM_ACCENT_CHIP}`}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : null}
+
       <p className={`mb-3 line-clamp-6 whitespace-pre-wrap text-[15px] font-medium leading-[1.65] ${FORUM_TEXT_PRIMARY}`}>
         {displayContent}
       </p>
@@ -194,16 +240,6 @@ export const QuestionCard = memo(function QuestionCard({
         preferEagerImage={preferEagerImage}
         onMediaReady={onMediaReady}
       />
-
-      {post.tags.length > 0 && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          {post.tags.map((tag, i) => (
-            <span key={`${post.id}-tag-${i}`} className={`rounded-md border px-2 py-1 text-xs ${FORUM_ACCENT_CHIP}`}>
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
 
       {isProcedureGuide ? (
         <button

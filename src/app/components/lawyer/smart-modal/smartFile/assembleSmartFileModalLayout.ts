@@ -40,6 +40,7 @@ export type AssembleSmartFileModalLayoutParams = {
     deletedEvents: unknown[];
     modalHandlers: ModalHandlers;
     onOpenLinkedFile?: (fileId: number) => void;
+    lawsuitFiles?: FileData[];
     openFileIdentity: {
         fileId?: number;
         caseNo?: string;
@@ -59,6 +60,7 @@ export type AssembleSmartFileModalLayoutParams = {
     handleToggleClient: (...args: unknown[]) => void;
     handleInterruptionToggle: (...args: unknown[]) => void;
     handleOpenPauseModal: () => void;
+    handleOpenPauseResume: () => void;
     handleAbandonment: (...args: unknown[]) => void;
     handleRegisterPetitionVoid: (...args: unknown[]) => void;
     handlePetitionVoidAppeal: (...args: unknown[]) => void;
@@ -71,6 +73,7 @@ export type AssembleSmartFileModalLayoutParams = {
     handleOpenDefendantCassationAppeal: (...args: unknown[]) => void;
     handleDefaultObjection: (...args: unknown[]) => void;
     handleWaiveObjection: (...args: unknown[]) => void;
+    handleOpponentAppealWaived: (...args: unknown[]) => void;
     handleOtherAppeals: (...args: unknown[]) => void;
     handleOpenAbsentJudgmentNotification: (...args: unknown[]) => void;
     handleOpenOpponentAbsentObjection: (...args: unknown[]) => void;
@@ -129,6 +132,7 @@ export function assembleSmartFileModalLayout(params: AssembleSmartFileModalLayou
         deletedEvents: params.deletedEvents,
         handlers: params.modalHandlers,
         onOpenLinkedFile: params.onOpenLinkedFile,
+        lawsuitFiles: params.lawsuitFiles,
         consolidationCurrentFileId: params.openFileIdentity.fileId ?? 0,
         consolidationCurrentCaseNo: params.openFileIdentity.caseNo,
         consolidationCurrentClientName: params.openFileIdentity.clientName,
@@ -151,6 +155,7 @@ export function assembleSmartFileModalLayout(params: AssembleSmartFileModalLayou
         handleToggleClient: params.handleToggleClient,
         handleInterruptionToggle: params.handleInterruptionToggle,
         handleOpenPauseModal: params.handleOpenPauseModal,
+        handleOpenPauseResume: params.handleOpenPauseResume,
         handleAbandonment: params.handleAbandonment,
         handleRegisterPetitionVoid: params.handleRegisterPetitionVoid,
         handlePetitionVoidAppeal: params.handlePetitionVoidAppeal,
@@ -163,6 +168,7 @@ export function assembleSmartFileModalLayout(params: AssembleSmartFileModalLayou
         handleOpenDefendantCassationAppeal: params.handleOpenDefendantCassationAppeal,
         handleDefaultObjection: params.handleDefaultObjection,
         handleWaiveObjection: params.handleWaiveObjection,
+        handleOpponentAppealWaived: params.handleOpponentAppealWaived,
         handleOtherAppeals: params.handleOtherAppeals,
         handleOpenAbsentJudgmentNotification: params.handleOpenAbsentJudgmentNotification,
         handleOpenOpponentAbsentObjection: params.handleOpenOpponentAbsentObjection,

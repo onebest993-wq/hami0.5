@@ -1,9 +1,9 @@
 import React from 'react';
-import { motion } from 'motion/react';
-import { Trash2, RotateCcw } from 'lucide-react';
+import { Trash2, RotateCcw } from '@/app/components/ui/lucideIcons';
 import { preloadActiveOrderFilePanel } from './DeferredActiveOrderFile';
-import { WorkspacePinButton } from '@/app/workspace/WorkspacePinButton';
-import { buildUrgentWorkspacePin } from '@/app/workspace/workspacePinBuilders';
+import { UnifiedDossierCard } from './ArchivePortal/components/UnifiedDossierCard';
+import { ArchiveDossierIdentityBlock } from './ArchivePortal/components/ArchiveDossierIdentityBlock';
+import { formatDateText, formatRequestNumberText } from './Dashboard_Active_Order_File/utils/formatters';
 
 export type UrgentCaseStatus = 'critical' | 'warning' | 'safe' | 'expired' | 'completed';
 export type UrgentCaseType = 'urgent_action' | 'state_order';
@@ -101,7 +101,8 @@ export interface UrgentCase {
     /** تاريخ صدور الأمر عند الدخول من مرحلة التظلم */
     stateOrderIssuedDate?: string | null;
     deadlineDate?: Date | null;
-    sessionDate?: Date | null;
+    /** يُكتب سلسلة YYYY-MM-DD في كل المشروع؛ الإعلان بـDate وحده كان مخالفاً للواقع */
+    sessionDate?: Date | string | null;
     notificationDate?: Date | string | null;
     deadlineDays?: number | null;
     firstHearingDate?: string | null;
@@ -284,43 +285,6 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
     const targetLabel = case_data.sessionDate ? 'موعد الجلسة' : 'الموعد النهائي';
     const targetText = targetDate ? targetDate.toLocaleDateString('ar-IQ') : null;
 
-    const getStatusConfig = () => {
-        const shell =
-            'bg-[#0A0F1C]/50 backdrop-blur-md border border-white/[0.08] hover:border-[#E6C673]/14';
-        switch (case_data.status) {
-            case 'critical':
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-rose-300/90 via-rose-400/60 to-rose-500/30',
-                };
-            case 'warning':
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-amber-300/80 via-amber-400/55 to-amber-600/25',
-                };
-            case 'safe':
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-[#E6C673]/90 via-[#E6C673]/55 to-[#B8941F]/25',
-                };
-            case 'expired':
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-slate-400/70 via-slate-500/45 to-slate-600/20',
-                };
-            case 'completed':
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-emerald-300/75 via-emerald-400/50 to-emerald-600/20',
-                };
-            default:
-                return {
-                    shell,
-                    accent: 'bg-gradient-to-b from-white/30 to-white/10',
-                };
-        }
-    };
-
     const getPhaseLabel = (): string => {
         if (case_data.status === 'completed' || case_data.phase === 'completed') return 'مكتسب الدرجة القطعية';
         if (case_data.type === 'state_order') {
@@ -350,105 +314,151 @@ const Component_Urgent_CardInner: React.FC<Props> = ({
     };
 
     const phaseLabel = getPhaseLabel();
-    const bottomBarStatusText = isWaitingNotification ? 'بانتظار التبليغ الأصولي' : null;
 
-    const metaParts: string[] = [];
-    if (case_data.court?.trim()) metaParts.push(case_data.court.trim());
-    if (case_data.status === 'completed') {
-        metaParts.push('مكتسبة الدرجة القطعية');
-    } else if (isWaitingNotification) {
-        metaParts.push('بانتظار التبليغ الأصولي');
-    } else {
-        if (phaseLabel && phaseLabel !== bottomBarStatusText) metaParts.push(phaseLabel);
-        if (targetText) metaParts.push(`${targetLabel} ${targetText}`);
-    }
-    const metaLine = metaParts.join(' · ');
+    const courtLabel = (case_data.courtName?.trim() || case_data.court?.trim() || '').trim();
+    const applicantName =
+        case_data.applicantName?.trim() || case_data.party1Name?.trim() || '';
+    const opponentName = case_data.party2Name?.trim() || '';
+    const applicantIsClient = case_data.clientRole === 'applicant';
+    const opponentIsClient = case_data.clientRole === 'respondent';
 
-    const config = getStatusConfig();
-    const workspacePin = buildUrgentWorkspacePin(case_data);
+    const metaRows = [
+        case_data.requestNumber
+            ? {
+                  label: 'رقم الطلب',
+                  value: formatRequestNumberText(case_data.requestNumber, case_data.requestDate),
+              }
+            : null,
+        courtLabel ? { label: 'المحكمة', value: courtLabel } : null,
+        case_data.requestDate ? { label: 'تاريخ الطلب', value: formatDateText(case_data.requestDate) } : null,
+        case_data.judgeName?.trim()
+            ? { label: 'القاضي', value: case_data.judgeName.trim() }
+            : null,
+        case_data.feeReceiptNumber?.trim()
+            ? {
+                  label: 'وصل الرسوم',
+                  value: `${case_data.feeReceiptNumber.trim()}${
+                      case_data.feeReceiptDate
+                          ? ` · ${formatDateText(case_data.feeReceiptDate)}`
+                          : ''
+                  }`,
+              }
+            : null,
+    ].filter((row): row is { label: string; value: string } => row !== null);
 
-    const actionBtnClass =
-        'shrink-0 w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center transition-colors';
+    const hearing =
+        case_data.sessionDate
+            ? {
+                  label: 'موعد الجلسة',
+                  ymd: formatDateText(case_data.sessionDate),
+              }
+            : targetText
+              ? { label: targetLabel, ymd: targetText }
+              : null;
+
+    const parties =
+        applicantName || opponentName
+            ? {
+                  left: applicantName
+                      ? {
+                            name: applicantName,
+                            role: 'الطالب',
+                            isClient: applicantIsClient,
+                        }
+                      : null,
+                  right: opponentName
+                      ? {
+                            name: opponentName,
+                            role: 'المطلوب ضده',
+                            isClient: opponentIsClient,
+                        }
+                      : null,
+                  leftTone: 'primary' as const,
+                  rightTone: 'defendant' as const,
+              }
+            : null;
+
+    const subtitle = case_data.requestNumber
+        ? `رقم الطلب ${formatRequestNumberText(case_data.requestNumber, case_data.requestDate)}`
+        : applicantName || undefined;
+
+    const statusBadgeClass = (status: UrgentCaseStatus): string => {
+        switch (status) {
+            case 'critical':
+                return 'text-rose-300';
+            case 'warning':
+                return 'text-amber-300';
+            case 'safe':
+                return 'text-[#E6C673]';
+            case 'expired':
+                return 'text-slate-300';
+            case 'completed':
+                return 'text-emerald-300';
+            default:
+                return 'text-white/70';
+        }
+    };
+
+    const footerIcons =
+        scope === 'trash'
+            ? [
+                  {
+                      id: 'restore',
+                      label: 'استعادة',
+                      icon: <RotateCcw size={16} />,
+                      onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+                          event.stopPropagation();
+                          onRestore?.(case_data.id);
+                      },
+                      tone: 'default' as const,
+                  },
+                  {
+                      id: 'delete',
+                      label: 'حذف نهائي',
+                      icon: <Trash2 size={16} />,
+                      onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+                          event.stopPropagation();
+                          onPermanentDelete?.(case_data.id);
+                      },
+                      tone: 'danger' as const,
+                  },
+              ]
+            : [
+                  {
+                      id: 'trash',
+                      label: 'نقل إلى سلة المهملات',
+                      icon: <Trash2 size={16} />,
+                      onClick: (event: React.MouseEvent<HTMLButtonElement>) => {
+                          event.stopPropagation();
+                          onTrash?.(case_data.id);
+                      },
+                      tone: 'danger' as const,
+                  },
+              ];
 
     return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            onPointerEnter={() => preloadActiveOrderFilePanel()}
-            onClick={() => onCaseClick?.(case_data.id)}
-            className={`font-['Tajawal'] group flex items-stretch gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer transition-colors ${config.shell}`}
-        >
-            <span
-                className={`w-0.5 shrink-0 rounded-full self-stretch min-h-[2.25rem] ${config.accent}`}
-                aria-hidden
+        <div onPointerEnter={() => preloadActiveOrderFilePanel()}>
+            <UnifiedDossierCard
+                kind="urgent"
+                statusBadge={{
+                    label: phaseLabel || case_data.status,
+                    className: statusBadgeClass(case_data.status),
+                }}
+                title={case_data.actionType}
+                subtitle={subtitle}
+                bodyExtra={
+                    <ArchiveDossierIdentityBlock
+                        hearing={hearing}
+                        metaRows={metaRows}
+                        parties={parties}
+                    />
+                }
+                onOpen={() => onCaseClick?.(case_data.id)}
+                openLabel="فتح الطلب المستعجل"
+                footerIcons={footerIcons}
+                testId={`urgent-case-${case_data.id}`}
             />
-
-            <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                    <p className="min-w-0 text-[13px] leading-snug line-clamp-2">
-                        <span className="font-bold text-white/90">{case_data.actionType}</span>
-                        {case_data.applicantName ? (
-                            <span className="text-white/42 font-medium"> — {case_data.applicantName}</span>
-                        ) : null}
-                    </p>
-
-                    <div className="flex items-center gap-0.5 shrink-0">
-                        {workspacePin ? (
-                            <div onPointerDown={(e) => e.stopPropagation()} role="presentation">
-                                <WorkspacePinButton item={workspacePin} />
-                            </div>
-                        ) : null}
-                        {scope === 'trash' ? (
-                            <>
-                                <button
-                                    type="button"
-                                    title="استعادة"
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onRestore?.(case_data.id);
-                                    }}
-                                    className={`${actionBtnClass} text-white/55 hover:text-white hover:bg-white/10`}
-                                >
-                                    <RotateCcw size={14} />
-                                </button>
-                                <button
-                                    type="button"
-                                    title="حذف نهائي"
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onPermanentDelete?.(case_data.id);
-                                    }}
-                                    className={`${actionBtnClass} text-rose-300/80 hover:text-rose-200 hover:border-rose-400/25`}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            </>
-                        ) : (
-                            <button
-                                type="button"
-                                title="نقل إلى سلة المهملات"
-                                onPointerDown={(e) => e.stopPropagation()}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onTrash?.(case_data.id);
-                                }}
-                                className={`${actionBtnClass} text-rose-300/75 hover:text-rose-200 hover:border-rose-400/25 hover:bg-rose-500/10`}
-                            >
-                                <Trash2 size={14} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {metaLine ? (
-                    <div className="mt-1">
-                        <p className="text-[10px] text-white/38 truncate leading-tight">{metaLine}</p>
-                    </div>
-                ) : null}
-            </div>
-        </motion.div>
+        </div>
     );
 };
 

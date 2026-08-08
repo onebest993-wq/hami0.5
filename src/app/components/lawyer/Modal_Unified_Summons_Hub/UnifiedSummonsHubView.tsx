@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { X, Bell, CheckCircle, Newspaper } from 'lucide-react';
+import { X, Bell, CheckCircle, Newspaper } from '@/app/components/ui/lucideIcons';
 import {
     EXEC_MODAL_BACKDROP_STRONG,
     EXEC_MODAL_Z,

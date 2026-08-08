@@ -3,6 +3,7 @@ import {
     reconcileBodyScrollLock,
     type TransientOverlayId,
 } from '@/app/utils/bodyScrollLock';
+import { markOverlaySnapClosing } from '@/app/runtime/overlaySnapClose';
 
 type OverlayCloser = () => void;
 
@@ -23,7 +24,6 @@ const PROFILE_PERSIST_EXCEPTS = new Set<TransientOverlayId>([
     'notifications',
     'global-search',
     'settings',
-    'home-layout-edit',
 ]);
 
 function shouldSkipCloser(id: TransientOverlayId, except?: TransientOverlayId): boolean {
@@ -47,6 +47,7 @@ export function shouldEvictProfileTabOnDismiss(except?: TransientOverlayId): boo
 }
 
 function onDismissEvent(event: Event): void {
+    markOverlaySnapClosing();
     const except = (event as CustomEvent<{ except?: TransientOverlayId }>).detail?.except;
     const evictProfile = shouldEvictProfileTabOnDismiss(except);
     for (const [id, close] of closers) {

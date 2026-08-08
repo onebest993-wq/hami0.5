@@ -126,7 +126,17 @@ async function wipeCloudDataForUser(userId: string): Promise<void> {
 }
 
 function clearBrowserStorage(): void {
-    const prefixes = ['hami_', 'hami:', 'lawyer_', 'execution_', 'lawsuit_', 'client_', 'notes_', 'cache_'];
+    const prefixes = [
+        'hami_',
+        'hami:',
+        'lawyer_',
+        'execution_',
+        'lawsuit_',
+        'client_',
+        'notes_',
+        'cache_',
+        'spark_',
+    ];
 
     try {
         for (let i = localStorage.length - 1; i >= 0; i--) {

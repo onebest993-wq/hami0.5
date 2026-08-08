@@ -24,6 +24,7 @@ vi.mock('@/app/hooks/lawyerDashboard/lawyerDashboardNav', () => ({
 
 vi.mock('@/app/hooks/lawyerDashboard/fieldTasksIntentWarm', () => ({
     warmFieldTasksOnOpen: mocks.warmOnOpenMock,
+    warmFieldTasksManagerOnOpen: mocks.warmOnOpenMock,
 }));
 
 vi.mock('@/app/services/fieldTasks/fieldTasksPerfMetrics', () => ({
@@ -31,15 +32,9 @@ vi.mock('@/app/services/fieldTasks/fieldTasksPerfMetrics', () => ({
     markFieldTasksPerfPhase: mocks.markPerfMock,
 }));
 
-vi.mock('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports', async (importOriginal) => {
-    const actual = await importOriginal<
-        typeof import('@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksLazyImports')
-    >();
-    return {
-        ...actual,
-        warmQuantumTasksDiskRead: mocks.warmDiskMock,
-    };
-});
+vi.mock('@/app/utils/quantumTasksStorage', () => ({
+    warmQuantumTasksDiskRead: mocks.warmDiskMock,
+}));
 
 describe('fieldTasksShellOpenFlow', () => {
     beforeEach(() => {
@@ -65,14 +60,36 @@ describe('fieldTasksShellOpenFlow', () => {
 
         expect(mocks.clearPerfMock).toHaveBeenCalled();
         expect(mocks.markPerfMock).toHaveBeenCalledWith('open-request');
+        expect(mocks.revealMock).toHaveBeenCalled();
         expect(mocks.warmDiskMock).toHaveBeenCalled();
+        expect(mocks.warmOnOpenMock).toHaveBeenCalled();
         expect(setFieldTasksSheetOpen).toHaveBeenCalledWith(true);
         expect(mocks.persistMock).toHaveBeenCalledWith(true, 'sheet');
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));
-        expect(mocks.warmOnOpenMock).toHaveBeenCalled();
         expect(mocks.dismissMock).toHaveBeenCalledWith('field-tasks');
         expect(setActiveTab).toHaveBeenCalledWith('home');
+    });
+
+    it('commitFieldTasksSheetOpen يُلتزم فوراً حتى مع كشف دافئ (بلا تأخير RAF)', async () => {
+        mocks.revealMock.mockReturnValueOnce(true);
+        const { commitFieldTasksSheetOpen } = await import(
+            '@/app/hooks/lawyerDashboard/fieldTasks/fieldTasksShellOpenFlow'
+        );
+        const setFieldTasksSheetOpen = vi.fn();
+
+        commitFieldTasksSheetOpen({
+            sheetOpenRef: { current: true },
+            instantPaint: { revealFieldTasksWarmSheet: mocks.revealMock } as never,
+            setFieldTasksHostMounted: vi.fn(),
+            setTasksManagerFocusTaskId: vi.fn(),
+            setShowTasksManager: vi.fn(),
+            setFieldTasksSheetOpen,
+            setActiveTab: vi.fn(),
+        });
+
+        expect(setFieldTasksSheetOpen).toHaveBeenCalledWith(true);
+        expect(mocks.revealMock).toHaveBeenCalledTimes(1);
     });
 
     it('commitTasksManagerOpen يُفعّل المدير عبر flushSync', async () => {
@@ -93,6 +110,7 @@ describe('fieldTasksShellOpenFlow', () => {
         expect(armFieldTasksManagerHost).toHaveBeenCalled();
         expect(revealTasksManager).toHaveBeenCalledWith('task-1');
         expect(mocks.clearPerfMock).toHaveBeenCalled();
+        expect(mocks.warmOnOpenMock).toHaveBeenCalled();
 
         await new Promise<void>((resolve) => queueMicrotask(resolve));
         expect(mocks.dismissMock).toHaveBeenCalledWith('tasks-manager');

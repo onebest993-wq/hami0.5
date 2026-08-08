@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Bell, Calendar, CheckCircle, Newspaper, Pencil, PauseCircle } from 'lucide-react';
+import { Bell, Calendar, CheckCircle, Newspaper, Pencil, PauseCircle } from '@/app/components/ui/lucideIcons';
 import { SummonsInlineDateField } from '@/app/components/lawyer/execution/SummonsInlineDateField';
 import type { UnifiedSummonsHubModel } from '../useUnifiedSummonsHubController';
 

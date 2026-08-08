@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Calendar, Clock, Scale, Users } from 'lucide-react';
+import { Calendar, Clock, Scale, Users } from '@/app/components/ui/lucideIcons';
 
 export interface AlimonyFinancialBreakdown {
     baseAccumulation: number;

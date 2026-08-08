@@ -86,6 +86,7 @@ export function vaultDocMatchesSearch(doc: SmartVaultDoc, query: string): boolea
         doc.tags.some((t) => t.toLowerCase().includes(q)) ||
         (doc.lawyerNote?.toLowerCase().includes(q) ?? false) ||
         (doc.aiSummary?.toLowerCase().includes(q) ?? false) ||
+        (doc.extractedText?.toLowerCase().includes(q) ?? false) ||
         (doc.fileName?.toLowerCase().includes(q) ?? false)
     );
 }

@@ -112,7 +112,7 @@ describe('useRepositoryLifecycle', () => {
                 return [] as PerformanceEntryList;
             });
 
-            renderHook(() => useRepositoryLifecycle('u1', true, 0, 0));
+            renderHook(() => useRepositoryLifecycle('u1', true, 0, 0, true, true));
             const afterReady = sentry.mock.calls.length;
             expect(afterReady).toBeGreaterThanOrEqual(1);
 

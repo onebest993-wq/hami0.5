@@ -80,8 +80,36 @@ function upsertDocumentMap(
   return { ...map, [doc.transactionId]: next };
 }
 
+function reseedStoreFromMirrorIfEmpty(userId: string): void {
+    const state = useTransactionsThreadingStore.getState();
+    if (state.transactions.length > 0) return;
+
+    const mirrored = peekTransactionsThreadingState(userId);
+    if (!mirrored) return;
+
+    const seed: ThreadingRepositorySeed = {
+        transactions: mirrored.transactions as Transaction[],
+        tasks: mirrored.tasks as TransactionTask[],
+        financeRecords: mirrored.financeRecords as FinanceRecord[],
+        documents: mirrored.documents as TransactionDocument[],
+    };
+    repo = new PersistentTransactionsThreadingRepository(userId, seed);
+    service = new TransactionsThreadingService(repo);
+    const grouped = groupThreadingSeedForStore(seed);
+    patchStore?.({
+        userId,
+        transactions: grouped.transactions,
+        tasksByTransactionId: grouped.tasksByTransactionId,
+        financeByTransactionId: grouped.financeByTransactionId,
+        documentsByTransactionId: grouped.documentsByTransactionId,
+    });
+}
+
 function bindTransactionsUser(next: string): void {
-    if (boundUserId === next) return;
+    if (boundUserId === next) {
+        reseedStoreFromMirrorIfEmpty(next);
+        return;
+    }
 
     boundUserId = next;
     const mirrored = peekTransactionsThreadingState(next);
@@ -177,6 +205,8 @@ interface TransactionsThreadingState {
 
   setTransactionStatus: (transactionId: string, status: TransactionStatus) => Promise<Transaction>;
   setTransactionAgreedFees: (transactionId: string, agreedFees: number) => Promise<Transaction>;
+  setTransactionArchived: (transactionId: string, archived: boolean) => Promise<Transaction>;
+  setTransactionDeleted: (transactionId: string, deleted: boolean) => Promise<Transaction>;
 }
 
 export const useTransactionsThreadingStore = create<TransactionsThreadingState>((set, get) => {
@@ -423,6 +453,24 @@ export const useTransactionsThreadingStore = create<TransactionsThreadingState>(
     set((state) => ({
       transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
     }));
+    return tx;
+  },
+
+  setTransactionArchived: async (transactionId, archived) => {
+    const tx = await service.setTransactionArchived(transactionId, archived);
+    set((state) => ({
+      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
+    }));
+    syncThreadingToCalendar();
+    return tx;
+  },
+
+  setTransactionDeleted: async (transactionId, deleted) => {
+    const tx = await service.setTransactionDeleted(transactionId, deleted);
+    set((state) => ({
+      transactions: state.transactions.map((item) => (item.id === transactionId ? tx : item)),
+    }));
+    syncThreadingToCalendar();
     return tx;
   },
 };

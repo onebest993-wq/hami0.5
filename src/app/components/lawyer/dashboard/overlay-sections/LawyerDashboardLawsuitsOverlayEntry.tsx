@@ -1,4 +1,6 @@
 import React, { Suspense, useCallback } from 'react';
+import { snapProfileShellClose } from '@/app/services/profile/profileShellSnap';
+import { executeOverlaySnapClose } from '@/app/runtime/overlaySnapClose';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ThemeConfig } from '@/app/types/common';
 import type { LawyerDashboardOverlaysBundleProps } from '@/app/components/lawyer/dashboard/lawyerDashboardOverlaysBundles';
@@ -33,8 +35,15 @@ export function LawyerDashboardLawsuitsOverlayEntry({
     const shouldMount = visible || overlays.lawsuitsHostMounted;
 
     const closeLawsuitsWorkspace = useCallback(() => {
-        overlays.setShowLawsuitsWorkspace(false);
-        overlays.setUrgentFocusCaseId(undefined);
+        executeOverlaySnapClose({
+            conceal: () => {
+                snapProfileShellClose();
+            },
+            commit: () => {
+                overlays.setShowLawsuitsWorkspace(false);
+                overlays.setUrgentFocusCaseId(undefined);
+            },
+        });
     }, [overlays]);
 
     if (!shouldMount) return null;
@@ -57,6 +66,11 @@ export function LawyerDashboardLawsuitsOverlayEntry({
                 active={visible}
                 escapeEnabled={visible && !overlays.criminalDashboardCaseId}
                 files={data.files as FileData[]}
+                lawsuitLifecycleCounts={data.lawsuitLifecycleCounts}
+                lawsuitArchivedFiles={data.lawsuitArchivedFiles as FileData[] | null}
+                lawsuitTrashFiles={data.lawsuitTrashFiles as FileData[] | null}
+                onEnsureLawsuitArchivedLoaded={data.ensureLawsuitArchivedLoaded}
+                onEnsureLawsuitTrashLoaded={data.ensureLawsuitTrashLoaded}
                 criminalCases={data.criminalCasesForCluster}
                 theme={shell.theme as unknown as ThemeConfig}
                 shapeClass={shell.shapeClass}

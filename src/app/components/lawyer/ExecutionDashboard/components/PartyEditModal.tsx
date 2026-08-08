@@ -1,9 +1,15 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2 } from '@/app/components/ui/lucideIcons';
 import { getCreditorHeirSubstitutionRequestStatus, getDebtorHeirSubstitutionRequestStatus } from '@/app/utils/executorSeizureDecisionQueue';
 import { heirRowHasAnyText, makeHeirRowId } from '../helpers';
 import type { HeirDetailRow } from '../helpers';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_EDIT_PANEL_CLASS,
+    EXEC_MODAL_EDIT_PRIMARY_BTN_CLASS,
+} from '../executionModalMobileShell';
 
 export interface PartyEditDraft {
     name: string;
@@ -44,7 +50,7 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
 
     const modal = (
     <div
-        className="fixed inset-0 z-[12000] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
+        className={`fixed inset-0 z-[12000] flex items-center justify-center bg-black/80 backdrop-blur-sm ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
         dir="rtl"
         onClick={() => {
             setEditPartyTarget(null);
@@ -53,7 +59,7 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
         role="presentation"
     >
         <div
-            className="w-full max-w-md rounded-2xl border border-slate-600/40 bg-[#0A0F1C] p-4 shadow-2xl"
+            className={EXEC_MODAL_EDIT_PANEL_CLASS}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
         >
@@ -69,7 +75,8 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                         setEditPartyTarget(null);
                         setPartyEditDraft(null);
                     }}
-                    className="rounded-lg p-2 text-slate-400 hover:bg-white/10"
+                    className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                    aria-label="إغلاق"
                 >
                     <X size={20} />
                 </button>
@@ -280,7 +287,7 @@ export const PartyEditModal: React.FC<PartyEditModalProps> = ({
                 <button
                     type="button"
                     onClick={savePartyEditDraft}
-                    className="w-full rounded-lg bg-emerald-800/80 py-2.5 text-sm font-bold text-white hover:bg-emerald-700/90"
+                    className={`${EXEC_MODAL_EDIT_PRIMARY_BTN_CLASS} bg-emerald-800/80 text-white hover:bg-emerald-700/90`}
                 >
                     حفظ
                 </button>

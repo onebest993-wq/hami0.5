@@ -1,30 +1,19 @@
 import type { ComponentType } from 'react';
 import type { SettingsSectionId } from '@/app/services/settings';
-import { loadSettingsSection } from './settingsSectionLoader';
 import { AppearanceSection } from './appearance/AppearanceSection';
+import { SecuritySection } from './security/SecuritySection';
+import { DataSection } from './data/DataSection';
+import { AccountSection } from './account/AccountSection';
 
-type SectionModule = Awaited<ReturnType<typeof loadSettingsSection>>;
 type SettingsSectionComponent = ComponentType<object>;
 
 const resolved = new Map<SettingsSectionId, SettingsSectionComponent>();
 
-/* المظهر sync — بلا pulse تحميل داخلي عند فتح مركز الإعدادات */
+/* كل التبويبات sync — فتح لحظي بلا skeleton */
 resolved.set('appearance', AppearanceSection as SettingsSectionComponent);
-
-function pickSectionComponent(id: SettingsSectionId, mod: SectionModule): SettingsSectionComponent | null {
-    switch (id) {
-        case 'appearance':
-            return (mod.AppearanceSection as SettingsSectionComponent | undefined) ?? null;
-        case 'security':
-            return (mod.SecuritySection as SettingsSectionComponent | undefined) ?? null;
-        case 'data':
-            return (mod.DataSection as SettingsSectionComponent | undefined) ?? null;
-        case 'account':
-            return (mod.AccountSection as SettingsSectionComponent | undefined) ?? null;
-        default:
-            return null;
-    }
-}
+resolved.set('security', SecuritySection as SettingsSectionComponent);
+resolved.set('data', DataSection as SettingsSectionComponent);
+resolved.set('account', AccountSection as SettingsSectionComponent);
 
 export function getResolvedSettingsSection(id: SettingsSectionId): SettingsSectionComponent | null {
     return resolved.get(id) ?? null;
@@ -33,23 +22,17 @@ export function getResolvedSettingsSection(id: SettingsSectionId): SettingsSecti
 export async function resolveSettingsSectionComponent(
     id: SettingsSectionId,
 ): Promise<SettingsSectionComponent | null> {
-    const cached = resolved.get(id);
-    if (cached) return cached;
-
-    const mod = await loadSettingsSection(id);
-    const component = pickSectionComponent(id, mod);
-    if (component) {
-        resolved.set(id, component);
-    }
-    return component;
+    return resolved.get(id) ?? null;
 }
 
 export async function preloadAllSettingsSectionComponents(): Promise<void> {
-    const ids: SettingsSectionId[] = ['appearance', 'security', 'data', 'account'];
-    await Promise.all(ids.map((id) => resolveSettingsSectionComponent(id)));
+    /* كل الأقسام مُسجَّلة مسبقاً — لا عمل غير متزامن */
 }
 
 export function resetSettingsSectionRegistryForTests(): void {
     resolved.clear();
     resolved.set('appearance', AppearanceSection as SettingsSectionComponent);
+    resolved.set('security', SecuritySection as SettingsSectionComponent);
+    resolved.set('data', DataSection as SettingsSectionComponent);
+    resolved.set('account', AccountSection as SettingsSectionComponent);
 }

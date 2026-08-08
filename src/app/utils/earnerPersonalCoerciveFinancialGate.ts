@@ -52,14 +52,18 @@ export function applyEarnerFinancialPersonalCoerciveOverlay(
     if (!shouldUnlockEarnerPersonalCoerciveFromFinancialCenter(input)) {
         return flags;
     }
+    const financialDebtCollection = flags.isFinancialDebtCollection;
     return {
         ...flags,
         hidePersonalCoerciveFollowupTab: false,
         hidePersonalForcedBringActivation: false,
         hidePersonalJudgePresentation: false,
         suppressHiddenPersonalCoerciveRequests: false,
-        hideFollowupCoerciveTab: false,
-        hideFollowupSeizureRequestsTab: false,
-        isFinancialDebtCollection: true,
+        /** استحصال دين مالي — التنفيذ الجبري الشخصي + طلبات الحجز فقط؛ لا تبويب إجراءات جبريّة ميدانية */
+        hideFollowupCoerciveTab: financialDebtCollection ? flags.hideFollowupCoerciveTab : false,
+        hideFollowupSeizureRequestsTab: financialDebtCollection
+            ? flags.hideFollowupSeizureRequestsTab
+            : false,
+        isFinancialDebtCollection: financialDebtCollection || true,
     };
 }

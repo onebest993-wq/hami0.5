@@ -13,6 +13,7 @@ export function useExecutionDashboardCoreHandlerClusterSeizureHeavy(c: Execution
         pushTimelineEventBinding,
         pushTimelineEvent,
         propertyInlineSaveCtx,
+        movableInlineSaveCtx,
         realEstateSeizureHandlers,
         thirdPartySeizureHandlers,
     } = foundation;
@@ -40,8 +41,13 @@ export function useExecutionDashboardCoreHandlerClusterSeizureHeavy(c: Execution
         pushTimelineEventBinding,
         pushTimelineEvent,
         propertyInlineSaveCtx,
+        movableInlineSaveCtx,
         realEstateSeizureHandlers,
         thirdPartySeizureHandlers,
+        focusSeizurePropertyInlineCompletion,
+        focusSeizureMovableInlineCompletion,
+        focusSeizureThirdPartyInlineCompletion,
+        focusSeizureNoticeInlineCompletion,
         ...seizureFollowupRest,
         ...seizureCoercive,
     };

@@ -1,5 +1,5 @@
 import { HUB_DOSSIER_CHROME_Z_CLASS } from '@/app/components/lawyer/dashboard/hubOverlayStack';
-import { ArrowRightLeft } from 'lucide-react';
+import { ArrowRightLeft } from '@/app/components/ui/lucideIcons';
 
 type ConsolidationNavBarProps = {
     primaryCaseNo: string;

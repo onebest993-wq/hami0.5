@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     isExecutorHubRowSuperseded,
     isExecutorRowEffectivelyApproved,
@@ -20,6 +20,7 @@ import {
 } from '@/app/components/lawyer/DecisionsAndAppealsEngine/decisionCardPresentation';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import { ExecutionInlineExecutorDecisionActions } from './ExecutionInlineAccordion';
+import { isDossierControlDecisionSettled } from '../utils/dossierControlDecisions';
 export type ExecutorDecisionFollowupMirrorProps = {
     executionId: string | undefined;
     row: Record<string, unknown> | null;
@@ -40,6 +41,7 @@ export type ExecutorDecisionFollowupMirrorProps = {
     appealPerspective?: AppealUiPerspective;
     /** إضبارة الأم — لاكتشاف اكتمال طلبات التحكم بالإضبارة من السجل الزمني */
     parentExecutionId?: string;
+    onOutcomeApplied?: () => void;
 };
 
 /** مرآة قرار المنفذ في المحضر — نفس صف التخزين الذي تُعرض عليه بطاقة القرارات */
@@ -54,19 +56,49 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
     onWaiveInitialAppealApplied,
     appealPerspective = 'creditor_agent',
     parentExecutionId,
+    onOutcomeApplied,
 }) => {
     const exId = String(executionId || '').trim();
     const decisionId = row ? String((row as { id?: string }).id || '').trim() : '';
+    const [liveRow, setLiveRow] = useState<Record<string, unknown>>(row as Record<string, unknown>);
+
+    useEffect(() => {
+        if (!row) return;
+        setLiveRow(row as Record<string, unknown>);
+    }, [row, decisionId, (row as { executorOutcome?: string })?.executorOutcome]);
+
     if (!exId || !decisionId || !row) return null;
 
-    const rejected = isExecutorRowRejectedAndFinal(row);
-    const approved = isExecutorRowEffectivelyApproved(row);
+    const viewRow = liveRow;
+
+    const rejected = isExecutorRowRejectedAndFinal(viewRow);
+    const approved = isExecutorRowEffectivelyApproved(viewRow);
     const pending =
-        String((row as { executorOutcome?: string }).executorOutcome ?? 'pending') === 'pending' ||
-        String((row as { executorOutcome?: string }).executorOutcome ?? '') === '';
+        String((viewRow as { executorOutcome?: string }).executorOutcome ?? 'pending') === 'pending' ||
+        String((viewRow as { executorOutcome?: string }).executorOutcome ?? '') === '';
     const withdrawn =
-        String((row as { executorOutcome?: string }).executorOutcome || '') === 'withdrawn' ||
-        (row as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true;
+        String((viewRow as { executorOutcome?: string }).executorOutcome || '') === 'withdrawn' ||
+        (viewRow as { lawyerWithdrawn?: boolean }).lawyerWithdrawn === true;
+
+    const handleResolved = useCallback(
+        (result: {
+            ok: boolean;
+            outcome?: 'approved' | 'rejected';
+            personalCoerciveSubtype?: string;
+            storageExecutionId?: string;
+            decisionId?: string;
+        }) => {
+            if (!result.ok || !result.outcome) return;
+            setLiveRow((prev) => ({
+                ...prev,
+                executorOutcome: result.outcome,
+                resolvedAt: new Date().toISOString(),
+                status: result.outcome === 'rejected' ? 'rejected' : 'accepted',
+            }));
+            onOutcomeApplied?.();
+        },
+        [onOutcomeApplied],
+    );
 
     const openDecisions = useCallback(
         (tab: 'current' | 'previous' | 'appeals' = 'previous') => {
@@ -83,23 +115,23 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
         [exId, decisionId]
     );
 
-    const rk = String(requestKind || (row as { requestKind?: string }).requestKind || '').trim();
+    const rk = String(requestKind || (viewRow as { requestKind?: string }).requestKind || '').trim();
     const pcSub =
         personalCoerciveSubtype ||
-        String((row as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || '').trim();
+        String((viewRow as { personalCoerciveSubtype?: string }).personalCoerciveSubtype || '').trim();
 
     const allDecisions = useMemo(
         () => readExecutorDecisionsArray(exId) as Decision[],
-        [exId, row]
+        [exId, viewRow, decisionId],
     );
 
     const followupBlock = useMemo(() => {
         return resolveExecutorRequestFollowupBlockFromRecord(
-            row,
+            viewRow,
             allDecisions,
             appealPerspective
         );
-    }, [allDecisions, row, appealPerspective]);
+    }, [allDecisions, viewRow, appealPerspective]);
 
     const waiveInitialAppealButton = (
         <WaiveInitialAppealButton
@@ -115,16 +147,19 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
     const creditorPartyApproved =
         appealPerspective === 'debtor_agent' &&
         approved &&
-        isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(row as Decision));
+        isCreditorInitiatedExecutorRequest(hubWithInferredAppealOrigin(viewRow as Decision));
 
-    const actions = (
-        <ExecutionInlineExecutorDecisionActions
-            executionId={exId}
-            decisionId={decisionId}
-            requestKind={rk || undefined}
-            personalCoerciveSubtype={pcSub || undefined}
-        />
-    );
+    const inlineDecisionActionsProps = {
+        executionId: exId,
+        decisionId,
+        decisionRow: viewRow,
+        requestKind: rk || undefined,
+        personalCoerciveSubtype: pcSub || undefined,
+        suppressNavigatorToast: true,
+        onResolved: handleResolved,
+    };
+
+    const actions = <ExecutionInlineExecutorDecisionActions {...inlineDecisionActionsProps} />;
 
     if (withdrawn) {
         if (compact) {
@@ -171,10 +206,64 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
             );
         }
         if (rk === 'special_followup') {
-            return null;
+            const parentId = String(parentExecutionId || '').trim();
+            const dossierSettled = isDossierControlDecisionSettled(viewRow, {
+                parentExecutionId: parentId || undefined,
+                allDecisions: allDecisions as Record<string, unknown>[],
+                appealPerspective,
+            });
+            if (dossierSettled) {
+                if (compact) {
+                    return (
+                        <p className={`text-[10px] font-bold text-emerald-200/90 ${className}`} dir="rtl">
+                            ✓ تم إكمال الإجراء
+                        </p>
+                    );
+                }
+                return (
+                    <div
+                        className={`rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 text-right ${className}`}
+                        dir="rtl"
+                    >
+                        <p className="text-[11px] font-black text-emerald-200">✓ تم إكمال الإجراء</p>
+                        <p className="mt-1 text-[10px] text-emerald-200/80">
+                            تم تطبيق آثار الموافقة على الإضبارة — يمكنك إرسال طلب جديد.
+                        </p>
+                    </div>
+                );
+            }
+            if (compact) {
+                return (
+                    <button
+                        type="button"
+                        onClick={() => openDecisions('previous')}
+                        className={`w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-100 hover:bg-emerald-500/15 ${className}`}
+                    >
+                        متابعة إكمال الإجراء
+                    </button>
+                );
+            }
+            return (
+                <div
+                    className={`rounded-xl border border-emerald-500/25 bg-emerald-950/25 p-3 text-right ${className}`}
+                    dir="rtl"
+                >
+                    <p className="text-[11px] font-black text-emerald-200">✓ تمت موافقة المنفذ</p>
+                    <p className="mt-1 text-[10px] text-emerald-200/80">
+                        بانتظار تطبيق الآثار على الإضبارة — افتح البطاقة في القرارات للمتابعة.
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => openDecisions('previous')}
+                        className="mt-2 w-full rounded-xl border border-emerald-500/35 bg-emerald-500/10 py-2 text-[10px] font-bold text-emerald-100 hover:bg-emerald-500/15"
+                    >
+                        فتح البطاقة في القرارات والطعون
+                    </button>
+                </div>
+            );
         }
         const effectivelyEnforced = isExecutorDecisionRowEffectivelyEnforced(
-            row,
+            viewRow,
             allDecisions as Record<string, unknown>[],
             appealPerspective
         );
@@ -237,7 +326,7 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
 
     if (rejected) {
         if (
-            isExecutorHubRowSuperseded(row) ||
+            isExecutorHubRowSuperseded(viewRow) ||
             isExecutorRejectedAppealFollowupDismissed(decisionId, allDecisions as Record<string, unknown>[])
         ) {
             return null;
@@ -246,10 +335,7 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
             return (
                 <div className={className} dir="rtl">
                     <ExecutionInlineExecutorDecisionActions
-                        executionId={exId}
-                        decisionId={decisionId}
-                        requestKind={rk || undefined}
-                        personalCoerciveSubtype={pcSub || undefined}
+                        {...inlineDecisionActionsProps}
                         disabled
                         onOpenAppealCenter={() => openDecisions('previous')}
                     />
@@ -265,10 +351,7 @@ export const ExecutorDecisionFollowupMirror: React.FC<ExecutorDecisionFollowupMi
                 <p className="text-[11px] font-black text-rose-200">تم رفض الطلب من قبل المنفذ</p>
                 <div className="mt-2 space-y-2">
                     <ExecutionInlineExecutorDecisionActions
-                        executionId={exId}
-                        decisionId={decisionId}
-                        requestKind={rk || undefined}
-                        personalCoerciveSubtype={pcSub || undefined}
+                        {...inlineDecisionActionsProps}
                         disabled
                         onOpenAppealCenter={() => openDecisions('previous')}
                     />

@@ -65,7 +65,7 @@ describe('world-class profile close honesty', () => {
         expect(life).toMatch(/setTimeout\(markInteractiveFallback,\s*1_?200\)/);
     });
 
-    it('P3: بعد الإقلاع يُسلَّح Host مع التسخين لكشف لحظي', () => {
+    it('P3: بعد الإقلاع prefetch فقط — Host يُركَّب عند prime/hover لا على boot-reveal', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts'),
             'utf8',
@@ -73,7 +73,7 @@ describe('world-class profile close honesty', () => {
         const warmBlock = hook.match(/const scheduleWarm = \(\) => \{[\s\S]*?\n        \};/)?.[0];
         expect(warmBlock).toBeTruthy();
         expect(warmBlock).toContain('prefetchProfileAfterBootReveal');
-        expect(warmBlock).toContain('armProfileHost');
+        expect(warmBlock).not.toMatch(/\barmProfileHost\s*\(/);
     });
 
     it('P4: sanitizeProfileMediaUrl على الهيدر والصورة', () => {

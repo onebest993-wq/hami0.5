@@ -45,6 +45,27 @@ describe('shellAuth', () => {
         expect(isShellAuthBypassed()).toBe(false);
     });
 
+    // الانحدار: كان الإنتاج يفتح الغلاف ضمنياً كلّما غاب VITE_BFF_AUTH.
+    it('isShellAuthBypassed stays closed in production when no flag is set at all', () => {
+        vi.stubEnv('MODE', 'production');
+        vi.stubEnv('PROD', 'true');
+        vi.stubEnv('DEV', 'false');
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', '');
+        vi.stubEnv('VITE_BFF_AUTH', '');
+        expect(isShellAuthBypassed()).toBe(false);
+        expect(isRealSignedIn(null)).toBe(false);
+        expect(resolveShellAuthUserId(null, null)).toBeNull();
+    });
+
+    it('isShellAuthBypassed still opens in production when explicitly asked (demo build)', () => {
+        vi.stubEnv('MODE', 'production');
+        vi.stubEnv('PROD', 'true');
+        vi.stubEnv('DEV', 'false');
+        vi.stubEnv('VITE_SHELL_AUTH_OPEN', 'true');
+        vi.stubEnv('VITE_BFF_AUTH', '');
+        expect(isShellAuthBypassed()).toBe(true);
+    });
+
     it('isShellAuthBypassed respects VITE_SHELL_AUTH_OPEN=false even in static SPA prod', () => {
         vi.stubEnv('MODE', 'production');
         vi.stubEnv('PROD', 'true');

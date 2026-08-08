@@ -51,6 +51,8 @@ export function submitCreditorOtherPartyTrackToDecisions(input: {
     optionId: string;
     label: string;
     requestDate: string;
+    executionData?: Record<string, unknown> | null;
+    otherPartyFollowup?: boolean;
 }): { ok: boolean; decisionId?: string } {
     const exId = String(input.executionId || '').trim();
     const optionId = String(input.optionId || '').trim();
@@ -77,6 +79,8 @@ export function submitCreditorOtherPartyTrackToDecisions(input: {
             otherPartyTrackOptionId: optionId,
             source: DEBTOR_AGENT_CREDITOR_MIRROR_SOURCE,
         }),
+        executionData: input.executionData,
+        otherPartyFollowup: input.otherPartyFollowup ?? true,
     });
 
     if (!decisionId) return { ok: false };

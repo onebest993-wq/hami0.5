@@ -15,6 +15,21 @@ import {
 import { TasksManagerDialogContent } from './TasksManagerDialogContent';
 import { WORK_WEEK } from './constants';
 import { formatShortDate } from './utils';
+import {
+    TASKS_DIALOG_CONTENT,
+    TASKS_DIALOG_CONTENT_WIDE,
+    TASKS_DIALOG_DESC,
+    TASKS_DIALOG_FOOTER,
+    TASKS_DIALOG_MUTED,
+    TASKS_DIALOG_SUBPANEL,
+    TASKS_DIALOG_BTN_CANCEL,
+    TASKS_INPUT,
+    TASKS_LABEL,
+    TASKS_GLASS_PANEL,
+    TASKS_BTN_PRIMARY,
+    TASKS_BTN_BRONZE,
+    TASKS_BTN_GHOST,
+} from './tasksBoucleTheme';
 
 export type EditSubTaskDraft = {
     id: string;
@@ -51,13 +66,14 @@ export type TasksManagerModalsProps = {
     onReminderMoveToDay: (dayDate: Date) => void;
     onReminderSnoozeDays: (days: number) => void;
     onReminderSnoozeCustomDate: () => void;
+    postponeTaskId: string | null;
+    onDismissPostpone: () => void;
+    postponeTarget: LegalTask | null;
+    postponeDateYmd: string;
+    onPostponeDateYmdChange: (value: string) => void;
+    minPostponeIso: string;
+    onConfirmPostpone: () => void;
 };
-
-const TASKS_DIALOG_CONTENT =
-    'border-slate-700 bg-slate-900 text-slate-100 sm:max-w-md';
-
-const TASKS_DIALOG_CONTENT_WIDE =
-    'border-slate-700 bg-slate-900 text-slate-100 sm:max-w-lg max-h-[90dvh] overflow-y-auto';
 
 export function TasksManagerModals({
     fatalOpen,
@@ -87,6 +103,13 @@ export function TasksManagerModals({
     onReminderMoveToDay,
     onReminderSnoozeDays,
     onReminderSnoozeCustomDate,
+    postponeTaskId,
+    onDismissPostpone,
+    postponeTarget,
+    postponeDateYmd,
+    onPostponeDateYmdChange,
+    minPostponeIso,
+    onConfirmPostpone,
 }: TasksManagerModalsProps) {
     useEffect(() => {
         const keys: string[] = [];
@@ -94,9 +117,10 @@ export function TasksManagerModals({
         if (deleteConfirmId) keys.push('manager-delete');
         if (editOpen) keys.push('manager-edit');
         if (reminderModalTaskId) keys.push('manager-reminder');
+        if (postponeTaskId) keys.push('manager-postpone');
         keys.forEach((key) => blockTasksOverlayEscape(key));
         return () => keys.forEach((key) => unblockTasksOverlayEscape(key));
-    }, [fatalOpen, deleteConfirmId, editOpen, reminderModalTaskId]);
+    }, [fatalOpen, deleteConfirmId, editOpen, reminderModalTaskId, postponeTaskId]);
 
     return (
         <>
@@ -104,7 +128,7 @@ export function TasksManagerModals({
                 <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT}>
                     <DialogHeader className="text-right sm:text-right space-y-2">
                         <DialogTitle className="text-rose-200 text-base font-extrabold">موعد حتمي</DialogTitle>
-                        <DialogDescription className="text-slate-300 text-sm leading-relaxed">
+                        <DialogDescription className={TASKS_DIALOG_DESC}>
                             هذا الإجراء مرتبط بسقوط حق أو أجل قطعي. هل تأكدت من إنجازه قبل التحويد؟
                         </DialogDescription>
                     </DialogHeader>
@@ -112,14 +136,14 @@ export function TasksManagerModals({
                         <button
                             type="button"
                             onClick={onConfirmFatalComplete}
-                            className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold transition-colors"
+                            className="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold transition-colors touch-manipulation"
                         >
                             تأكيد الإكمال
                         </button>
                         <button
                             type="button"
-                            onClick={() => onFatalOpenChange(false)}
-                            className="px-4 py-2 rounded-lg border border-slate-600 bg-slate-800/80 text-slate-200 text-xs font-bold"
+                            onClick={() => onFatalOpenChange?.(false)}
+                            className={TASKS_DIALOG_BTN_CANCEL}
                         >
                             إلغاء
                         </button>
@@ -136,7 +160,7 @@ export function TasksManagerModals({
                 <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT} instant hideCloseButton>
                     <DialogHeader className="text-right space-y-2">
                         <DialogTitle className="text-rose-200 text-base font-extrabold">حذف المهمة</DialogTitle>
-                        <DialogDescription className="text-slate-300 text-sm leading-relaxed">
+                        <DialogDescription className={TASKS_DIALOG_DESC}>
                             لن يُمكن استرجاع البيانات بعد الحذف. هل تريد المتابعة؟
                         </DialogDescription>
                     </DialogHeader>
@@ -149,7 +173,7 @@ export function TasksManagerModals({
                                 event.stopPropagation();
                                 onConfirmDelete();
                             }}
-                            className="min-h-[44px] px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold touch-manipulation"
+                            className="min-h-[44px] px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-extrabold touch-manipulation"
                         >
                             حذف نهائياً
                         </button>
@@ -160,7 +184,7 @@ export function TasksManagerModals({
                                 event.stopPropagation();
                                 onDismissDelete();
                             }}
-                            className="min-h-[44px] px-4 py-2 rounded-lg border border-slate-600 bg-slate-800/80 text-slate-200 text-xs font-bold touch-manipulation"
+                            className={TASKS_DIALOG_BTN_CANCEL}
                         >
                             إلغاء
                         </button>
@@ -171,8 +195,8 @@ export function TasksManagerModals({
             <Dialog open={editOpen} onOpenChange={onEditOpenChange}>
                 <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT_WIDE} instant>
                     <DialogHeader className="text-right space-y-2">
-                        <DialogTitle className="text-slate-100 text-base font-extrabold">✏️ تعديل المهمة</DialogTitle>
-                        <DialogDescription className="text-slate-400 text-xs">
+                        <DialogTitle className="text-[#F4F4F5] text-base font-extrabold">تعديل المهمة</DialogTitle>
+                        <DialogDescription className={TASKS_DIALOG_MUTED}>
                             {editTarget ? `المعرّف: ${editTarget.id.slice(0, 8)}…` : ''}
                         </DialogDescription>
                     </DialogHeader>
@@ -185,20 +209,20 @@ export function TasksManagerModals({
                         onEditSubTaskChange={onEditSubTaskChange}
                         onRemoveEditSubTask={onRemoveEditSubTask}
                     />
-                    <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start sticky bottom-0 bg-slate-900 pt-2">
+                    <DialogFooter className={TASKS_DIALOG_FOOTER}>
                         <button
                             type="button"
                             data-testid="tasks-edit-save"
                             onClick={onSaveEdit}
                             disabled={!editTitle.trim() && !editLocation.trim()}
-                            className="min-h-[44px] px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold disabled:opacity-40 touch-manipulation"
+                            className={`${TASKS_BTN_PRIMARY} disabled:opacity-40`}
                         >
                             حفظ
                         </button>
                         <button
                             type="button"
                             onClick={onCancelEdit}
-                            className="px-4 py-2 rounded-lg border border-slate-600 bg-slate-800/80 text-slate-200 text-xs font-bold"
+                            className={TASKS_BTN_GHOST}
                         >
                             إلغاء
                         </button>
@@ -209,16 +233,16 @@ export function TasksManagerModals({
             <Dialog open={reminderModalTaskId !== null} onOpenChange={(o) => !o && onDismissReminder()}>
                 <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT}>
                     <DialogHeader className="text-right space-y-2">
-                        <DialogTitle className="text-amber-100 text-base font-extrabold leading-relaxed">
+                        <DialogTitle className="text-[#E6C673] text-base font-extrabold leading-relaxed">
                             حان وقت التخطيط لهذه المهمة
                         </DialogTitle>
-                        <DialogDescription className="text-slate-300 text-sm font-semibold">
+                        <DialogDescription className={`${TASKS_DIALOG_DESC} font-semibold`}>
                             {reminderModalTask?.title ?? ''}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 text-right py-1">
                         <div>
-                            <p className="text-[11px] font-bold text-slate-500 mb-2">نقل إلى يوم محدد (الأسبوع الحالي)</p>
+                            <p className={`${TASKS_DIALOG_MUTED} mb-2`}>نقل إلى يوم محدد (الأسبوع الحالي)</p>
                             <div className="flex flex-col gap-2">
                                 {WORK_WEEK.map((d) => {
                                     const dayDate = addDays(weekStartLive, d.offset);
@@ -227,7 +251,7 @@ export function TasksManagerModals({
                                             key={d.key}
                                             type="button"
                                             onClick={() => onReminderMoveToDay(dayDate)}
-                                            className="w-full rounded-xl border border-slate-600 bg-slate-800/50 py-2.5 text-xs font-extrabold text-slate-100 hover:border-amber-500/40"
+                                            className={`w-full py-2.5 text-xs font-extrabold text-[#F4F4F5] touch-manipulation ${TASKS_GLASS_PANEL} hover:border-[#E6C673]/35`}
                                         >
                                             {d.label} — {formatShortDate(dayDate)}
                                         </button>
@@ -235,8 +259,8 @@ export function TasksManagerModals({
                                 })}
                             </div>
                         </div>
-                        <div className="pt-2 border-t border-slate-700/70">
-                            <p className="text-[11px] font-bold text-slate-500 mb-2">⏳ تأجيل مجدداً</p>
+                        <div className="pt-2 border-t border-[#E6C673]/20">
+                            <p className={`${TASKS_DIALOG_MUTED} mb-2`}>تأجيل مجدداً</p>
                             <ReminderSnoozeActions
                                 onReminderSnoozeDays={onReminderSnoozeDays}
                                 reminderSnoozeCustom={reminderSnoozeCustom}
@@ -245,6 +269,47 @@ export function TasksManagerModals({
                             />
                         </div>
                     </div>
+                </TasksManagerDialogContent>
+            </Dialog>
+
+            <Dialog open={postponeTaskId !== null} onOpenChange={(o) => !o && onDismissPostpone()}>
+                <TasksManagerDialogContent className={TASKS_DIALOG_CONTENT} instant>
+                    <DialogHeader className="text-right space-y-2">
+                        <DialogTitle className="text-[#E6C673] text-base font-extrabold">ترحيل المهمة</DialogTitle>
+                        <DialogDescription className={TASKS_DIALOG_DESC}>
+                            {postponeTarget?.title ?? ''}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 text-right py-2">
+                        <p className={TASKS_DIALOG_MUTED}>
+                            اختر اليوم الذي تريد نقل المهمة إليه. إن كان داخل الأسبوع الحالي تظهر في الأجندة؛ وإن كان
+                            في أسبوع لاحق تنتقل إلى المهام المؤجلة.
+                        </p>
+                        <label className={TASKS_LABEL}>تاريخ الترحيل</label>
+                        <input
+                            type="date"
+                            dir="ltr"
+                            className={TASKS_INPUT}
+                            value={postponeDateYmd}
+                            min={minPostponeIso}
+                            onChange={(e) => onPostponeDateYmdChange(e.target.value)}
+                            data-testid="tasks-postpone-date"
+                        />
+                    </div>
+                    <DialogFooter className={TASKS_DIALOG_FOOTER}>
+                        <button
+                            type="button"
+                            data-testid="tasks-postpone-confirm"
+                            onClick={onConfirmPostpone}
+                            disabled={!postponeDateYmd}
+                            className={`${TASKS_BTN_PRIMARY} disabled:opacity-40`}
+                        >
+                            ترحيل
+                        </button>
+                        <button type="button" onClick={onDismissPostpone} className={TASKS_BTN_GHOST}>
+                            إلغاء
+                        </button>
+                    </DialogFooter>
                 </TasksManagerDialogContent>
             </Dialog>
         </>
@@ -271,36 +336,32 @@ function EditTaskFields({
     return (
         <div className="space-y-3 text-right py-2">
             <div>
-                <label className="text-[11px] font-bold text-slate-500 block mb-1">تفاصيل المهمة</label>
+                <label className={TASKS_LABEL}>تفاصيل المهمة</label>
                 <textarea
                     dir="rtl"
                     rows={3}
-                    className="w-full rounded-xl border border-slate-600 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-amber-500/50 resize-none min-h-[4.5rem]"
+                    className={`${TASKS_INPUT} resize-none min-h-[4.5rem]`}
                     value={editTitle}
                     onChange={(e) => onEditTitleChange(e.target.value)}
                 />
             </div>
             <div>
-                <label className="text-[11px] font-bold text-slate-500 block mb-1">الموقع</label>
+                <label className={TASKS_LABEL}>الموقع</label>
                 <input
                     dir="rtl"
-                    className="w-full rounded-xl border border-slate-600 bg-slate-950/60 px-3 py-2 text-sm text-slate-100 outline-none focus:border-emerald-500/50"
+                    className={TASKS_INPUT}
                     value={editLocation}
                     onChange={(e) => onEditLocationChange(e.target.value)}
-                    placeholder="اكتب الموقع…"
                 />
             </div>
             {editSubTasks.length > 0 ? (
-                <div className="border-t border-slate-700/60 pt-3">
-                    <p className="text-[11px] font-bold text-sky-300/90 mb-2">الإجراءات الفرعية</p>
+                <div className="border-t border-[#E6C673]/20 pt-3">
+                    <p className="text-[11px] font-bold text-[#34D399]/80 mb-2">الإجراءات الفرعية</p>
                     <ul className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
                         {editSubTasks.map((st, idx) => (
-                            <li
-                                key={st.id}
-                                className="rounded-xl border border-slate-700/70 bg-slate-950/40 p-2.5 space-y-2"
-                            >
+                            <li key={st.id} className={TASKS_DIALOG_SUBPANEL}>
                                 <div className="flex flex-row-reverse items-center justify-between gap-2">
-                                    <span className="text-[10px] font-bold text-slate-500 tabular-nums">
+                                    <span className={`${TASKS_DIALOG_MUTED} tabular-nums`}>
                                         {idx + 1}. {st.isCompleted ? '(منجز)' : ''}
                                     </span>
                                     <button
@@ -313,17 +374,15 @@ function EditTaskFields({
                                 </div>
                                 <input
                                     dir="rtl"
-                                    className="w-full rounded-lg border border-slate-600 bg-slate-900/70 px-2.5 py-1.5 text-sm text-slate-100 outline-none focus:border-sky-500/45"
+                                    className={TASKS_INPUT}
                                     value={st.title}
                                     onChange={(e) => onEditSubTaskChange(st.id, { title: e.target.value })}
-                                    placeholder="عنوان الإجراء الفرعي"
                                 />
                                 <input
                                     dir="rtl"
-                                    className="w-full rounded-lg border border-slate-600 bg-slate-900/70 px-2.5 py-1.5 text-[11px] text-slate-100 outline-none focus:border-emerald-500/45"
+                                    className={`${TASKS_INPUT} text-[11px]`}
                                     value={st.location}
                                     onChange={(e) => onEditSubTaskChange(st.id, { location: e.target.value })}
-                                    placeholder="موقع الفرع (اختياري)"
                                 />
                             </li>
                         ))}
@@ -351,21 +410,21 @@ function ReminderSnoozeActions({
                 <button
                     type="button"
                     onClick={() => onReminderSnoozeDays(7)}
-                    className="text-[10px] font-extrabold px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200 hover:border-amber-500/40"
+                    className={`${TASKS_BTN_GHOST} text-[10px] px-3 py-1.5`}
                 >
                     أسبوع
                 </button>
                 <button
                     type="button"
                     onClick={() => onReminderSnoozeDays(14)}
-                    className="text-[10px] font-extrabold px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200 hover:border-amber-500/40"
+                    className={`${TASKS_BTN_GHOST} text-[10px] px-3 py-1.5`}
                 >
                     أسبوعين
                 </button>
                 <button
                     type="button"
                     onClick={() => onReminderSnoozeDays(30)}
-                    className="text-[10px] font-extrabold px-3 py-1.5 rounded-lg border border-slate-600 text-slate-200 hover:border-amber-500/40"
+                    className={`${TASKS_BTN_GHOST} text-[10px] px-3 py-1.5`}
                 >
                     شهر
                 </button>
@@ -373,14 +432,14 @@ function ReminderSnoozeActions({
             <div className="mt-3 flex flex-row-reverse flex-wrap gap-2 items-center justify-end">
                 <input
                     type="date"
-                    className="rounded-lg border border-slate-600 bg-slate-950/60 px-2 py-1.5 text-xs text-slate-100"
+                    className={`${TASKS_INPUT} w-auto text-xs py-1.5`}
                     value={reminderSnoozeCustom}
                     onChange={(e) => onReminderSnoozeCustomChange(e.target.value)}
                 />
                 <button
                     type="button"
                     onClick={onReminderSnoozeCustomDate}
-                    className="text-[10px] font-extrabold px-3 py-1.5 rounded-lg bg-amber-600/80 text-white"
+                    className={`${TASKS_BTN_BRONZE} text-[10px] px-3 py-1.5`}
                 >
                     مخصص
                 </button>

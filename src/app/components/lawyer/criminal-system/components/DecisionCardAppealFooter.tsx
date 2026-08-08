@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scale } from 'lucide-react';
+import { Scale } from '@/app/components/ui/lucideIcons';
 import type { CaseStage, JudicialDecision } from '@/app/types/criminal';
 import type { CassationCorrectionUserRole } from '../decisionAppealPeriodEngine';
 import {

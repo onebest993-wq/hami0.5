@@ -3,15 +3,10 @@ import { settingWiringHint } from '@/app/services/settings/settingsCapabilities'
 
 /** مفاتيح الإعدادات المعروضة فعلياً في الواجهة — مرجع للتدقيق الذرّي */
 const WIRED_SETTING_KEYS = [
-    // المنظر
+    // المنظر — الإعدادات العامة فقط (تخصيص الأقسام عبر homeLayout.overrides)
     'appearance.theme',
-    'appearance.backgroundPreset',
-    'appearance.backgroundPatternOpacity',
-    'appearance.shape',
     'appearance.wallpaper',
     'appearance.fontSize',
-    'appearance.glassOpacity',
-    'appearance.homeContainerBorder',
     'appearance.highContrast',
     'appearance.reduceMotion',
     'performance.enableAnimations',

@@ -1,12 +1,13 @@
 /// <reference types="vitest" />
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import fs from 'node:fs'
-import { defineConfig, loadEnv, type ViteDevServer } from 'vite'
+import { createLogger, defineConfig, loadEnv, type ViteDevServer } from 'vite'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import sirv from 'sirv'
+import { hamiBootScriptOrder } from './src/vite-plugins/hamiBootScriptOrder'
 import { preferFileOverDirectory } from './src/vite-plugins/preferFileOverDirectory'
 import { getDevSecurityHeaders, getProductionSecurityHeaders } from './src/app/api/security/wifeSecurityHeaders'
 
@@ -126,9 +127,12 @@ function attachApiRouteMiddleware(
     })
 }
 
-function pdfjsAssetsPlugin(command: string) {
+function pdfjsAssetsPlugin(command: string, options: { minimalFonts?: boolean; bundleAssets?: boolean } = {}) {
     const cmapsDir = path.join(projectRoot, 'node_modules/pdfjs-dist/cmaps')
     const fontsDir = path.join(projectRoot, 'node_modules/pdfjs-dist/standard_fonts')
+    const workerSrc = path.join(projectRoot, 'node_modules/pdfjs-dist/build/pdf.worker.min.mjs')
+    const minimalFonts = options.minimalFonts === true
+    const bundleAssets = options.bundleAssets !== false
 
     return {
         name: 'hami-pdfjs-assets',
@@ -141,13 +145,21 @@ function pdfjsAssetsPlugin(command: string) {
                 '/pdfjs-assets/standard_fonts',
                 sirv(fontsDir, { dev: true, etag: true, single: false }),
             )
+            server.middlewares.use((req, res, next) => {
+                if (req.url?.split('?')[0] !== '/pdfjs-assets/pdf.worker.min.mjs') return next()
+                res.setHeader('Content-Type', 'application/javascript; charset=utf-8')
+                fs.createReadStream(workerSrc).pipe(res)
+            })
         },
         closeBundle() {
-            if (command !== 'build') return
+            if (command !== 'build' || !bundleAssets) return
             const outDir = path.join(projectRoot, 'dist/pdfjs-assets')
             fs.mkdirSync(outDir, { recursive: true })
+            fs.copyFileSync(workerSrc, path.join(outDir, 'pdf.worker.min.mjs'))
             fs.cpSync(cmapsDir, path.join(outDir, 'cmaps'), { recursive: true })
-            fs.cpSync(fontsDir, path.join(outDir, 'standard_fonts'), { recursive: true })
+            if (!minimalFonts) {
+                fs.cpSync(fontsDir, path.join(outDir, 'standard_fonts'), { recursive: true })
+            }
         },
     }
 }
@@ -164,6 +176,15 @@ function legalAnalysisDevApiPlugin() {
 
 // Stable Standard Config - Optimized for performance (Vite + Vitest merged)
 // Uses .mts extension to force ESM loading (fixes require() of ESM modules)
+function resolveSentryBundled(env: Record<string, string>): boolean {
+  const flag = String(env.VITE_ENABLE_SENTRY ?? '').trim().toLowerCase()
+  const dsn = String(env.VITE_SENTRY_DSN ?? '').trim()
+  const dsnValid = Boolean(dsn && !dsn.includes('examplePublicKey'))
+  if (flag === 'false') return false
+  if (flag === 'true') return dsnValid
+  return dsnValid
+}
+
 function bootstrapGatePath(relative: string, command: string): string {
   const useProdGate = command === 'build'
   return path.resolve(projectRoot, useProdGate ? relative.replace('.dev.', '.prod.') : relative)
@@ -171,6 +192,28 @@ function bootstrapGatePath(relative: string, command: string): string {
 
 function normalizeModuleId(id: string): string {
   return id.replace(/\\/g, '/')
+}
+
+function resolveCapacitorWebAliases(command: string, env: Record<string, string>) {
+  if (command !== 'build' || env.VITE_BUILD_NATIVE === 'true') return [] as const;
+  const shimDir = path.resolve(projectRoot, 'src/app/runtime/capacitorWebShims');
+  return [
+    { find: '@capacitor/core', replacement: path.join(shimDir, 'core.ts') },
+    { find: '@capacitor/app', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/status-bar', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/keyboard', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/geolocation', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/filesystem', replacement: path.join(shimDir, 'pluginStub.ts') },
+    { find: '@capacitor/share', replacement: path.join(shimDir, 'pluginStub.ts') },
+    {
+      find: '@capacitor-community/privacy-screen',
+      replacement: path.join(shimDir, 'communityPluginStub.ts'),
+    },
+    {
+      find: '@aparajita/capacitor-biometric-auth',
+      replacement: path.join(shimDir, 'biometricStub.ts'),
+    },
+  ] as const;
 }
 
 function resolveVendorChunk(id: string): string | undefined {
@@ -190,6 +233,12 @@ function resolveVendorChunk(id: string): string | undefined {
   if (normalized.includes('/pdfjs-dist/')) {
     return 'vendor-pdf'
   }
+  if (normalized.includes('/@capacitor-community/privacy-screen/')) {
+    return 'vendor-privacy-screen'
+  }
+  if (normalized.includes('/@aparajita/capacitor-biometric-auth/')) {
+    return 'vendor-biometric-auth'
+  }
   if (
     normalized.includes('/@capacitor/') ||
     normalized.includes('/@aparajita/') ||
@@ -208,6 +257,9 @@ function resolveVendorChunk(id: string): string | undefined {
   if (normalized.includes('/dompurify/') || normalized.includes('/isomorphic-dompurify/')) {
     return 'vendor-sanitize'
   }
+  if (normalized.includes('/zustand/')) {
+    return 'vendor-zustand'
+  }
   if (normalized.includes('/fuse.js/') || normalized.includes('/@tanstack/react-virtual/')) {
     return 'vendor-search'
   }
@@ -218,43 +270,208 @@ function resolveVendorChunk(id: string): string | undefined {
   ) {
     return 'vendor-style-utils'
   }
+  if (
+    normalized.includes('/node_modules/react/') ||
+    normalized.includes('/node_modules/react-dom/') ||
+    normalized.includes('/node_modules/scheduler/')
+  ) {
+    return 'vendor-react'
+  }
   return 'vendor-misc'
 }
 
 function resolveExecutionHandlerClusterChunk(id: string): string | undefined {
   const normalized = normalizeModuleId(id)
   if (!normalized.includes('/src/app/components/lawyer/ExecutionDashboard/')) return undefined
+  if (!normalized.includes('/executionDashboardCore/')) return undefined
+  if (normalized.includes('/__tests__/')) return undefined
+
+  const inHandlerCluster =
+    normalized.includes('/ExecutionDashboardHandlerCluster') ||
+    normalized.includes('/useExecutionDashboardCoreHandlerCluster') ||
+    normalized.includes('handlerClusterContextShared') ||
+    normalized.includes('buildHandlerClusterCoreInput') ||
+    normalized.includes('executionDashboardCoreHandlerClusterTypes') ||
+    normalized.includes('useExecutionDashboardNotesTasksHandlers') ||
+    normalized.includes('useExecutionDashboardAppointmentHandlers') ||
+    normalized.includes('useExecutionDashboardPaymentHandlers') ||
+    normalized.includes('useExecutionDashboardPushTimelineEvent') ||
+    normalized.includes('useExecutionDashboardRuntimeSyncEffects') ||
+    normalized.includes('useExecutionDashboardSupabaseTimelineHydrate')
+
+  if (!inHandlerCluster) return undefined
 
   if (
-    normalized.includes('/ExecutionDashboardHandlerClusterFollowupHeavyBridge') ||
-    normalized.includes('/useExecutionDashboardCoreHandlerClusterFollowupHeavy')
+    normalized.includes('handlerClusterContextShared') ||
+    normalized.includes('buildHandlerClusterCoreInput') ||
+    normalized.includes('executionDashboardCoreHandlerClusterTypes')
   ) {
-    return 'ExecutionDashboardHandlerClusterFollowupHeavyBridge'
+    return 'execution-handler-cluster-shared'
+  }
+
+  const isCoerciveCluster =
+    normalized.includes('HandlerClusterCoercive') ||
+    normalized.includes('CoreHandlerClusterCoercive')
+  const isSeizureCluster =
+    normalized.includes('HandlerClusterSeizure') ||
+    normalized.includes('CoreHandlerClusterSeizure')
+  const isFollowupCluster =
+    normalized.includes('HandlerClusterFollowup') ||
+    normalized.includes('CoreHandlerClusterFollowup')
+  const isLightCluster =
+    normalized.includes('HandlerClusterLight') || normalized.includes('CoreHandlerClusterLight')
+
+  if (isCoerciveCluster) {
+    return 'execution-handler-cluster-coercive'
+  }
+
+  if (isSeizureCluster) {
+    return 'execution-handler-cluster-seizure'
+  }
+
+  if (isFollowupCluster) {
+    return 'execution-handler-cluster-followup'
+  }
+
+  if (isLightCluster) {
+    return 'execution-handler-cluster-light'
   }
 
   if (
-    normalized.includes('/ExecutionDashboardHandlerClusterSeizureHeavyBridge') ||
-    normalized.includes('/useExecutionDashboardCoreHandlerClusterSeizureHeavy')
+    normalized.includes('HandlerClusterDossierSupport') ||
+    normalized.includes('CoreHandlerClusterDossierSupport')
   ) {
-    return 'ExecutionDashboardHandlerClusterSeizureHeavyBridge'
+    return 'execution-handler-cluster-dossier'
   }
 
   if (
-    normalized.includes('/ExecutionDashboardHandlerClusterBridge') ||
-    normalized.includes('/useExecutionDashboardCoreHandlerCluster.ts')
+    normalized.includes('HandlerClusterPartyDeath') ||
+    normalized.includes('PartyLifecycle') ||
+    normalized.includes('HandlerClusterEmployeeAssignment')
   ) {
-    return 'ExecutionDashboardHandlerClusterBridge'
+    return 'execution-handler-cluster-party'
   }
 
+  if (
+    normalized.includes('HandlerClusterPayment') ||
+    normalized.includes('HandlerClusterPublicationNotice') ||
+    normalized.includes('useExecutionDashboardPublicationNoticeHandlers')
+  ) {
+    return 'execution-handler-cluster-publication'
+  }
+
+  if (
+    normalized.includes('useExecutionDashboardPushTimelineEvent') ||
+    normalized.includes('useExecutionDashboardRuntimeSyncEffects') ||
+    normalized.includes('useExecutionDashboardSupabaseTimelineHydrate')
+  ) {
+    return 'execution-handler-cluster-runtime'
+  }
+
+  if (normalized.includes('Foundation')) {
+    return 'execution-handler-cluster-foundation'
+  }
+
+  if (normalized.includes('Eviction') && !normalized.includes('Coercive')) {
+    return 'execution-handler-cluster-eviction'
+  }
+
+  if (
+    normalized.includes('useExecutionDashboardNotesTasksHandlers') ||
+    normalized.includes('useExecutionDashboardAppointmentHandlers') ||
+    normalized.includes('useExecutionDashboardPaymentHandlers')
+  ) {
+    return 'execution-handler-cluster-handlers'
+  }
+
+  return 'execution-handler-cluster-core'
+}
+
+function resolveBootRuntimeChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (!normalized.includes('/src/')) return undefined
+  if (
+    normalized.includes('/src/boot/mountApplication') ||
+    normalized.includes('/src/boot/bootEntryPreamble') ||
+    normalized.includes('/src/boot/appModule') ||
+    normalized.includes('/src/app/bootstrap/bootReveal') ||
+    normalized.includes('/src/app/bootstrap/bootStaticShell') ||
+    normalized.includes('/src/app/bootstrap/useBootReveal') ||
+    normalized.includes('/src/app/bootstrap/bootMetrics')
+  ) {
+    return 'boot-runtime'
+  }
   return undefined
 }
 
-export default defineConfig(({ command }) => ({
+function resolveArchivePortalChunk(id: string): string | undefined {
+  const normalized = normalizeModuleId(id)
+  if (normalized.includes('/components/lawyer/ArchivePortal/ArchivePortalLawsuitEntry')) {
+    return 'lawsuit-archive-portal'
+  }
+  if (normalized.includes('/components/lawyer/ArchivePortal.tsx')) {
+    return 'app-archive-portal'
+  }
+  if (
+    normalized.includes('/ArchivePortal/LawsuitArchiveChrome') ||
+    normalized.includes('/ArchivePortal/components/LawsuitArchiveFileGrid')
+  ) {
+    return 'lawsuit-archive-grid'
+  }
+  if (
+    normalized.includes('/ArchivePortal/ExecutionArchiveChrome') ||
+    normalized.includes('/ArchivePortal/components/ExecutionArchiveFileGrid') ||
+    normalized.includes('/ArchivePortal/components/ExecutionArchiveToolbar')
+  ) {
+    return 'archive-portal-execution'
+  }
+  if (
+    normalized.includes('/ArchivePortal/components/LawsuitArchiveLifecycleBars') ||
+    normalized.includes('/ArchivePortal/components/ExecutionArchiveLifecycleBars') ||
+    normalized.includes('/ArchivePortal/components/ArchiveDossierToolbar') ||
+    normalized.includes('/ArchivePortal/criminalArchiveUtils')
+  ) {
+    return 'archive-portal-lite'
+  }
+  return undefined
+}
+
+function isBenignBuildNoise(message: string): boolean {
+  return (
+    /dynamic import will not move module into another chunk/i.test(message) ||
+    /^Circular chunk:/i.test(message)
+  );
+}
+
+const viteLogger = createLogger();
+
+const customLogger = {
+  ...viteLogger,
+  info(msg, options) {
+    if (isBenignBuildNoise(msg)) return;
+    viteLogger.info(msg, options);
+  },
+  warn(msg, options) {
+    if (isBenignBuildNoise(msg)) return;
+    viteLogger.warn(msg, options);
+  },
+};
+
+export default defineConfig(({ command, mode }) => {
+  const env = loadEnv(mode, projectRoot, '')
+  const pdfMinimalAssets = env.VITE_PDF_MINIMAL_ASSETS === 'true'
+  const pdfBundleAssets = env.VITE_PDF_BUNDLE_ASSETS === 'true'
+  const sentryBundled = resolveSentryBundled(env)
+  const sentryStubPath = path.resolve(projectRoot, 'src/app/observability/sentryReactStub.ts')
+
+  return {
+  customLogger,
   plugins: [
     preferFileOverDirectory(projectRoot),
+    hamiBootScriptOrder(),
     react(),
     tailwindcss(),
-    pdfjsAssetsPlugin(command),
+    pdfjsAssetsPlugin(command, { minimalFonts: pdfMinimalAssets, bundleAssets: pdfBundleAssets }),
     legalAnalysisDevApiPlugin(),
   ],
   esbuild: {
@@ -264,6 +481,15 @@ export default defineConfig(({ command }) => ({
   },
   resolve: {
     alias: [
+      ...(sentryBundled
+        ? []
+        : [
+            {
+              find: '@sentry/react',
+              replacement: sentryStubPath,
+            },
+          ]),
+      ...resolveCapacitorWebAliases(command, env),
       {
         find: '@/app/bootstrap/LawyerDashboardGate',
         replacement: path.resolve(projectRoot, 'src/app/bootstrap/LawyerDashboardGate.tsx'),
@@ -309,43 +535,47 @@ export default defineConfig(({ command }) => ({
     },
   },
   optimizeDeps: {
-    exclude: ['expo-secure-store', 'expo-modules-core'],
     include: [
       'react',
       'react-dom',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
-      'motion/react',
-      '@supabase/supabase-js',
       'zustand',
-      'pdfjs-dist',
     ],
   },
   build: {
     outDir: 'dist',
     emptyOutDir: true,
-    target: 'es2020',
+    // يطابق target/lib في tsconfig.json — الحد الأدنى Chrome/WebView 94، iOS 15.4
+    target: 'es2022',
     // Smaller dist + faster builds; set VITE_SOURCEMAP=true when you need .map files (e.g. Sentry upload)
     sourcemap: process.env.VITE_SOURCEMAP === 'true',
     assetsInlineLimit: 4096,
     modulePreload: {
-      /** لا تُحمَّل مسبقاً حزم الشاشات الثقيلة — تُجلب عند أول lazy import فقط */
+      /**
+       * allowlist ضيّق: React + boot-runtime فقط على المسار الحرج.
+       * vendor-misc (zustand وغيره) و vendor-ui يُجلبان عند أول استيراد فعلي.
+       */
       resolveDependencies: (_filename, deps) =>
-        deps.filter(
-          (dep) =>
-            !/(lawyer-dashboard|execution-dashboard|execution-dashboard-static-scope|execution-dashboard-loader|execution-lazy-registry|execution-tab-|execution-orchestrators|execution-hooks|execution-helpers|execution-modals|execution-overlays|execution-shell-overlays|execution-phone-body|execution-law-articles|criminal-dashboard|criminal-tab-|criminal-dashboard-request-ui|criminal-dashboard-parties|criminal-legal-codes|criminal-store|criminal-store-slices|criminal-lazy-modals|community-overlays|community-repository|CommunityScreen|global-search-|smart-file-modal|iraqi-law-loader|articles\.json|ExecutionDashboard|CriminalDashboard|vendor-core|vendor-motion|vendor-supabase|vendor-sentry|SmartToastContainer|SmartDialogContainer|auth-context|app-deferred-boot|runtime-|deferred-app)/i.test(
-              dep,
-            ),
+        deps.filter((dep) =>
+          /(^|\/)(vendor-react|boot-runtime)-[^/]+\.js(\?|$)/i.test(dep),
         ),
     },
     rollupOptions: {
-      external:
-        command === 'build'
-          ? ['html2canvas', 'expo-secure-store', 'expo-modules-core']
-          : ['expo-secure-store', 'expo-modules-core'],
+      external: command === 'build' ? ['html2canvas'] : [],
+      onLog(level, log, handler) {
+        const msg = typeof log === 'string' ? log : log.message ?? '';
+        if (isBenignBuildNoise(msg)) return;
+        if (typeof handler === 'function') handler(level, log);
+      },
       output: {
-        experimentalMinChunkSize: 50 * 1024,
+        /** دمج micro-chunks — يقلّل عدد الملفات دون تضخيم entry (كان 0 → 249 chunk <5KB) */
+        experimentalMinChunkSize: 12_288,
         manualChunks(id) {
+          const bootChunk = resolveBootRuntimeChunk(id)
+          if (bootChunk) return bootChunk
+          const archivePortalChunk = resolveArchivePortalChunk(id)
+          if (archivePortalChunk) return archivePortalChunk
           const executionHandlerClusterChunk = resolveExecutionHandlerClusterChunk(id)
           if (executionHandlerClusterChunk) return executionHandlerClusterChunk
           return resolveVendorChunk(id);
@@ -362,5 +592,12 @@ export default defineConfig(({ command }) => ({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    /**
+     * المهلة الافتراضية 5 ثوانٍ كانت تُسقط اختبارات ثقيلة (ArchivePortal مثلاً)
+     * داخل المجموعة الكاملة بينما تنجح منفردة — تجويع تحت التوازي لا خلل فيها.
+     */
+    testTimeout: 15_000,
+    hookTimeout: 15_000,
   },
-}))
+  }
+})

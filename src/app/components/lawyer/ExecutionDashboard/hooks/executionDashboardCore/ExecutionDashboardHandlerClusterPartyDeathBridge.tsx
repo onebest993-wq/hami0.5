@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import {
     collectFullHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -8,6 +7,10 @@ import {
     type UseExecutionDashboardPartyDeathHandlersParams,
 } from './useExecutionDashboardPartyDeathHandlers';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterPartyDeathBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -54,9 +57,15 @@ export function ExecutionDashboardHandlerClusterPartyDeathBridge({
         setTimelineEvents: c.setTimelineEvents,
     } as UseExecutionDashboardPartyDeathHandlersParams);
 
-    useEffect(() => {
-        onCluster({ ...handlers });
-    }, [handlers, onCluster]);
+    usePublishHandlerClusterWhenFingerprintChanges(
+        handlers as Record<string, unknown>,
+        [
+            ...handlerBagKeyFingerprint(handlers as Record<string, unknown>),
+            handlers.debtorSubstitutionRequestStatus,
+            handlers.creditorSubstitutionRequestStatus,
+        ],
+        onCluster,
+    );
 
     return null;
 }

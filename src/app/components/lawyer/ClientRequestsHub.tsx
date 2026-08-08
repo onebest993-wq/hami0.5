@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'motion/react';
-import { X, MessageCircle, Clock, Inbox, User, CheckCircle } from 'lucide-react';
+import { X, MessageCircle, Clock, Inbox, User, CheckCircle } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { ClientRequestsHubProps, ClientRequest, RequestStatus } from '@/app/types/common';
 import {

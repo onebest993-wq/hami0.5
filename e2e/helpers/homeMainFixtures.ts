@@ -17,13 +17,5 @@ export async function expectHomeMainShell(page: Page) {
     await expect(page.getByTestId('home-main-zone')).toBeVisible();
     await expect(page.getByTestId('home-main-grid')).toBeVisible();
     await expect(page.getByTestId('home-hub-card')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByTestId('home-bottom-chrome')).toBeVisible();
-}
-
-export async function openHomeLayoutEditFromSettings(page: Page) {
-    await dismissHomeBlockers(page);
-    await page.evaluate(() => {
-        window.__hamiE2eEnterHomeLayoutEdit?.();
-    });
-    await expect(page.getByTestId('home-layout-edit-bar')).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('home-dock-dockRepository')).toBeVisible();
 }

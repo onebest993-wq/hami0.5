@@ -11,7 +11,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { SecretaryAlert } from '@/app/services/SecretaryOrchestrator';
 import { AlertCardItem } from '../AlertCardItem';
 import type { SmartAlert } from '../types';
-import { ShieldAlert } from 'lucide-react';
+import { ShieldAlert } from '@/app/components/ui/lucideIcons';
 
 const updateStatusMock = vi.fn();
 

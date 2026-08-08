@@ -1,7 +1,7 @@
 import React, { memo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Bell, X } from 'lucide-react';
+import { Bell, X } from '@/app/components/ui/lucideIcons';
 import type { IncomingNotificationPopup } from '@/app/hooks/lawyerDashboard/useIncomingNotificationPopups';
 import { useReduceMotion } from '@/app/hooks/useReduceMotion';
 import { formatTimeShort } from '@/app/components/lawyer/NotificationPanel/utils/timeGrouping';
@@ -90,7 +90,7 @@ function IncomingNotificationPopupsInner({ items, onDismiss, onOpen }: IncomingN
 
     return createPortal(
         <div
-            className="fixed z-[99990] inset-x-4 top-[max(12px,env(safe-area-inset-top))] sm:inset-x-auto sm:end-4 sm:w-[min(100%,380px)] flex flex-col gap-2.5 pointer-events-none"
+            className="hami-incoming-notification-popups-host fixed z-[99990] inset-x-4 sm:inset-x-auto sm:end-4 sm:w-[min(100%,380px)] flex flex-col gap-2.5 pointer-events-none"
             dir="rtl"
             data-testid="incoming-notification-popups"
             aria-live="polite"

@@ -341,6 +341,25 @@ export function useExecutionCreationSubmit(
             }
         }
 
+        if (claimType === 'تسليم ولد' || pendingClaimTypes.includes('تسليم ولد')) {
+            const trimmedWards = custodyWardNames.map((n) => n.trim()).filter(Boolean);
+            if (trimmedWards.length === 0) {
+                SmartToast.error('⚠️ يرجى إدخال اسم محضون واحد على الأقل (نزع حضانة)');
+                return;
+            }
+            for (let i = 0; i < custodyWardNames.length; i++) {
+                if (!String(custodyWardNames[i] || '').trim()) {
+                    SmartToast.error(`⚠️ يرجى إكمال اسم المحضون ${i + 1}`);
+                    return;
+                }
+            }
+        }
+
+        const confirmed = window.confirm(
+            'هل كل المعلومات المدخلة صحيحة؟\n\nتنبيه: بعض البيانات (نوع السند والمطالبة) لا يمكن تعديلها بعد فتح الإضبارة.',
+        );
+        if (!confirmed) return;
+
         // Parse file number and year
         const fileParts = fileNumber.split('/');
         const extractedNumber = fileParts[0] || fileNumber;

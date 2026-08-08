@@ -1,6 +1,7 @@
 import React, { memo, useRef } from 'react';
-import { Palette, Layers } from 'lucide-react';
+import { Palette, Layers } from '@/app/components/ui/lucideIcons';
 import type { ProfileSettingsTab } from '@/app/components/lawyer/RoyalLawyerProfile/hooks/useProfileSettingsSheetState';
+import { prefetchProfileStudioMainTab } from '@/app/runtime/profileSettingsStudioTabsLoader';
 
 const TAB_META: { id: ProfileSettingsTab; label: string; icon: React.ElementType }[] = [
     { id: 'appearance', label: 'المظهر', icon: Palette },
@@ -51,10 +52,17 @@ export const ProfileSettingsSheetTabBar = memo(function ProfileSettingsSheetTabB
                             onPointerDown={(event) => {
                                 if (event.button !== 0) return;
                                 event.stopPropagation();
+                                if (!active) prefetchProfileStudioMainTab(t.id);
                                 if (event.pointerType === 'touch' || event.pointerType === 'pen') {
                                     armedByTouchRef.current = t.id;
                                     onTabChange(t.id);
                                 }
+                            }}
+                            onPointerEnter={() => {
+                                if (!active) prefetchProfileStudioMainTab(t.id);
+                            }}
+                            onFocus={() => {
+                                if (!active) prefetchProfileStudioMainTab(t.id);
                             }}
                             onClick={(event) => {
                                 event.stopPropagation();

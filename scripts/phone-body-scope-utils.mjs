@@ -499,6 +499,32 @@ export function extractPhoneBodyDestructuredKeys(body) {
     return keys;
 }
 
+/** Wired keys after PhoneBody delegates to useExecutionDashboardPhoneBodyScope + body.props passthrough */
+export function collectPhoneBodyScopeWiringKeys({ body, pickBag, orchestrator }) {
+    const wired = new Set(extractPhoneBodyDestructuredKeys(pickBag));
+
+    const returnBlock =
+        orchestrator.match(/return \{([\s\S]*?)\n    \};\n\}/)?.[1] ??
+        orchestrator.match(/return \{([\s\S]*)\};\s*\n\}/)?.[1] ??
+        '';
+    for (const m of returnBlock.matchAll(/^\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*:/gm)) {
+        wired.add(m[1]);
+    }
+
+    for (const m of body.matchAll(/\bbody\.([a-zA-Z_][a-zA-Z0-9_]*)/g)) {
+        wired.add(m[1]);
+    }
+
+    if (
+        body.includes('buildPhoneBodyDeferredScope(body.props)') &&
+        body.includes('buildPhoneBodySecondaryScope(body.props)')
+    ) {
+        wired.add('__full_props_passthrough__');
+    }
+
+    return wired;
+}
+
 export function validateScopeKeys(_viewText, keys) {
     const problems = [];
     for (const key of keys) {

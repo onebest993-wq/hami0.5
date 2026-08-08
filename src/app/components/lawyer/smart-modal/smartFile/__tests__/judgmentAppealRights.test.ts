@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { INTERPLEADER_JUDGMENT_PLAINTIFF_FULL } from '../interpleaderJudgmentEngine';
+import { resolveAbsentObjectionAppealRights } from '../absentJudgmentAppealRights';
 import {
     isDefendantOnlyCassationJudgmentType,
+    isFirstInstanceStageName,
     isPlaintiffFavorableFinalDecision,
     isAwaitingOpponentAppeal,
     shouldShowOpponentAppealRegisterButton,
@@ -13,6 +15,14 @@ import {
 } from '../judgmentTypes';
 
 describe('judgmentAppealRights', () => {
+    it('excludes extraordinary pleading stages from first-instance classification', () => {
+        expect(isFirstInstanceStageName('بداءة بدرجة أولى')).toBe(true);
+        expect(isFirstInstanceStageName('إعادة المحاكمة')).toBe(false);
+        expect(isFirstInstanceStageName('اعتراض الغير')).toBe(false);
+        expect(isFirstInstanceStageName('اعتراض على الحكم الغيابي')).toBe(false);
+        expect(isFirstInstanceStageName('أحوال شخصية')).toBe(false);
+    });
+
     it('treats win, sulh, and waiver as defendant-only cassation outcomes', () => {
         expect(isDefendantOnlyCassationJudgmentType('إجابة الدعوى بالكامل')).toBe(true);
         expect(isDefendantOnlyCassationJudgmentType('الصلح')).toBe(true);
@@ -39,6 +49,19 @@ describe('judgmentAppealRights', () => {
                     status: 'active',
                 },
                 'بانتظار الطعن',
+            ),
+        ).toBe(true);
+        expect(
+            shouldShowOpponentAppealRegisterButton(
+                {
+                    isPleadingsClosed: true,
+                    appealDeadline: '2026-07-01',
+                    finalDecision: 'محسومة لصالح الموكل - بانتظار الطعن',
+                    stageName: 'أحوال شخصية',
+                    status: 'active',
+                },
+                'بانتظار الطعن',
+                'وكيل المدعي',
             ),
         ).toBe(true);
         expect(
@@ -204,6 +227,50 @@ describe('judgmentAppealRights', () => {
     });
 
     describe('resolveAllowedOpponentAppealMethods', () => {
+        it('plaintiff lawyer waits after absent-objection uphold (إجابة الدعوى بالكامل)', () => {
+            const objectedParties = [
+                {
+                    id: 1,
+                    name: 'موكل',
+                    role: 'المعترض عليه بالحكم الغيابي (المدعي)',
+                    isClient: true,
+                },
+            ];
+            const objectorParties = [
+                {
+                    id: 2,
+                    name: 'موكل',
+                    role: 'المعترض على الحكم الغيابي (المدعى عليه)',
+                    isClient: true,
+                },
+            ];
+            expect(
+                resolveAbsentObjectionAppealRights('إجابة الدعوى بالكامل', objectedParties).action,
+            ).toBe('wait_opponent');
+            expect(
+                resolveAbsentObjectionAppealRights('إجابة الدعوى بالكامل', objectorParties).action,
+            ).toBe('self_appeal');
+            expect(
+                resolveFirstInstanceHadoriAppealRights('إجابة الدعوى بالكامل', 'المدعي').action,
+            ).toBe('wait_opponent');
+            expect(
+                resolveFirstInstanceHadoriAppealRights('إجابة الدعوى بالكامل', 'المدعى عليه').action,
+            ).toBe('self_appeal');
+        });
+
+        it('offers استئناف on civil absent-objection stage when بداءة exists in history', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'غيابي',
+                stageName: 'الاعتراض على الحكم الغيابي',
+                stages: [
+                    { stageName: 'بداءة بدرجة أولى' },
+                    { stageName: 'الاعتراض على الحكم الغيابي' },
+                ],
+            });
+            expect(methods).toContain('استئناف');
+            expect(methods).toContain('تمييز');
+        });
+
         it('hides absentia objection for in-person judgment', () => {
             const methods = resolveAllowedOpponentAppealMethods({
                 judgmentForm: 'حضوري',
@@ -221,6 +288,39 @@ describe('judgmentAppealRights', () => {
             expect(methods).toContain('اعتراض غيابي');
             expect(methods).not.toContain('اعتراض الغير');
             expect(methods).not.toContain('إعادة محاكمة');
+        });
+
+        it('hides absentia objection after objection stage already exists', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'غيابي',
+                stageName: 'البداءة (اعتراض غيابي)',
+                stages: [
+                    { stageName: 'البداءة' },
+                    { stageName: 'البداءة (اعتراض غيابي)' },
+                ],
+            });
+            expect(methods).not.toContain('اعتراض غيابي');
+            expect(methods).toContain('تمييز');
+        });
+
+        it('hides absentia objection on appeal stage', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'غيابي',
+                lastJudgmentType: 'غيابي',
+                stageName: 'الاستئناف',
+                finalDecision: 'إجابة الدعوى بالكامل',
+                stages: [{ stageName: 'البداءة' }, { stageName: 'الاستئناف' }],
+            });
+            expect(methods).not.toContain('اعتراض غيابي');
+        });
+
+        it('hides absentia objection when defendant won absent judgment', () => {
+            const methods = resolveAllowedOpponentAppealMethods({
+                judgmentForm: 'غيابي',
+                stageName: 'البداءة',
+                finalDecision: 'رد الدعوى كلياً',
+            });
+            expect(methods).not.toContain('اعتراض غيابي');
         });
 
         it('hides extraordinary remedies when appellate appeal is allowed', () => {

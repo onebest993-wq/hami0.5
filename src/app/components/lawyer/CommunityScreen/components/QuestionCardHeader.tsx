@@ -1,5 +1,5 @@
 import React from 'react';
-import { User, EyeOff, UserPlus, UserCheck } from 'lucide-react';
+import { User, EyeOff, UserPlus, UserCheck } from '@/app/components/ui/lucideIcons';
 import type { CommunityPost } from '@/app/services/lawyer-cloud';
 import { formatRelativeTime } from '../utils';
 import { QuestionCardMoreMenu } from './QuestionCardMoreMenu';

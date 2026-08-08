@@ -2,44 +2,35 @@
  * E2E — مخزن الوسائط (dockVault → المستودع الموحّد): بحث، تصنيف، عرض، Escape.
  */
 import { test, expect, type Page } from '@playwright/test';
-import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
 import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import { buildE2eVaultDoc, clearVaultStorage, seedVaultDocs } from './helpers/vaultFixtures';
-import { openVaultMediaFromDock } from './helpers/repositoryFixtures';
+import { openVaultMediaFromDock, expectRepositoryClosed, pressRepositoryEscape } from './helpers/repositoryFixtures';
 
 const E2E_DOC_TITLE = 'وثيقة E2E مخزن';
 const E2E_CATEGORY = 'تصنيف E2E';
 
-async function openVaultFromHome(page: Page) {
-    return openVaultMediaFromDock(page);
+async function openVaultWithDocs(page: Page, docs = [buildE2eVaultDoc()]) {
+    await seedVaultDocs(page, docs);
+    return openVaultMediaFromDock(page, docs);
 }
 
 test.describe('مخزن الوسائط — المستودع الموحّد', () => {
-    test.describe.configure({ timeout: 90_000 });
+    test.describe.configure({ timeout: 120_000 });
 
     test.beforeEach(async ({ page }) => {
         await prepareProductivityE2E(page);
         await clearVaultStorage(page);
-        await seedLawyerFiles(page);
     });
 
     test('يفتح من الرئيسية ويعرض الحالة الفارغة', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        const modal = await openVaultFromHome(page);
+        await openVaultMediaFromDock(page);
+        const modal = page.getByTestId('smart-repository-modal');
         await expect(modal.getByText('المستودع الذكي')).toBeVisible();
         await expect(modal.getByTestId('repository-feed-empty-media')).toBeVisible();
     });
 
     test('يعرض الوثائق المزروعة ويبحث فيها', async ({ page }) => {
-        await seedVaultDocs(page, [buildE2eVaultDoc()]);
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        const modal = await openVaultFromHome(page);
+        const modal = await openVaultWithDocs(page);
         await expect(modal.getByTestId('repository-feed-vault-e2e-vault-doc-1')).toBeVisible({
             timeout: 10_000,
         });
@@ -53,12 +44,7 @@ test.describe('مخزن الوسائط — المستودع الموحّد', () 
     });
 
     test('يُبدّل تخطيط عرض البطاقات', async ({ page }) => {
-        await seedVaultDocs(page, [buildE2eVaultDoc()]);
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        const modal = await openVaultFromHome(page);
+        const modal = await openVaultWithDocs(page);
         await expect(modal.getByTestId('repository-feed-vault-e2e-vault-doc-1')).toBeVisible({
             timeout: 10_000,
         });
@@ -74,15 +60,11 @@ test.describe('مخزن الوسائط — المستودع الموحّد', () 
     });
 
     test('يضيف تصنيفاً مخصصاً ويُصفّي به', async ({ page }) => {
-        await seedVaultDocs(page, [
+        const docs = [
             buildE2eVaultDoc({ customCategory: E2E_CATEGORY }),
             buildE2eVaultDoc({ id: 'e2e-vault-doc-2', title: 'وثيقة أخرى', customCategory: 'أخرى' }),
-        ]);
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        const modal = await openVaultFromHome(page);
+        ];
+        const modal = await openVaultWithDocs(page, docs);
         await modal.getByTestId('smart-vault-add-category').click();
         await modal.getByTestId('smart-vault-new-category').fill('تصنيف جديد');
         await modal.getByTestId('smart-vault-new-category-save').click();
@@ -94,27 +76,18 @@ test.describe('مخزن الوسائط — المستودع الموحّد', () 
     });
 
     test('Escape يغلق المستودع', async ({ page }) => {
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        await openVaultFromHome(page);
-        await page.keyboard.press('Escape');
-        await expect(page.getByTestId('smart-repository-modal')).toBeHidden({ timeout: 5_000 });
+        await openVaultMediaFromDock(page);
+        await pressRepositoryEscape(page);
+        await expectRepositoryClosed(page);
     });
 
     test('إعادة الفتح تحافظ على الوثائق', async ({ page }) => {
-        await seedVaultDocs(page, [buildE2eVaultDoc()]);
-        await page.goto('/');
-        await ensureLawyerDashboard(page);
-        await dismissProductivityBlockers(page);
-
-        const modal = await openVaultFromHome(page);
+        const modal = await openVaultWithDocs(page);
         await expect(modal.getByText(E2E_DOC_TITLE)).toBeVisible({ timeout: 10_000 });
         await modal.getByTestId('smart-repository-close').click();
-        await expect(page.getByTestId('smart-repository-modal')).toBeHidden({ timeout: 5_000 });
+        await expectRepositoryClosed(page);
 
-        const modal2 = await openVaultFromHome(page);
+        const modal2 = await openVaultMediaFromDock(page);
         await expect(modal2.getByText(E2E_DOC_TITLE)).toBeVisible({ timeout: 10_000 });
     });
 });

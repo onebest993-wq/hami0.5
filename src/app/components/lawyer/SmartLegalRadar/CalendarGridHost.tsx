@@ -73,7 +73,7 @@ export function CalendarGridHost(props: CalendarGridProps & { visible: boolean }
         if (loadFailed) {
             return (
                 <div className="mb-6 p-4 text-center" role="alert">
-                    <p className="text-sm text-[#F5EDE0]/80 mb-2">تعذّر تحميل التقويم الكامل</p>
+                    <p className="text-sm hami-radar-text-secondary mb-2">تعذّر تحميل التقويم الكامل</p>
                     <button
                         type="button"
                         onClick={retryLoad}

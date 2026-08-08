@@ -13,7 +13,7 @@ describe('profile section surgical close honesty', () => {
         expect(assemble).toContain('profileHostMounted: profileTab.profileHostMounted');
     });
 
-    it('بعد الإقلاع: يُسلَّح Host مع التسخين لكشف لحظي', () => {
+    it('بعد الإقلاع: prefetch فقط — Host يُركَّب عند prime/hover لا على boot-reveal', () => {
         const hook = fs.readFileSync(
             path.join(root, 'src/app/hooks/lawyerDashboard/useLawyerDashboardProfileTab.ts'),
             'utf8',
@@ -24,7 +24,7 @@ describe('profile section surgical close honesty', () => {
         )?.[0];
         expect(warmBlock).toBeTruthy();
         expect(warmBlock).toContain('prefetchProfileAfterBootReveal');
-        expect(warmBlock).toContain('armProfileHost');
+        expect(warmBlock).not.toMatch(/\barmProfileHost\s*\(/);
     });
 
     it('هيدر الملف يمرّر sanitizeProfileMediaUrl قبل عرض الصورة', () => {
@@ -63,6 +63,7 @@ describe('profile section surgical close honesty', () => {
         );
         expect(hook).toContain('isRealSignedIn(userId)');
         expect(hook).not.toContain('isRealSignedIn(null)');
+        expect(hook).toContain('commitProfileClose({ closeSettings, setActiveTab })');
     });
 
     it('زر الهيدر يعلن aria-expanded وaria-controls', () => {
@@ -76,6 +77,7 @@ describe('profile section surgical close honesty', () => {
         expect(trigger).toContain('header-profile-trigger');
         expect(trigger).toContain('aria-expanded={expanded}');
         expect(trigger).toContain('aria-controls="lawyer-dashboard-profile-surface"');
+        expect(trigger).toContain('pointerCommitRef');
     });
 
     it('لا يضاعف prime على hover/press — prefetch يملك التسليح', () => {

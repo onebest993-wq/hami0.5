@@ -1,23 +1,20 @@
 import React from 'react';
-import { Eye, EyeOff, Send } from 'lucide-react';
-import { InlineActionGate } from './InlineActionGate';
+import { Eye, EyeOff, Send } from '@/app/components/ui/lucideIcons';
 import type { InlineActionGateKey } from '../types';
 import { shouldAlwaysShowHiddenRequestsToggle, hasAnyHiddenFollowupContent } from './hiddenFollowupRequestsUtils';
-import {
-    DECISIONS_RELOAD_EVENT,
-    readExecutorDecisionsArray,
-} from '@/app/utils/executorSeizureDecisionQueue';
+import { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
 import type { HiddenFollowupRequestOptionsProps } from './HiddenFollowupRequestOptions';
+import { useFollowupTabDecisionsLoader } from '../hooks/useFollowupTabDecisionsLoader';
 
 const LazyHiddenFollowupRequestOptions = React.lazy(() =>
     import('./HiddenFollowupRequestOptions').then((m) => ({
         default: m.HiddenFollowupRequestOptions,
     }))
 );
-const LazyRequestsTabLatestDecisionPanel = React.lazy(() =>
-    import('./RequestsTabLatestDecisionPanel').then((m) => ({
-        default: m.RequestsTabLatestDecisionPanel,
+const LazyRequestsTabDecisionLog = React.lazy(() =>
+    import('./RequestsTabDecisionLog').then((m) => ({
+        default: m.RequestsTabDecisionLog,
     }))
 );
 
@@ -25,6 +22,7 @@ export { SPECIAL_REQUEST_MANUAL_MODE } from './requestsTabConstants';
 
 export interface RequestsTabProps {
     executionId: string | undefined;
+    executionData?: Record<string, unknown> | null;
     specialRequestTemplatePick: string;
     setSpecialRequestTemplatePick: (v: string) => void;
     specialRequestDate: string;
@@ -33,8 +31,8 @@ export interface RequestsTabProps {
     setSpecialRequestContent: (v: string) => void;
     specialRequestManualTitle: string;
     setSpecialRequestManualTitle: (v: string) => void;
-    inlineActionGateKey: InlineActionGateKey | null;
-    setInlineActionGateKey: (key: InlineActionGateKey | null) => void;
+    inlineActionGateKey?: InlineActionGateKey | null;
+    setInlineActionGateKey?: (key: InlineActionGateKey | null) => void;
     runSpecialFollowupSubmit: () => void;
     activeDebtorIsDeceased?: boolean;
     activeDebtorIsLegalEntity?: boolean;
@@ -49,14 +47,13 @@ export interface RequestsTabProps {
 
 export const RequestsTab: React.FC<RequestsTabProps> = ({
     executionId,
+    executionData = null,
     specialRequestManualTitle,
     setSpecialRequestManualTitle,
     specialRequestDate,
     setSpecialRequestDate,
     specialRequestContent,
     setSpecialRequestContent,
-    inlineActionGateKey,
-    setInlineActionGateKey,
     runSpecialFollowupSubmit,
     activeDebtorIsDeceased = false,
     activeDebtorIsLegalEntity = false,
@@ -64,26 +61,14 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
     hiddenFollowupRequestOptions,
     appealPerspective = 'creditor_agent',
 }) => {
-    const exId = String(executionId || '').trim();
+    const { decisions, storageExecutionId: exId } = useFollowupTabDecisionsLoader(
+        executionId,
+        executionData,
+    );
     const [showHiddenPersonalRequests, setShowHiddenPersonalRequests] = React.useState(false);
     React.useEffect(() => {
         if (activeDebtorIsLegalEntity) setShowHiddenPersonalRequests(false);
     }, [activeDebtorIsLegalEntity]);
-    const [decisions, setDecisions] = React.useState<Record<string, unknown>[]>(() =>
-        readExecutorDecisionsArray(exId)
-    );
-    React.useEffect(() => {
-        const sync = () => setDecisions(readExecutorDecisionsArray(exId));
-        sync();
-        window.addEventListener(DECISIONS_RELOAD_EVENT, sync);
-        window.addEventListener('hami-execution-decision-outcome', sync as EventListener);
-        window.addEventListener('focus', sync);
-        return () => {
-            window.removeEventListener(DECISIONS_RELOAD_EVENT, sync);
-            window.removeEventListener('hami-execution-decision-outcome', sync as EventListener);
-            window.removeEventListener('focus', sync);
-        };
-    }, [exId]);
 
     const showHiddenRequestsButton =
         !activeDebtorIsLegalEntity &&
@@ -133,7 +118,7 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                         />
                     </React.Suspense>
                 ) : (
-                    <>
+                    <div className="space-y-3">
                         <div>
                             <label className="mb-1 block text-[9px] text-slate-400">موضوع الطلب *</label>
                             <input
@@ -168,12 +153,12 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                             />
                         </div>
 
-                        <div className="relative pt-2">
+                        <div className="pt-2">
                             <button
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    setInlineActionGateKey('requests_submit');
+                                    void runSpecialFollowupSubmit();
                                 }}
                                 disabled={
                                     !specialRequestDate.trim() ||
@@ -185,22 +170,19 @@ export const RequestsTab: React.FC<RequestsTabProps> = ({
                                 <Send size={14} />
                                 تأكيد إرسال الطلب
                             </button>
-                            <InlineActionGate
-                                gateKey="requests_submit"
-                                activeKey={inlineActionGateKey}
-                                onConfirm={() => {
-                                    setInlineActionGateKey(null);
-                                    void runSpecialFollowupSubmit();
-                                }}
-                                onCancel={() => setInlineActionGateKey(null)}
-                            />
                         </div>
-                    </>
+                    </div>
                 )}
             </div>
 
-            <React.Suspense fallback={null}>
-                <LazyRequestsTabLatestDecisionPanel
+            <React.Suspense
+                fallback={
+                    <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center text-[10px] text-slate-400">
+                        جاري تحميل سجل الطلبات...
+                    </div>
+                }
+            >
+                <LazyRequestsTabDecisionLog
                     executionId={exId}
                     decisions={decisions}
                     appealPerspective={appealPerspective}

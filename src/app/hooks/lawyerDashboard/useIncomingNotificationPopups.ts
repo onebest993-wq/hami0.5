@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { NotificationModel } from '@/app/infrastructure/NotificationRepository';
 import { useNotificationStore } from '@/app/stores/notificationStore';
-import { BUILTIN_NOTIFICATIONS_ENABLED } from '@/app/services/settings/builtInBehavior';
+import { areInAppNotificationsEnabled } from '@/app/services/settings/settingsRuntime';
+import { shouldShowChannelInApp } from '@/app/services/notifications/notificationAlertPolicy';
 
 const MAX_VISIBLE = 2;
 const AUTO_DISMISS_MS = 6_500;
@@ -93,7 +94,8 @@ export function useIncomingNotificationPopups(options: {
     }, [userId]);
 
     useEffect(() => {
-        if (!enabled || !BUILTIN_NOTIFICATIONS_ENABLED || !userId) return;
+        if (!enabled || !areInAppNotificationsEnabled() || !userId) return;
+        if (!shouldShowChannelInApp('community')) return;
 
         if (!baselineReadyRef.current) {
             if (isLoading) return;

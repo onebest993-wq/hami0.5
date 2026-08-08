@@ -1,12 +1,12 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { useExecutionDashboardExecutorApprovalActions } from '../useExecutionDashboardExecutorApprovalActions';
-import { patchExecutorDecisionRow } from '@/app/utils/executorSeizureDecisionQueue';
+import { patchExecutorDecisionRowReliable } from '@/app/utils/executorSeizureDecisionQueue';
 import { storageCache } from '@/app/utils/storageCache';
 import { syncExecutionTimelineAppointment } from '@/app/services/calendar/dossierSync/incrementalSync';
 
 vi.mock('@/app/utils/executorSeizureDecisionQueue', () => ({
-    patchExecutorDecisionRow: vi.fn(),
+    patchExecutorDecisionRowReliable: vi.fn(() => ({ ok: true, storageExecutionId: 'ex-1' })),
 }));
 
 vi.mock('@/app/utils/storageCache', () => ({
@@ -210,12 +210,12 @@ describe('useExecutionDashboardExecutorApprovalActions', () => {
                 }),
             );
         });
-        expect(showToast).toHaveBeenCalledWith('تم ربط الموعد بالسجل الزمني', 'success');
+        expect(showToast).toHaveBeenCalledWith('تم ربط الموعد بالسجل الزمني والمواعيد', 'success');
 
         act(() => {
             result.current.patchDecision('decision-2', { approved: true });
         });
-        expect(patchExecutorDecisionRow).toHaveBeenCalledWith('ex-1', 'decision-2', {
+        expect(patchExecutorDecisionRowReliable).toHaveBeenCalledWith('ex-1', 'decision-2', {
             approved: true,
         });
 

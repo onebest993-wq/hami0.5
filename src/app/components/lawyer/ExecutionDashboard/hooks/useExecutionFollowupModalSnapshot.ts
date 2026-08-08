@@ -1,6 +1,7 @@
 import { useRef } from 'react';
 import type { FollowupModalSnapshot } from '../followupModalContext';
 import { hasSelectedScopeDeltaForLazySync } from './executionDashboardCore/executionScopeLazySyncDelta';
+import { hasFollowupModalStubHandlerUpgrade } from './followupModalSnapshotHydration';
 
 const EMPTY_FOLLOWUP_SNAPSHOT: FollowupModalSnapshot = {};
 
@@ -23,7 +24,11 @@ export function useExecutionFollowupModalSnapshot(
     }
     const next = buildRef.current();
     const prev = lastSnapshotRef.current;
-    if (prev && !hasSelectedScopeDeltaForLazySync(prev, next)) {
+    if (
+        prev &&
+        !hasSelectedScopeDeltaForLazySync(prev, next) &&
+        !hasFollowupModalStubHandlerUpgrade(prev, next)
+    ) {
         return prev;
     }
     lastSnapshotRef.current = next;

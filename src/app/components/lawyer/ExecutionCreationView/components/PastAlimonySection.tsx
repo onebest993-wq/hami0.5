@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { Zap, Scale, AlertTriangle } from 'lucide-react';
+import { Zap, Scale } from '@/app/components/ui/lucideIcons';
 import { ecg } from './executionCreationGlassUi';
 import { formatMoneyIntegerDisplay, handleMoneyInputChange } from '@/app/utils/moneyInput';
 import type { AlimonyPastLawSystem } from '../hooks/useAlimonyCalculator';
@@ -52,10 +52,6 @@ export const PastAlimonyFieldsSection: React.FC<PastAlimonyFieldsSectionProps> =
             <Zap className="text-[#E6C673]/90" size={16} />
             <h6 className="text-[#F0DFA8] font-bold text-xs">القانون المطبق على النفقة الماضية</h6>
         </div>
-        <p className={ecg.hintText}>
-            يُحتسب المبلغ من <span className="font-bold">تاريخ الاستحقاق</span> حتى{' '}
-            <span className="font-bold">تاريخ إقامة الدعوى</span> (÷ 30 يوماً للشهر)
-        </p>
         <div>
             <label className={ecg.label}>القانون المطبق على العقد *</label>
             <select
@@ -116,14 +112,6 @@ export const PastAlimonyFieldsSection: React.FC<PastAlimonyFieldsSectionProps> =
                 </p>
             ) : null}
         </div>
-        {calculated?.legalCapApplied && calculated.explanation ? (
-            <div className={ecg.hintDangerInline}>
-                <p className="text-rose-300 text-[10px] font-bold flex items-center gap-1">
-                    <AlertTriangle size={12} />
-                    {calculated.explanation}
-                </p>
-            </div>
-        ) : null}
     </div>
 );
 

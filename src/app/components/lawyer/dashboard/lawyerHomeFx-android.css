@@ -26,26 +26,34 @@ html[data-hami-native='1'][data-hami-platform='android'] {
 /* ── Hub / home glass cards ── */
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-sovereign-glass,
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-glass {
-    /* كثافة الحاوية (--glass-opacity) تغيّر المزج فعلياً على Android */
-    background-color: color-mix(
-        in srgb,
-        var(--hami-block-accent, var(--hami-primary, #e6c673))
-            calc(4% + (var(--glass-opacity, 0.92) * 16%)),
+    overflow: hidden !important;
+    background-clip: padding-box !important;
+    /* لون صلب من JS (--hami-glass-panel-bg) — WebView لا يدعم rgba داخل var بموثوقية */
+    background-color: var(--hami-glass-panel-bg, var(--hami-block-surface-bg, #0b1021)) !important;
+    background-image: linear-gradient(
+        135deg,
         color-mix(
             in srgb,
-            #ffffff calc((1 - var(--glass-opacity, 0.92)) * 12%),
-            var(--hami-android-card-bg)
+            var(--hami-block-accent, var(--hami-primary, #e6c673))
+                calc(12% * var(--glass-opacity, 0.92)),
+            transparent
         )
+            0%,
+        transparent 48%,
+        color-mix(
+            in srgb,
+            var(--hami-secondary, #b8943f) calc(6% * var(--glass-opacity, 0.92)),
+            transparent
+        )
+            100%
     ) !important;
-    /* سطح البطاقة صلب؛ الزخرفة من .hami-home-block-pattern */
-    background-image: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     border-color: color-mix(
         in srgb,
         var(--hami-block-accent, var(--hami-primary, #e6c673))
-            calc(18% + (var(--glass-opacity, 0.92) * 16%)),
-        var(--hami-android-card-border)
+            calc(15% * var(--glass-opacity, 0.92)),
+        rgba(255, 255, 255, 0.06)
     ) !important;
     box-shadow: var(--hami-android-card-elev) !important;
 }
@@ -60,8 +68,8 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashb
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-sovereign-rim,
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] [data-hami-block].hami-sovereign-rim {
     box-shadow:
-        inset 0 1px 0 color-mix(in srgb, #ffffff 8%, transparent),
-        var(--hami-android-card-elev) !important;
+        inset 0 1px 0 color-mix(in srgb, #ffffff 6%, transparent),
+        0 1px 3px rgba(0, 0, 0, 0.38) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-themed-border,
@@ -76,28 +84,45 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashb
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-solid {
     background: color-mix(
         in srgb,
-        var(--hami-block-accent) calc(6% + (var(--glass-opacity, 0.92) * 16%)),
-        var(--hami-android-card-bg)
+        var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 11%),
+        color-mix(
+            in srgb,
+            var(--hami-block-surface-bg, var(--hami-glass-base, #020408))
+                calc(var(--glass-opacity, 0.92) * 100%),
+            transparent
+        )
     ) !important;
     box-shadow: var(--hami-android-card-elev) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-gradient {
-    background: color-mix(
-        in srgb,
-        var(--hami-block-accent) calc(8% + (var(--glass-opacity, 0.92) * 16%)),
-        var(--hami-android-card-bg)
+    background: linear-gradient(
+        145deg,
+        color-mix(
+            in srgb,
+            var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 24%),
+            rgba(255, 255, 255, 0.04)
+        )
+            0%,
+        color-mix(
+            in srgb,
+            var(--hami-block-surface-bg, var(--hami-glass-base, #020408))
+                calc(var(--glass-opacity, 0.92) * 72%),
+            transparent
+        )
+            55%,
+        color-mix(
+            in srgb,
+            var(--hami-block-accent) calc(var(--glass-opacity, 0.92) * 9%),
+            transparent
+        )
+            100%
     ) !important;
-    background-image: none !important;
     box-shadow: var(--hami-android-card-elev) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] .hami-home-block-minimal {
-    background: color-mix(
-        in srgb,
-        #ffffff calc(3% + ((1 - var(--glass-opacity, 0.92)) * 10%)),
-        var(--hami-android-card-bg)
-    ) !important;
+    background: rgba(255, 255, 255, calc(var(--glass-opacity, 0.92) * 0.028)) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
     box-shadow: none !important;
@@ -116,17 +141,24 @@ html[data-hami-native='1'][data-hami-platform='android'][data-hami-wallpaper='1'
 html[data-hami-native='1'][data-hami-platform='android']
     [data-hami-lawyer-dashboard][data-hami-wallpaper='1']
     [data-hami-block].hami-sovereign-glass {
-    background-color: color-mix(
-        in srgb,
-        var(--hami-block-accent, var(--hami-primary, #e6c673))
-            calc(4% + (var(--glass-opacity, 0.92) * 16%)),
+    background-color: var(--hami-glass-panel-bg, var(--hami-block-surface-bg, #0b1021)) !important;
+    background-image: linear-gradient(
+        135deg,
         color-mix(
             in srgb,
-            #ffffff calc((1 - var(--glass-opacity, 0.92)) * 12%),
-            var(--hami-android-card-bg)
+            var(--hami-block-accent, var(--hami-primary, #e6c673))
+                calc(14% * var(--glass-opacity, 0.92)),
+            transparent
         )
+            0%,
+        transparent 50%,
+        color-mix(
+            in srgb,
+            var(--hami-secondary, #b8943f) calc(6% * var(--glass-opacity, 0.92)),
+            transparent
+        )
+            100%
     ) !important;
-    background-image: none !important;
     box-shadow: var(--hami-android-card-elev) !important;
 }
 
@@ -173,24 +205,38 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-testid='header-to
     -webkit-backdrop-filter: none !important;
 }
 
+/* إنزال الهيدر عن شريط الحالة — env(safe-area) غالباً 0 على Android WebView */
+html[data-hami-native='1'][data-hami-platform='android'] {
+    --hami-lawyer-header-safe-top: max(
+        env(safe-area-inset-top, 0px),
+        var(--hami-android-status-pad, 12px)
+    );
+}
+
 /* الهيدر يملك الـ safe-area — بلا padding علوي مزدوج من SafeView */
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='lawyer-dashboard-ready'] {
     padding-top: 0 !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-lawyer-header {
-    background-color: #0a0f1c !important;
+    background-color: transparent !important;
     background-image: none !important;
     isolation: isolate;
+    padding-top: var(--hami-lawyer-header-safe-top) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] .hami-below-lawyer-header {
-    top: var(--hami-lawyer-header-offset, calc(84px + env(safe-area-inset-top, 0px))) !important;
+    top: var(--hami-lawyer-header-offset) !important;
+}
+
+/* مركز المعاملات — نفس إزاحة شريط الحالة */
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='transactions-hub'] {
+    padding-top: var(--hami-lawyer-header-safe-top) !important;
 }
 
 /* Dashboard canvas follows theme surface (fixes “لون الخلفية لا يُطبَّق”) */
 html[data-hami-native='1'][data-hami-platform='android'] [data-hami-lawyer-dashboard] {
-    background-color: var(--hami-surface-bg, #0a0f1c) !important;
+    background-color: var(--hami-board-surface-bg, #0a0f1c) !important;
 }
 
 /* إعدادات على Android — زجاج صلب شفاف بلا blur مكلف وبلا إطار أبيض */
@@ -307,46 +353,47 @@ html[data-hami-native='1'][data-hami-platform='android'] [data-hami-block='dockS
     color: rgba(255, 255, 255, 0.92) !important;
 }
 
-/* أجندة المهام — كحلي صلب مثل المتصفح المقصود (لا تدرج أخضر يتحوّل لطين على WebView) */
+/* أجندة المهام — navy صلب (لا تدرج شفاف يتحوّل لطين على WebView) */
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager-overlay'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager-loading'] {
     background-image: none !important;
-    background-color: #0a0f1c !important;
+    background-color: #0f1629 !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'] > header,
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-manager'] header {
-    background-color: #0a0f1c !important;
+    background-color: #12182b !important;
     background-image: none !important;
-    box-shadow: inset 0 -1px 0 rgba(166, 124, 82, 0.22) !important;
+    box-shadow: inset 0 -1px 0 rgba(230, 198, 115, 0.14) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-distant-panel'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-week-day-'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-week-add-form'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid='tasks-fatal-section'] {
-    background-color: #0c1218 !important;
+    background-color: #151b2e !important;
     background-image: none !important;
-    border-color: rgba(166, 124, 82, 0.28) !important;
+    border-color: rgba(255, 255, 255, 0.09) !important;
     box-shadow:
-        inset 0 1px 0 rgba(230, 198, 115, 0.08),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 2px 6px rgba(0, 0, 0, 0.35) !important;
 }
 
-html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-week-add-'],
+html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-week-add-']:not([data-testid='tasks-week-add-form']),
 html[data-hami-native='1'][data-hami-platform='android'] .hami-tasks-btn-bronze {
-    background-color: color-mix(in srgb, #a67c52 24%, #0c1218) !important;
-    border-color: rgba(230, 198, 115, 0.42) !important;
+    background-color: color-mix(in srgb, #e6c673 14%, #151b2e) !important;
+    border-color: rgba(230, 198, 115, 0.32) !important;
     color: #e6c673 !important;
-    box-shadow: 0 1px 0 rgba(230, 198, 115, 0.12) !important;
+    box-shadow: 0 1px 0 rgba(230, 198, 115, 0.1) !important;
 }
 
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-task-card-'],
 html[data-hami-native='1'][data-hami-platform='android'] [data-testid^='tasks-snoozed-card-'] {
-    background-color: #0c1218 !important;
+    background-color: #151b2e !important;
     background-image: none !important;
     box-shadow:
-        inset 0 1px 0 rgba(230, 198, 115, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05),
         0 2px 6px rgba(0, 0, 0, 0.32) !important;
 }
 
@@ -400,6 +447,14 @@ html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-bg-orb {
 html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-glass-panel,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-page header,
 html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-scroll {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+
+html[data-hami-native='1'][data-hami-platform='android'] .hami-radar-form-panel {
+    background-color: #f8f6f2 !important;
+    background-image: linear-gradient(168deg, #ffffff 0%, #f8f6f2 52%, #efe9e0 100%) !important;
+    border-color: #dfe5ec !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
 }

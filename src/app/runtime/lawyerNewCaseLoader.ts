@@ -1,4 +1,5 @@
 import type { JurisdictionId } from '@/app/components/lawyer/LawyerNewCase/constants';
+import type { IncidentalSpawnContextEnriched } from '@/app/domain/lawsuit/incidentalSpawnPrefill';
 
 type LawyerNewCaseModule = typeof import('@/app/components/lawyer/LawyerNewCase');
 
@@ -45,10 +46,31 @@ export function consumePendingLawyerNewCaseJurisdiction(): JurisdictionId | null
     return value;
 }
 
+let pendingIncidentalSpawn: IncidentalSpawnContextEnriched | null = null;
+
+/** يحفظ سياق الدعوى الحادثة قبل فتح نموذج الإضبارة (يتجاوز سباق تحميل الـ chunk). */
+export function setPendingIncidentalSpawnContext(
+    ctx: IncidentalSpawnContextEnriched | null,
+): void {
+    pendingIncidentalSpawn = ctx;
+    notifyLawyerNewCaseListeners();
+}
+
+export function getPendingIncidentalSpawnContext(): IncidentalSpawnContextEnriched | null {
+    return pendingIncidentalSpawn;
+}
+
+export function clearPendingIncidentalSpawnContext(): void {
+    if (!pendingIncidentalSpawn) return;
+    pendingIncidentalSpawn = null;
+    notifyLawyerNewCaseListeners();
+}
+
 export function resetLawyerNewCaseModuleCacheForTests(): void {
     lawyerNewCasePromise = null;
     cachedLawyerNewCase = null;
     pendingJurisdiction = null;
+    pendingIncidentalSpawn = null;
     notifyLawyerNewCaseListeners();
 }
 

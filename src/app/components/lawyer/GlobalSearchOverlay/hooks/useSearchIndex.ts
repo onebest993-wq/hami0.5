@@ -13,6 +13,7 @@ import {
     getCachedGlobalSearchFuse,
     getOrCreateGlobalSearchFuse,
 } from '@/app/services/globalSearchFuse';
+import type { LawsuitLifecycleIndex } from '@/app/domain/lawsuit/lawsuitLifecycleIndex';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 
@@ -30,6 +31,7 @@ function resolveSearchIndexPriority(overlayOpen: boolean): 'interactive' | 'idle
 export interface UseSearchIndexOptions {
     files: FileData[];
     executionFiles?: (FileData & { executionTrashDeletedAt?: string | null })[];
+    lawsuitLifecycleIndex?: LawsuitLifecycleIndex;
     globalNotes: { id: number | string; title?: string; body?: string; type?: string }[];
     notifications?: { id: string; title: string; message: string; type: string }[];
     criminalCases: unknown[];
@@ -55,6 +57,7 @@ function buildPreparedInput(
     return prepareGlobalSearchIndexInput({
         files: options.files,
         executionFiles: options.executionFiles,
+        lawsuitLifecycleIndex: options.lawsuitLifecycleIndex,
         globalNotes: options.globalNotes,
         cases,
         criminalCases: options.criminalCases,
@@ -87,6 +90,7 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
         [
             options.files,
             options.executionFiles,
+            options.lawsuitLifecycleIndex,
             options.globalNotes,
             options.notifications,
             cases,
@@ -103,6 +107,7 @@ export function useSearchIndex(options: UseSearchIndexOptions): UseSearchIndexRe
         [
             options.files,
             options.executionFiles,
+            options.lawsuitLifecycleIndex,
             options.globalNotes,
             options.notifications,
             cases,

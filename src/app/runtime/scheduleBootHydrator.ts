@@ -1,8 +1,8 @@
-import { isCapacitorNativePlatform } from '@/app/runtime/nativePlatform';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 import { isLitePerformanceActive } from '@/app/runtime/devicePerformanceTier';
 import { getLawyerSettingsSnapshot } from '@/app/services/settings/settingsRuntime';
 import { prefetchCalendarCloudModule } from '@/app/services/calendar/calendarCloudLoader';
+import { requestCalendarDossierSyncNow } from '@/app/services/calendar/requestCalendarDossierSyncNow';
 import { warmCalendarEventsCache } from '@/app/hooks/lawyerDashboard/scheduleIntentWarm';
 import {
     hydrateScheduleShellForInstantOpen,
@@ -36,8 +36,6 @@ function schedulePrefetchAllowed(): boolean {
 
 function hydrateDelayMs(): number {
     if (!schedulePrefetchAllowed()) return -1;
-    // فوري بعد جاهزية اللوحة — كل ms تأخير = Instant gap عند أول فتح
-    if (isCapacitorNativePlatform()) return 80;
     return 0;
 }
 
@@ -53,12 +51,7 @@ export function dispatchSchedulePrimeHost(): void {
 }
 
 function warmSecondaryRadarWidgets(): void {
-    scheduleIdleWork(
-        () => {
-            prefetchRadarWidgets();
-        },
-        { minDelayMs: 120, timeoutMs: 4_000 },
-    );
+    prefetchRadarWidgets();
 }
 
 /**
@@ -72,6 +65,8 @@ export function prefetchScheduleAfterBootReveal(userId?: string | null): void {
     void ensureDeferredFeatureStylesLoaded();
     prefetchScheduleTabHostModule();
     prefetchScheduleHubModule();
+    prefetchCalendarCloudModule();
+    requestCalendarDossierSyncNow();
     void hydrateScheduleShellForInstantOpenWithData(userId, false).catch(() => undefined);
 }
 

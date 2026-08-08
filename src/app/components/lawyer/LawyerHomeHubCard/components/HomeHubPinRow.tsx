@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Pin } from 'lucide-react';
+import { Pin } from '@/app/components/ui/lucideIcons';
 import {
     resolveHomeHubPinNavigateAriaLabel,
     resolveHomeHubPinUnpinAriaLabel,
@@ -37,14 +37,10 @@ export const HomeHubPinRow = memo(function HomeHubPinRow({
 
     return (
         <div
+            data-hami-hub-pin-row
             data-testid={`home-hub-pin-${pin.type}-${pin.id}`}
             className={`flex items-center gap-1.5 border border-white/[0.06] bg-white/[0.03] px-2 py-1.5 ${visual.shell}`}
         >
-            <span
-                className={`shrink-0 inline-flex items-center justify-center min-w-[1.35rem] h-5 px-1 text-[9px] font-extrabold border ${visual.chip}`}
-            >
-                {visual.shortLabel}
-            </span>
             <button
                 type="button"
                 onClick={() => onNavigate(pin.routePath)}

@@ -97,12 +97,13 @@ async function runLiveCalendarPopulate(
     // كل ما عداه (notes/field-tasks/urgent/transactions/Sniffer) مُعطَّل.
     const uid = resolveCalendarUserId(params.lawyerId);
     const stats = EMPTY_STATS();
+    const liveScope: SyncScope = { whitelistOnly: true, includeTasks: false };
 
     for (const raw of params.lawsuitFiles) {
-        if (isRecord(raw)) syncOneLawsuitFile(raw, uid, stats);
+        if (isRecord(raw)) syncOneLawsuitFile(raw, uid, stats, liveScope);
     }
     for (const raw of params.executionFiles) {
-        if (isRecord(raw)) syncOneExecutionFile(raw, uid, stats);
+        if (isRecord(raw)) syncOneExecutionFile(raw, uid, stats, liveScope);
     }
     for (const raw of params.criminalCases ?? []) {
         if (isRecord(raw)) syncOneCriminalCase(raw, uid, stats);
@@ -235,6 +236,11 @@ export async function cleanupCalendarForUser(userId?: string | null): Promise<Do
 
 /**
  * يمسح كل الإضابير المحلية ويرفع المواعيد/المهام ذات التاريخ إلى التقويم (آمن للتكرار).
+ *
+ * عقد المزامنة (ثابت — لا يتغير بصمت):
+ * - المسار الحيّ (ensureCalendarPopulatedFromLiveDossiers): whitelistOnly — 4 نقاط دخول فقط.
+ * - حفظ إضبارة واحدة (sync*FileToCalendar): includeTasks — مواعيد + مهام الاستحقاق.
+ * - reconcile/cleanup هنا: includeTasks — إعادة بناء كاملة + تطهير اليتامى وغير المصرّح.
  */
 export async function reconcileAllDossierDates(userId?: string | null): Promise<DossierSyncStats> {
     if (reconcileInFlight) {

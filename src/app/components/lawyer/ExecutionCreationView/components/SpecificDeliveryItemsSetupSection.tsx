@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Building2, Package, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Building2, Package, Plus, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { SpecificDeliveryItemNature } from '@/app/utils/executionModuleStrategies';
 import type { SpecificDeliveryItem } from '@/app/utils/specificDeliveryItemsUtils';
 import {

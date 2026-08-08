@@ -63,7 +63,13 @@ export function SmartFileModalPortal(props: SmartFileModalProps) {
     const fileId = (hydratedFile as { id?: unknown } | undefined)?.id;
 
     const layer = (
-        <ErrorBoundary fallback={<LawsuitDossierCrashFallback onClose={props.onClose} />}>
+        <ErrorBoundary
+            fallback={<LawsuitDossierCrashFallback onClose={props.onClose} />}
+            onError={(error, errorInfo) => {
+                console.error('[LawsuitDossier] crash:', error);
+                console.error('[LawsuitDossier] component stack:', errorInfo.componentStack);
+            }}
+        >
             <LazySmartFileModal
                 key={`lawsuit-${String(fileId ?? 'unknown')}`}
                 {...props}

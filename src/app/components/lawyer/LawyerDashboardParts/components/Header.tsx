@@ -3,6 +3,10 @@ import { HeaderToolbarNav } from './HeaderToolbarNav';
 import { HeaderProfileTrigger } from './HeaderProfileTrigger';
 import { useAuthUser } from '@/app/context/AuthContext';
 import { resolveCalendarUserId } from '@/app/services/calendar/bridge/lite';
+import {
+    clearPublishedLawyerHeaderOffset,
+    publishLawyerHeaderOffset,
+} from '@/app/components/lawyer/LawyerDashboardParts/publishLawyerHeaderOffset';
 
 export interface HeaderProps {
     shouldShow: boolean;
@@ -12,6 +16,8 @@ export interface HeaderProps {
     onProfilePointerDown?: () => void;
     /** تبويب الملف مفتوح — لـ aria-expanded فقط */
     profileExpanded?: boolean;
+    /** shell الملف جاهز للفتح الفوري */
+    profileShellReady?: boolean;
     onSearchClick: () => void;
     onSearchPointerEnter?: () => void;
     onSearchPointerDown?: () => void;
@@ -30,6 +36,7 @@ export const Header = memo(function Header({
     onProfilePointerEnter,
     onProfilePointerDown,
     profileExpanded = false,
+    profileShellReady = true,
     onSearchClick,
     onSearchPointerEnter,
     onSearchPointerDown,
@@ -52,10 +59,32 @@ export const Header = memo(function Header({
         else node.setAttribute('inert', '');
     }, [shouldShow]);
 
+    useLayoutEffect(() => {
+        const node = headerRef.current;
+        if (!node || !shouldShow) {
+            clearPublishedLawyerHeaderOffset();
+            return;
+        }
+
+        const syncOffset = () => {
+            publishLawyerHeaderOffset(node.offsetHeight);
+        };
+
+        syncOffset();
+
+        if (typeof ResizeObserver === 'undefined') return;
+        const observer = new ResizeObserver(syncOffset);
+        observer.observe(node);
+        return () => {
+            observer.disconnect();
+            clearPublishedLawyerHeaderOffset();
+        };
+    }, [shouldShow]);
+
     return (
         <header
             ref={headerRef}
-            className="fixed top-0 left-0 right-0 z-50 h-[84px] flex items-center justify-between px-4 sm:px-5"
+            className="hami-lawyer-header fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-3 sm:px-5"
             data-header-visible={shouldShow ? 'true' : 'false'}
             style={{
                 opacity: shouldShow ? 1 : 0,
@@ -69,6 +98,7 @@ export const Header = memo(function Header({
                 userId={calendarUserId}
                 userMetadata={meta}
                 expanded={profileExpanded}
+                shellReady={profileShellReady}
                 onClick={onProfileClick}
                 onPointerEnter={onProfilePointerEnter}
                 onPointerDown={onProfilePointerDown}

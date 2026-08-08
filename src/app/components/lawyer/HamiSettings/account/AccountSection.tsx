@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { User } from 'lucide-react';
+import { User } from '@/app/components/ui/lucideIcons';
 import { SmartDialog } from '@/app/components/ui/SmartDialog';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { buildHamiSupportWhatsAppUrl } from '@/app/constants/supportContacts';
@@ -49,7 +49,7 @@ export const AccountSection = memo(function AccountSection({
                                     'تم فتح واتساب',
                                 )
                             }
-                            className="text-[#25D366] text-xs font-bold hover:text-[#3fe07a]"
+                            className="text-[#25D366] text-xs font-bold hover:text-[#3fe07a] min-h-[44px] px-2 touch-manipulation inline-flex items-center"
                         >
                             واتساب
                         </button>

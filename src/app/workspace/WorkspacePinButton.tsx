@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pin } from 'lucide-react';
+import { Pin } from '@/app/components/ui/lucideIcons';
 import { useWorkspaceStore } from '@/app/stores/workspaceStore';
 import { isClusterPinEligibleType, type WorkspacePinnedItem } from './types';
 import { workspacePinVisual } from './workspacePinVisuals';
@@ -39,6 +39,8 @@ export const WorkspacePinButton: React.FC<WorkspacePinButtonProps> = ({
             type="button"
             title={pinTitle}
             aria-label={pinned ? 'إلغاء تثبيت البطاقة' : 'تثبيت الإضبارة'}
+            aria-pressed={pinned}
+            data-testid={`workspace-pin-${item.type}-${item.id}`}
             onClick={(e) => {
                 e.stopPropagation();
                 togglePin(item);

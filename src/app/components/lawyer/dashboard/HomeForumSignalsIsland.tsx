@@ -11,19 +11,25 @@ export type HomeForumSignalsIslandProps = {
     userId: string;
     enabled: boolean;
     onUnreadCount: (count: number) => void;
+    onLoadingChange?: (loading: boolean) => void;
 };
 
 export default function HomeForumSignalsIsland({
     userId,
     enabled,
     onUnreadCount,
+    onLoadingChange,
 }: HomeForumSignalsIslandProps) {
-    const forumUnreadCount = useForumUnreadCount(userId, enabled);
+    const { count: forumUnreadCount, isLoading } = useForumUnreadCount(userId, enabled);
     useForumNotificationStream(userId, enabled);
 
     useEffect(() => {
         onUnreadCount(forumUnreadCount);
     }, [forumUnreadCount, onUnreadCount]);
+
+    useEffect(() => {
+        onLoadingChange?.(isLoading);
+    }, [isLoading, onLoadingChange]);
 
     return null;
 }

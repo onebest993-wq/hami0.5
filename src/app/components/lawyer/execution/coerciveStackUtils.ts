@@ -13,14 +13,165 @@ import {
     isExecutorDecisionRowEffectivelyEnforced,
     isExecutorRowApprovedWorkflowActive,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/executorRequestEnforceability';
+/** حقول تُدمَج من الكاش عند الاختلاف — لضمان استمرار مسارات الجبر الشخصي بعد المغادرة */
+export const PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS = [
+    'forced_bring_in_personal_outcome',
+    'forced_bring_in_personal_followup_logged',
+    'investigationCourtRequested',
+    'personal_arrest_warrant_stage',
+    'personal_arrest_investigation_session_open',
+    'debtor_wanted_arrest_warrant',
+    'debtor_arrest_warrant_cleared_after_custody',
+    'debtorEvaded',
+    'debtorForcedToAttend',
+    'debtor_executive_detention_active',
+    'executive_dossier_phase',
+    'executive_detention_judge_outcome',
+    'executive_detention_judge_decision_id',
+    'executive_detention_judge_eligible_decision_id',
+    'executive_detention_released_or_closed_at',
+    'executive_detention_until',
+    'executive_detention_release_reason',
+] as const;
+
+export function personalCoercivePersistSignature(
+    file: Record<string, unknown> | null | undefined,
+): string {
+    if (!file) return '';
+    const slice: Record<string, unknown> = {};
+    for (const key of PERSONAL_COERCIVE_PERSIST_SIGNATURE_KEYS) {
+        slice[key] = file[key] ?? null;
+    }
+    return JSON.stringify(slice);
+}
+
+export {
+    buildForcedBringLifecycleRestartBase,
+    buildForcedBringPersonalOutcomePatch,
+    buildInvestigationDebtorAttendedPatch,
+    buildInvestigationSecuredBringPatch,
+    buildInvestigationWarrantIssuedPatch,
+    isForcedBringAbsconded,
+    isForcedBringCycleResolved,
+    isInvestigationLaneSettled,
+    resolveForcedBringNeedsOutcomeUi,
+    resolveForcedBringUiPhase,
+    resolveInvestigationUiPhase,
+    shouldShowForcedBringCard,
+    shouldShowInvestigationCourtBlock,
+    type ForcedBringPersonalOutcome,
+    type ForcedBringUiPhase,
+    type InvestigationUiPhase,
+} from '@/app/components/lawyer/execution/forcedBringInvestigationLifecycle';
+import { isForcedBringCycleResolved } from '@/app/components/lawyer/execution/forcedBringInvestigationLifecycle';
 
 type PersonalCoerciveQueueState = ReturnType<typeof getPersonalCoerciveSubtypeOutcome>;
+
+/** @deprecated استخدم isInvestigationLaneSettled — مُبقى للتوافق */
+export function isInvestigationCoerciveLaneSettled(
+    ed:
+        | {
+              investigationPathDebtorPresent?: boolean;
+              debtor_arrest_warrant_cleared_after_custody?: boolean;
+          }
+        | null
+        | undefined,
+): boolean {
+    return (
+        ed?.investigationPathDebtorPresent === true ||
+        ed?.debtor_arrest_warrant_cleared_after_custody === true
+    );
+}
+
+/** التنازل عن المفاتحة مُلغى من مسار الإحضار الجبري — دائماً false */
+export function canWithdrawInvestigationCourtPath(_input: {
+    isHistoricalMode?: boolean;
+    coerciveUiLocked?: boolean;
+    forcedOutcomeAbsconded: boolean;
+    investigationCourtWithdrawn: boolean;
+    investigationPathDebtorPresent?: boolean;
+    warrantCustodyRecorded: boolean;
+    arrestPending: boolean;
+    investigationCourtRequested: boolean;
+    arrestApproved: boolean;
+    arrestAlternative: boolean;
+    investigationPostApprovalActive: boolean;
+}): boolean {
+    return false;
+}
+
+export function isInvestigationCourtWithdrawn(
+    ed: { investigation_court_withdrawn_at?: string | null } | null | undefined,
+): boolean {
+    return Boolean(String(ed?.investigation_court_withdrawn_at ?? '').trim());
+}
+
+/** حقول ملف التنفيذ عند التنازل عن مفاتحة محكمة التحقيق (مسار قرارات فقط — ليس UI الإحضار) */
+export function buildInvestigationCourtWithdrawExecutionPatch(nowIso?: string): Record<string, unknown> {
+    const now = nowIso ?? new Date().toISOString();
+    return {
+        investigation_court_withdrawn_at: now,
+        investigationCourtRequested: false,
+        investigationMemoIssued: false,
+        investigationPathDebtorPresent: false,
+        personal_arrest_investigation_session_open: false,
+        personal_arrest_warrant_stage: 'none',
+        debtor_wanted_arrest_warrant: false,
+        debtor_arrest_warrant_cleared_after_custody: false,
+        forced_bring_in_personal_outcome: null,
+        forced_bring_in_personal_followup_logged: false,
+        debtorEvaded: false,
+    };
+}
 
 /** إغلاق دورة التنفيذ الجبري (إخلاء سبيل) — تُخفى شارات الطلبات من القرارات */
 export function isPersonalCoerciveCycleClosed(
     ed: { personal_coercive_cycle_closed_at?: string | null } | null | undefined
 ): boolean {
     return Boolean(String(ed?.personal_coercive_cycle_closed_at ?? '').trim());
+}
+
+/** إعادة دورة عرض الإضبارة/الحبس إلى البداية بعد إخلاء السبيل */
+export function buildExecutiveDetentionReleasePatch(nowIso?: string): Record<string, unknown> {
+    const now = nowIso ?? new Date().toISOString();
+    return {
+        executive_detention_released_or_closed_at: now,
+        debtor_executive_detention_active: false,
+        executive_detention_until: null,
+        executive_detention_days_total: null,
+        executive_detention_reminder_sent: false,
+        executive_detention_judge_outcome: null,
+        executive_detention_judge_eligible_decision_id: null,
+        executive_detention_judge_decision_id: null,
+        executive_detention_judge_rejection_reason: null,
+        executive_dossier_phase: null,
+        executive_detention_request_in_absentia: false,
+        personal_coercive_cycle_closed_at: null,
+    };
+}
+
+/** إغلاق مسار الإضبارة/الحبس بعد رفض القاضي — يعود طلب العرض للتفعيل اليدوي */
+export function buildExecutiveDetentionJudgeRejectedClosurePatch(
+    nowIso: string,
+    rejectionReason: string,
+    judgeDecisionId: string,
+): Record<string, unknown> {
+    const reason = String(rejectionReason ?? '').trim();
+    return {
+        executive_detention_released_or_closed_at: nowIso,
+        debtor_executive_detention_active: false,
+        executive_detention_until: null,
+        executive_detention_days_total: null,
+        executive_detention_reminder_sent: false,
+        executive_dossier_phase: null,
+        executive_detention_request_in_absentia: false,
+        personal_coercive_cycle_closed_at: null,
+        executive_detention_judge_decision_id: judgeDecisionId,
+        executive_detention_judge_outcome: 'rejected',
+        executive_detention_judge_eligible_decision_id: null,
+        executive_detention_judge_rejection_reason: reason || null,
+        executive_detention_release_reason: reason ? `رفض قاضي البداءة: ${reason}` : 'رفض قاضي البداءة',
+    };
 }
 
 /** انتهاء/إغلاق مسار الحبس دون دورة كاملة (مثلاً انتهاء المدة) */
@@ -122,63 +273,6 @@ export function isExecutiveDetentionPeriodActive(
     return Date.now() <= end.getTime();
 }
 
-/** اكتمال دورة الإحضار الجبري — يعتمد على نتيجة صريحة فقط (لا يخلط مع الحضور الطوعي) */
-export function isForcedBringCycleResolved(
-    ed: {
-        forced_bring_in_personal_outcome?: string | null;
-        forced_bring_in_personal_followup_logged?: boolean;
-        debtorForcedToAttend?: boolean;
-    } | null | undefined
-): boolean {
-    const o = String(ed?.forced_bring_in_personal_outcome ?? '').trim();
-    if (o === 'brought' || o === 'absconded') return true;
-    if (ed?.debtorForcedToAttend === true && ed?.forced_bring_in_personal_followup_logged === true) {
-        return true;
-    }
-    return false;
-}
-
-export function isInvestigationCourtWithdrawn(
-    ed: { investigation_court_withdrawn_at?: string | null } | null | undefined
-): boolean {
-    return Boolean(String(ed?.investigation_court_withdrawn_at ?? '').trim());
-}
-
-/** هل يُعرض محضر «تسجيل نتيجة الإحضار الجبري» بعد موافقة المنفذ */
-export function resolveForcedBringNeedsOutcomeUi(input: {
-    forcedApproved: boolean;
-    forcedPending: boolean;
-    outcome?: string | null;
-    /** طعن/تظلم يوقف التنفيذ الميداني — لا تسجيل نتيجة */
-    appealBlocksFieldwork?: boolean;
-    /** الطلب غير نافذ بعد الطعن */
-    requestEffectivelyEnforced?: boolean;
-    /** أُغلقت دورة الطلب بالطعن */
-    appealCycleSuperseded?: boolean;
-}): boolean {
-    if (input.appealBlocksFieldwork) return false;
-    if (input.appealCycleSuperseded) return false;
-    if (input.requestEffectivelyEnforced === false) return false;
-    if (!input.forcedApproved || input.forcedPending) return false;
-    const o = String(input.outcome ?? '').trim();
-    return o !== 'brought' && o !== 'absconded';
-}
-
-/** اكتمال مسار مفاتحة التحقيق ميدانياً — لا يُعاد فتح الإحضار الجبري تلقائياً */
-export function isInvestigationCoerciveLaneSettled(
-    ed:
-        | {
-              investigationPathDebtorPresent?: boolean;
-              debtor_arrest_warrant_cleared_after_custody?: boolean;
-          }
-        | null
-        | undefined
-): boolean {
-    return (
-        ed?.investigationPathDebtorPresent === true ||
-        ed?.debtor_arrest_warrant_cleared_after_custody === true
-    );
-}
 
 /** مذكرة قبض نافذة — صدور الأمر فقط، لا عند تقديم مفاتحة التحقيق أو قيد البت */
 export function isArrestWarrantEnforceable(
@@ -282,38 +376,6 @@ export function isExecutiveDetentionPathEnforceable(
     if (row && Array.isArray(all) && all.length > 0) {
         return isExecutorDecisionRowEffectivelyEnforced(row, all);
     }
-    return true;
-}
-
-/** إظهار بطاقة مفاتحة محكمة التحقيق — تُخفى بعد إتمام الدورة (حضور أو تأمين إحضار) حتى يُعاد «متخفي» من الإحضار الجبري */
-export function shouldShowInvestigationCourtBlock(
-    ed: {
-        forced_bring_in_personal_outcome?: string | null;
-        investigation_court_withdrawn_at?: string | null;
-        personal_arrest_investigation_session_open?: boolean;
-        personal_arrest_warrant_stage?: string | null;
-        debtor_wanted_arrest_warrant?: boolean;
-        investigationCourtRequested?: boolean;
-        investigationPathDebtorPresent?: boolean;
-        debtor_arrest_warrant_cleared_after_custody?: boolean;
-    } | null | undefined,
-    arrestSt: { pending: boolean; approved: boolean; alternative: boolean } | null
-): boolean {
-    if (isInvestigationCourtWithdrawn(ed)) return false;
-    if (isInvestigationCoerciveLaneSettled(ed)) return false;
-    if (ed?.investigationPathDebtorPresent === true) return false;
-    if (ed?.debtor_arrest_warrant_cleared_after_custody === true) return false;
-
-    const outcome = String(ed?.forced_bring_in_personal_outcome ?? '').trim();
-    /** المفاتحة لا تُعرض إلا بعد تسجيل «متخفي عن الأنظار» في الإحضار الجبري */
-    if (outcome !== 'absconded') return false;
-
-    if (ed?.investigationCourtRequested === true) return true;
-    if (arrestSt?.pending || arrestSt?.approved || arrestSt?.alternative) return true;
-    const stage = String(ed?.personal_arrest_warrant_stage ?? 'none').trim();
-    if (ed?.debtor_wanted_arrest_warrant === true) return true;
-    if (stage !== 'none' && stage !== '') return true;
-    if (ed?.personal_arrest_investigation_session_open === true) return true;
     return true;
 }
 
@@ -518,13 +580,20 @@ export function buildPersonalCoerciveStaleExecutionPatch(input: {
         : undefined;
     const eligibleAnchored =
         Boolean(eligibleRow) && !isExecutorHubRowSuperseded(eligibleRow as Record<string, unknown>);
-    const dossierLaneActive =
-        dossierCycleActive ||
-        detentionActive ||
-        Boolean(judgeDecisionId) ||
-        judgeOutcome === 'approved' ||
-        judgeOutcome === 'rejected' ||
-        eligibleAnchored;
+  const dossierPhase = String(ed?.executive_dossier_phase ?? '').trim();
+  const dossierPhaseLaneOpen =
+    dossierPhase === 'handed_to_judge' ||
+    dossierPhase === 'judge_decided' ||
+    dossierPhase === 'detention_active';
+  /** بعد موافقة المنفّذ تُغلق بطاقة العرض — يبقى مسار القاضي من executive_dossier_phase */
+  const dossierLaneActive =
+    dossierCycleActive ||
+    dossierPhaseLaneOpen ||
+    detentionActive ||
+    Boolean(judgeDecisionId) ||
+    judgeOutcome === 'approved' ||
+    judgeOutcome === 'rejected' ||
+    eligibleAnchored;
     if (!dossierLaneActive) {
         if (ed?.executive_dossier_phase != null && ed.executive_dossier_phase !== undefined) {
             patch.executive_dossier_phase = null;

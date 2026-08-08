@@ -27,9 +27,14 @@ export function contentScaleVar(scale: number): Record<'--hami-content-scale', s
     return { '--hami-content-scale': String(Number(scale.toFixed(3))) };
 }
 
+/** أحجام خط البطاطات النصفية — احتياطي CSS فقط */
+export function hubRouteTitleRemHalf(size: HomeBlockSize = 'normal'): number {
+    return { compact: 2.5, normal: 3.5, large: 3.75 }[size];
+}
+
 /** أحجام خط البطاقات الصغيرة (دعاوى / معاملات) */
 export function hubRouteTitleRem(size: HomeBlockSize = 'normal'): number {
-    return { compact: 1.22, normal: 1.58, large: 1.82 }[size];
+    return { compact: 1.38, normal: 1.82, large: 2.08 }[size];
 }
 
 /** أحجام خط بطاقة التنفيذ */

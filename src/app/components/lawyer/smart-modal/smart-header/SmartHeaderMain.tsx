@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-    Clock, Scale, Lock, PauseCircle, Play, Check, ArrowRightLeft,
-} from 'lucide-react';
+    Clock, Lock, PauseCircle, Play, ArrowRightLeft, ArrowLeftRight,
+} from '@/app/components/ui/lucideIcons';
 import { getLegalRole } from '../../LawyerShared';
-import { shouldShowAbsentJudgmentFooter } from '../smartFile/absentJudgmentFlow';
+import { resolveHeaderPartyColumnLabel } from '../smartFile/partyRoleClassification';
 import type { CaseStage, IncidentalCase, Party } from '../../LawyerShared';
 import { filterHeaderIncidentalCases, groupPartiesForHeader } from '../smartFile/incidentalCaseLinking';
 import { resolveDisplayParties } from '../smartFile/resolveDisplayParties';
@@ -11,7 +11,6 @@ import { resolveCrossAppealEligibility } from '../smartFile/crossAppealEngine';
 
 
 import {
-    isPlaintiffFavorableFinalDecision,
     shouldShowOpponentAppealRegisterButton,
     isAppealStageName,
     isCassationStageName,
@@ -30,10 +29,13 @@ import {
     GLASS_CHIP,
 } from './smartHeaderPresentation';
 import type { SmartHeaderProps } from './smartHeaderTypes';
+import { resolveCourtReferralDisplay } from '@/app/domain/lawsuit/courtReferral';
 
 export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCases = [], stages = [], currentStageId = '', pauseReason = '', onResume, onPause, status = 'نشطة', isInterrupted = false, interruptionData = null, linkedCaseNo = '', onInterrupt, onAbandon, onNotification, onStageClick, stageHistory = [], isReadOnly = false, hasCrossAppeal = false, onCancelCrossAppeal, onAddCrossAppeal, notificationStatus = 'waiting', onToggleNotification, caseType, onCassationDecision, isPleadingsClosed = false, wasReopened = false, onClosePleadings, onReopenPleadings, onRegisterOpponentAppeal, onCassationAppeal, hasJudgment = false, onDefaultObjection, onWaiveObjection, onOtherAppeals, provisionalOrders = [], onAddProvisionalOrder, thirdParties = [], representedParty = null, onUpdateIncidentalEntryDecision, crossAppealEligibility: crossAppealEligibilityProp }: SmartHeaderProps) {
     const [openPartyKey, setOpenPartyKey] = useState<string | null>(null);
+    const partiesSectionRef = useRef<HTMLDivElement>(null);
     const [showClaimValue, setShowClaimValue] = useState(false);
+    const [showPreviousCourt, setShowPreviousCourt] = useState(false);
     const partiesList = Array.isArray(formData?.parties) && formData.parties.length > 0
         ? formData.parties
         : resolveDisplayParties({
@@ -49,8 +51,12 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     });
 
     const activeStage = formData.extraordinaryType || formData.stageName;
-    const p1Role = getLegalRole(activeStage, 1, plaintiffs.length, formData.extraordinaryType);
-    const p2Role = getLegalRole(activeStage, 2, defendants.length, formData.extraordinaryType);
+    const p1Role =
+        resolveHeaderPartyColumnLabel(plaintiffs, plaintiffs.length)
+        ?? getLegalRole(activeStage, 1, plaintiffs.length, formData.extraordinaryType);
+    const p2Role =
+        resolveHeaderPartyColumnLabel(defendants, defendants.length)
+        ?? getLegalRole(activeStage, 2, defendants.length, formData.extraordinaryType);
 
     const notifStatuses = [
         { id: 'waiting', label: '⏳ بانتظار التبليغ', color: 'bg-amber-500/10 text-amber-300 border-amber-500/20' },
@@ -60,10 +66,9 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     ];
     const currentNotif = notifStatuses.find(s => s.id === notificationStatus) || notifStatuses[0];
 
-    // âœ… Check if this is an Appeal stage OR an Extraordinary Appeal with preserved First Instance data
     const hasAppealContext =
         isAppealStageName(formData?.stageName) ||
-        formData?.stageName?.includes('ØªÙ…ÙŠÙŠØ²') ||
+        isCassationStageName(formData?.stageName) ||
         formData?.extraordinaryType ||
         formData?.extraordinaryAppealType;
     const hasFirstInstanceData = formData?.firstInstanceCaseNumber && formData?.firstInstanceCourt;
@@ -72,6 +77,7 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
     const isCorrectionStage = isCassationCorrectionStageName(formData?.stageName);
     const isAppealStage = isAppealStageName(formData?.stageName);
     const rawCourtName = String(formData?.court || '').trim();
+    const courtReferralView = resolveCourtReferralDisplay(formData ?? {});
     const rawJudgeName = String(
         formData?.judge ??
             formData?.judgeName ??
@@ -81,7 +87,10 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
             ((formData as Record<string, unknown> | undefined)?.details as Record<string, unknown> | undefined)?.judgeName ??
             '',
     ).trim();
-    const courtName = rawCourtName || (isAppealStage ? '' : 'Ø§Ù„Ù…Ø­ÙƒÙ…Ø© Ø§Ù„Ù…Ø®ØªØµØ©');
+    const courtName =
+        courtReferralView.displayCourt ||
+        rawCourtName ||
+        (isAppealStage ? '' : 'المحكمة المختصة');
     const judgeName = rawJudgeName;
     const showJudgeChip = !isCassation && !isCorrectionStage;
     const judgeChipValue = isAppealStage ? '' : judgeName;
@@ -122,12 +131,15 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
         (c) => c.thirdPartyEntryMode === 'selfClaim' || !c.thirdPartyEntryMode,
     );
     const hasHeaderActions =
-        (Boolean((hasJudgment || isPleadingsClosed) && !isCassation && !isReadOnly && showPleadingLockChrome)) ||
-        (Boolean(!isCassation && !isReadOnly && (!isPleadingsClosed || isAppealStageName(formData?.stageName)) &&
-            ((isAppealStageName(formData?.stageName) && crossAppealEligibility.showButton && onAddCrossAppeal) ||
-                (isAppealStageName(formData?.stageName) &&
-                    crossAppealEligibility.filedCrossAppellants.length > 0 &&
-                    onCancelCrossAppeal))));
+        Boolean(
+            !isCassation &&
+                !isReadOnly &&
+                (!isPleadingsClosed || isAppealStageName(formData?.stageName)) &&
+                ((isAppealStageName(formData?.stageName) && crossAppealEligibility.showButton && onAddCrossAppeal) ||
+                    (isAppealStageName(formData?.stageName) &&
+                        crossAppealEligibility.filedCrossAppellants.length > 0 &&
+                        onCancelCrossAppeal)),
+        );
 
     const renderEntryDecisionActions = (c: IncidentalCase) => {
         if (isReadOnly || !onUpdateIncidentalEntryDecision) return null;
@@ -174,6 +186,13 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
         || (thirdParties && thirdParties.length > 0)
         || activeThirdPartyCases.length > 0;
 
+    const scrollToPartiesSection = () => {
+        if (onStageClick && currentStageId) {
+            onStageClick(currentStageId);
+        }
+        partiesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    };
+
     return (
         <>
             <div className={containerStyle}>
@@ -181,20 +200,26 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                 <div className="flex items-start justify-between gap-2 border-b border-white/[0.05] pb-2 mb-2">
                     <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <h1 className="text-[17px] font-black text-[#E6C673] tracking-wide font-sans leading-none">
+                            <button
+                                type="button"
+                                onClick={scrollToPartiesSection}
+                                className="text-[22px] sm:text-[24px] font-black text-[#E6C673] tracking-wide font-sans leading-none truncate max-w-full text-right touch-manipulation min-h-[44px]"
+                                title="الانتقال إلى أطراف الدعوى"
+                                data-testid="smart-dossier-case-no"
+                            >
                                 <span dir="ltr" className="inline-block [unicode-bidi:bidi-override] [direction:ltr]">
                                     {displayCaseNo(formData.caseNo)}
                                 </span>
-                            </h1>
+                            </button>
                             {lawsuitTypeLabel ? (
                                 <button
                                     type="button"
                                     onClick={() => setShowClaimValue((v) => !v)}
-                                    className={`${GLASS_CHIP} bg-[#E6C673]/10 border-[#E6C673]/22 text-[#E6C673] max-w-[min(100%,16rem)] truncate touch-manipulation cursor-pointer hover:bg-[#E6C673]/15 transition-colors`}
+                                    className={`${GLASS_CHIP} bg-[#E6C673]/12 border-[#E6C673]/28 text-[#E6C673] max-w-[min(100%,20rem)] truncate touch-manipulation cursor-pointer hover:bg-[#E6C673]/18 transition-colors text-[11px] px-2 py-1`}
                                     title={lawsuitTypeLabel}
                                 >
-                                    <span className="text-[#E6C673]/55 font-bold">نوع الدعوى</span>
-                                    <span className="truncate">{lawsuitTypeLabel}</span>
+                                    <span className="text-[#E6C673]/60 font-bold text-[10px]">نوع الدعوى</span>
+                                    <span className="truncate font-black text-[12px]">{lawsuitTypeLabel}</span>
                                 </button>
                             ) : null}
                             {wasReopened ? (
@@ -227,11 +252,31 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                             </p>
                         ) : null}
                         <div className="mt-1.5 flex flex-wrap items-center gap-1.5 min-w-0">
-                            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
+                            <div className="relative inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
                                 <span className="shrink-0 text-[9px] font-bold text-white/35">المحكمة</span>
                                 <span className="truncate text-[11px] font-bold text-white/92 leading-snug" title={courtName}>
                                     {isCassation ? 'محكمة التمييز الاتحادية' : courtName}
                                 </span>
+                                {courtReferralView.previousCourt ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPreviousCourt((v) => !v)}
+                                            className="shrink-0 inline-flex items-center justify-center rounded-md border border-violet-400/25 bg-violet-500/10 p-1 text-violet-200/90 hover:bg-violet-500/16 transition-colors touch-manipulation"
+                                            aria-label="عرض المحكمة السابقة"
+                                            aria-expanded={showPreviousCourt}
+                                            title="المحكمة السابقة"
+                                        >
+                                            <ArrowLeftRight size={10} aria-hidden />
+                                        </button>
+                                        {showPreviousCourt ? (
+                                            <div className="absolute top-full right-0 z-20 mt-1 min-w-[10rem] max-w-[16rem] rounded-xl border border-white/[0.1] bg-[#0c1220]/98 px-2.5 py-2 shadow-lg">
+                                                <p className="text-[8px] font-bold text-white/35 mb-0.5">المحكمة السابقة</p>
+                                                <p className="text-[10px] font-bold text-white/85 leading-snug">{courtReferralView.previousCourt}</p>
+                                            </div>
+                                        ) : null}
+                                    </>
+                                ) : null}
                             </div>
                             {showJudgeChip ? (
                             <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
@@ -243,14 +288,6 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                                     {judgeChipValue || '—'}
                                 </span>
                             </div>
-                            ) : null}
-                            {activeStage ? (
-                                <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1">
-                                    <span className="shrink-0 text-[9px] font-bold text-white/35">المرحلة</span>
-                                    <span className="truncate text-[11px] font-bold text-white/85" title={String(activeStage)}>
-                                        {activeStage}
-                                    </span>
-                                </div>
                             ) : null}
                             {hasAppealContext && hasFirstInstanceData ? (
                                 <span className="inline-flex min-w-0 items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.03] px-2 py-1 text-[10px] text-white/40 truncate">
@@ -320,55 +357,6 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
                 {hasHeaderActions ? (
                 <div className="flex flex-wrap items-center gap-1.5 w-full mb-0.5">
 
-                    {/* 4. POST-JUDGMENT ACTIONS (The Critical Restoration) - ASYMMETRIC LEGAL LOGIC ENGINE */}
-                    {(hasJudgment || isPleadingsClosed) && !isCassation && !isReadOnly && showPleadingLockChrome && (
-                        isPleadingsClosed && !shouldShowAbsentJudgmentFooter(formData) ? (
-                            /* REGULAR JUDGMENT ACTIONS */
-                            <div className="mt-2 w-full">
-                                {awaitingOpponentAppeal ? null : representedParty === 'المدعي' && isPlaintiffFavorableFinalDecision(formData?.finalDecision) ? (
-                                    <div className="bg-emerald-900/20 border border-emerald-500/30 p-2 rounded-lg mb-1">
-                                        <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold mb-2">
-                                            <Check size={14} />
-                                            {formData?.finalDecision?.includes('إجابة الدعوى')
-                                                ? 'تمت إجابة الدعوى بالكامل (لصالحك)'
-                                                : 'انتهت الدعوى لصالحك'}
-                                        </div>
-                                    </div>
-                                ) : representedParty === 'المدعى عليه' && isPlaintiffFavorableFinalDecision(formData?.finalDecision) ? (
-                                    <button type="button" 
-                                        onClick={onCassationAppeal ?? onReopenPleadings}
-                                        className="w-full py-2 border rounded-lg flex justify-center items-center gap-2 transition-all text-[10px] font-bold shadow-sm bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500 shadow-indigo-500/20"
-                                    >
-                                        <Scale size={14} />
-                                        تقديم طعن (استئناف / تمييز) ⚖️
-                                    </button>
-                                ) : (
-                                    /* Default/Defendant View: Show Appeal Options */
-                                    <button type="button" 
-                                        onClick={onReopenPleadings}
-                                        className={`w-full py-2 border rounded-lg flex justify-center items-center gap-2 transition-all text-[10px] font-bold group shadow-sm ${
-                                            representedParty === 'المدعى عليه' 
-                                                ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-500 shadow-indigo-500/20' 
-                                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-slate-200'
-                                        }`}
-                                    >
-                                        {representedParty === 'المدعى عليه' ? (
-                                            <>
-                                                <Scale size={14} />
-                                                تقديم طعن (استئناف / تمييز) ⚖️
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Lock size={12} className="group-hover:text-amber-500 transition-colors" />
-                                                فك القفل لمتابعة الإجراءات 🔓
-                                            </>
-                                        )}
-                                    </button>
-                                )}
-                            </div>
-                        ) : null
-                    )}
-
                     {/* STANDARD ACTIONS (Hidden in Cassation OR Pleadings Closed) */}
                     {!isCassation && !isReadOnly && (!isPleadingsClosed || isAppealStageName(formData?.stageName)) && (
                         <>
@@ -401,7 +389,12 @@ export function SmartHeader({ formData, onToggleClient, isPaused, incidentalCase
             </div>
 
             {hasPartiesSection ? (
-                <div className="px-3 pb-2.5 border-t border-white/[0.05] pt-2" dir="rtl">
+                <div
+                    ref={partiesSectionRef}
+                    id="smart-dossier-parties-section"
+                    className="px-3 pb-2.5 border-t border-white/[0.05] pt-2 scroll-mt-24"
+                    dir="rtl"
+                >
                     <HeaderPartiesStrip
                         plaintiffs={plaintiffs}
                         defendants={defendants}

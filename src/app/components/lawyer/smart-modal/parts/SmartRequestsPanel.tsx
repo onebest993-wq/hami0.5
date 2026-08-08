@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import { ChevronDown, ChevronUp, Plus, Sparkles, X, Zap } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ChevronDown, ChevronUp, Plus, Sparkles, X, Zap } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { CIVIL_LAWSUIT_TEST_IDS } from '../smartFile/civilLawsuitTestIds';
 import {
@@ -10,6 +10,7 @@ import {
     removeRequestTypeTemplate,
 } from '../smartFile/fastTrackRequestTemplates';
 import { MoroccanGlassPanel } from '../smartFile/moroccanGlassShell';
+import { PS_REQUESTS_ROW } from '@/app/components/lawyer/personal-status/personalStatusPearlTheme';
 import {
     buildUnifiedRequests,
     computeRequestStats,
@@ -28,7 +29,9 @@ export interface SmartRequestsPanelProps {
     onResolvePetition?: (petition: FastTrackPetitionSummary, status: 'accepted' | 'rejected') => void;
     readOnly?: boolean;
     visualVariant?: 'civil' | 'personal';
-    embedMode?: 'standalone' | 'pearl-embed';
+    embedMode?: 'standalone' | 'pearl-embed' | 'pearl-stage';
+    /** تخطيط مضغوط — يطوي الطلبات الفارغة افتراضياً */
+    dense?: boolean;
 }
 
 const FIELD_CLASS =
@@ -44,37 +47,41 @@ export const SmartRequestsPanel = ({
     readOnly = false,
     visualVariant = 'civil',
     embedMode = 'standalone',
+    dense = false,
 }: SmartRequestsPanelProps) => {
     const isPersonal = visualVariant === 'personal';
     const isPearlEmbed = embedMode === 'pearl-embed';
-    const headerBar = isPearlEmbed
+    const isPearlStage = embedMode === 'pearl-stage';
+    const isPearlInline = isPearlEmbed || isPearlStage;
+    const headerBar = isPearlInline
         ? 'px-0 py-0 border-0 bg-transparent'
         : isPersonal
         ? 'px-3 sm:px-4 py-3 border-b border-white/[0.06] bg-[#141214]'
         : 'px-3 sm:px-4 py-3 border-b border-[#E6C673]/12 bg-gradient-to-l from-[#E6C673]/10 via-transparent to-transparent';
-    const iconWrap = isPearlEmbed
+    const iconWrap = isPearlInline
         ? 'hidden'
         : isPersonal
         ? 'flex h-7 w-7 items-center justify-center rounded-lg bg-[#C4A574]/10 border border-[#C4A574]/22 shrink-0'
         : 'flex h-7 w-7 items-center justify-center rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 shrink-0';
-    const titleClass = isPearlEmbed
+    const titleClass = isPearlInline
         ? 'hidden'
         : isPersonal
         ? 'text-white/88 text-sm font-bold leading-tight'
         : 'text-[#E6C673]/95 text-sm font-bold leading-tight';
-    const badgeClass = isPearlEmbed
+    const badgeClass = isPearlInline
         ? 'shrink-0 bg-white/[0.08] text-[#ECE8E2] px-2 py-0.5 rounded-full text-[9px] font-bold border border-white/[0.14]'
         : isPersonal
         ? 'shrink-0 bg-[#C4A574]/10 text-[#C4A574] px-2 py-0.5 rounded-full text-[9px] font-bold border border-[#C4A574]/22'
         : 'shrink-0 bg-[#E6C673]/15 text-[#E6C673] px-2 py-0.5 rounded-full text-[9px] font-bold border border-[#E6C673]/20';
-    const addBtnClass = isPearlEmbed
+    const addBtnClass = isPearlInline
         ? 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full bg-white/[0.08] border border-white/[0.16] text-[#FFFEF9] hover:bg-white/[0.12] transition-all text-[10px] font-bold'
         : isPersonal
         ? 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#C4A574]/10 border border-[#C4A574]/22 text-[#C4A574] hover:bg-[#C4A574]/15 transition-all text-[10px] font-bold'
         : 'inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 text-[#E6C673] hover:bg-[#E6C673]/18 transition-all text-[10px] font-bold backdrop-blur-sm';
     const [typeTemplates, setTypeTemplates] = useState<string[]>(() => loadRequestTypeTemplates());
     const [templateDraft, setTemplateDraft] = useState('');
-    const [expanded, setExpanded] = useState(true);
+    const [expanded, setExpanded] = useState(!dense);
+    const [showQuickTemplates, setShowQuickTemplates] = useState(false);
     const [showPearlTemplates, setShowPearlTemplates] = useState(false);
 
     const items = useMemo(
@@ -83,6 +90,16 @@ export const SmartRequestsPanel = ({
     );
 
     const stats = useMemo(() => computeRequestStats(items), [items]);
+
+    useEffect(() => {
+        if (!dense) return;
+        if (stats.total > 0) {
+            setExpanded(true);
+        } else {
+            setExpanded(false);
+            setShowQuickTemplates(false);
+        }
+    }, [dense, stats.total]);
     const visible = items;
 
     const petitionById = useMemo(() => new Map(petitions.map((p) => [p.id, p])), [petitions]);
@@ -125,20 +142,16 @@ export const SmartRequestsPanel = ({
         onAddFastTrack?.({ requestType });
     };
 
-    if (isPearlEmbed && visible.length === 0 && !showPearlTemplates) {
-        return (
-            <div data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHub} dir="rtl">
-                <p className="text-[10px] text-[#9C9890]">لا طلبات — استخدم + أعلاه</p>
-            </div>
-        );
+    if (isPearlInline && visible.length === 0 && !showPearlTemplates) {
+        return null;
     }
 
     const panelBody = (
         <>
-            {!isPearlEmbed ? (
+            {!isPearlInline ? (
             <div className={headerBar}>
                 <div className={`flex items-start justify-between gap-2 ${isPearlEmbed ? 'mb-2' : ''}`}>
-                    {!isPearlEmbed ? (
+                    {!isPearlInline ? (
                     <button
                         type="button"
                         onClick={() => setExpanded((v) => !v)}
@@ -178,6 +191,15 @@ export const SmartRequestsPanel = ({
                     )}
                     {!readOnly && onAddFastTrack ? (
                         <div className="flex items-center gap-1 shrink-0">
+                            {stats.total === 0 && !isPearlEmbed ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowQuickTemplates((v) => !v)}
+                                    className="text-[9px] text-white/40 hover:text-[#E6C673]/80 px-1.5 py-1 transition-colors"
+                                >
+                                    {showQuickTemplates ? 'إخفاء القوالب' : 'قوالب'}
+                                </button>
+                            ) : null}
                             {isPearlEmbed && visible.length > 0 ? (
                                 <button
                                     type="button"
@@ -230,11 +252,11 @@ export const SmartRequestsPanel = ({
                 </div>
             ) : null}
 
-            {(isPearlEmbed ? visible.length > 0 || showPearlTemplates : expanded) ? (
+            {(isPearlInline ? visible.length > 0 || showPearlTemplates : expanded) ? (
                 <>
-                    {!isPearlEmbed ? (
-                    <div className="px-3 sm:px-4 py-2.5 space-y-2 border-b border-white/[0.04]">
-                        {!readOnly && onAddFastTrack ? (
+                    {!isPearlInline ? (
+                    <div className="px-3 sm:px-4 py-2 space-y-2 border-b border-white/[0.04]">
+                        {!readOnly && onAddFastTrack && (stats.total > 0 || showQuickTemplates) ? (
                             <div className="space-y-2 pt-0.5">
                                 <span className="text-[8px] font-bold text-white/35 flex items-center gap-1">
                                     <Sparkles size={9} aria-hidden />
@@ -343,27 +365,16 @@ export const SmartRequestsPanel = ({
                         </div>
                     ) : null}
 
-                    <div className={`${isPearlEmbed ? 'max-h-32' : 'max-h-64'} overflow-y-auto scrollbar-hide ${isPearlEmbed ? 'space-y-1.5' : 'px-3 sm:px-4 py-2.5 space-y-2.5'}`}>
+                    <div className={`${isPearlStage ? 'max-h-52' : isPearlEmbed ? 'max-h-32' : 'max-h-64'} overflow-y-auto scrollbar-hide ${isPearlInline ? 'space-y-2' : 'px-3 sm:px-4 py-2.5 space-y-2.5'}`}>
                         {visible.length === 0 ? (
-                            isPearlEmbed ? null : (
+                            isPearlInline ? null : (
                             <div
-                                className="rounded-xl border border-dashed border-[#E6C673]/20 bg-[#E6C673]/[0.03] backdrop-blur-sm px-3 py-5 text-center"
+                                className="rounded-lg border border-dashed border-[#E6C673]/18 bg-[#E6C673]/[0.02] backdrop-blur-sm px-3 py-3 text-center"
                                 data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsEmpty}
                             >
-                                <p className="text-[10px] font-bold text-[#E6C673]/70">
-                                    لا توجد طلبات في هذه المرحلة
+                                <p className="text-[10px] text-white/45">
+                                    لا توجد طلبات — اضغط «طلب جديد» أو وسّع القوالب
                                 </p>
-                                {!readOnly && onAddFastTrack && items.length === 0 ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => onAddFastTrack?.()}
-                                        className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#E6C673]/10 border border-[#E6C673]/25 text-[#E6C673] text-[9px] font-bold hover:bg-[#E6C673]/18 transition-all backdrop-blur-sm"
-                                        data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHubAdd}
-                                    >
-                                        <Zap size={11} aria-hidden />
-                                        تسجيل أول طلب
-                                    </button>
-                                ) : null}
                             </div>
                             )
                         ) : (
@@ -388,10 +399,12 @@ export const SmartRequestsPanel = ({
                                     <div
                                         key={`${item.kind}-${item.id}`}
                                         data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}
-                                        className={`w-full text-right rounded-lg border transition-all group ${
-                                            isPearlEmbed
-                                                ? 'border-white/[0.10] bg-white/[0.04] hover:border-white/[0.18] p-2'
-                                                : 'rounded-xl border-white/[0.08] bg-white/[0.03] backdrop-blur-sm hover:border-[#E6C673]/15 p-3'
+                                        className={`w-full text-right transition-colors group ${
+                                            isPearlStage
+                                                ? `${PS_REQUESTS_ROW} border-r-2 border-r-[#C9B89A]/45`
+                                                : isPearlEmbed
+                                                ? 'border-white/[0.10] bg-white/[0.04] hover:border-white/[0.18] p-2 rounded-lg'
+                                                : 'rounded-xl border-white/[0.08] bg-white/[0.03] backdrop-blur-sm hover:border-[#E6C673]/22 hover:bg-[#E6C673]/[0.04] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]'
                                         }`}
                                     >
                                         <button
@@ -410,7 +423,7 @@ export const SmartRequestsPanel = ({
                                                     ) : null}
                                                 </div>
                                                 <span
-                                                    className={`shrink-0 px-2 py-0.5 rounded-md border text-[9px] font-bold ${statusToneClasses(item.statusTone, isPearlEmbed ? 'pearl' : 'civil')}`}
+                                                    className={`shrink-0 px-2 py-0.5 rounded-md border text-[9px] font-bold ${statusToneClasses(item.statusTone, isPearlInline ? 'pearl' : 'civil')}`}
                                                 >
                                                     {statusChip}
                                                 </span>
@@ -423,7 +436,7 @@ export const SmartRequestsPanel = ({
                                                     type="button"
                                                     data-testid={`${CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}-accept`}
                                                     onClick={() => onResolvePetition(petition, 'accepted')}
-                                                    className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15 transition-colors"
+                                                    className="min-h-[44px] flex-1 rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1.5 text-[10px] font-bold text-emerald-200 hover:bg-emerald-500/15 transition-colors"
                                                 >
                                                     قبول
                                                 </button>
@@ -431,7 +444,7 @@ export const SmartRequestsPanel = ({
                                                     type="button"
                                                     data-testid={`${CIVIL_LAWSUIT_TEST_IDS.requestsHubRow(item.id)}-reject`}
                                                     onClick={() => onResolvePetition(petition, 'rejected')}
-                                                    className="rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold text-rose-200 hover:bg-rose-500/15 transition-colors"
+                                                    className="min-h-[44px] flex-1 rounded-lg border border-rose-400/30 bg-rose-500/10 px-2 py-1.5 text-[10px] font-bold text-rose-200 hover:bg-rose-500/15 transition-colors"
                                                 >
                                                     رفض
                                                 </button>
@@ -460,7 +473,7 @@ export const SmartRequestsPanel = ({
         </>
     );
 
-    if (isPearlEmbed) {
+    if (isPearlInline) {
         return (
             <div data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHub} dir="rtl">
                 {panelBody}
@@ -469,7 +482,13 @@ export const SmartRequestsPanel = ({
     }
 
     return (
-        <MoroccanGlassPanel className="mt-2" data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHub} dir="rtl" visualVariant={visualVariant}>
+        <MoroccanGlassPanel
+            className={`${dense ? 'mt-0' : 'mt-2'} overflow-hidden`}
+            data-testid={CIVIL_LAWSUIT_TEST_IDS.requestsHub}
+            dir="rtl"
+            visualVariant={visualVariant}
+        >
+            <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-[#E6C673]/35 to-transparent pointer-events-none" aria-hidden />
             {panelBody}
         </MoroccanGlassPanel>
     );

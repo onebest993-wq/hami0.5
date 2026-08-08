@@ -43,6 +43,9 @@ vi.mock('@/app/utils/bodyScrollLock', () => ({ useBodyScrollLock: () => undefine
 vi.mock('@/app/components/lawyer/TransactionsThreading/hooks/useTransactionsEscapeStack', () => ({
     useTransactionsEscapeStack: () => undefined,
 }));
+vi.mock('@/app/components/lawyer/TransactionsThreading/hooks/useTransactionsOpenInteractionGuard', () => ({
+    useTransactionsOpenInteractionGuard: () => true,
+}));
 vi.mock('motion/react', () => ({
     motion: {
         div: ({ children, ...rest }: React.ComponentProps<'div'>) => <div {...rest}>{children}</div>,
@@ -107,5 +110,30 @@ describe('TransactionsThreadingSystem', () => {
             expect(getByTestId('transactions-list-screen')).toBeInTheDocument();
         });
         expect(smartToastWarning).toHaveBeenCalledWith('تعذر فتح المعاملة المطلوبة');
+    });
+
+    it('لا يفتح التفاصيل عند تغيّر focusId أثناء بقاء hub مفتوحاً', async () => {
+        const { TransactionsThreadingSystem } = await import(
+            '@/app/components/lawyer/TransactionsThreading/TransactionsThreadingSystem'
+        );
+        const { getByTestId, rerender } = render(
+            <TransactionsThreadingSystem onBack={vi.fn()} userId="user-1" />,
+        );
+        await waitFor(() => {
+            expect(getByTestId('transactions-list-screen')).toBeInTheDocument();
+        });
+
+        rerender(
+            <TransactionsThreadingSystem
+                onBack={vi.fn()}
+                userId="user-1"
+                initialTransactionId="tx-known"
+            />,
+        );
+
+        await waitFor(() => {
+            expect(refreshTransactions).toHaveBeenCalled();
+        });
+        expect(getByTestId('transactions-list-screen')).toBeInTheDocument();
     });
 });

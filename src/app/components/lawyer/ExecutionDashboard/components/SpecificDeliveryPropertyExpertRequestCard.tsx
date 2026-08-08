@@ -1,5 +1,5 @@
 import React from 'react';
-import { Ruler } from 'lucide-react';
+import { Ruler } from '@/app/components/ui/lucideIcons';
 import type { InlineActionGateKey } from '../types';
 import { useExecutorDecisions } from '@/app/components/lawyer/ExecutionDashboard/hooks/useExecutorDecisions';
 import {
@@ -11,6 +11,7 @@ import {
     isExecutorHubRowSuperseded,
     isExecutorRowRejectedAndFinal,
     listEvictionProcedureHubRowsForMatch,
+    dispatchDecisionsReload,
 } from '@/app/utils/executorSeizureDecisionQueue';
 import { isExecutorRowApprovedWorkflowActive } from '@/app/utils/executorRequestAppealSync';
 import { summarizeExecutorHubRequestLifecycle } from '@/app/utils/executorRequestLifecycle';
@@ -48,6 +49,7 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
     onExpenseRecorded,
 }) => {
     const { executionId, decisions } = useExecutorDecisions(decisionsStorageExecutionId);
+    const storageExecutionId = executionId || decisionsStorageExecutionId;
     const [expanded, setExpanded] = React.useState(false);
     const [registrationOffice, setRegistrationOffice] = React.useState('');
     const [expertFeesInput, setExpertFeesInput] = React.useState('');
@@ -134,22 +136,24 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
             return;
         }
         const result = finalizeSpecificDeliveryPropertyExpertRequest({
-            executionId: decisionsStorageExecutionId,
+            executionId: storageExecutionId,
             decisionId,
             registrationOffice: office,
             expertFees: fees,
             itemName: specificDeliveryItemName,
         });
         if (!result.ok) {
-            showToast('تعذر حفظ بيانات الخبير', 'error');
+            showToast('تعذر حفظ بيانات الخبير — تحقق من قرار المنفذ.', 'error');
             return;
         }
         if (result.expenseRow) onExpenseRecorded?.(result.expenseRow);
+        dispatchDecisionsReload();
+        setExpanded(false);
         showToast('تم حفظ الطلب — رُحِّلت أجور الخبير إلى المركز المالي (مصاريف تنفيذية).', 'success', {
             decisionsLink: true,
         });
     }, [
-        decisionsStorageExecutionId,
+        storageExecutionId,
         expertFeesInput,
         latestRow,
         onExpenseRecorded,
@@ -197,6 +201,7 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
                     <ExecutionInlineExecutorDecisionActions
                         executionId={executionId}
                         decisionId={decisionId}
+                        decisionRow={row}
                         requestKind="special_followup"
                         disabled
                         onOpenAppealCenter={() => openAppeals(decisionId)}
@@ -205,8 +210,20 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
                     <ExecutionInlineExecutorDecisionActions
                         executionId={executionId}
                         decisionId={decisionId}
+                        decisionRow={row}
                         requestKind="special_followup"
+                        onResolved={(result) => {
+                            if (result.ok) dispatchDecisionsReload();
+                        }}
                     />
+                ) : approved ? (
+                    <button
+                        type="button"
+                        onClick={() => openAppeals(decisionId)}
+                        className="w-full rounded-xl border border-amber-500/35 bg-amber-500/10 px-3 py-2 text-[11px] font-extrabold text-amber-200 hover:bg-amber-500/15"
+                    >
+                        متابعة قرار المنفذ
+                    </button>
                 ) : null,
             },
         ];
@@ -285,7 +302,7 @@ export const SpecificDeliveryPropertyExpertRequestCard: React.FC<
             resubmitWarningMessage="سبق واتخاذ طلب انتداب الخبير سابقاً. يمكنك تقديم طلب جديد أو التراجع."
             onConfirmSend={({ resubmit } = {}) => {
                 const result = sendInitialSpecificDeliveryPropertyExpertRequest({
-                    executionId: decisionsStorageExecutionId,
+                    executionId: storageExecutionId,
                     itemName: specificDeliveryItemName,
                     supersedeCompletedHub: resubmit,
                 });

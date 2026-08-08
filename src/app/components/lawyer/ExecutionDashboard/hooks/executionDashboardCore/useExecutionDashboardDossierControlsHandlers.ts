@@ -73,6 +73,7 @@ export function useExecutionDashboardDossierControlsHandlers({
                 decisionTitle: title,
                 ...(payloadJson ? { payloadJson } : {}),
             });
+            const { dispatchDecisionsReload } = await import('@/app/utils/executorSeizureDecisionQueue');
             if (!decisionId) {
                 showToast(`يوجد طلب "${title}" مماثل قيد البت لدى المنفذ.`, 'warning', {
                     decisionsLink: true,
@@ -119,6 +120,7 @@ export function useExecutionDashboardDossierControlsHandlers({
                     dossierActionPayload: payload,
                 },
             });
+            dispatchDecisionsReload();
             setDossierActionModalOpen(false);
             setDossierActionModalSaving(false);
             showToast(`تم إرسال "${title}" إلى القرارات والطعون بانتظار الموافقة.`, 'success');

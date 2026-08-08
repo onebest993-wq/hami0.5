@@ -32,7 +32,7 @@ function baseReadyView(
         scheduleHostMounted: false,
         profileHostMounted: false,
         overlaysBundle: {
-            overlays: { showSettings: false, showGlobalSearch: false },
+            overlays: { showSettings: false, showGlobalSearch: false, searchHostMounted: false },
         } as never,
         postInteractiveRuntimeProps: {} as never,
         deferredFeatureSurfacesProps: {} as never,
@@ -50,7 +50,6 @@ describe('dashboardShellFingerprint', () => {
             pendingFieldTasksCount: 0,
             overlays: {
                 activeTab: 'home',
-                homeLayoutEditMode: false,
                 showCommunity: false,
                 showLawsuitsWorkspace: false,
                 lawsuitsWorkspaceTab: 'civil',
@@ -87,7 +86,7 @@ describe('dashboardShellFingerprint', () => {
             ...base,
             dashboardSettings: { showSettings: true },
             notifications: { notificationsUnreadCount: 0, showNotifications: true },
-            overlays: { ...base.overlays, showGlobalSearch: true },
+            overlays: { ...base.overlays, showGlobalSearch: true, searchHostMounted: true },
         });
         expect(open).toBe(closed);
     });
@@ -115,6 +114,7 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
         const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
             showSettings: true,
             showGlobalSearch: false,
+            searchHostMounted: false,
             showNotifications: false,
             notificationsUnreadCount: 0,
             activeTab: 'home',
@@ -157,6 +157,7 @@ describe('patchLawyerDashboardHeaderOverlayOpen', () => {
         const patched = patchLawyerDashboardHeaderOverlayOpen(view, {
             showSettings: false,
             showGlobalSearch: false,
+            searchHostMounted: false,
             showNotifications: true,
             notificationsUnreadCount: 3,
             activeTab: 'home',

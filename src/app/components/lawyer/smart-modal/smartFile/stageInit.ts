@@ -1,7 +1,17 @@
 import { getLocalTodayYmd } from '@/app/utils/executionStateMachine';
 import type { CaseStage } from '../../LawyerShared';
-import { isAwaitingOpponentAppeal, isFirstInstanceStageName } from './judgmentTypes';
+import { isAwaitingOpponentAppeal } from './judgmentTypes';
+import {
+    isAbsentObjectionStageName,
+} from './absentJudgmentFlow';
+import {
+    isBeginningPleadingStageName,
+    isRetrialPleadingStageName,
+    isThirdPartyObjectionStageName,
+    resolvePleadingStageLabel,
+} from './pleadingStageClassification';
 import { normalizeLegacyCassationRemandStages } from './appealStageTransition';
+import { repairAbsentObjectionAppealStages } from './absentObjectionAppealRepair';
 import { isPersonalStatusFile } from '@/app/components/lawyer/personal-status/personalStatusValidation';
 import { isPersonalStatusCoreStage } from '@/app/components/lawyer/personal-status/personalStatusStageDisplay';
 
@@ -42,11 +52,17 @@ function resolvePersonalStatusFallbackIndex(stages: CaseStage[], stagesLength: n
     return stagesLength > 0 ? 0 : 0;
 }
 
+/** توحيد سجلات المراحل القديمة عند فتح الإضبارة */
+export function normalizeLegacyLawsuitStages(stages: CaseStage[]): CaseStage[] {
+    const remanded = normalizeLegacyCassationRemandStages(stages);
+    return repairAbsentObjectionAppealStages(remanded);
+}
+
 /** بناء المراحل الأولية من ملف الدعوى عند فتح Smart File Modal. */
 export function buildInitialStagesFromFile(file: Record<string, unknown> | null | undefined): CaseStage[] {
     const stagesRaw = file?.stages;
     if (Array.isArray(stagesRaw) && stagesRaw.length > 0) {
-        const stages = normalizeLegacyCassationRemandStages(stagesRaw as CaseStage[]);
+        const stages = normalizeLegacyLawsuitStages(stagesRaw as CaseStage[]);
         const activeIdx = resolveInitialStageIndex(file, stages.length, stages);
         const active = stages[activeIdx];
         if (active) {
@@ -185,11 +201,28 @@ export function isLockedPriorStage(stage: CaseStage | undefined | null): boolean
     return stage?.status === 'locked';
 }
 
-/** واجهة انتظار/قفل البداءة قبل الطعن — لا تُعرض على المراحل المؤرشفة المقفولة */
+/** واجهة انتظار/قفل المرافعة قبل الطعن — مراحل البداءة فقط (وليس تمييز/تصحيح). */
 export function shouldShowFirstInstancePleadingLockUi(stage: CaseStage | undefined | null): boolean {
     if (!stage?.isPleadingsClosed) return false;
     if (isLockedPriorStage(stage)) return false;
-    if (!isFirstInstanceStageName(stage.stageName)) return false;
+    if (!isBeginningPleadingStageName(resolvePleadingStageLabel(stage))) return false;
+    return stage.status === 'active' || stage.awaitingOpponentAppeal === true;
+}
+
+/** واجهة الطعن بعد ختام المرافعة — اعتراض غيابي / اعتراض الغير / إعادة محاكمة. */
+export function shouldShowExtraordinaryPleadingPostJudgmentUi(
+    stage: CaseStage | undefined | null,
+): boolean {
+    if (!stage?.isPleadingsClosed) return false;
+    if (isLockedPriorStage(stage)) return false;
+    const name = resolvePleadingStageLabel(stage);
+    if (
+        !isThirdPartyObjectionStageName(name)
+        && !isAbsentObjectionStageName(name)
+        && !isRetrialPleadingStageName(name)
+    ) {
+        return false;
+    }
     return stage.status === 'active' || stage.awaitingOpponentAppeal === true;
 }
 

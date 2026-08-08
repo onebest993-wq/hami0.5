@@ -1,5 +1,5 @@
 import React from 'react';
-import { ImagePlus } from 'lucide-react';
+import { ImagePlus } from '@/app/components/ui/lucideIcons';
 import type { ProfileCustomBlock } from '@/app/services/profile/profilePageCustomization';
 import { ImageFocusPicker } from './ImageFocusPicker';
 

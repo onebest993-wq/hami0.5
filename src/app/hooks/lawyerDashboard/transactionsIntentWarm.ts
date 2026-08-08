@@ -1,6 +1,7 @@
 import { loadTransactionsHubModule, prefetchTransactionsHubModule } from '@/app/runtime/transactionsHubLoader';
 import { warmTransactionsThreadingStore } from '@/app/modules/transactionsThreading/store';
 import { prefetchTransactionsCloudModule } from '@/app/services/transactions/transactionsCloudLoader';
+import { warmTransactionsDiskRead } from '@/app/services/transactions/transactionsDiskWarm';
 import { scheduleIdleWork } from '@/app/runtime/mobileRuntimePolicy';
 
 let registeredWarmUserId: string | null | undefined;
@@ -33,7 +34,9 @@ function prefetchTransactionsOpenChain(): void {
 /** مخزن البطاقات فوراً — لا idle (كان يؤخر ظهور البطاقات) */
 function warmTransactionsDataNow(userId?: string | null): void {
     const uid = resolveWarmUserId(userId);
-    if (uid) void warmTransactionsThreadingStore(uid).catch(() => undefined);
+    if (!uid) return;
+    warmTransactionsDiskRead(uid);
+    void warmTransactionsThreadingStore(uid).catch(() => undefined);
 }
 
 /** السحابة فقط على idle — لا تسرق إطار الفتح */

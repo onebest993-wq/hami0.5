@@ -6,7 +6,7 @@ import { AppProvider } from './context/AppContext';
 import { isSuperAdminUser, useAppRootAuth } from './context/AuthContext';
 import { SecurityInitializerGate as AppSecurityInitializer } from '@/app/bootstrap/SecurityInitializerGate';
 import { isBootRevealDone } from '@/app/bootstrap/bootReveal';
-import { shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
+import { shouldHideBootSuspenseFallback, shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
 import { SmartToast } from './components/ui/smartToastBus';
 
 const LazySmartToastContainer = React.lazy(() =>
@@ -43,14 +43,15 @@ const LazyEnsureLawyerSettingsProvider = React.lazy(() =>
 type AppScreen = 'lawyer' | 'admin' | 'adminLawLibrary' | 'privacy' | 'support';
 
 const SCREEN_LAZY_FALLBACK: React.ReactNode = (
-    <div className="min-h-screen bg-[#0a0f1c]" aria-busy="true" aria-label="حامي" />
+    <div className="min-h-screen hami-board-canvas-bg" aria-busy="true" aria-label="حامي" />
 );
 
 /** خلفية صامتة أثناء تحميل Gate — الشعار الثابت يغطي cold؛ بلا HamiBootOverlay sync على Shell */
-function LawyerGateSuspenseFallback(): React.ReactElement {
+function LawyerGateSuspenseFallback(): React.ReactElement | null {
+    if (shouldHideBootSuspenseFallback()) return null;
     return (
         <div
-            className="min-h-screen w-full bg-[#0a0f1c]"
+            className="min-h-screen w-full hami-board-canvas-bg"
             data-testid="lawyer-gate-warm-fallback"
             aria-busy="true"
             aria-label={isBootRevealDone() || !shouldMountReactBootOverlay() ? 'تهيئة حامي' : 'حامي'}
@@ -207,7 +208,10 @@ function AppContent(props: {
     const [overlayContainersReady, setOverlayContainersReady] = React.useState(false);
 
     useEffect(() => {
-        const enable = () => setOverlayContainersReady(true);
+        const enable = () => {
+            setOverlayContainersReady(true);
+            void import('@/app/components/ui/SmartDialogContainer').catch(() => undefined);
+        };
         if (typeof requestIdleCallback !== 'undefined') {
             const idleId = requestIdleCallback(enable, { timeout: 1200 });
             return () => cancelIdleCallback(idleId);
@@ -271,7 +275,7 @@ function AppContent(props: {
                 <AppSecurityInitializer />
                 <FontInjector />
 
-                <div className="min-h-screen bg-[#0a0f1c] text-white overflow-x-hidden">
+                <div className="min-h-screen hami-board-canvas-bg text-white overflow-x-hidden">
                     {lawyerKeepAlive || screen === 'lawyer' ? (
                         <div
                             key="lawyer"

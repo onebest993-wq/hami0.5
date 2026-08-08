@@ -44,7 +44,7 @@ describe('useLawyerDashboardFieldTasks', () => {
             useLawyerDashboardFieldTasks({ userId: 'lawyer-1', setActiveTab }),
         );
 
-        expect(result.current.fieldTasksHostMounted).toBe(false);
+        expect(result.current.fieldTasksHostMounted).toBe(true);
 
         await act(async () => {
             result.current.openFieldTasksSheet();

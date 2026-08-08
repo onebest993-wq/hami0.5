@@ -5,6 +5,7 @@ import type { TimelineEvent } from '@/app/types/execution';
 import { formatNumberInput } from '@/app/utils/execution/amountInput';
 import { creditThirdPartySeizureFunds } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
 import type { UnifiedLedgerTotalParams } from '@/app/slices/financial/ledgerPublic';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 import {
     buildThirdPartyReceiveTimelineDescription,
     mapThirdPartyAssetToReceived,
@@ -98,7 +99,11 @@ export function useExecutionDashboardThirdPartyReceiveHandlers({
                 a.id === row.id ? mapThirdPartyAssetToReceived(row, parsed, today, now) : a,
             );
             setThirdPartySeizureAssets(nextAssets);
-            const exId = String(decisionsStorageExecutionId ?? executionData?.id ?? executionId ?? '').trim();
+            const exId = requireDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionData: executionData as Record<string, unknown> | null,
+            });
             const trustCredit = creditThirdPartySeizureFunds(
                 exId,
                 {

@@ -1,12 +1,7 @@
-import React, { lazy, Suspense } from 'react';
+import React from 'react';
 import { SearchIdlePanel } from '@/app/components/lawyer/GlobalSearchOverlay/components/SearchIdlePanel';
+import { SearchResultsPanel } from '@/app/components/lawyer/GlobalSearchOverlay/components/SearchResultsPanel';
 import type { GlobalSearchOverlayShellProps } from '@/app/components/lawyer/GlobalSearchOverlay/globalSearchOverlayShellTypes';
-
-const LazySearchResultsPanel = lazy(() =>
-    import('@/app/components/lawyer/GlobalSearchOverlay/components/SearchResultsPanel').then((m) => ({
-        default: m.SearchResultsPanel,
-    })),
-);
 
 export type GlobalSearchOverlayResultsRegionProps = Pick<
     GlobalSearchOverlayShellProps,
@@ -46,7 +41,7 @@ export function GlobalSearchOverlayResultsRegion({
 }: GlobalSearchOverlayResultsRegionProps) {
     return (
         <div
-            className="overflow-y-auto scrollbar-hide overscroll-contain"
+            className="hami-gs-scroll scrollbar-hide"
             style={{ maxHeight: resultsMaxHeight }}
         >
             {showEmptyState ? (
@@ -56,33 +51,21 @@ export function GlobalSearchOverlayResultsRegion({
                     onClear={clearRecent}
                 />
             ) : (
-                <Suspense
-                    fallback={
-                        <div
-                            className="flex flex-col items-center justify-center py-16 gap-3"
-                            data-testid="global-search-loading"
-                            aria-live="polite"
-                        >
-                            <span className="text-white/50 text-sm font-bold">جاري البحث…</span>
-                        </div>
-                    }
-                >
-                    <LazySearchResultsPanel
-                        query={query}
-                        isSearching={isSearching}
-                        isLoadingIndex={isLoadingIndex}
-                        results={results}
-                        flatResults={flatResults}
-                        onPick={pick}
-                        pinLookup={pinLookup}
-                        scanIndex={scanIndexForPreview}
-                        activeIndex={activeIndex}
-                        onActiveIndexChange={(i) => {
-                            if (i < 0) return;
-                            setActiveIndex(i);
-                        }}
-                    />
-                </Suspense>
+                <SearchResultsPanel
+                    query={query}
+                    isSearching={isSearching}
+                    isLoadingIndex={isLoadingIndex}
+                    results={results}
+                    flatResults={flatResults}
+                    onPick={pick}
+                    pinLookup={pinLookup}
+                    scanIndex={scanIndexForPreview}
+                    activeIndex={activeIndex}
+                    onActiveIndexChange={(i) => {
+                        if (i < 0) return;
+                        setActiveIndex(i);
+                    }}
+                />
             )}
         </div>
     );

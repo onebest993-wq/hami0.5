@@ -1,5 +1,5 @@
 import type { Session, User } from '@supabase/supabase-js';
-import { projectId } from '@/utils/supabase/info';
+import { resolveClientSupabaseConfig } from '@/utils/supabase/clientEnv';
 import { hasBffCryptoSession } from '@/app/utils/bffCryptoSession';
 
 const DEV_ACCESS_TOKEN_KEY = 'hami:dev-mock-access-token';
@@ -101,7 +101,7 @@ export function clearDevMockAuth(): void {
 /** يزيل جلسات dev القديمة المخزّنة خطأً تحت مفتاح Supabase. */
 export function clearStaleDevMockFromSupabaseStorage(): void {
     if (typeof localStorage === 'undefined') return;
-    const key = `sb-${projectId}-auth-token`;
+    const key = `sb-${resolveClientSupabaseConfig().projectId}-auth-token`;
     const raw = localStorage.getItem(key);
     if (!raw) return;
     try {

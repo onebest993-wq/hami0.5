@@ -1,7 +1,8 @@
 import React, { useLayoutEffect } from 'react';
+import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { ArchivePortalProps } from '@/app/types/common';
 import { useLawsuitArchivePortalController } from './hooks/useLawsuitArchivePortalController';
-import { ArchivePortalChrome } from './ArchivePortalChrome';
+import { LawsuitArchiveChrome } from './LawsuitArchiveChrome';
 
 export function ArchivePortalLawsuitSurface(props: ArchivePortalProps) {
     const portal = useLawsuitArchivePortalController({
@@ -18,6 +19,11 @@ export function ArchivePortalLawsuitSurface(props: ArchivePortalProps) {
         onDossierSearchQueryChange: props.onDossierSearchQueryChange,
         dossierViewMode: props.dossierViewMode,
         onDossierViewModeChange: props.onDossierViewModeChange,
+        lawsuitLifecycleCounts: props.lawsuitLifecycleCounts,
+        lawsuitArchivedFiles: props.lawsuitArchivedFiles as FileData[] | null | undefined,
+        lawsuitTrashFiles: props.lawsuitTrashFiles as FileData[] | null | undefined,
+        onEnsureLawsuitArchivedLoaded: props.onEnsureLawsuitArchivedLoaded,
+        onEnsureLawsuitTrashLoaded: props.onEnsureLawsuitTrashLoaded,
     });
 
     useLayoutEffect(() => {
@@ -55,5 +61,5 @@ export function ArchivePortalLawsuitSurface(props: ArchivePortalProps) {
         portal.hasLawsuitLifecycle,
     ]);
 
-    return <ArchivePortalChrome {...props} portal={portal} />;
+    return <LawsuitArchiveChrome {...props} portal={portal} />;
 }

@@ -1,5 +1,4 @@
 // @ts-nocheck
-import { useEffect } from 'react';
 import {
     collectDossierSupportHandlerClusterContext,
     type HandlerClusterContextSpreads,
@@ -7,6 +6,10 @@ import {
 import { useExecutionDashboardCoreHandlerClusterFoundationCore } from './useExecutionDashboardCoreHandlerClusterFoundationCore';
 import { useExecutionDashboardCoreHandlerClusterDossierSupport } from './useExecutionDashboardCoreHandlerClusterDossierSupport';
 import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterDossierSupportBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -31,24 +34,28 @@ export function ExecutionDashboardHandlerClusterDossierSupportBridge({
         pushTimelineEvent,
     });
 
-    useEffect(() => {
-        onCluster({
-            firstActiveAppealDecisionId,
-            removeJudicialCustodianEntry,
-            pushTimelineEventBinding,
-            pushTimelineEvent,
-            propertyInlineSaveCtx,
-            ...support,
-        });
-    }, [
+    const cluster: Record<string, unknown> = {
         firstActiveAppealDecisionId,
         removeJudicialCustodianEntry,
         pushTimelineEventBinding,
         pushTimelineEvent,
         propertyInlineSaveCtx,
-        support,
+        ...support,
+    };
+
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster,
+        [
+            firstActiveAppealDecisionId,
+            removeJudicialCustodianEntry,
+            pushTimelineEvent,
+            propertyInlineSaveCtx,
+            ...handlerBagKeyFingerprint(support.dossierLifecycleActions as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(support.dossierMetaWorkflow as Record<string, unknown>),
+            ...handlerBagKeyFingerprint(support.parentDossierPersistence as Record<string, unknown>),
+        ],
         onCluster,
-    ]);
+    );
 
     return null;
 }

@@ -9,6 +9,7 @@ import {
     shouldHandleThirdPartyFundsReceivedOutcome,
     type ThirdPartyFundsReceivedOutcomeDetail,
 } from '@/app/components/lawyer/ExecutionDashboard/utils/thirdPartyFundsReceivedOutcomeUtils';
+import { requireDecisionsStorageExecutionId } from '@/app/components/lawyer/ExecutionDashboard/utils/requireDecisionsStorageExecutionId';
 
 export type UseThirdPartyFundsReceivedOutcomeInput = {
     executionDataRef: React.MutableRefObject<ExecutionFile | null>;
@@ -72,9 +73,12 @@ export function useThirdPartyFundsReceivedOutcome(input: UseThirdPartyFundsRecei
             setThirdPartySeizuresUi(nextSeizures);
             clearThirdPartyFundsDraft(payload.seizureId);
 
-            const exId = String(
-                decisionsStorageExecutionId ?? executionDataId ?? executionId ?? ''
-            ).trim();
+            const exId = requireDecisionsStorageExecutionId({
+                decisionsStorageExecutionId,
+                executionId,
+                executionDataId,
+                executionData: executionDataRef.current as Record<string, unknown> | null,
+            });
             const nowIso = new Date().toISOString();
             const trustCredit = creditThirdPartySeizureFunds(
                 exId,

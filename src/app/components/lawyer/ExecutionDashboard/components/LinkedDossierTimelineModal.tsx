@@ -1,7 +1,13 @@
 import React, { useMemo } from 'react';
-import { X, Clock, Calendar, FileText, User, Ban } from 'lucide-react';
+import { X, Clock, Calendar, FileText, User } from '@/app/components/ui/lucideIcons';
 import { storageCache } from '@/app/utils/storageCache';
 import { EXECUTION_FILES_STORAGE_KEY } from '@/app/utils/executionFilesStorage';
+import {
+    EXEC_MODAL_BACKDROP_SAFE_PAD,
+    EXEC_MODAL_CLOSE_BTN_CLASS,
+    EXEC_MODAL_EDIT_SHELL_MAX,
+    EXEC_MODAL_TOUCH_TARGET,
+} from '../executionModalMobileShell';
 
 interface LinkedDossierTimelineModalProps {
     dossier: {
@@ -48,9 +54,13 @@ export function LinkedDossierTimelineModal({ dossier, onClose }: LinkedDossierTi
     }, [dossier.linkedId]);
 
     return (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
+        <div
+            className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm ${EXEC_MODAL_BACKDROP_SAFE_PAD}`}
+            onClick={onClose}
+            role="presentation"
+        >
             <div
-                className="w-full max-w-lg max-h-[80vh] overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl"
+                className={`w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-slate-900 p-6 shadow-2xl ${EXEC_MODAL_EDIT_SHELL_MAX}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="mb-5 flex items-center justify-between">
@@ -60,7 +70,12 @@ export function LinkedDossierTimelineModal({ dossier, onClose }: LinkedDossierTi
                             السجل الزمني — إضبارة زميل
                         </h3>
                     </div>
-                    <button type="button" onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={EXEC_MODAL_CLOSE_BTN_CLASS}
+                        aria-label="إغلاق"
+                    >
                         <X size={18} />
                     </button>
                 </div>
@@ -85,7 +100,7 @@ export function LinkedDossierTimelineModal({ dossier, onClose }: LinkedDossierTi
                                     </span>
                                     <button
                                         type="button"
-                                        className="rounded-lg border border-slate-600/40 bg-slate-900/40 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-900/60"
+                                        className={`rounded-lg border border-slate-600/40 bg-slate-900/40 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-900/60 ${EXEC_MODAL_TOUCH_TARGET}`}
                                         onClick={() => {
                                             navigator.clipboard.writeText(dossier.linkToken || '').catch(() => {});
                                         }}

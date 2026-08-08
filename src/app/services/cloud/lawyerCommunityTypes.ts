@@ -4,6 +4,8 @@ export type CommunityAttachment = {
     name: string;
     mimeType?: string;
     storagePath?: string;
+    bucket?: string;
+    encrypted?: boolean;
 };
 
 export type ForumEditHistoryEntry = {

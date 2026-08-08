@@ -92,18 +92,6 @@ export const LazyMaterialErrorCorrectionModal = lazy(() =>
 export const LazyJudgeRecusalModal = lazy(() =>
     import('./procedural-modals/JudgeRecusalModal').then((m) => ({ default: m.JudgeRecusalModal }))
 );
-export const LazyTransferJurisdictionModal = lazy(() =>
-    import('./procedural-modals/TransferJurisdictionModal').then((m) => ({ default: m.TransferJurisdictionModal }))
-);
-export const LazyCaseConsolidationModal = lazy(() =>
-    import('./procedural-modals/CaseConsolidationModal').then((m) => ({ default: m.CaseConsolidationModal }))
-);
-export const LazyCaseLinkModal = lazy(() =>
-    import('./procedural-modals/CaseLinkModal').then((m) => ({ default: m.CaseLinkModal }))
-);
-export const LazyCorrespondenceModal = lazy(() =>
-    import('./procedural-modals/CorrespondenceModal').then((m) => ({ default: m.CorrespondenceModal }))
-);
 export const LazyAppealBriefOutcomeModal = lazy(() =>
     import('./procedural-modals/AppealBriefOutcomeModal').then((m) => ({ default: m.AppealBriefOutcomeModal }))
 );

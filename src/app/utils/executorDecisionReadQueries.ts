@@ -167,25 +167,28 @@ export function getDebtorHeirSubstitutionRequestStatus(
 
 export function findApprovedFieldVisitNeedingSchedule(
     executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
     return findApprovedFieldVisitNeedingScheduleFromRows(
-        readExecutorDecisionsArray(executionId) as ExecutorDecisionRowLite[],
+        readExecutorDecisionsArray(executionId, executionData) as ExecutorDecisionRowLite[],
     );
 }
 
 export function findApprovedBreakInventoryNeedingLedger(
     executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
     return findApprovedBreakInventoryNeedingLedgerFromRows(
-        readExecutorDecisionsArray(executionId) as ExecutorDecisionRowLite[],
+        readExecutorDecisionsArray(executionId, executionData) as ExecutorDecisionRowLite[],
     );
 }
 
 export function findApprovedCustodianNeedingDetails(
     executionId: string | undefined,
+    executionData?: Record<string, unknown> | null,
 ): { decisionId: string; requestTitle: string } | null {
     return findApprovedCustodianNeedingDetailsFromRows(
-        readExecutorDecisionsArray(executionId) as ExecutorDecisionRowLite[],
+        readExecutorDecisionsArray(executionId, executionData) as ExecutorDecisionRowLite[],
     );
 }
 

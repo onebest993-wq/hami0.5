@@ -4,13 +4,13 @@ import { partiesForLegacyModals } from './smartFileModalsPortalTypes';
 import {
     LazyPauseCaseModal,
     LazyInterruptionModal,
-    LazyResumeInterruptionModal,
-    LazyInterlocutoryAppealModal,
     LazyObjectionRegistrationModal,
     LazyObjectionJudgmentModal,
     LazyTrashModal,
 } from '../../lazySmartFileModalChunks';
+import { InterlocutoryAppealModal } from '../../modals/appealObjectionModals';
 import { AbsentJudgmentNotificationModal, OpponentAbsentObjectionModal } from '../../modals/appealObjectionModals';
+import { NextHearingResumeModal } from '../../modals/flow-modals/NextHearingResumeModal';
 
 export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
     const {
@@ -22,6 +22,10 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
         setShowInterruptionModal,
         showResumeInterruptionModal,
         setShowResumeInterruptionModal,
+        showAbandonmentRenewalModal,
+        setShowAbandonmentRenewalModal,
+        showPauseResumeModal,
+        setShowPauseResumeModal,
         showInterlocutoryModal,
         setShowInterlocutoryModal,
         showObjectionRegistrationModal,
@@ -99,36 +103,56 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                     />
                 )}
                 {showResumeInterruptionModal && (
-                    <LazyResumeInterruptionModal
+                    <NextHearingResumeModal
                         key="resume-interruption"
                         isOpen={showResumeInterruptionModal}
                         onClose={() => setShowResumeInterruptionModal(false)}
                         onConfirm={h.handleResumeInterruptionConfirm}
+                        mode="interruption_resume"
+                        interruptionReason={String(interruptionData?.reason ?? '')}
+                        interruptionParty={String(interruptionData?.affectedParty ?? '')}
                     />
                 )}
-                {showInterlocutoryModal && (
-                    <LazyInterlocutoryAppealModal
-                        key="interlocutory"
-                        isOpen={showInterlocutoryModal}
-                        onClose={() => {
-                            setShowInterlocutoryModal(false);
-                            setEditingEvent(null);
-                        }}
-                        onConfirm={h.handleInterlocutoryAppealConfirm}
-                        editMode={!!editingEvent}
-                        editData={
-                            editingEvent
-                                ? {
-                                      id: editingEvent.id,
-                                      decisionType: editingEvent.details?.match(/نوع القرار: (.*)\n/)?.[1],
-                                      decisionDate:
-                                          editingEvent.details?.match(/تاريخ صدور القرار: (.*)\n/)?.[1] ||
-                                          editingEvent.date,
-                                  }
-                                : undefined
-                        }
+                {showAbandonmentRenewalModal && (
+                    <NextHearingResumeModal
+                        key="abandonment-renewal"
+                        isOpen={showAbandonmentRenewalModal}
+                        onClose={() => setShowAbandonmentRenewalModal(false)}
+                        onConfirm={h.handleResumeAbandonment}
+                        mode="abandonment_renewal"
+                        abandonmentEventYmd={currentStage?.abandonmentDate?.slice(0, 10)}
                     />
                 )}
+                {showPauseResumeModal && (
+                    <NextHearingResumeModal
+                        key="pause-resume"
+                        isOpen={showPauseResumeModal}
+                        onClose={() => setShowPauseResumeModal(false)}
+                        onConfirm={h.handleResume}
+                        mode="pause_resume"
+                    />
+                )}
+                <InterlocutoryAppealModal
+                    key="interlocutory"
+                    isOpen={showInterlocutoryModal}
+                    onClose={() => {
+                        setShowInterlocutoryModal(false);
+                        setEditingEvent(null);
+                    }}
+                    onConfirm={h.handleInterlocutoryAppealConfirm}
+                    editMode={!!editingEvent}
+                    editData={
+                        editingEvent
+                            ? {
+                                  id: editingEvent.id,
+                                  decisionType: editingEvent.details?.match(/نوع القرار: (.*)\n/)?.[1],
+                                  decisionDate:
+                                      editingEvent.details?.match(/تاريخ صدور القرار: (.*)\n/)?.[1] ||
+                                      editingEvent.date,
+                              }
+                            : undefined
+                    }
+                />
                 {showObjectionRegistrationModal && (
                     <LazyObjectionRegistrationModal
                         key="obj-reg"
@@ -136,8 +160,7 @@ export function SmartFileModalsFlowSection(props: SmartFileModalsPortalProps) {
                         onClose={() => setShowObjectionRegistrationModal(false)}
                         onConfirm={h.handleRegisterObjection}
                     />
-                )}
-                {showObjectionJudgmentModal && (
+                )}                {showObjectionJudgmentModal && (
                     <LazyObjectionJudgmentModal
                         key="obj-judg"
                         isOpen={showObjectionJudgmentModal}

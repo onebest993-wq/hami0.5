@@ -1,9 +1,9 @@
-import React, { Suspense, useEffect, type ReactElement } from 'react';
+import React, { Suspense, useEffect, useLayoutEffect, type ReactElement } from 'react';
 
 import { AuthProvider } from './context/AuthContext';
 import { GlobalErrorBoundary } from './components/shared/GlobalErrorBoundary';
 import { isBootRevealDone } from '@/app/bootstrap/bootReveal';
-import { shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
+import { shouldHideBootSuspenseFallback, shouldMountReactBootOverlay } from '@/app/bootstrap/bootStaticShell';
 
 const APP_RUNTIME_READY_EVENT = 'hami:app-runtime-ready';
 
@@ -28,10 +28,13 @@ const VITE_STALE_IMPORT_RELOAD_KEY = 'hami:vite-stale-import-reload';
  * cold النادر: overlay lazy — بلا sync import على مسار warm.
  */
 function AppRuntimeSuspenseFallback(): React.ReactElement {
+    if (shouldHideBootSuspenseFallback()) {
+        return <div className="min-h-screen w-full" aria-hidden data-testid="app-runtime-static-shell-cover" />;
+    }
     if (isBootRevealDone() || !shouldMountReactBootOverlay()) {
         return (
             <div
-                className="min-h-screen w-full bg-[#0a0f1c]"
+                className="min-h-screen w-full hami-board-canvas-bg"
                 data-testid="app-runtime-warm-fallback"
                 aria-busy="true"
                 aria-label="جاري التحميل"
@@ -42,7 +45,7 @@ function AppRuntimeSuspenseFallback(): React.ReactElement {
         <Suspense
             fallback={
                 <div
-                    className="min-h-screen w-full bg-[#0a0f1c]"
+                    className="min-h-screen w-full hami-board-canvas-bg"
                     data-testid="app-runtime-overlay-fallback"
                     aria-busy="true"
                     aria-label="حامي"
@@ -55,7 +58,7 @@ function AppRuntimeSuspenseFallback(): React.ReactElement {
 }
 
 export function AppResolvedRuntime(): ReactElement {
-    useEffect(() => {
+    useLayoutEffect(() => {
         document.documentElement.dataset.hamiAppRuntimeReady = '1';
         window.dispatchEvent(new Event(APP_RUNTIME_READY_EVENT));
     }, []);

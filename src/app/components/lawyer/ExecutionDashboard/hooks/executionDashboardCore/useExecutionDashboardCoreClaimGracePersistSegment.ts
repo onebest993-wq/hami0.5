@@ -14,22 +14,29 @@ import {
 } from './useExecutionDashboardCoreClaimFinancialLedgerPipeline';
 import { useExecutionDashboardCoreGraceMasterEvictionPipeline } from './useExecutionDashboardCoreGraceMasterEvictionPipeline';
 import { useExecutionDashboardCorePersistHandlerPipeline } from './useExecutionDashboardCorePersistHandlerPipeline';
+import { buildRestrictedFollowupTabIds } from './executionDashboardFollowupSeizureTabs';
+import {
+    buildFollowupModalTabsFromFlags,
+    buildFollowupSectionTabOrderFromFlags,
+} from './buildFollowupModalTabsFromFlags';
+import { useExecutionDashboardFollowupSeizureTabs } from './useExecutionDashboardFollowupSeizureTabs';
+import { computeShowGuarantorInSeizureFollowupTab } from './executionDashboardFollowupSeizureTabs';
 import type { ExecutionDashboardCoreGraceMasterEvictionPipelineInput } from './executionDashboardCoreGraceMasterEvictionPipelineInput';
 import type { ExecutionDashboardCorePersistHandlerPipelineInput } from './executionDashboardCorePersistHandlerPipelineInput';
-import type { useExecutionDashboardCoreFollowupDebtorPipeline } from './useExecutionDashboardCoreFollowupDebtorPipeline';
-import type { useExecutionDashboardCoreWorkspacePipeline } from './useExecutionDashboardCoreWorkspacePipeline';
 import type { useExecutionDashboardCoreFileMetadataBinding } from './useExecutionDashboardCoreFileMetadataBinding';
-import type { useExecutionDashboardCoreBootPipeline } from './useExecutionDashboardCoreBootPipeline';
+import type { useExecutionDashboardCoreFollowupDebtorPipeline } from './useExecutionDashboardCoreFollowupDebtorPipeline';
+import type { ExecutionDashboardCoreBootPipelineValue } from './executionDashboardCoreBootPipelineTypes';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
 
 export type ExecutionDashboardCoreClaimGracePersistSegmentParams = {
-    boot: ReturnType<typeof useExecutionDashboardCoreBootPipeline>;
+    boot: ExecutionDashboardCoreBootPipelineValue;
     file: ExecutionDashboardProps['file'];
     executionId: string | undefined;
     onUpdate: ExecutionDashboardProps['onUpdate'];
     executionData: ExecutionFile | null | undefined;
     viewExecutionData: ExecutionFile | null | undefined;
     executionDataRef: import('react').MutableRefObject<ExecutionFile | null>;
-    workspacePipeline: ReturnType<typeof useExecutionDashboardCoreWorkspacePipeline>;
+    workspacePipeline: ExecutionDashboardCoreWorkspacePipelineValue;
     fileMetadataBinding: ReturnType<typeof useExecutionDashboardCoreFileMetadataBinding>;
     followupDebtor: ReturnType<typeof useExecutionDashboardCoreFollowupDebtorPipeline>;
     showToast: (
@@ -108,6 +115,8 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
         activeDebtorIsEmployee,
         activeDebtorIsDeceased,
         followupModalDebtorIsEmployee,
+        followupModalDebtorIsDeceased,
+        followupModalSpecialization,
         followupModalSpecializationEffective,
         followupSpecialization,
         followupSpecializationEffective,
@@ -125,9 +134,10 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
         hideCoerciveTabsForDebtorAgent,
         activeTimelineEventsDebtorScoped,
         clearThirdPartyFundsDraft,
-        followupModalDebtorIsDeceased,
         activeDebtorNoticeScope,
         unifiedSummonsTargetDebtorKey,
+        modalPersonalTabLockedForEmployee,
+        modalShowEmployeeAssignmentCoerciveBlock,
     } = followupDebtor;
 
     const {
@@ -137,9 +147,18 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
     const decisionsReloadEpoch = Number(decisionsReloadEpochRaw) || 0;
     const executionFileKeyResolved = String(executionFileKey ?? '');
 
-    const restrictedFollowupTabIds = useMemo(
-        () => new Set(['correspondences', 'admin', 'dossier_controls', 'other_party']),
-        [],
+    const restrictedFollowupTabIdsPreEarner = useMemo(
+        () =>
+            buildRestrictedFollowupTabIds({
+                specialization: followupSpecialization,
+                showPersonalCoerciveFollowupTab,
+            }),
+        [
+            followupSpecialization.hideFollowupCoerciveTab,
+            followupSpecialization.hideFollowupSeizureRequestsTab,
+            followupSpecialization.hidePersonalCoerciveFollowupTab,
+            showPersonalCoerciveFollowupTab,
+        ],
     );
 
     const executionExtras = (executionData || ({} as ExecutionFile)) as ExecutionFile & {
@@ -180,7 +199,7 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
                 followupModalTabs as ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['followupModalTabs'],
             followupTabsRestricted,
             restrictedFollowupTabIds:
-                restrictedFollowupTabIds as ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['restrictedFollowupTabIds'],
+                restrictedFollowupTabIdsPreEarner as ExecutionDashboardCoreClaimFinancialLedgerPipelineInput['restrictedFollowupTabIds'],
             hideFollowupCoerciveTab: followupSpecialization.hideFollowupCoerciveTab,
             hideCoerciveTabsForDebtorAgent,
             showPersonalCoerciveFollowupTab,
@@ -196,6 +215,7 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
                 executionDataRef,
                 debtorBrowserTabsMode,
             },
+            openFollowupModalPersisted: followupDebtor.openFollowupModalPersisted,
         }) as unknown as ExecutionDashboardCoreClaimFinancialLedgerPipelineInput,
     );
 
@@ -240,12 +260,32 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
         settlementGuarantorGate,
         seizureMatrix,
         isPersonalStatusExecutionClaim,
-        followupSeizureTabs,
-        showGuarantorInSeizureFollowupTab,
-        effectiveFollowupSectionTabOrder,
-        effectiveFollowupModalTabs,
-        openSeizureRequestsTab,
     } = claimFinancialLedger;
+
+    const {
+        followupOrchestrator,
+        showUnifiedExecutionModal,
+    } = workspacePipeline;
+
+    const showGuarantorInSeizureFollowupTabPreEarner = useMemo(
+        () =>
+            computeShowGuarantorInSeizureFollowupTab({
+                activeDebtorIsDeceased,
+                activeDebtorIsEmployee,
+                viewExecutionData,
+                followupSpecialization,
+                remainingBalanceForSeizure,
+                settlementGuarantorGate,
+            }),
+        [
+            activeDebtorIsDeceased,
+            activeDebtorIsEmployee,
+            viewExecutionData,
+            followupSpecialization,
+            remainingBalanceForSeizure,
+            settlementGuarantorGate,
+        ],
+    );
 
     const graceMasterPipeline = useExecutionDashboardCoreGraceMasterEvictionPipeline(
         buildExecutionDashboardCoreGraceMasterEvictionPipelineInput({
@@ -263,15 +303,18 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
             activeDebtorIsEmployee,
             followupSpecializationEffective:
                 followupSpecializationEffective as unknown as ExecutionDashboardCoreGraceMasterEvictionPipelineInput['followupSpecializationEffective'],
+            followupModalSpecialization:
+                followupModalSpecialization as unknown as ExecutionDashboardCoreGraceMasterEvictionPipelineInput['followupModalSpecialization'],
             followupModalSpecializationEffective:
                 followupModalSpecializationEffective as unknown as ExecutionDashboardCoreGraceMasterEvictionPipelineInput['followupModalSpecializationEffective'],
             followupModalDebtorIsEmployee,
+            followupModalDebtorIsDeceased,
             decisionsReloadEpoch,
             isRepresentingDebtor,
             decisionsStorageExecutionId,
             followupSpecialization,
             showPersonalCoerciveFollowupTab,
-            showGuarantorInSeizureFollowupTab,
+            showGuarantorInSeizureFollowupTab: showGuarantorInSeizureFollowupTabPreEarner,
             isPersonalStatusExecutionClaim,
             isAlimonyClaimType,
             custodyRemovalClaimActive,
@@ -359,6 +402,106 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
     } = graceMasterPipeline;
     const daysSinceNoticeCalculated = Number(daysSinceNoticeCalculatedRaw) || 0;
 
+    const modalShowPersonalCoerciveFollowupTabEarner = useMemo(
+        () =>
+            !followupModalSpecializationEffectiveWithEarnerGate.hidePersonalCoerciveFollowupTab ||
+            modalShowEmployeeAssignmentCoerciveBlock,
+        [
+            followupModalSpecializationEffectiveWithEarnerGate.hidePersonalCoerciveFollowupTab,
+            modalShowEmployeeAssignmentCoerciveBlock,
+        ],
+    );
+
+    const showPersonalCoerciveFollowupTabEarner = useMemo(
+        () => !followupSpecializationWithEarnerGate.hidePersonalCoerciveFollowupTab,
+        [followupSpecializationWithEarnerGate.hidePersonalCoerciveFollowupTab],
+    );
+
+    const restrictedFollowupTabIdsEarner = useMemo(
+        () =>
+            buildRestrictedFollowupTabIds({
+                specialization: followupSpecializationWithEarnerGate,
+                showPersonalCoerciveFollowupTab: modalShowPersonalCoerciveFollowupTabEarner,
+            }),
+        [
+            followupSpecializationWithEarnerGate.hideFollowupCoerciveTab,
+            followupSpecializationWithEarnerGate.hideFollowupSeizureRequestsTab,
+            followupSpecializationWithEarnerGate.hidePersonalCoerciveFollowupTab,
+            modalShowPersonalCoerciveFollowupTabEarner,
+        ],
+    );
+
+    const earnerGatedFollowupModalTabs = useMemo(
+        () =>
+            buildFollowupModalTabsFromFlags({
+                specialization: followupModalSpecializationEffectiveWithEarnerGate,
+                showPersonalCoerciveFollowupTab: modalShowPersonalCoerciveFollowupTabEarner,
+                personalTabLockedForEmployee: modalPersonalTabLockedForEmployee,
+                followupTabsRestricted,
+            }),
+        [
+            followupModalSpecializationEffectiveWithEarnerGate,
+            modalShowPersonalCoerciveFollowupTabEarner,
+            modalPersonalTabLockedForEmployee,
+            followupTabsRestricted,
+        ],
+    );
+
+    const earnerGatedFollowupSectionTabOrder = useMemo(
+        () =>
+            buildFollowupSectionTabOrderFromFlags({
+                showPersonalCoerciveFollowupTab: showPersonalCoerciveFollowupTabEarner,
+                specialization: followupSpecializationWithEarnerGate,
+                followupTabsRestricted,
+            }),
+        [
+            showPersonalCoerciveFollowupTabEarner,
+            followupSpecializationWithEarnerGate,
+            followupTabsRestricted,
+        ],
+    );
+
+    const earnerFollowupSeizureTabs = useExecutionDashboardFollowupSeizureTabs({
+        activeDebtorIsDeceased,
+        activeDebtorIsEmployee,
+        viewExecutionData,
+        followupSpecialization: followupSpecializationWithEarnerGate,
+        remainingBalanceForSeizure,
+        settlementGuarantorGate,
+        followupSectionTabOrder: earnerGatedFollowupSectionTabOrder,
+        followupModalTabs: earnerGatedFollowupModalTabs,
+        seizureMatrix,
+        followupTabsRestricted,
+        restrictedFollowupTabIds: restrictedFollowupTabIdsEarner,
+        openSeizureRequestsTabRef: followupOrchestrator.openSeizureRequestsTabRef,
+        setUnifiedModalTab: followupOrchestrator.setUnifiedModalTab,
+        showToast: showToast as (message: string, type: 'info' | 'success' | 'error' | 'warning') => void,
+        showUnifiedExecutionModal,
+        unifiedModalTab: followupOrchestrator.unifiedModalTab,
+        hideFollowupCoerciveTab: followupSpecializationWithEarnerGate.hideFollowupCoerciveTab,
+        hideCoerciveTabsForDebtorAgent,
+        showPersonalCoerciveFollowupTab: showPersonalCoerciveFollowupTabEarner,
+        setShowSolidaryCoerciveTargetModal: followupOrchestrator.setShowSolidaryCoerciveTargetModal,
+        setSolidaryCoerciveActionPending: followupOrchestrator.setSolidaryCoerciveActionPending,
+        followupModalChipTablistRef: followupOrchestrator.followupModalChipTablistRef,
+        followupModalDebtorTabsRef: followupOrchestrator.followupModalDebtorTabsRef,
+        isSolidaryLiability,
+        solidaryDebtorCount: allDebtorsUnified.length,
+    });
+
+    const claimFinancialLedgerMerged = useMemo(
+        () => ({
+            ...claimFinancialLedger,
+            showGuarantorInSeizureFollowupTab: earnerFollowupSeizureTabs.showGuarantorInSeizureFollowupTab,
+            effectiveFollowupSectionTabOrder: earnerFollowupSeizureTabs.effectiveFollowupSectionTabOrder,
+            effectiveFollowupModalTabs: earnerFollowupSeizureTabs.effectiveFollowupModalTabs,
+            openSeizureRequestsTab: earnerFollowupSeizureTabs.openSeizureRequestsTab,
+            followupSeizureTabs: earnerFollowupSeizureTabs,
+            showPersonalCoerciveFollowupTab: showPersonalCoerciveFollowupTabEarner,
+        }),
+        [claimFinancialLedger, earnerFollowupSeizureTabs, showPersonalCoerciveFollowupTabEarner],
+    );
+
     // ===========================
     // FINANCIAL CENTER ACCORDION & TABS STATE
     // ===========================
@@ -435,6 +578,7 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
             workspacePipeline,
             graceMasterPipeline,
             isRepresentingDebtor,
+            openFollowupModalPersisted: followupDebtor.openFollowupModalPersisted,
         }),
     );
 
@@ -477,6 +621,7 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
         pendingExecutorOpeners,
         tryOpenPendingBreakInventoryLedger,
         tryOpenPendingCustodianDetails,
+        saveJudicialCustodianEntry,
         persistExecutionMergeBinding,
         persistExecutionMerge,
         trashAndPinsHandlers,
@@ -523,7 +668,7 @@ export function useExecutionDashboardCoreClaimGracePersistSegment(
     );
 
     return {
-        claimFinancialLedger,
+        claimFinancialLedger: claimFinancialLedgerMerged,
         graceMasterPipeline,
         persistHandlerPipeline,
         financialStatus,

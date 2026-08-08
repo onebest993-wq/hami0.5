@@ -8,7 +8,7 @@ import React, {
     useRef,
     useState,
 } from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, Pin, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, Pin, X } from '@/app/components/ui/lucideIcons';
 import {
     articleMatchesProcedureLawFilter,
     clearProcedureFilterPin,

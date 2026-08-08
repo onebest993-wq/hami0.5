@@ -1,5 +1,5 @@
 import React from 'react';
-import { Gavel, Trash2 } from 'lucide-react';
+import { Gavel, Trash2 } from '@/app/components/ui/lucideIcons';
 import type { LawyerRequest } from '../criminalStore';
 import type { CriminalActionParty } from '../criminalStageUtils';
 import { formatLawyerRequestStatusLabel } from '../criminalStageUtils';

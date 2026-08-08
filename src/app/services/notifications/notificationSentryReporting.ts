@@ -1,3 +1,5 @@
+import { isSentryEnabledInBuild as isSentryConfigured } from '@/app/observability/sentryBuildPolicy';
+
 export type NotificationPerfReportContext = {
     userId?: string;
     hadLocalCache?: boolean;

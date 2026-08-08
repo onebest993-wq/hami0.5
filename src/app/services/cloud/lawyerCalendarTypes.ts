@@ -33,4 +33,6 @@ export type CalendarEvent = {
     partiesSummary?: string;
     court?: string;
     sourceLabel?: string;
+    /** دقائق قبل الموعد — للمواعيد اليدوية مع وقت */
+    reminderMinutesBefore?: number | null;
 };

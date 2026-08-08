@@ -53,12 +53,9 @@ export function useSmartLegalRadarForm({
             notes: event.notes || '',
             clientName: event.clientName || '',
             clientPhone: '',
+            reminderMinutesBefore: event.reminderMinutesBefore ?? null,
         });
         setShowForm(true);
-    }, []);
-
-    const handleFormChange = useCallback((field: keyof EventFormData, value: string) => {
-        setFormData((prev) => ({ ...prev, [field]: value }));
     }, []);
 
     const closeForm = useCallback(() => {
@@ -67,9 +64,9 @@ export function useSmartLegalRadarForm({
         setEditingEvent(null);
     }, [saving]);
 
-    const handleSave = useCallback(async () => {
+    const handleSave = useCallback(async (data: EventFormData) => {
         if (saveInFlightRef.current) return;
-        if (!formData.title.trim() || !formData.date) {
+        if (!data.title.trim() || !data.date) {
             SmartToast.warning('العنوان والتاريخ مطلوبان');
             return;
         }
@@ -82,28 +79,34 @@ export function useSmartLegalRadarForm({
                 if (existing) {
                     await updateEvent({
                         ...existing,
-                        title: formData.title.trim(),
-                        date: formData.date,
-                        time: formData.time || undefined,
-                        type: formData.type,
-                        location: formData.location.trim() || undefined,
-                        notes: formData.notes.trim() || undefined,
-                        clientName: formData.clientName.trim() || undefined,
-                        clientPhone: formData.clientPhone.trim() || undefined,
+                        title: data.title.trim(),
+                        date: data.date,
+                        time: data.time || undefined,
+                        type: data.type,
+                        location: data.location.trim() || undefined,
+                        notes: data.notes.trim() || undefined,
+                        clientName: data.clientName.trim() || undefined,
+                        clientPhone: data.clientPhone.trim() || undefined,
+                        reminderMinutesBefore:
+                            data.time && data.reminderMinutesBefore
+                                ? data.reminderMinutesBefore
+                                : null,
                     });
                 }
                 SmartToast.success('تم تحديث الموعد');
             } else {
                 const created = await addEvent({
                     userId: effectiveUserId,
-                    title: formData.title.trim(),
-                    date: formData.date,
-                    time: formData.time || undefined,
-                    type: formData.type,
-                    location: formData.location.trim() || undefined,
-                    notes: formData.notes.trim() || undefined,
-                    clientName: formData.clientName.trim() || undefined,
-                    clientPhone: formData.clientPhone.trim() || undefined,
+                    title: data.title.trim(),
+                    date: data.date,
+                    time: data.time || undefined,
+                    type: data.type,
+                    location: data.location.trim() || undefined,
+                    notes: data.notes.trim() || undefined,
+                    clientName: data.clientName.trim() || undefined,
+                    clientPhone: data.clientPhone.trim() || undefined,
+                    reminderMinutesBefore:
+                        data.time && data.reminderMinutesBefore ? data.reminderMinutesBefore : null,
                 });
                 if (!created) {
                     SmartToast.error('فشل حفظ الموعد');
@@ -119,7 +122,7 @@ export function useSmartLegalRadarForm({
             saveInFlightRef.current = false;
             setSaving(false);
         }
-    }, [formData, editingEvent, effectiveUserId, addEvent, updateEvent, customEvents]);
+    }, [editingEvent, effectiveUserId, addEvent, updateEvent, customEvents]);
 
     const handleDelete = useCallback(
         async (event: UnifiedEvent) => {
@@ -164,7 +167,6 @@ export function useSmartLegalRadarForm({
         saving,
         openAddForm,
         openEditForm,
-        handleFormChange,
         closeForm,
         handleSave,
         handleDelete,

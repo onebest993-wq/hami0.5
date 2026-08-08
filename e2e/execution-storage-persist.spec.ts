@@ -1,33 +1,41 @@
 /**
  * E2E: مسار تخزين التنفيذ — فهرس executionFiles ↔ blob حيّ
  */
-import { test, expect } from '@playwright/test';
-import { prepareBootE2E, bootToLawyerHome } from './helpers/bootFixtures';
+import { test, expect, type Page } from '@playwright/test';
+import { ensureLawyerDashboard, seedLawyerFiles } from './helpers/civilLawsuitFixtures';
+import { bootToLawyerHome } from './helpers/bootFixtures';
+import { dismissProductivityBlockers, prepareProductivityE2E } from './helpers/productivityE2EFixtures';
 import {
     E2E_EXEC_PERSIST_ID,
     buildE2eExecutionLiveBlob,
     readExecutionIndexRow,
     seedDivergedExecutionStorage,
     seedSyncedExecutionStorage,
+    triggerExecutionStorageReconcile,
     waitForExecutionIndexReconciled,
 } from './helpers/executionStorageFixtures';
 
+async function bootLawyerForStorageE2E(page: Page) {
+    await prepareProductivityE2E(page);
+    await seedLawyerFiles(page);
+    await page.goto('/');
+    await ensureLawyerDashboard(page);
+    await bootToLawyerHome(page);
+    await dismissProductivityBlockers(page);
+}
+
 test.describe('Execution storage persist', () => {
-    test.setTimeout(90_000);
+    test.setTimeout(120_000);
 
     test('auto-reconciles executionFiles index from live blob on lawyer boot', async ({ page }) => {
-        await prepareBootE2E(page);
+        await prepareProductivityE2E(page);
+        await seedLawyerFiles(page);
         await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-
-        const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-        if (await devBypass.isVisible({ timeout: 8_000 }).catch(() => false)) {
-            await devBypass.click();
-        }
-
+        await ensureLawyerDashboard(page);
         await bootToLawyerHome(page);
         await seedDivergedExecutionStorage(page);
         await bootToLawyerHome(page);
+        await triggerExecutionStorageReconcile(page).catch(() => undefined);
 
         const row = await waitForExecutionIndexReconciled(page);
         expect(row?.directorate).toBe(buildE2eExecutionLiveBlob().directorate);
@@ -36,17 +44,9 @@ test.describe('Execution storage persist', () => {
     });
 
     test('opens execution archive after synced storage and shows dossier', async ({ page }) => {
-        await prepareBootE2E(page);
+        await prepareProductivityE2E(page);
         await seedSyncedExecutionStorage(page);
-        await page.goto('/');
-        await page.waitForLoadState('domcontentloaded');
-
-        const devBypass = page.getByRole('button', { name: /تخطي المطور/i });
-        if (await devBypass.isVisible({ timeout: 8_000 }).catch(() => false)) {
-            await devBypass.click();
-        }
-
-        await bootToLawyerHome(page);
+        await bootLawyerForStorageE2E(page);
 
         await page.getByTestId('hub-archive-execution').click({ timeout: 25_000 });
         await expect(page.getByRole('heading', { name: /مخزن الأضابير التنفيذية/i })).toBeVisible({

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { motion } from 'motion/react';
-import { Fingerprint, Lock, LogOut } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Fingerprint, Lock, LogOut } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
+import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import './appLockOverlay.css';
 
 interface AppLockOverlayProps {
     requiresBiometric: boolean;
@@ -21,7 +23,10 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
     const [attempting, setAttempting] = useState(false);
     const busy = unlocking || attempting;
 
+    useBodyScrollLock(true);
+
     const handleBiometric = useCallback(async () => {
+        if (busy) return;
         setAttempting(true);
         try {
             const ok = await onUnlockBiometric();
@@ -29,7 +34,12 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
         } finally {
             setAttempting(false);
         }
-    }, [onUnlockBiometric]);
+    }, [busy, onUnlockBiometric]);
+
+    const handleContinue = useCallback(() => {
+        if (busy) return;
+        onUnlockContinue();
+    }, [busy, onUnlockContinue]);
 
     useEffect(() => {
         const onKeyDown = (event: KeyboardEvent) => {
@@ -39,42 +49,30 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
             if (requiresBiometric) {
                 void handleBiometric();
             } else {
-                onUnlockContinue();
+                handleContinue();
             }
         };
         window.addEventListener('keydown', onKeyDown, true);
         return () => window.removeEventListener('keydown', onKeyDown, true);
-    }, [busy, requiresBiometric, onUnlockContinue, handleBiometric]);
+    }, [busy, requiresBiometric, handleContinue, handleBiometric]);
 
-    return (
-        <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+    if (typeof document === 'undefined') return null;
+
+    const layer = (
+        <div
             data-testid="app-lock-overlay"
-            className="fixed inset-0 z-[100000] flex flex-col items-center justify-center bg-[#05060D]/95 backdrop-blur-xl px-6"
+            className="hami-app-lock-overlay"
             role="dialog"
             aria-modal="true"
             aria-label="شاشة القفل"
         >
-            <motion.div
-                initial={{ scale: 0.96, y: 12 }}
-                animate={{ scale: 1, y: 0 }}
-                className="w-full max-w-sm text-center"
-            >
-                <motion.div
-                    animate={{ scale: [1, 1.04, 1] }}
-                    transition={{ duration: 2.4, repeat: Infinity }}
-                    className="w-20 h-20 mx-auto mb-6 rounded-3xl bg-[#E6C673]/10 border border-[#E6C673]/30 flex items-center justify-center"
-                >
-                    {requiresBiometric ? (
-                        <Fingerprint size={36} className="text-[#E6C673]" />
-                    ) : (
-                        <Lock size={32} className="text-[#E6C673]" />
-                    )}
-                </motion.div>
+            <div className="hami-app-lock-overlay__panel">
+                <div className="hami-app-lock-overlay__icon-box">
+                    {requiresBiometric ? <Fingerprint size={36} /> : <Lock size={32} />}
+                </div>
 
-                <h2 className="text-xl font-bold text-white mb-2">الجلسة مقفلة</h2>
-                <p className="text-sm text-white/50 mb-8 leading-relaxed">
+                <h2 className="hami-app-lock-overlay__title">الجلسة مقفلة</h2>
+                <p className="hami-app-lock-overlay__desc">
                     {requiresBiometric
                         ? 'لحماية بيانات الموكلين، يلزم التحقق البيومتري للمتابعة.'
                         : 'انتهت مدة الخمول. اضغط متابعة للعودة إلى المكتب.'}
@@ -84,8 +82,15 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
                     <button
                         type="button"
                         disabled={busy}
-                        onClick={handleBiometric}
-                        className="w-full h-12 rounded-2xl bg-[#E6C673] text-[#0A0F1C] font-bold text-sm disabled:opacity-60 flex items-center justify-center gap-2"
+                        onPointerDown={(event) => {
+                            if (event.button !== 0 || busy) return;
+                            event.preventDefault();
+                            void handleBiometric();
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                        }}
+                        className="hami-app-lock-overlay__btn-primary"
                     >
                         <Fingerprint size={18} />
                         {busy ? 'جاري التحقق...' : 'فتح بالبصمة / Face ID'}
@@ -94,24 +99,41 @@ export const AppLockOverlay: React.FC<AppLockOverlayProps> = ({
                     <button
                         type="button"
                         disabled={busy}
-                        onClick={onUnlockContinue}
-                        className="w-full h-12 rounded-2xl bg-[#E6C673] text-[#0A0F1C] font-bold text-sm disabled:opacity-60"
+                        onPointerDown={(event) => {
+                            if (event.button !== 0 || busy) return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleContinue();
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                        }}
+                        className="hami-app-lock-overlay__btn-primary"
                     >
                         متابعة العمل
                     </button>
                 )}
 
-                {onLogout && (
+                {onLogout ? (
                     <button
                         type="button"
-                        onClick={onLogout}
-                        className="mt-6 inline-flex items-center gap-2 text-white/40 text-xs hover:text-white/70 transition"
+                        onPointerDown={(event) => {
+                            if (event.button !== 0) return;
+                            event.preventDefault();
+                            onLogout();
+                        }}
+                        onClick={(event) => {
+                            event.preventDefault();
+                        }}
+                        className="hami-app-lock-overlay__btn-logout"
                     >
                         <LogOut size={14} />
                         تسجيل الخروج
                     </button>
-                )}
-            </motion.div>
-        </motion.div>
+                ) : null}
+            </div>
+        </div>
     );
+
+    return createPortal(layer, document.body);
 };

@@ -11,33 +11,40 @@ import {
     PS_TEXT_MUTED,
     PS_TEXT_PEARL,
 } from './personalStatusPearlTheme';
-import {
-    PersonalStatusArabesqueLayers,
-    PersonalStatusMoroccanDivider,
-} from './PersonalStatusMoroccanGlass';
+import { PersonalStatusArabesqueLayers } from './PersonalStatusMoroccanGlass';
 
 const FOLIO_LABEL =
-    'text-[8px] font-black tracking-[0.14em] text-[#9894A0] uppercase leading-none';
+    'text-[8px] font-black tracking-[0.1em] text-[#9894A0] uppercase leading-none shrink-0';
+
+const FOLIO_VALUE =
+    'text-[11px] font-bold text-[#FFFEF9] leading-none truncate min-w-0';
+
+const FOLIO_VALUE_MONO =
+    'text-[11px] font-mono font-bold text-[#FFFEF9] tracking-wide leading-none truncate min-w-0';
+
+const FOLIO_DOT = 'text-[#9894A0]/35 text-[10px] leading-none shrink-0 select-none';
 
 const CLIENT_BADGE_CLASS =
     'rounded-md border border-[#E6C673]/40 bg-[#E6C673]/12 px-1.5 py-px text-[8px] font-extrabold text-[#E6C673] shrink-0';
 
-function FolioField({
+function FolioMeta({
     label,
     children,
-    className = '',
-    align = 'start',
+    mono = false,
+    valueDir,
 }: {
     label: string;
     children: React.ReactNode;
-    className?: string;
-    align?: 'start' | 'end';
+    mono?: boolean;
+    valueDir?: 'ltr' | 'rtl' | 'auto';
 }) {
     return (
-        <div className={`min-w-0 ${className}`}>
-            <p className={`${FOLIO_LABEL} ${align === 'end' ? 'text-right' : ''}`}>{label}</p>
-            <div className="mt-1">{children}</div>
-        </div>
+        <span className="inline-flex items-center gap-1 min-w-0 max-w-full">
+            <span className={FOLIO_LABEL}>{label}</span>
+            <span className={mono ? FOLIO_VALUE_MONO : FOLIO_VALUE} dir={valueDir}>
+                {children}
+            </span>
+        </span>
     );
 }
 
@@ -68,17 +75,19 @@ function PartyStack({
     side: 'plaintiff' | 'defendant';
 }) {
     return (
-        <div className="rounded-lg bg-white/[0.07] border border-white/[0.14] px-2 py-1.5 min-h-[3rem] backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]">
-            <p className={`text-[8px] font-black tracking-widest ${PS_TEXT_BEIGE} mb-1.5 opacity-90`}>{role}</p>
+        <div className="rounded-lg bg-white/[0.06] border border-white/[0.12] px-1.5 py-1 min-w-0 backdrop-blur-sm">
+            <p className={`text-[7px] font-black tracking-[0.14em] ${PS_TEXT_BEIGE} mb-0.5 opacity-90`}>
+                {role}
+            </p>
             {parties.length === 0 ? (
-                <p className={`text-[10px] ${PS_TEXT_MUTED}`}>—</p>
+                <p className={`text-[10px] ${PS_TEXT_MUTED} leading-none`}>—</p>
             ) : (
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                     {parties.map((p) => {
                         const isClient = partyShowsClientMark(p, parties, representedParty, side);
                         return (
                             <li key={String(p.id)} className="flex items-center gap-1 min-w-0">
-                                <span className={`text-[11px] font-semibold ${PS_TEXT_PEARL} truncate min-w-0`}>
+                                <span className={`text-[10px] font-semibold ${PS_TEXT_PEARL} truncate min-w-0`}>
                                     {p.name || '—'}
                                 </span>
                                 {isClient ? (
@@ -121,50 +130,44 @@ export function PersonalStatusIdentityFolio({
 
     return (
         <article
-            className={`${PS_PANEL} rounded-t-[1.75rem] rounded-bl-md rounded-br-[1.75rem] mb-2.5 overflow-hidden`}
+            className={`${PS_PANEL} rounded-t-[1.25rem] rounded-bl-md rounded-br-[1.25rem] mb-2 overflow-hidden`}
+            dir="rtl"
         >
             <PersonalStatusArabesqueLayers primary={0.05} fine={0.025} />
 
             <div className="relative z-[1]">
-                <div className="h-[2px] bg-gradient-to-l from-white/[0.35] via-[#ECE8E2]/40 to-[#F8F6F0]/25" />
-
-                <div className="px-3 pt-2.5 pb-2 border-b border-white/[0.10] space-y-2">
-                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-x-3 gap-y-2 items-start">
-                        <FolioField label="رقم الدعوى">
-                            <p
-                                className={`text-sm font-mono font-bold ${PS_TEXT_PEARL} tracking-wide leading-none`}
-                                dir="ltr"
-                            >
-                                {displayCaseNo(formData?.caseNo)}
-                            </p>
-                        </FolioField>
-                        <FolioField label="المحكمة" align="end">
-                            <p className={`text-[11px] font-semibold ${PS_TEXT_BEIGE} leading-snug text-right truncate`}>
-                                {court}
-                            </p>
-                        </FolioField>
+                <div className="px-2 py-1.5 border-b border-white/[0.10] space-y-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <FolioMeta label="رقم الدعوى" mono valueDir="ltr">
+                            {displayCaseNo(formData?.caseNo)}
+                        </FolioMeta>
+                        <span className={FOLIO_DOT} aria-hidden>
+                            ·
+                        </span>
+                        <FolioMeta label="المحكمة">{court}</FolioMeta>
                     </div>
-                    <FolioField label="نوع الدعوى">
-                        <h1 className={`text-[14px] font-bold ${PS_TEXT_PEARL} leading-snug`}>{lawsuitType}</h1>
-                    </FolioField>
-                    {judge ? (
-                        <FolioField label="القاضي">
-                            <p className={`text-[11px] font-semibold ${PS_TEXT_BEIGE} leading-snug`}>{judge}</p>
-                        </FolioField>
-                    ) : null}
-                </div>
 
-                {lawLabel ? (
-                    <>
-                        <p className={`px-3 py-1.5 text-[10px] ${PS_TEXT_MUTED}`}>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <FolioMeta label="نوع الدعوى">{lawsuitType}</FolioMeta>
+                        {judge ? (
+                            <>
+                                <span className={FOLIO_DOT} aria-hidden>
+                                    ·
+                                </span>
+                                <FolioMeta label="القاضي">{judge}</FolioMeta>
+                            </>
+                        ) : null}
+                    </div>
+
+                    {lawLabel ? (
+                        <p className={`text-[9px] ${PS_TEXT_MUTED} leading-snug truncate pt-0.5`}>
                             <span className={`font-bold ${PS_TEXT_BEIGE}`}>القانون · </span>
                             {lawLabel}
                         </p>
-                        <PersonalStatusMoroccanDivider className="pb-0.5" />
-                    </>
-                ) : null}
+                    ) : null}
+                </div>
 
-                <div className="grid grid-cols-2 gap-1.5 p-2">
+                <div className="grid grid-cols-2 gap-1 p-1.5">
                     <PartyStack
                         role={p1Role}
                         parties={plaintiffs}

@@ -1,0 +1,57 @@
+{
+  "measuredAt": "2026-08-06T17:48:01.584Z",
+  "environment": "vite preview prod build (VITE_SHELL_AUTH_OPEN)",
+  "logoFileBytes": 74650,
+  "criticalPathGzipKb": 112,
+  "coldBoot": {
+    "desktop": {
+      "device": "Desktop Chrome",
+      "wallToCompleteMs": 1048,
+      "ttfiMs": 264,
+      "firstTabMs": 612,
+      "fcpMs": 100,
+      "logoFirstSeenWallMs": 123,
+      "staticShellWallMs": 123,
+      "homeGridWallMs": 771,
+      "staticBootRemovedWallMs": 771,
+      "logoResourceLoadMs": 63,
+      "logoBytes": 74950,
+      "logoDurationMs": 9,
+      "bootJsMs": 14,
+      "bootCssMs": 13,
+      "maxBlackGapMs": 628,
+      "sampleCount": 12
+    },
+    "mobile": {
+      "device": "Pixel 7",
+      "wallToCompleteMs": 1021,
+      "ttfiMs": 344,
+      "firstTabMs": 642,
+      "fcpMs": 112,
+      "logoFirstSeenWallMs": 118,
+      "staticShellWallMs": 118,
+      "homeGridWallMs": 787,
+      "staticBootRemovedWallMs": 787,
+      "logoResourceLoadMs": 62,
+      "logoBytes": 74950,
+      "logoDurationMs": 5,
+      "bootJsMs": 11,
+      "bootCssMs": 10,
+      "maxBlackGapMs": 686,
+      "sampleCount": 13
+    }
+  },
+  "resume": {
+    "device": "Desktop Chrome",
+    "resumeRecoverMs": 111
+  },
+  "verdict": {
+    "desktopTtfiOk": true,
+    "mobileTtfiOk": true,
+    "logoBlocksBoot": false,
+    "logoTooHeavy": false,
+    "wallClockSlow": false,
+    "firstTabSlow": false,
+    "resumeSlow": false
+  }
+}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check } from 'lucide-react';
+import { Check } from '@/app/components/ui/lucideIcons';
 import { HamiDateInput } from '@/app/components/ui/HamiDateInput';
 import { formatNumberInput } from '@/app/components/lawyer/FinancialOperationsCenter/utils';
 import { NC_FIELD, NC_LABEL, NC_SECTION, NC_SECTION_TITLE, ncFieldClass } from '../newCaseGlassTheme';
@@ -53,6 +53,8 @@ export interface CaseBasicsFormProps {
     stageRef: React.RefObject<HTMLButtonElement | null>;
     numberRef: React.RefObject<HTMLInputElement | null>;
     retrialTargetRef?: React.RefObject<HTMLButtonElement | null>;
+    /** حقول موروثة من الإضبارة الأم — دعوى حادثة منضمة/متقابلة */
+    lockParentFields?: boolean;
 }
 
 export const CaseBasicsForm = ({
@@ -62,7 +64,8 @@ export const CaseBasicsForm = ({
     isUndeterminedValue, setIsUndeterminedValue,
     isFixedFee, setIsFixedFee,
     exceptionWarning,
-    courtRef, typeRef, stageRef, numberRef, retrialTargetRef
+    courtRef, typeRef, stageRef, numberRef, retrialTargetRef,
+    lockParentFields = false,
 }: CaseBasicsFormProps) => {
     const isExtraordinary = isExtraordinaryProcedureStage(caseDetails.stage);
     const underlyingStageOptions = getUnderlyingStageOptions(caseDetails.stage);
@@ -98,7 +101,8 @@ export const CaseBasicsForm = ({
                             spellCheck={false}
                             value={caseDetails.number}
                             onChange={(e) => setCaseDetails({ ...caseDetails, number: e.target.value })}
-                            className={`${NC_FIELD} text-left [unicode-bidi:plaintext] ${numberHasError ? 'border-amber-500/60 ring-1 ring-amber-500/20' : ''}`}
+                            className={`${NC_FIELD} ${numberHasError ? 'border-amber-500/60 ring-1 ring-amber-500/20' : ''}`}
+                            dir="auto"
                         />
                     </div>
                     {caseNumberError && <p className="text-amber-500/80 text-[10px] mt-1.5 font-bold">{caseNumberError}</p>}
@@ -110,8 +114,9 @@ export const CaseBasicsForm = ({
                         ref={courtRef}
                         type="text"
                         value={caseDetails.court}
+                        readOnly={lockParentFields}
                         onChange={(e) => setCaseDetails({ ...caseDetails, court: e.target.value })}
-                        className={ncFieldClass(Boolean(errorMap['court']))}
+                        className={`${ncFieldClass(Boolean(errorMap['court']))} ${lockParentFields ? 'opacity-80 cursor-default' : ''}`}
                     />
                     {errorMap['court'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['court']}</p>}
                 </div>
@@ -123,8 +128,9 @@ export const CaseBasicsForm = ({
                             ref={typeRef}
                             type="text"
                             value={caseDetails.type}
+                            readOnly={lockParentFields}
                             onChange={(e) => setCaseDetails({ ...caseDetails, type: e.target.value })}
-                            className={ncFieldClass(Boolean(errorMap['type']))}
+                            className={`${ncFieldClass(Boolean(errorMap['type']))} ${lockParentFields ? 'opacity-80 cursor-default' : ''}`}
                         />
                         {errorMap['type'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['type']}</p>}
                     </div>
@@ -138,6 +144,7 @@ export const CaseBasicsForm = ({
                             options={stageOptions}
                             placeholder="اختر المرحلة..."
                             hasError={Boolean(errorMap['stage'])}
+                            disabled={lockParentFields}
                             aria-label="المرحلة الحالية"
                         />
                         {errorMap['stage'] && <p className="text-yellow-600/90 text-[10px] mt-1 font-medium">{errorMap['stage']}</p>}
@@ -149,8 +156,9 @@ export const CaseBasicsForm = ({
                         <input
                             type="text"
                             value={caseDetails.judge}
+                            readOnly={lockParentFields}
                             onChange={(e) => setCaseDetails({ ...caseDetails, judge: e.target.value })}
-                            className={ncFieldClass()}
+                            className={`${ncFieldClass()} ${lockParentFields ? 'opacity-80 cursor-default' : ''}`}
                         />
                     </div>
                     <div>

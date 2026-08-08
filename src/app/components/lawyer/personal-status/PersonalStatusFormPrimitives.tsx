@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { AlertCircle, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AlertCircle, Check, ChevronLeft, ChevronRight } from '@/app/components/ui/lucideIcons';
 import {
     PERSONAL_STATUS_FIELD,
     PERSONAL_STATUS_FIELD_ERROR,
@@ -125,26 +125,23 @@ export function PersonalStagePillRail({
 
     return (
         <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-                <span className={PERSONAL_STATUS_LABEL}>المرحلة الحالية</span>
-                <div className="flex gap-1">
-                    <button
-                        type="button"
-                        onClick={() => scrollBy(1)}
-                        className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
-                        aria-label="تمرير لليمين"
-                    >
-                        <ChevronRight size={14} />
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => scrollBy(-1)}
-                        className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
-                        aria-label="تمرير لليسار"
-                    >
-                        <ChevronLeft size={14} />
-                    </button>
-                </div>
+            <div className="flex items-center justify-end gap-1">
+                <button
+                    type="button"
+                    onClick={() => scrollBy(1)}
+                    className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
+                    aria-label="تمرير لليمين"
+                >
+                    <ChevronRight size={14} />
+                </button>
+                <button
+                    type="button"
+                    onClick={() => scrollBy(-1)}
+                    className="w-8 h-8 rounded-lg border border-white/10 bg-white/[0.04] flex items-center justify-center text-white/50 hover:text-white/80 touch-manipulation"
+                    aria-label="تمرير لليسار"
+                >
+                    <ChevronLeft size={14} />
+                </button>
             </div>
             <div
                 ref={scrollRef}
@@ -198,14 +195,14 @@ export function PersonalLawSelector({
 }: {
     value: string;
     onChange: (id: string) => void;
-    options: ReadonlyArray<{ id: string; label: string; subtitle: string }>;
+    options: ReadonlyArray<{ id: string; label: string; subtitle?: string }>;
     error?: string;
 }) {
     return (
         <div className="space-y-2">
             <span className={PERSONAL_STATUS_LABEL}>القانون المطبق</span>
             <div className="flex flex-col gap-1.5">
-                {options.map(({ id, label, subtitle }) => {
+                {options.map(({ id, label }) => {
                     const active = value === id;
                     return (
                         <button
@@ -225,10 +222,7 @@ export function PersonalLawSelector({
                             >
                                 {active && <Check size={9} strokeWidth={3} />}
                             </span>
-                            <span className="min-w-0 flex-1">
-                                <span className="block leading-tight font-bold">{label}</span>
-                                <span className="block text-[9px] text-white/40 mt-0.5">{subtitle}</span>
-                            </span>
+                            <span className="min-w-0 flex-1 leading-tight font-bold">{label}</span>
                         </button>
                     );
                 })}
@@ -247,16 +241,19 @@ export function PersonalSectionShell({
     subtitle,
     children,
 }: {
-    title: string;
+    title?: string;
     subtitle?: string;
     children: React.ReactNode;
 }) {
+    const showHeader = Boolean(title || subtitle);
     return (
         <section className={PERSONAL_STATUS_SECTION}>
-            <header className="mb-4">
-                <h3 className={PERSONAL_STATUS_SECTION_TITLE}>{title}</h3>
-                {subtitle ? <p className="text-[10px] text-white/40 mt-1">{subtitle}</p> : null}
-            </header>
+            {showHeader ? (
+                <header className="mb-4">
+                    {title ? <h3 className={PERSONAL_STATUS_SECTION_TITLE}>{title}</h3> : null}
+                    {subtitle ? <p className="text-[10px] text-white/40 mt-1">{subtitle}</p> : null}
+                </header>
+            ) : null}
             {children}
         </section>
     );

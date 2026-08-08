@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ChevronDown, ClipboardList, History, StickyNote, Paperclip, Plus } from 'lucide-react';
+import { ChevronDown, ClipboardList, History, StickyNote, Paperclip, Plus } from '@/app/components/ui/lucideIcons';
 import { ValidationBanner } from '../components/ValidationBanner';
 import { DatePickerField } from '../components/DatePickerField';
 import { formatDateText, formatDateTimeText, formatTimeText, eventKindMeta } from '../utils/formatters';

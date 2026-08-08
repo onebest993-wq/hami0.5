@@ -22,7 +22,7 @@ export const PERSONAL_APPLICABLE_LAW_OPTIONS: ReadonlyArray<{
     },
 ];
 
-/** مراحل الأحوال الشخصية — بدون بداءة ولا استئناف. */
+/** مراحل الأحوال الشخصية في الإضبارة (بما فيها التمييز بعد الطعن). */
 export const PERSONAL_STATUS_STAGE_OPTIONS = [
     'أحوال شخصية',
     'تمييز',
@@ -31,10 +31,18 @@ export const PERSONAL_STATUS_STAGE_OPTIONS = [
     'اعتراض الغير',
 ] as const;
 
+/** مراحل اختيار «إضبارة جديدة» — بدون تمييز (يُفتح بالطعن لاحقاً). */
+export const PERSONAL_STATUS_FORM_STAGE_OPTIONS = [
+    'أحوال شخصية',
+    'إعادة المحاكمة',
+    'اعتراض على الحكم الغيابي',
+    'اعتراض الغير',
+] as const;
+
 export type PersonalStatusStage = (typeof PERSONAL_STATUS_STAGE_OPTIONS)[number];
 
 export function computePersonalStatusStageOptions(_court?: string): readonly string[] {
-    return PERSONAL_STATUS_STAGE_OPTIONS;
+    return PERSONAL_STATUS_FORM_STAGE_OPTIONS;
 }
 
 export function isPersonalExtraordinaryStage(stage: string): boolean {
@@ -171,7 +179,7 @@ export function validatePersonalStatusForm(params: {
 
     if (params.stage.includes('استئناف') || params.stage.includes('بداءة')) {
         errors.stage =
-            'مرحلة غير متاحة في الأحوال الشخصية — اختر أحوال شخصية أو تمييز أو طعن استثنائي.';
+            'مرحلة غير متاحة في الأحوال الشخصية — اختر أحوال شخصية أو طعن استثنائي.';
     }
 
     return errors;

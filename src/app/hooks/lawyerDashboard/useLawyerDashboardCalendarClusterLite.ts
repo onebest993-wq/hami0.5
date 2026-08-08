@@ -5,6 +5,8 @@ import type { LegalTask } from '@/app/types/TaskEngine';
 import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import type { GlobalNote, ExecutionFile } from '@/app/components/lawyer/LawyerDashboardParts/types';
 import type { ClusterScanSources } from '@/app/workspace/clusterScanSources.types';
+import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
+import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 export type UseLawyerDashboardCalendarClusterLiteParams = {
     enabled: boolean;
@@ -15,6 +17,8 @@ export type UseLawyerDashboardCalendarClusterLiteParams = {
     globalNotes: GlobalNote[];
     quantumTasks: LegalTask[];
     criminalCasesForCluster: unknown[];
+    vaultDocs?: SmartVaultDoc[];
+    calendarEvents?: UnifiedEvent[];
 };
 
 /**
@@ -29,6 +33,8 @@ export function useLawyerDashboardCalendarClusterLite({
     globalNotes,
     quantumTasks,
     criminalCasesForCluster,
+    vaultDocs = [],
+    calendarEvents = [],
 }: UseLawyerDashboardCalendarClusterLiteParams): {
     calendarUserId: string;
     clusterScanSources: ClusterScanSources;
@@ -43,8 +49,10 @@ export function useLawyerDashboardCalendarClusterLite({
                 criminalCasesForCluster,
                 globalNotes,
                 quantumTasks,
+                vaultDocs,
+                calendarEvents,
             ),
-        [criminalCasesForCluster, executionFiles, files, globalNotes, quantumTasks],
+        [criminalCasesForCluster, executionFiles, files, globalNotes, quantumTasks, vaultDocs, calendarEvents],
     );
 
     return { calendarUserId, clusterScanSources };

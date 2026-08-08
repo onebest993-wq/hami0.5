@@ -1,9 +1,9 @@
-/**
- * Distributed rate limiting for WIFE (Redis → in-memory fallback).
+﻿/**
+ * Distributed rate limiting for WIFE (Redis ظْ in-memory fallback).
  */
 
 const DEFAULT_WINDOW_MS = 60_000;
-/** Default WIFE verify budget — overridden per scope in wifeValidator.checkRateLimit */
+/** Default WIFE verify budget ظ¤ overridden per scope in wifeValidator.checkRateLimit */
 export const DEFAULT_MAX_REQUESTS = 250;
 
 type WindowCounter = { count: number; resetAt: number };

@@ -100,7 +100,7 @@ export function SecurityInitializer(): null {
     let authUnsubscribe: (() => void) | undefined;
     void (async () => {
       try {
-        const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        const { data } = supabase.auth.onAuthStateChange((event: string, session: { access_token?: string } | null) => {
           if (event === 'SIGNED_OUT') {
             void revokeCsrfSession();
             return;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2 } from '@/app/components/ui/lucideIcons';
 import {
     FORUM_GHOST_BTN,
     FORUM_ICON_BTN,

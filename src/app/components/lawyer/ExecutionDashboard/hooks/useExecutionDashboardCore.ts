@@ -1,43 +1,39 @@
-// @ts-nocheck
 /** منطق ExecutionDashboard — chunk execution-dashboard-core */
-
 import type { ExecutionDashboardProps } from '../types';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
+import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCore/executionDashboardCoreWorkspacePipelineTypes';
 import { useExecutionDashboardPartyDeathOpeners } from './executionDashboardCore/useExecutionDashboardPartyDeathOpeners';
-import type { PartyDeathLiveHandlers } from './executionDashboardCore/useExecutionDashboardPartyDeathOpeners';
-import { prefetchExecutionHandlerClusterPartyDeathBridge } from '../executionDashboardHandlerClusterBridgeLazy';
-import { scheduleIdleWork } from '@/app/utils/scheduleIdleWork';
 import { useExecutionDashboardCoreBootPipeline } from './executionDashboardCore/useExecutionDashboardCoreBootPipeline';
 import { useExecutionDashboardCorePipelinesChain } from './executionDashboardCore/useExecutionDashboardCorePipelinesChain';
-import { EXECUTION_HANDLER_CLUSTER_STUBS } from './executionHandlerClusterStubs';
-import {
-    buildExecutionHandlerClusterMountKey,
-    shouldLoadExecutionHandlerClusterCoerciveHeavy,
-    shouldLoadExecutionHandlerClusterDossierSupport,
-    shouldLoadExecutionHandlerClusterFollowupAdminSpecial,
-    shouldLoadExecutionHandlerClusterFollowupDossierControls,
-    shouldLoadExecutionHandlerClusterFollowupHeavy,
-    shouldLoadExecutionHandlerClusterFollowupOtherParty,
-    shouldLoadExecutionHandlerClusterLight,
-    shouldLoadExecutionHandlerClusterSeizureLog,
-    shouldLoadExecutionHandlerClusterSeizureRequests,
-    shouldLoadExecutionHandlerClusterSeizureHeavy,
-} from './executionHandlerClusterGate';
 import { buildExecutionDashboardCoreRuntimeTailInput } from './executionDashboardCore/buildExecutionDashboardCoreRuntimeTailInput';
 import { buildExecutionDashboardCoreRuntimeVars } from './executionDashboardCore/buildExecutionDashboardCoreRuntimeVars';
-import { pickCoreAssemblyHandlers } from './executionDashboardCore/pickCoreAssemblyHandlers';
 import { buildExecutionDashboardCoreModalScopeInput } from './executionDashboardCore/buildExecutionDashboardCoreModalScopeInput';
 import { buildExecutionDashboardCoreChunkFingerprint } from './executionDashboardCore/buildExecutionDashboardCoreChunkFingerprint';
+import { buildExecutionDashboardCoreAssemblyHandlers } from './executionDashboardCore/buildExecutionDashboardCoreAssemblyHandlers';
 import { SCOPE_LOCAL_ALL_KEYS, SCOPE_REST_ALL_KEYS } from './executionDashboardCore/buildScopeBundleGroups';
 import { useExecutionDashboardCoreScopeAndChunk } from './executionDashboardCore/useExecutionDashboardCoreScopeAndChunk';
-import { pickHandlerClusterAssemblyHandlers } from './executionDashboardCore/pickHandlerClusterAssemblyHandlers';
 import { pickKeysFromRuntimeBag } from './executionDashboardCore/pickKeysFromRuntimeBag';
-import { pickFollowupAdminSpecialHandlerClusterInput } from './executionDashboardCore/followupAdminSpecialHandlerClusterInput';
-import { pickFollowupOtherPartyHandlerClusterInput } from './executionDashboardCore/followupOtherPartyHandlerClusterInput';
+import { useStableScopeFlatBag } from './executionDashboardCore/useStableScopeFlatBag';
 import { useExecutionDashboardUnifiedDossierMetaWorkflow } from './executionDashboardCore/useExecutionDashboardUnifiedDossierMetaWorkflow';
 import { useExecutionDossierLifecycleActionsOrchestrator } from '../orchestrators/useExecutionDossierLifecycleActionsOrchestrator';
 import { useExecutionDashboardStore } from '@/app/stores/executionDashboardStore';
+import { useExecutionDashboardCoreDossierFollowupHandlers } from './executionDashboardCore/useExecutionDashboardCoreDossierFollowupHandlers';
+import { useExecutionDashboardCoreResidentHandlers } from './executionDashboardCore/useExecutionDashboardCoreResidentHandlers';
+import { useExecutionDashboardCoreHandlerClusterRuntime } from './executionDashboardCore/useExecutionDashboardCoreHandlerClusterRuntime';
+import { useExecutionDashboardCoreHandlerPrefetchEffects } from './executionDashboardCore/useExecutionDashboardCoreHandlerPrefetchEffects';
+import type { ExecutionHandlerClusterGateInput } from './executionHandlerClusterGate';
 
+type WorkspaceShowToast = ExecutionDashboardCoreWorkspacePipelineValue['showToast'];
+
+function adaptWorkspaceShowToast(showToast: WorkspaceShowToast) {
+    return (message: string, type?: string, opts?: Record<string, unknown>) => {
+        showToast(
+            message,
+            type as Parameters<WorkspaceShowToast>[1],
+            opts,
+        );
+    };
+}
 const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({});
 
 export function useExecutionDashboardCore({
@@ -91,22 +87,30 @@ export function useExecutionDashboardCore({
         showExecutionFinancialHub,
         timelineAccordionExpanded,
         isFinancialCenterExpanded,
-        isHeaderExpanded,
         setSeizedAssets,
         seizureDraftsByDecisionId,
         setSeizureDraftsByDecisionId,
         activeCoerciveActions,
         setActiveCoerciveActions,
+        toggleEvictionGracePinned,
+        evictionGracePinned,
+        evictionGraceHidden,
+        setEvictionGraceHidden,
     } = workspacePipeline;
 
     const { claimFinancials } = claimFinancialLedger;
     const { isEvictionExecutionModule, total_execution_expenses } = claimFinancialLedger;
     const { graceAndSummoning, daysRemainingInGracePeriod, statuteStatus } = graceMasterPipeline;
-    const { debtorWorkspaceContext, followupTabAssembly } = followupDebtor;
+    const { debtorWorkspaceContext, followupTabAssembly, isRepresentingDebtor } = followupDebtor;
     const { followupSeizureTabs } = claimFinancialLedger;
     const { subsequentNoticeFlow, executorApprovalActions } = persistHandlerPipeline;
+    const { openDecisionsModalWithBoot } = workspacePipeline;
 
-    // مقيم على Core — لا يعتمد على dossier-support الكسول (كان يترك زر التعديل على stub)
+    const showToastForHandlers = useMemo(
+        () => adaptWorkspaceShowToast(workspacePipeline.showToast),
+        [workspacePipeline.showToast],
+    );
+
     const dossierMetaWorkflow = useExecutionDashboardUnifiedDossierMetaWorkflow({
         executionData: boot.executionData,
         directorate: fileMetadataBinding.directorate,
@@ -126,7 +130,7 @@ export function useExecutionDashboardCore({
         parentExecutionFile: boot.parentExecutionFile,
         onUpdate,
         setExecutionStorageTick: boot.setExecutionStorageTick,
-        showToast: workspacePipeline.showToast,
+        showToast: showToastForHandlers,
     });
 
     const coreDossierLifecycleActionsRaw = useExecutionDossierLifecycleActionsOrchestrator({
@@ -140,7 +144,11 @@ export function useExecutionDashboardCore({
         nextTimelineId: workspacePipeline.nextTimelineId,
         persistExecutionMerge: persistHandlerPipeline.persistExecutionMerge,
         reconcileDossierLifecycle: boot.reconcileDossierLifecycle,
-        showToast: workspacePipeline.showToast,
+        showToast: (message, type) =>
+            showToastForHandlers(
+                message,
+                type === 'success' || type === 'warning' || type === 'info' ? type : 'info',
+            ),
         dossierPendingStatus: dossierLifecyclePanel.dossierPendingStatus,
         dossierReasonDraft: dossierLifecyclePanel.dossierReasonDraft,
         dossierDateDraft: dossierLifecyclePanel.dossierDateDraft,
@@ -173,23 +181,68 @@ export function useExecutionDashboardCore({
         partyDeathModalParty: followupOrchestrator.partyDeathModalParty,
         setPartyDeathModalParty: followupOrchestrator.setPartyDeathModalParty,
         setPartyDeathModalDecisionId: followupOrchestrator.setPartyDeathModalDecisionId,
-        showToast: workspacePipeline.showToast,
+        showToast: showToastForHandlers,
     });
 
-    useEffect(() => {
-        if (!loadPartyDeathHandlerCluster) return;
-        return scheduleIdleWork(() => {
-            prefetchExecutionHandlerClusterPartyDeathBridge();
-        }, 80);
-    }, [loadPartyDeathHandlerCluster]);
+    const coreDossierFollowupHandlers = useExecutionDashboardCoreDossierFollowupHandlers({
+        executionDataRef: boot.executionDataRef,
+        executionData: boot.executionData,
+        executionId,
+        decisionsStorageExecutionId: boot.decisionsStorageExecutionId,
+        decisionsReloadEpoch: workspacePipeline.decisionsReloadEpoch,
+        parentExecutionFile: boot.parentExecutionFile,
+        isInabaActive: boot.isInabaActive,
+        isUnifiedTabActive: boot.isUnifiedTabActive,
+        isRepresentingDebtor,
+        timelineEvents: workspacePipeline.timelineEvents,
+        nextTimelineId: workspacePipeline.nextTimelineId,
+        pushTimelineEventRef: workspacePipeline.pushTimelineEventRef,
+        persistExecutionMerge: persistHandlerPipeline.persistExecutionMerge,
+        showToast: showToastForHandlers,
+        openDecisionsModalWithBoot,
+        setTimelineEvents: workspacePipeline.setTimelineEvents,
+        specialRequestDate: followupOrchestrator.specialRequestDate,
+        specialRequestManualTitle: followupOrchestrator.specialRequestManualTitle,
+        specialRequestContent: followupOrchestrator.specialRequestContent,
+        setSpecialRequestTemplatePick: followupOrchestrator.setSpecialRequestTemplatePick,
+        setSpecialRequestContent: followupOrchestrator.setSpecialRequestContent,
+        setSpecialRequestManualTitle: followupOrchestrator.setSpecialRequestManualTitle,
+        setSpecialRequestDate: followupOrchestrator.setSpecialRequestDate,
+        setDossierActionModalOpen: followupOrchestrator.setDossierActionModalOpen,
+        setDossierActionModalSaving: followupOrchestrator.setDossierActionModalSaving,
+        setDossierActionModalType: followupOrchestrator.setDossierActionModalType,
+        setExecutionStorageTick: boot.setExecutionStorageTick,
+    });
 
-    const onPartyDeathHandlerClusterReady = useCallback((cluster: Record<string, unknown>) => {
-        commitPartyDeathLiveHandlers(cluster as PartyDeathLiveHandlers);
-    }, [commitPartyDeathLiveHandlers]);
+    const coreResidentHandlers = useExecutionDashboardCoreResidentHandlers({
+        boot: {
+            executionData: boot.executionData,
+            executionDataRef: boot.executionDataRef,
+            parentDossierId: boot.parentDossierId,
+            currentFileId: boot.currentFileId,
+            setShowPaymentModal: boot.setShowPaymentModal,
+        },
+        file,
+        executionId,
+        workspacePipeline,
+        persistHandlerPipeline,
+        graceMasterPipeline,
+        followupDebtor,
+        claimFinancialLedger,
+        decisionsStorageExecutionId: boot.decisionsStorageExecutionId,
+        decisionsReloadEpoch: workspacePipeline.decisionsReloadEpoch,
+        linkSeizureAuctionToAppointments: Boolean(seizureOrchestrator.linkSeizureAuctionToAppointments),
+        pushSeizureAuctionCalendarAppointment:
+            persistHandlerPipeline.pushSeizureAuctionCalendarAppointment,
+    });
 
     const handleMemoFollowupClick = useCallback(() => {
         if (typeof followupDebtor.closeUnifiedSeizureLog === 'function') {
             followupDebtor.closeUnifiedSeizureLog();
+        }
+        if (typeof followupDebtor.openFollowupModalPersisted === 'function') {
+            followupDebtor.openFollowupModalPersisted();
+            return;
         }
         try {
             const { openModal } = useExecutionDashboardStore.getState();
@@ -197,15 +250,14 @@ export function useExecutionDashboardCore({
         } catch {
             /* ignore */
         }
-        if (typeof followupDebtor.openFollowupModalPersisted === 'function') {
-            followupDebtor.openFollowupModalPersisted();
-        }
     }, [followupDebtor]);
 
     const handlerClusterGateInput = useMemo(
-        () => ({
+        (): ExecutionHandlerClusterGateInput => ({
+            hasOpenExecutionDossier: Boolean(String(boot.executionData?.id ?? '').trim()),
+            isEvictionExecutionModule,
             showUnifiedExecutionModal,
-            unifiedModalTab: followupDebtor.unifiedModalTab,
+            unifiedModalTab: followupOrchestrator.unifiedModalTab,
             showUnifiedSeizureLogModal: followupDebtor.showUnifiedSeizureLogModal,
             showCoerciveModal: boot.modals.showCoerciveModal,
             showAppointmentModal: boot.modals.showAppointmentModal,
@@ -214,12 +266,19 @@ export function useExecutionDashboardCore({
             showNotesModal: boot.modals.showNotesModal,
             showCoerciveActionForm: workspacePipeline.showCoerciveActionForm,
             showEditDossierMetaModal: dossierMetaWorkflow.showEditDossierMetaModal,
+            editPartyTarget: persistHandlerPipeline.editPartyTarget,
             dossierLifecyclePanelOpen: dossierLifecyclePanel.dossierLifecyclePanelOpen,
-            isHeaderExpanded,
+            isHeaderExpanded: boot.isHeaderExpanded,
+            showUnifiedSummonsModal: boot.modals.showUnifiedSummonsModal,
+            showNotificationModal: boot.modals.showNotificationModal,
+            partyDeathModalParty: followupOrchestrator.partyDeathModalParty,
         }),
         [
+            boot.executionData?.id,
+            isEvictionExecutionModule,
             showUnifiedExecutionModal,
-            followupDebtor.unifiedModalTab,
+            followupOrchestrator.unifiedModalTab,
+            followupOrchestrator.partyDeathModalParty,
             followupDebtor.showUnifiedSeizureLogModal,
             boot.modals.showCoerciveModal,
             boot.modals.showAppointmentModal,
@@ -228,27 +287,11 @@ export function useExecutionDashboardCore({
             boot.modals.showNotesModal,
             workspacePipeline.showCoerciveActionForm,
             dossierMetaWorkflow.showEditDossierMetaModal,
+            persistHandlerPipeline.editPartyTarget,
             dossierLifecyclePanel.dossierLifecyclePanelOpen,
-            isHeaderExpanded,
+            boot.isHeaderExpanded,
         ],
     );
-
-    const loadLightHandlerCluster = shouldLoadExecutionHandlerClusterLight(handlerClusterGateInput);
-    const loadFollowupHeavyHandlerCluster = shouldLoadExecutionHandlerClusterFollowupHeavy(handlerClusterGateInput);
-    const loadFollowupAdminSpecialHandlerCluster =
-        shouldLoadExecutionHandlerClusterFollowupAdminSpecial(handlerClusterGateInput);
-    const loadFollowupDossierControlsHandlerCluster =
-        shouldLoadExecutionHandlerClusterFollowupDossierControls(handlerClusterGateInput);
-    const loadFollowupOtherPartyHandlerCluster =
-        shouldLoadExecutionHandlerClusterFollowupOtherParty(handlerClusterGateInput);
-    const loadSeizureHeavyHandlerCluster = shouldLoadExecutionHandlerClusterSeizureHeavy(handlerClusterGateInput);
-    const loadSeizureRequestsHandlerCluster =
-        shouldLoadExecutionHandlerClusterSeizureRequests(handlerClusterGateInput);
-    const loadSeizureLogHandlerCluster = shouldLoadExecutionHandlerClusterSeizureLog(handlerClusterGateInput);
-    const loadCoerciveHeavyHandlerCluster = shouldLoadExecutionHandlerClusterCoerciveHeavy(handlerClusterGateInput);
-    const loadDossierSupportHandlerCluster = shouldLoadExecutionHandlerClusterDossierSupport(handlerClusterGateInput);
-    const loadAnyHeavyHandlerCluster =
-        loadFollowupHeavyHandlerCluster || loadSeizureHeavyHandlerCluster || loadCoerciveHeavyHandlerCluster;
 
     const coreRuntimeTailInput = useMemo(
         () =>
@@ -261,6 +304,7 @@ export function useExecutionDashboardCore({
                 daysRemainingInGracePeriod,
                 statuteStatus,
                 followupOrchestrator,
+                evictionPremisesUseResolved: fileMetadataBinding.evictionPremisesUseResolved,
             }),
         [
             boot,
@@ -274,6 +318,7 @@ export function useExecutionDashboardCore({
             daysRemainingInGracePeriod,
             statuteStatus,
             followupOrchestrator,
+            fileMetadataBinding.evictionPremisesUseResolved,
         ],
     );
 
@@ -292,6 +337,8 @@ export function useExecutionDashboardCore({
                 handleMemoFollowupClick,
                 ...coreDossierLifecycleActions,
                 dossierLifecycleActions: coreDossierLifecycleActions,
+                ...coreDossierFollowupHandlers,
+                ...coreResidentHandlers,
                 ...coreRuntimeTailInput,
             }),
         [
@@ -305,43 +352,27 @@ export function useExecutionDashboardCore({
             partyDeathHandlers,
             handleMemoFollowupClick,
             coreDossierLifecycleActions,
+            coreDossierFollowupHandlers,
+            coreResidentHandlers,
             coreRuntimeTailInput,
         ],
     );
 
-    const [handlerCluster, setHandlerCluster] = useState(EXECUTION_HANDLER_CLUSTER_STUBS);
-    const [handlerClusterEpoch, setHandlerClusterEpoch] = useState(0);
-
-    const lightHandlerClusterInput = useMemo(
-        () => {
-            if (!loadLightHandlerCluster || loadAnyHeavyHandlerCluster) {
-                return EMPTY_HANDLER_CLUSTER_INPUT;
-            }
-
-            return coreRuntimeVars;
-        },
-        [loadAnyHeavyHandlerCluster, loadLightHandlerCluster, coreRuntimeVars],
-    );
-
-    const handlerClusterHeavySpreads = useMemo(
-        () => {
-            return {
-                followupOrchestrator,
-                seizureOrchestrator,
-                coercionOrchestrator,
-                dossierLifecyclePanel,
-                claimFinancials,
-                graceAndSummoning,
-                debtorWorkspaceContext,
-                subsequentNoticeFlow,
-                followupTabAssembly,
-                followupSeizureTabs,
-                decisionsOrchestrator,
-                core: coreRuntimeVars,
-            };
-        },
+    const handlerClusterHeavySpreadSources = useMemo(
+        () => ({
+            followupOrchestrator,
+            seizureOrchestrator,
+            coercionOrchestrator,
+            dossierLifecyclePanel,
+            claimFinancials,
+            graceAndSummoning,
+            debtorWorkspaceContext,
+            subsequentNoticeFlow,
+            followupTabAssembly,
+            followupSeizureTabs,
+            decisionsOrchestrator,
+        }),
         [
-            coreRuntimeVars,
             followupOrchestrator,
             seizureOrchestrator,
             coercionOrchestrator,
@@ -356,113 +387,54 @@ export function useExecutionDashboardCore({
         ],
     );
 
-    const followupAdminSpecialHandlerClusterInput = useMemo(
-        () =>
-            loadFollowupAdminSpecialHandlerCluster
-                ? pickFollowupAdminSpecialHandlerClusterInput(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadFollowupAdminSpecialHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const followupDossierControlsHandlerClusterInput = useMemo(
-        () =>
-            loadFollowupDossierControlsHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadFollowupDossierControlsHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const followupOtherPartyHandlerClusterInput = useMemo(
-        () =>
-            loadFollowupOtherPartyHandlerCluster
-                ? pickFollowupOtherPartyHandlerClusterInput(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadFollowupOtherPartyHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const seizureHeavyHandlerClusterInput = useMemo(
-        () =>
-            loadSeizureHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadSeizureHeavyHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const coerciveHeavyHandlerClusterInput = useMemo(
-        () =>
-            loadCoerciveHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadCoerciveHeavyHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const dossierSupportHandlerClusterInput = useMemo(
-        () =>
-            loadDossierSupportHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
-        [loadDossierSupportHandlerCluster, handlerClusterHeavySpreads],
-    );
-
-    const handlerClusterMountKey = buildExecutionHandlerClusterMountKey({
+    const handlerClusterRuntime = useExecutionDashboardCoreHandlerClusterRuntime({
         executionId,
         activeTabId: boot.activeTabId,
-        decisionsReloadEpoch: workspacePipeline.decisionsReloadEpoch,
         activeFollowupDebtorKey: followupDebtor.activeFollowupDebtorKey,
+        handlerClusterGateInput,
+        coreRuntimeVars,
+        heavySpreadSources: handlerClusterHeavySpreadSources,
     });
 
-    useEffect(() => {
-        setHandlerCluster(EXECUTION_HANDLER_CLUSTER_STUBS);
-        setHandlerClusterEpoch(0);
-    }, [handlerClusterMountKey]);
+    const { onPartyDeathHandlerClusterReady } = useExecutionDashboardCoreHandlerPrefetchEffects({
+        executionDataId: boot.executionData?.id,
+        isEvictionExecutionModule,
+        showToast: (message, type) => showToastForHandlers(message, type),
+        loadPartyDeathHandlerCluster,
+        showUnifiedExecutionModal,
+        unifiedModalTab: followupOrchestrator.unifiedModalTab,
+        commitPartyDeathLiveHandlers,
+    });
 
-    const onLightHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({ ...current, ...next }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onFollowupAdminSpecialHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({
-            ...current,
-            ...next,
-            dossierFollowupHandlers: {
-                ...(current.dossierFollowupHandlers as Record<string, unknown> | undefined),
-                ...(next.dossierFollowupHandlers as Record<string, unknown> | undefined),
-            },
-        }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onFollowupDossierControlsHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({
-            ...current,
-            ...next,
-            dossierFollowupHandlers: {
-                ...(current.dossierFollowupHandlers as Record<string, unknown> | undefined),
-                ...(next.dossierFollowupHandlers as Record<string, unknown> | undefined),
-            },
-        }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onFollowupOtherPartyHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({
-            ...current,
-            ...next,
-            dossierFollowupHandlers: {
-                ...(current.dossierFollowupHandlers as Record<string, unknown> | undefined),
-                ...(next.dossierFollowupHandlers as Record<string, unknown> | undefined),
-            },
-        }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onSeizureHeavyHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({ ...current, ...next }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onCoerciveHeavyHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster(next);
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
-
-    const onDossierSupportHandlerClusterReady = useCallback((next: Record<string, unknown>) => {
-        setHandlerCluster((current) => ({ ...current, ...next }));
-        setHandlerClusterEpoch((epoch) => epoch + 1);
-    }, []);
+    const {
+        handlerCluster,
+        handlerClusterEpoch,
+        loadLightHandlerCluster,
+        loadFollowupHeavyHandlerCluster,
+        loadFollowupAdminSpecialHandlerCluster,
+        loadFollowupDossierControlsHandlerCluster,
+        loadFollowupOtherPartyHandlerCluster,
+        loadSeizureRequestsHandlerCluster,
+        loadSeizureLogHandlerCluster,
+        loadSeizureHeavyHandlerCluster,
+        loadCoerciveHeavyHandlerCluster,
+        loadDossierSupportHandlerCluster,
+        lightHandlerClusterInput,
+        followupAdminSpecialHandlerClusterInput,
+        followupDossierControlsHandlerClusterInput,
+        followupOtherPartyHandlerClusterInput,
+        seizureHeavyHandlerClusterInput,
+        coerciveHeavyHandlerClusterInput,
+        dossierSupportHandlerClusterInput,
+        handlerClusterMountKey,
+        onLightHandlerClusterReady,
+        onFollowupAdminSpecialHandlerClusterReady,
+        onFollowupDossierControlsHandlerClusterReady,
+        onFollowupOtherPartyHandlerClusterReady,
+        onSeizureHeavyHandlerClusterReady,
+        onCoerciveHeavyHandlerClusterReady,
+        onDossierSupportHandlerClusterReady,
+    } = handlerClusterRuntime;
 
     const scopeRuntimeInput = useMemo(
         () => ({
@@ -493,28 +465,16 @@ export function useExecutionDashboardCore({
         ],
     );
 
-    const assemblyHandlers = useMemo(() => {
-        const clusterHandlers = pickHandlerClusterAssemblyHandlers(handlerCluster);
-        const coreHandlers = pickCoreAssemblyHandlers(coreRuntimeVars);
-        const coreActions = coreHandlers.dossierLifecycleActions;
-        const clusterActions = clusterHandlers.dossierLifecycleActions;
-        const dossierLifecycleActions =
-            coreActions && typeof coreActions === 'object' && !Array.isArray(coreActions)
-                ? coreActions
-                : clusterActions &&
-                    typeof clusterActions === 'object' &&
-                    !Array.isArray(clusterActions)
-                  ? clusterActions
-                  : coreDossierLifecycleActions;
-        return {
-            ...clusterHandlers,
-            ...coreHandlers,
-            dossierLifecycleActions,
-            // دائماً من Core — لا يعتمد على تحميل light/notes cluster
-            handleMemoFollowupClick: coreRuntimeVars.handleMemoFollowupClick,
-            openFollowupModalPersisted: coreRuntimeVars.openFollowupModalPersisted,
-        };
-    }, [handlerCluster, coreRuntimeVars, coreDossierLifecycleActions]);
+    const assemblyHandlers = useMemo(
+        () =>
+            buildExecutionDashboardCoreAssemblyHandlers({
+                handlerCluster,
+                coreRuntimeVars,
+                coreDossierLifecycleActions,
+                coreResidentHandlers,
+            }),
+        [handlerCluster, coreRuntimeVars, coreDossierLifecycleActions, coreResidentHandlers],
+    );
 
     const modalScopeInput = useMemo(
         () =>
@@ -589,13 +549,17 @@ export function useExecutionDashboardCore({
                 showUnifiedSeizureLogModal: followupDebtor.showUnifiedSeizureLogModal,
                 timelineAccordionExpanded,
                 isFinancialCenterExpanded,
-                isHeaderExpanded,
+                isHeaderExpanded: boot.isHeaderExpanded,
                 coercionOrchestrator,
                 noticeVoluntaryPeriodEndOptimistic,
                 voluntaryEndOptimistic,
                 notificationCount,
                 showExecutionFinancialHub,
+                showExecutionTrashModal: workspacePipeline.showExecutionTrashModal,
                 handlerClusterEpoch,
+                decisionsReloadEpoch: workspacePipeline.decisionsReloadEpoch,
+                evictionGracePinned,
+                evictionGraceHidden,
             }),
             chunkDataReady: Boolean(boot.executionData),
         }),
@@ -614,16 +578,31 @@ export function useExecutionDashboardCore({
             followupDebtor.showUnifiedSeizureLogModal,
             timelineAccordionExpanded,
             isFinancialCenterExpanded,
-            isHeaderExpanded,
+            boot.isHeaderExpanded,
             coercionOrchestrator,
             noticeVoluntaryPeriodEndOptimistic,
             voluntaryEndOptimistic,
             notificationCount,
             showExecutionFinancialHub,
+            workspacePipeline.showExecutionTrashModal,
             handlerClusterEpoch,
+            workspacePipeline.decisionsReloadEpoch,
+            evictionGracePinned,
+            evictionGraceHidden,
             boot.executionData,
         ],
     );
+
+    const scopeLocalFlatPicked = useMemo(
+        () => pickKeysFromRuntimeBag(coreRuntimeVars, SCOPE_LOCAL_ALL_KEYS),
+        [coreRuntimeVars],
+    );
+    const scopeRestFlatPicked = useMemo(
+        () => pickKeysFromRuntimeBag(coreRuntimeVars, SCOPE_REST_ALL_KEYS),
+        [coreRuntimeVars],
+    );
+    const scopeLocalFlat = useStableScopeFlatBag(scopeLocalFlatPicked);
+    const scopeRestFlat = useStableScopeFlatBag(scopeRestFlatPicked);
 
     const {
         phoneBodyFingerprint,
@@ -640,8 +619,8 @@ export function useExecutionDashboardCore({
         scopeRuntimeInput,
         handlerCluster,
         assemblyHandlers,
-        scopeLocalFlat: pickKeysFromRuntimeBag(coreRuntimeVars, SCOPE_LOCAL_ALL_KEYS),
-        scopeRestFlat: pickKeysFromRuntimeBag(coreRuntimeVars, SCOPE_REST_ALL_KEYS),
+        scopeLocalFlat,
+        scopeRestFlat,
         modalScopeInput,
         chunkSetupInput,
     });
@@ -656,6 +635,25 @@ export function useExecutionDashboardCore({
         if (typeof confirm === 'function') target.handleDossierLifecycleConfirmDetails = confirm;
         target.dossierLifecycleActions = actions;
     }, [coreDossierLifecycleActions, phoneBodyScopeRef]);
+
+    useEffect(() => {
+        const target = phoneBodyScopeRef.current;
+        if (!target) return;
+        if (typeof toggleEvictionGracePinned === 'function') {
+            target.toggleEvictionGracePinned = toggleEvictionGracePinned;
+        }
+        target.evictionGracePinned = evictionGracePinned;
+        target.evictionGraceHidden = evictionGraceHidden;
+        if (typeof setEvictionGraceHidden === 'function') {
+            target.setEvictionGraceHidden = setEvictionGraceHidden;
+        }
+    }, [
+        toggleEvictionGracePinned,
+        evictionGracePinned,
+        evictionGraceHidden,
+        setEvictionGraceHidden,
+        phoneBodyScopeRef,
+    ]);
 
     return {
         isLoading: boot.isLoading,
@@ -677,7 +675,7 @@ export function useExecutionDashboardCore({
         shellOverlayScopeSnapshot,
         followupModalSnapshot,
         showUnifiedExecutionModal,
-        unifiedModalTab: followupDebtor.unifiedModalTab,
+        unifiedModalTab: followupOrchestrator.unifiedModalTab,
         loadLightHandlerCluster,
         loadFollowupHeavyHandlerCluster,
         loadFollowupAdminSpecialHandlerCluster,

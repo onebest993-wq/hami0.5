@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Maximize2, Move, X, ZoomIn, ZoomOut } from 'lucide-react';
+import { Check, Maximize2, Move, X, ZoomIn, ZoomOut } from '@/app/components/ui/lucideIcons';
 import type { ProfileGalleryItem } from '@/app/services/lawyer-cloud';
 import { useBodyScrollLock } from '@/app/utils/bodyScrollLock';
 import { ProfileAvatarImage } from './ProfileAvatarImage';

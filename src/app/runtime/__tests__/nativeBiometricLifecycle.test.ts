@@ -1,22 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { checkBiometry, addResumeListener, remove } = vi.hoisted(() => ({
+const { checkBiometry, addResumeListener } = vi.hoisted(() => ({
     checkBiometry: vi.fn(async () => ({ isAvailable: true })),
     addResumeListener: vi.fn(async (listener: (info: { isAvailable: boolean }) => void) => {
         (globalThis as { __bioResume?: typeof listener }).__bioResume = listener;
         return { remove: vi.fn(async () => undefined) };
     }),
-    remove: vi.fn(async () => undefined),
 }));
 
-vi.mock('@/app/runtime/nativePlatform', () => ({
-    isCapacitorNativePlatform: () => true,
-}));
-
-vi.mock('@/app/runtime/optionalCapacitorPluginLoad', () => ({
-    loadOptionalCapacitorPlugin: vi.fn(async () => ({
-        BiometricAuth: { checkBiometry, addResumeListener },
-    })),
+vi.mock('@/app/runtime/biometricNative', () => ({
+    callBiometricNative: vi.fn(async (fn: (plugin: unknown) => unknown) =>
+        fn({ checkBiometry, addResumeListener }),
+    ),
 }));
 
 import { wireNativeBiometricAvailabilityListener } from '@/app/runtime/nativeBiometricLifecycle';

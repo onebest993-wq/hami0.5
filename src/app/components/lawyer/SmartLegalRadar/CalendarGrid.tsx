@@ -1,7 +1,22 @@
 import React from 'react';
-import { Calendar } from 'lucide-react';
-import { WEEK_DAYS, MONTHS, isToday, isPastDay, dotColorsForDate } from './utils';
-import { RADAR_CALENDAR_SHELL, RADAR_GLASS_PANEL, RADAR_ICON_GOLD } from './radarTheme';
+import { Calendar } from '@/app/components/ui/lucideIcons';
+import {
+    WEEK_DAYS,
+    MONTHS,
+    isToday,
+    isPastDay,
+    dotColorsForDate,
+    buildCalendarDayAriaLabel,
+    buildCalendarGridAriaLabel,
+} from './utils';
+import {
+    RADAR_CALENDAR_SHELL,
+    RADAR_GLASS_PANEL,
+    RADAR_ICON_GOLD,
+    RADAR_TEXT,
+    RADAR_TEXT_MUTED,
+    RADAR_ACCENT_CHIP,
+} from './radarTheme';
 import type { UnifiedEvent } from '@/app/components/lawyer/hooks/useCalendarData';
 
 interface CalendarGridProps {
@@ -24,36 +39,35 @@ export const CalendarGrid = React.memo(function CalendarGrid({
     onDateClick,
 }: CalendarGridProps) {
     const monthLabel = `${MONTHS[viewMonth]} ${viewYear}`;
+    const gridAriaLabel = buildCalendarGridAriaLabel(viewMonth, viewYear);
 
     return (
         <div className={`${RADAR_CALENDAR_SHELL} mb-6`} dir="rtl" data-testid="radar-calendar-grid">
-            <div
-                className="pointer-events-none absolute inset-0 rounded-3xl bg-gradient-to-br from-[#F5EDE0]/[0.07] via-transparent to-[#C4956A]/[0.12]"
-                aria-hidden
-            />
-            <div className="pointer-events-none absolute -top-10 left-1/2 -translate-x-1/2 w-48 h-24 rounded-full bg-[#C4956A]/10 blur-3xl" aria-hidden />
-
             <div className="relative p-4 sm:p-5">
-                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[#F5EDE0]/10">
-                    <div className="h-px flex-1 bg-gradient-to-l from-[#C4956A]/45 to-transparent" />
-                    <span className="px-2 text-sm sm:text-base font-bold text-[#F5EDE0]/92 tracking-wide whitespace-nowrap">
+                <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/80">
+                    <div className="h-px flex-1 bg-gradient-to-l from-white/70 to-transparent" />
+                    <span className={`px-2 text-sm sm:text-base font-bold ${RADAR_TEXT} tracking-wide whitespace-nowrap`}>
                         {monthLabel}
                     </span>
-                    <div className="h-px flex-1 bg-gradient-to-r from-[#C4956A]/45 to-transparent" />
+                    <div className="h-px flex-1 bg-gradient-to-r from-white/70 to-transparent" />
                 </div>
 
                 <div className="grid grid-cols-7 gap-1 sm:gap-1.5 mb-2">
                     {WEEK_DAYS.map((d) => (
                         <span
                             key={d}
-                            className="text-[9px] sm:text-[10px] font-bold text-[#C4956A]/85 text-center py-1.5 rounded-lg bg-[#F5EDE0]/[0.04] border border-[#F5EDE0]/[0.06]"
+                            className={`text-[9px] sm:text-[10px] font-bold ${RADAR_TEXT_MUTED} text-center py-1.5 rounded-lg bg-[#2A2A2A] border border-white/75`}
                         >
                             {d}
                         </span>
                     ))}
                 </div>
 
-                <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                <div
+                    className="grid grid-cols-7 gap-1.5 sm:gap-2"
+                    role="group"
+                    aria-label={gridAriaLabel}
+                >
                     {Array.from({ length: firstDayOfMonth }, (_, i) => (
                         <div key={`empty-${i}`} className="aspect-square min-h-[2.5rem] w-full" />
                     ))}
@@ -72,19 +86,15 @@ export const CalendarGrid = React.memo(function CalendarGrid({
 
                         if (isSel) {
                             cellClass +=
-                                ' bg-gradient-to-br from-[#F5EDE0]/95 to-[#E8DCC8]/88 text-[#2d2219] border-[#C4956A]/50 shadow-[0_4px_18px_rgba(196,149,106,0.32)] scale-[1.05] z-10';
+                                ' hami-radar-pearl-surface hami-radar-day-selected border-[#E2E8F0]/50 shadow-[0_4px_14px_rgba(0,0,0,0.32)] scale-[1.03] z-10';
                         } else if (isT) {
-                            cellClass +=
-                                ' bg-[#C4956A]/14 text-[#F5EDE0] border-[#C4956A]/40 ring-1 ring-[#C4956A]/25';
+                            cellClass += ' hami-radar-day-today';
                         } else if (isPast) {
-                            cellClass +=
-                                ' text-[#F5EDE0]/28 hover:text-[#F5EDE0]/45 hover:bg-[#F5EDE0]/[0.04]';
+                            cellClass += ' hami-radar-day-muted';
                         } else if (hasEvents) {
-                            cellClass +=
-                                ' text-[#F5EDE0]/90 bg-[#F5EDE0]/[0.05] hover:bg-[#C4956A]/12 border-[#F5EDE0]/[0.08]';
+                            cellClass += ' hami-radar-day-has-events hover:bg-[#2A2A2A]';
                         } else {
-                            cellClass +=
-                                ' text-[#F5EDE0]/72 hover:bg-[#F5EDE0]/[0.06] hover:text-[#F5EDE0]';
+                            cellClass += ` ${RADAR_TEXT} hover:bg-[#2A2A2A]`;
                         }
 
                         return (
@@ -92,11 +102,22 @@ export const CalendarGrid = React.memo(function CalendarGrid({
                                 type="button"
                                 key={day}
                                 data-testid={`radar-day-${day}`}
+                                aria-label={buildCalendarDayAriaLabel(
+                                    day,
+                                    viewMonth,
+                                    viewYear,
+                                    dayEvents.length,
+                                    isT,
+                                )}
+                                aria-pressed={isSel ? true : undefined}
+                                aria-current={isT ? 'date' : undefined}
                                 onClick={() => onDateClick(day)}
                                 className={cellClass}
                             >
                                 {hasEvents && !isSel && (
-                                    <span className="absolute top-1 left-1 min-w-[14px] h-[14px] px-0.5 rounded-full bg-[#C4956A]/25 border border-[#C4956A]/40 text-[8px] font-bold text-[#F5EDE0]/90 flex items-center justify-center leading-none">
+                                    <span
+                                        className={`absolute top-1 left-1 min-w-[14px] h-[14px] px-0.5 rounded-full ${RADAR_ACCENT_CHIP} text-[8px] font-bold ${RADAR_TEXT} flex items-center justify-center leading-none`}
+                                    >
                                         {dayEvents.length > 9 ? '9+' : dayEvents.length}
                                     </span>
                                 )}
@@ -106,7 +127,7 @@ export const CalendarGrid = React.memo(function CalendarGrid({
                                         {dots.map((c, ci) => (
                                             <span
                                                 key={ci}
-                                                className={`w-1 h-1 rounded-full ${c} ${isSel ? 'opacity-80' : ''}`}
+                                                className={`w-1 h-1 rounded-full ${c} ${isSel ? 'opacity-90' : ''}`}
                                             />
                                         ))}
                                     </div>
@@ -126,11 +147,15 @@ export const EmptyState = React.memo(function EmptyState() {
             className={`${RADAR_GLASS_PANEL} flex flex-col items-center justify-center py-14 px-6 text-center`}
             data-testid="radar-empty-state"
         >
-            <div className="w-14 h-14 rounded-2xl bg-[#F5EDE0]/[0.06] border border-[#F5EDE0]/12 backdrop-blur-md flex items-center justify-center mb-4 shadow-[inset_0_1px_0_rgba(245,237,224,0.08)]">
+            <div
+                className={`w-14 h-14 rounded-2xl ${RADAR_ACCENT_CHIP} flex items-center justify-center mb-4`}
+            >
                 <Calendar size={28} className={RADAR_ICON_GOLD} />
             </div>
-            <h3 className="text-lg font-bold text-[#F5EDE0]/92 mb-2">لا توجد مواعيد لهذا اليوم</h3>
-            <p className="text-sm text-[#E8DCC8]/55 max-w-xs leading-relaxed">
+            <h3 className={`text-lg font-bold ${RADAR_TEXT} mb-2`}>
+                لا توجد مواعيد لهذا اليوم
+            </h3>
+            <p className={`text-sm ${RADAR_TEXT_MUTED} max-w-xs leading-relaxed`}>
                 يمكنك إضافة موعد جديد أو اختيار تاريخ آخر من التقويم.
             </p>
         </div>

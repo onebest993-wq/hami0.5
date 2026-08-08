@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FileText, ZoomIn, Eye, Loader2, Download } from 'lucide-react';
+import { FileText, ZoomIn, Eye, Loader2, Download } from '@/app/components/ui/lucideIcons';
 import { ImageWithFallback } from '@/app/components/figma/ImageWithFallback';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import { AppDocumentPreviewOverlay } from '@/app/components/lawyer/SmartVaultModal/AppDocumentPreviewOverlay';

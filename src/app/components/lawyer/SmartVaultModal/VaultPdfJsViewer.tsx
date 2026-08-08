@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, ExternalLink, Loader2, RotateCcw } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Loader2, RotateCcw } from '@/app/components/ui/lucideIcons';
 import {
     classifyVaultPdfLoadError,
     loadVaultPdfDocument,

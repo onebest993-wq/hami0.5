@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, X, Info, Pencil } from 'lucide-react';
+import { ArrowLeft, X, Info, Pencil } from '@/app/components/ui/lucideIcons';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/app/components/ui/tooltip';
 
 export type ActiveOrderFileHeaderProps = {

@@ -1,18 +1,31 @@
 import React, { Suspense, useCallback, useMemo } from 'react';
 import { OtherPartyEffectiveRequestsPanel } from './OtherPartyEffectiveRequestsPanel';
 import type { OtherPartyEffectiveRequestsPanelProps, CreditorTrackDecisionHandlers } from './OtherPartyEffectiveRequestsPanel';
-import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry } from '@/app/types/execution';
+import type { OtherPartyActionLogEntry, OtherPartyRequestTrackEntry, TimelineEvent } from '@/app/types/execution';
 import type { AppealUiPerspective } from '@/app/components/lawyer/DecisionsAndAppealsEngine/appealUiLabels';
+import { isExecutionHandlerStubLeaf } from '../hooks/executionHandlerClusterStubs';
+import { submitOtherPartyFollowupAction } from '@/app/application/execution/followup/submitOtherPartyFollowupAction';
 
 export interface OtherPartyTabProps {
     executionData: Record<string, any> | null | undefined;
     decisionsStorageExecutionId?: string;
     persistExecutionMerge: (patch: Record<string, unknown>) => void;
-    handleOtherPartyActionSubmitToDecisions: (input: { date: string; content: string }) => { ok: boolean; decisionId?: string };
+    handleOtherPartyActionSubmitToDecisions: (input: { date: string; content: string }) => {
+        ok: boolean;
+        decisionId?: string;
+        logEntryId?: string;
+    };
     EXEC_OVERLAY_LAZY_FALLBACK: React.ReactNode;
     LazyOtherPartyActionsLog: React.LazyExoticComponent<React.ComponentType<any>>;
     appealPerspective?: AppealUiPerspective;
     showCreditorRequestsMirror?: boolean;
+    isRepresentingDebtor?: boolean;
+    showToast?: (message: string, type?: string, opts?: Record<string, unknown>) => void;
+    pushTimelineEvent?: (
+        event: TimelineEvent,
+        options?: { mergePatch?: Record<string, unknown> },
+    ) => void;
+    nextTimelineId?: () => string;
     creditorRequestsMirror?: Omit<
         OtherPartyEffectiveRequestsPanelProps,
         'manualLog' | 'onPersistTracks' | 'debtorAgentManualTrack' | 'creditorTrackHandlers'
@@ -31,6 +44,10 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
     EXEC_OVERLAY_LAZY_FALLBACK,
     LazyOtherPartyActionsLog,
     showCreditorRequestsMirror = false,
+    isRepresentingDebtor = false,
+    showToast,
+    pushTimelineEvent,
+    nextTimelineId,
     creditorRequestsMirror,
     onOpenAppeals,
     creditorTrackHandlers,
@@ -56,11 +73,82 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
         [persistExecutionMerge]
     );
 
+    const submitOtherPartyAction = useCallback(
+        (input: { date: string; content: string }) => {
+            const clusterHandler = handleOtherPartyActionSubmitToDecisions;
+            if (typeof clusterHandler === 'function' && !isExecutionHandlerStubLeaf(clusterHandler)) {
+                const clusterResult = clusterHandler(input);
+                if (clusterResult && typeof clusterResult === 'object' && clusterResult.ok) {
+                    return clusterResult;
+                }
+            }
+
+            const d = String(input.date || '').trim();
+            const content = String(input.content || '').trim();
+            const directResult = submitOtherPartyFollowupAction({
+                date: d,
+                content,
+                decisionsStorageExecutionId: decisionsExecutionId || undefined,
+                existingLog: manualEntries,
+                executionData: executionData as Record<string, unknown> | null | undefined,
+                persistExecutionMerge,
+                isRepresentingDebtor,
+                showToast,
+            });
+
+            if (
+                directResult.ok &&
+                typeof pushTimelineEvent === 'function' &&
+                typeof nextTimelineId === 'function'
+            ) {
+                const now = new Date().toISOString();
+                if (isRepresentingDebtor) {
+                    pushTimelineEvent({
+                        id: nextTimelineId(),
+                        date: d,
+                        timestamp: now,
+                        title: 'تحرك الطرف الآخر',
+                        description: content,
+                        type: 'other_party',
+                        source: 'تحركات الطرف الآخر',
+                    });
+                } else if (directResult.decisionId) {
+                    pushTimelineEvent({
+                        id: nextTimelineId(),
+                        date: d,
+                        timestamp: now,
+                        title: 'تحرك الطرف الآخر — قيد البت',
+                        description: `بتاريخ ${d}:\n\n${content}`,
+                        type: 'decision',
+                        source: 'محضر المتابعة',
+                        metadata: {
+                            timelineThreadKey: `executor_decision:${directResult.decisionId}`,
+                            decisionRowId: directResult.decisionId,
+                        },
+                    });
+                }
+            }
+
+            return directResult;
+        },
+        [
+            decisionsExecutionId,
+            executionData,
+            handleOtherPartyActionSubmitToDecisions,
+            isRepresentingDebtor,
+            manualEntries,
+            nextTimelineId,
+            persistExecutionMerge,
+            pushTimelineEvent,
+            showToast,
+        ],
+    );
+
     const manualLog = useMemo(
         () => ({
             entries: manualEntries,
             onPersist: persistManualLog,
-            onSubmitToDecisions: handleOtherPartyActionSubmitToDecisions,
+            onSubmitToDecisions: submitOtherPartyAction,
             executionId: decisionsExecutionId,
             appealPerspective,
         }),
@@ -69,7 +157,7 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
             decisionsExecutionId,
             manualEntries,
             persistManualLog,
-            handleOtherPartyActionSubmitToDecisions,
+            submitOtherPartyAction,
         ]
     );
 
@@ -94,7 +182,7 @@ export const OtherPartyTab: React.FC<OtherPartyTabProps> = ({
                 <LazyOtherPartyActionsLog
                     entries={manualEntries}
                     onPersist={persistManualLog}
-                    onSubmitToDecisions={handleOtherPartyActionSubmitToDecisions}
+                    onSubmitToDecisions={submitOtherPartyAction}
                     executionId={decisionsExecutionId}
                     appealPerspective={appealPerspective}
                 />

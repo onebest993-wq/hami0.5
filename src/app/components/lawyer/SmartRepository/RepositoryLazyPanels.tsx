@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2 } from '@/app/components/ui/lucideIcons';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
 import type { DossierLawArticleRichEditorHandle } from '@/app/components/lawyer/dossier-notes/DossierLawArticleRichEditor';
 
@@ -37,9 +37,15 @@ type RepositoryRichEditorProps = {
     editorRef: React.RefObject<DossierLawArticleRichEditorHandle | null>;
     value: string;
     onChange: (html: string) => void;
+    compact?: boolean;
 };
 
-export function RepositoryRichEditor({ editorRef, value, onChange }: RepositoryRichEditorProps) {
+export function RepositoryRichEditor({
+    editorRef,
+    value,
+    onChange,
+    compact = true,
+}: RepositoryRichEditorProps) {
     return (
         <Suspense fallback={<PanelFallback />}>
             <LazyDossierLawArticleRichEditor
@@ -48,6 +54,8 @@ export function RepositoryRichEditor({ editorRef, value, onChange }: RepositoryR
                 onChange={onChange}
                 context={{ kind: 'repository' }}
                 testId="repository-rich-editor"
+                compact={compact}
+                expanded={!compact}
             />
         </Suspense>
     );

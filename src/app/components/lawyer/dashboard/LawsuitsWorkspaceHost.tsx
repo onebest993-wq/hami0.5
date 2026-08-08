@@ -49,6 +49,11 @@ type LawsuitsWorkspaceHostProps = {
     active?: boolean;
     escapeEnabled?: boolean;
     files: FileData[];
+    lawsuitLifecycleCounts?: { active: number; archived: number; trash: number };
+    lawsuitArchivedFiles?: FileData[] | null;
+    lawsuitTrashFiles?: FileData[] | null;
+    onEnsureLawsuitArchivedLoaded?: () => void | Promise<void>;
+    onEnsureLawsuitTrashLoaded?: () => void | Promise<void>;
     criminalCases: unknown[];
     theme: ThemeConfig;
     shapeClass: string;
@@ -91,6 +96,11 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
         active = true,
         escapeEnabled = true,
         files,
+        lawsuitLifecycleCounts,
+        lawsuitArchivedFiles,
+        lawsuitTrashFiles,
+        onEnsureLawsuitArchivedLoaded,
+        onEnsureLawsuitTrashLoaded,
         criminalCases,
         theme,
         shapeClass,
@@ -227,6 +237,11 @@ export function LawsuitsWorkspaceHost(props: LawsuitsWorkspaceHostProps): React.
                                     onArchiveLawsuit={onArchiveLawsuit}
                                     onRestoreArchivedLawsuit={onRestoreArchivedLawsuit}
                                     onPermanentlyDeleteLawsuits={onPermanentlyDeleteLawsuits}
+                                    lawsuitLifecycleCounts={lawsuitLifecycleCounts}
+                                    lawsuitArchivedFiles={lawsuitArchivedFiles}
+                                    lawsuitTrashFiles={lawsuitTrashFiles}
+                                    onEnsureLawsuitArchivedLoaded={onEnsureLawsuitArchivedLoaded}
+                                    onEnsureLawsuitTrashLoaded={onEnsureLawsuitTrashLoaded}
                                     loadingVariant="inline"
                                 />
                             </ErrorBoundary>

@@ -1,5 +1,5 @@
 import React, { memo, useState } from 'react';
-import { Plus, Check, Shield } from 'lucide-react';
+import { Plus, Check, Shield } from '@/app/components/ui/lucideIcons';
 import type { ForumGroup } from '@/app/services/forum/forumGroupTypes';
 import {
     FORUM_ACCENT_CHIP,

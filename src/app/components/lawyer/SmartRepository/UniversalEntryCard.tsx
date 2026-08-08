@@ -39,7 +39,11 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
         baseCardClass: REPO_CARD,
     });
     const bodyClampClass =
-        innerLayout === 'compact' ? ' line-clamp-2' : innerLayout === 'row' ? ' line-clamp-4 sm:line-clamp-5' : '';
+        innerLayout === 'compact'
+            ? ' line-clamp-2'
+            : innerLayout === 'row'
+              ? ' line-clamp-4 sm:line-clamp-5'
+              : ' line-clamp-3';
 
     if (item.kind === 'vault_doc') {
         return (
@@ -47,6 +51,7 @@ export const UniversalEntryCard = React.memo(function UniversalEntryCard({
                 item={item}
                 cardRef={cardRef}
                 cardClass={cardClass}
+                feedLayout={layoutId}
                 dossiers={dossiers}
                 onBindVaultDoc={onBindVaultDoc}
                 onDeleteVaultDoc={onDeleteVaultDoc}

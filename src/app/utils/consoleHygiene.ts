@@ -16,6 +16,7 @@ const BENIGN_INFO_PATTERNS: RegExp[] = [
     /Download the React DevTools for a better development experience/i,
     /\[CursorBrowser\]/i,
     /Native dialog overrides installed/i,
+    /\[Spark dev\]/i,
 ];
 
 const BENIGN_DEBUG_PATTERNS: RegExp[] = [/^\[vite\] connecting/i, /^\[vite\] connected/i, /^\[vite\] hot updated/i];
@@ -32,6 +33,8 @@ const BENIGN_WARN_PATTERNS: RegExp[] = [
     /\[Violation\].*scroll-blocking/i,
     /\[Violation\].*notification permission/i,
     /@supabase\/gotrue-js: Lock .* was not released within/i,
+    /\[Security\] System health issues/i,
+    /Not running over HTTPS/i,
 ];
 
 const BENIGN_LOG_PATTERNS: RegExp[] = [

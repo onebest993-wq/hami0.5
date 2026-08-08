@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircle, ArrowRight, CheckCircle2, History } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle2, History } from '@/app/components/ui/lucideIcons';
 import type { LegalTask } from '@/app/types/TaskEngine';
 import {
     COMPLETED_TASK_RETENTION_DAYS,

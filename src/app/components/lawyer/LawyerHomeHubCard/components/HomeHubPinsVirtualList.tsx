@@ -1,4 +1,4 @@
-import { memo, useRef } from 'react';
+import { memo, useRef, type CSSProperties } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { ClusterPinView } from '@/app/workspace/types';
 import { HOME_HUB_PIN_ROW_ESTIMATE_PX } from '@/app/services/alerts/homeHubCarouselVirtual';
@@ -8,12 +8,14 @@ export type HomeHubPinsVirtualListProps = {
     clusterViews: ClusterPinView[];
     onNavigate: (routePath: string) => void;
     onUnpin: (id: string, type: ClusterPinView['pin']['type']) => void;
+    scrollMaxHeightPx?: number;
 };
 
 export const HomeHubPinsVirtualList = memo(function HomeHubPinsVirtualList({
     clusterViews,
     onNavigate,
     onUnpin,
+    scrollMaxHeightPx,
 }: HomeHubPinsVirtualListProps) {
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -25,11 +27,17 @@ export const HomeHubPinsVirtualList = memo(function HomeHubPinsVirtualList({
         measureElement: (el) => el.getBoundingClientRect().height,
     });
 
+    const scrollStyle: CSSProperties | undefined =
+        scrollMaxHeightPx != null
+            ? { maxHeight: `calc(${scrollMaxHeightPx}px * var(--hami-content-scale, 1))` }
+            : { maxHeight: 'min(58vh, 420px)' };
+
     return (
         <div
             ref={scrollRef}
-            className="max-h-[min(42dvh,320px)] overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] scrollbar-hide"
+            className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] scrollbar-hide"
             data-testid="home-hub-pins-virtual-scroll"
+            style={scrollStyle}
         >
             <ul
                 className="relative w-full space-y-1"

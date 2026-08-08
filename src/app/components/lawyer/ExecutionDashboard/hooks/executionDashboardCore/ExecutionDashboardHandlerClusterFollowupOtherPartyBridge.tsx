@@ -1,11 +1,9 @@
 // @ts-nocheck
-import { useEffect } from 'react';
-import {
-    collectFollowupOtherPartyHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './collectHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFollowupOtherParty } from './useExecutionDashboardCoreHandlerClusterFollowupOtherParty';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';import {
+    handlerBagKeyFingerprint,
+    usePublishHandlerClusterWhenFingerprintChanges,
+} from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupOtherPartyBridgeProps = {
     input: ExecutionDashboardCoreHandlerClusterInput;
@@ -16,13 +14,18 @@ export function ExecutionDashboardHandlerClusterFollowupOtherPartyBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterFollowupOtherPartyBridgeProps) {
-    const cluster = useExecutionDashboardCoreHandlerClusterFollowupOtherParty(
-        collectFollowupOtherPartyHandlerClusterContext(input as HandlerClusterContextSpreads),
-    );
+    const cluster = useExecutionDashboardCoreHandlerClusterFollowupOtherParty(input);
 
-    useEffect(() => {
-        onCluster(cluster);
-    }, [cluster, onCluster]);
+    const pushBinding = cluster.pushTimelineEventBinding as Record<string, unknown> | undefined;
+    usePublishHandlerClusterWhenFingerprintChanges(
+        cluster as Record<string, unknown>,
+        [
+            pushBinding?.pushTimelineEvent,
+            cluster.pushTimelineEvent,
+            ...handlerBagKeyFingerprint(cluster.dossierFollowupHandlers as Record<string, unknown>),
+        ],
+        onCluster,
+    );
 
     return null;
 }

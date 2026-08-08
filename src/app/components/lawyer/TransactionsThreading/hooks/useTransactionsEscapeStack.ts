@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { releaseBodyScrollLock } from '@/app/utils/bodyScrollLock';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 import {
     applyTransactionsEscapeAction,
     resolveTransactionsEscapeAction,
@@ -15,7 +16,7 @@ export type UseTransactionsEscapeStackParams = TransactionsEscapeSnapshot & {
     onCloseDetailsOverlay: (patch: Partial<TransactionsDetailsEscapeSnapshot>) => void;
 };
 
-/** Escape يغلق الطبقة الداخلية ثم يخرج من مركز المعاملات */
+/** Escape + زر الرجوع الأندرويد — يغلق الطبقة الداخلية ثم يخرج من مركز المعاملات */
 export function useTransactionsEscapeStack(params: UseTransactionsEscapeStackParams): void {
     const {
         enabled = true,
@@ -30,11 +31,8 @@ export function useTransactionsEscapeStack(params: UseTransactionsEscapeStackPar
 
     useEffect(() => {
         if (!enabled) return;
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key !== 'Escape') return;
-            event.preventDefault();
-            event.stopPropagation();
 
+        const consumeBackStack = (): boolean => {
             const action = resolveTransactionsEscapeAction({ view, listAddSheetOpen, details });
             applyTransactionsEscapeAction(action, {
                 onBack: () => {
@@ -45,10 +43,22 @@ export function useTransactionsEscapeStack(params: UseTransactionsEscapeStackPar
                 onBackToList,
                 onCloseDetailsOverlay,
             });
+            return true;
+        };
+
+        const onKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            consumeBackStack();
         };
 
         window.addEventListener('keydown', onKeyDown, true);
-        return () => window.removeEventListener('keydown', onKeyDown, true);
+        const unregisterNativeBack = registerNativeBackHandler(() => consumeBackStack());
+        return () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            unregisterNativeBack();
+        };
     }, [
         enabled,
         view,

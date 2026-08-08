@@ -1,9 +1,4 @@
 type SecureStoreValue = string | null;
-type ExpoSecureStoreModule = {
-  getItemAsync: (key: string) => Promise<string | null>;
-  setItemAsync: (key: string, value: string) => Promise<void>;
-  deleteItemAsync: (key: string) => Promise<void>;
-};
 
 import { CryptoService } from './CryptoService';
 import { debug } from '@/app/utils/debug';
@@ -20,7 +15,6 @@ const _guard = (...a: unknown[]) => { debug.warn('[SecureStore]', ...a); };
 let webMigrationDone = false;
 let webSyncMigrationDone = false;
 let webDbInitPromise: Promise<boolean> | null = null;
-let secureStoreModulePromise: Promise<ExpoSecureStoreModule | null> | null = null;
 let webReadyPromise: Promise<void> | null = null;
 let webReady = false;
 let bootShellReady = false;
@@ -101,6 +95,11 @@ const WEB_MIGRATION_PREFIXES = [
   'wife_',
 ];
 
+/**
+ * مسار التخزين الوحيد في هذا المشروع: IndexedDB + ذاكرة (ويب وCapacitor).
+ * Capacitor WebView يملك window/document دائماً، و`expo-secure-store` وحدة
+ * Expo/RN لا تُحمَّل داخلها — كانت اعتمادية ميتة تُوهم بأمان أصلي غير موجود.
+ */
 const isWebEnvironment = (): boolean =>
   typeof window !== 'undefined' && typeof document !== 'undefined';
 
@@ -188,9 +187,8 @@ async function decryptIfSensitive(key: string, value: string): Promise<string | 
 }
 
 /**
- * Unified secure storage service.
- * - Mobile (Expo/RN): uses expo-secure-store.
- * - Web fallback: in-memory store to avoid local/session storage exposure.
+ * Unified secure storage: IndexedDB (+ in-memory warm cache) with optional
+ * CryptoService encryption for sensitive keys. Same path on web and Capacitor.
  */
 class SecureStoreService {
   private static shouldMigrateWebKey(key: string): boolean {
@@ -494,47 +492,17 @@ class SecureStoreService {
     await webReadyPromise;
   }
 
-  private static async getSecureStoreModule(): Promise<ExpoSecureStoreModule | null> {
-    if (isWebEnvironment()) return null;
-    if (!secureStoreModulePromise) {
-      secureStoreModulePromise = (async () => {
-        try {
-          const mod = await import('expo-secure-store');
-          return mod as ExpoSecureStoreModule;
-        } catch {
-          return null;
-        }
-      })();
-    }
-    return secureStoreModulePromise;
-  }
-
   private static async readIndex(): Promise<Set<string>> {
     if (isWebEnvironment()) {
       await this.ensureWebReady();
       const idbKeys = await this.webDbGetAllKeys();
       return new Set([...webFallbackStore.keys(), ...idbKeys]);
     }
-    const secureStore = await this.getSecureStoreModule();
-    if (!secureStore) {
-      return new Set(webFallbackStore.keys());
-    }
-    const raw = await secureStore.getItemAsync(KEY_INDEX);
-    if (!raw) return new Set<string>();
-    try {
-      const parsed = JSON.parse(raw) as unknown;
-      if (!Array.isArray(parsed)) return new Set<string>();
-      return new Set(parsed.filter((v): v is string => typeof v === 'string'));
-    } catch {
-      return new Set<string>();
-    }
+    return new Set(webFallbackStore.keys());
   }
 
-  private static async writeIndex(keys: Set<string>): Promise<void> {
-    if (isWebEnvironment()) return;
-    const secureStore = await this.getSecureStoreModule();
-    if (!secureStore) return;
-    await secureStore.setItemAsync(KEY_INDEX, JSON.stringify(Array.from(keys)));
+  private static async writeIndex(_keys: Set<string>): Promise<void> {
+    // فهرس KEY_INDEX كان لمسار Expo فقط — التخزين الحالي يعتمد مفاتيح IndexedDB مباشرة
   }
 
   private static async ensureWebMigration(): Promise<void> {
@@ -657,17 +625,7 @@ class SecureStoreService {
       scheduleProtectedBackupFromRaw(key, value);
       return;
     }
-
-    const secureStore = await this.getSecureStoreModule();
-    if (!secureStore) {
-      webFallbackStore.set(key, encrypted);
-      return;
-    }
-
-    const index = await this.readIndex();
-    index.add(key);
-    await this.writeIndex(index);
-    await secureStore.setItemAsync(key, encrypted);
+    webFallbackStore.set(key, encrypted);
   }
 
   static async getItem(key: string): Promise<SecureStoreValue> {
@@ -683,12 +641,7 @@ class SecureStoreService {
         }
       }
     } else {
-      const secureStore = await this.getSecureStoreModule();
-      if (!secureStore) {
-        raw = webFallbackStore.get(key) ?? null;
-      } else {
-        raw = await secureStore.getItemAsync(key);
-      }
+      raw = webFallbackStore.get(key) ?? null;
     }
     if (raw === null) return null;
     const decrypted = await decryptIfSensitive(key, raw);
@@ -708,17 +661,7 @@ class SecureStoreService {
       await this.webDbDeleteItem(key);
       return;
     }
-
-    const secureStore = await this.getSecureStoreModule();
-    if (!secureStore) {
-      webFallbackStore.delete(key);
-      return;
-    }
-
-    const index = await this.readIndex();
-    index.delete(key);
-    await this.writeIndex(index);
-    await secureStore.deleteItemAsync(key);
+    webFallbackStore.delete(key);
   }
 
   static async listKeys(): Promise<string[]> {

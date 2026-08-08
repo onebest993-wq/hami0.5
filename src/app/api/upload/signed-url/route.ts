@@ -4,6 +4,7 @@ import { requireWifeUser, unwrapWifeUser } from '../../security/bffAuth.ts';
 import {
   isStoragePathOwnedByUser,
   resolveUploadBucket,
+  FORUM_MEDIA_BUCKET,
   SIGNED_URL_TTL_SEC,
 } from '../uploadStorageUtils.ts';
 
@@ -53,7 +54,11 @@ export async function POST(request: Request): Promise<Response> {
       return json(500, { ok: false, error: 'Server storage client is not configured' });
     }
 
-    const bucket = resolveUploadBucket();
+    const bucketRaw = typeof payload.bucket === 'string' ? payload.bucket.trim() : '';
+    const bucket =
+        bucketRaw === FORUM_MEDIA_BUCKET
+            ? FORUM_MEDIA_BUCKET
+            : resolveUploadBucket();
     const { data, error } = await admin.storage.from(bucket).createSignedUrl(path, SIGNED_URL_TTL_SEC);
     if (error || !data?.signedUrl) {
       return json(404, { ok: false, error: 'Object not found or signed URL failed' });

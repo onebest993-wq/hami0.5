@@ -15,7 +15,7 @@ export type GlobalNoteRow = {
 };
 
 export function vaultToEntry(d: SmartVaultDoc): GlobalSearchEntry {
-    const text = `${d.title} ${d.fileName} ${d.tags.join(' ')} ${d.aiSummary || ''}`;
+    const text = `${d.title} ${d.fileName} ${d.tags.join(' ')} ${d.aiSummary || ''} ${d.customCategory || ''}`;
     return withLifecycle(
         {
             id: `vault-${d.id}`,

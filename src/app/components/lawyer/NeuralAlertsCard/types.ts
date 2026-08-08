@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from '@/app/components/ui/lucideIcons';
 
 export type AlertPriority = 'critical' | 'high' | 'medium' | 'low';
 export type ActionType = 'openNotepad' | 'openScanner' | 'openChecklist' | 'sendWhatsApp' | 'sendAutoReminder';

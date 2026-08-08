@@ -22,13 +22,23 @@ describe('resolveFollowupTabOnOpen', () => {
         ).toEqual({ tab: 'coercive', routeSeizureRequests: false });
     });
 
-    it('falls back to first allowed tab when saved tab is stale', () => {
+    it('routes legacy financial saved tab to seizure opener', () => {
         expect(
             resolveFollowupTabOnOpen({
                 savedTab: 'financial',
                 allowedTabOrder: order,
             })
-        ).toEqual({ tab: 'personal', routeSeizureRequests: false });
+        ).toEqual({ tab: null, routeSeizureRequests: true });
+    });
+
+    it('maps legacy special saved tab to admin when allowed', () => {
+        const withAdmin = ['personal', 'admin', 'correspondences'] as const;
+        expect(
+            resolveFollowupTabOnOpen({
+                savedTab: 'special',
+                allowedTabOrder: withAdmin,
+            })
+        ).toEqual({ tab: 'admin', routeSeizureRequests: false });
     });
 
     it('defaults to correspondences when order is empty', () => {

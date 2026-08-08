@@ -26,4 +26,12 @@ describe('resolveDockShellItemAriaLabel', () => {
             resolveDockShellItemAriaLabel('forum', 'المنتدى', { forumUnreadCount: 5 }),
         ).toBe('المنتدى القانوني، 5 غير مقروء');
     });
+
+    it('يذكر متابعة سبارك في المستودع', () => {
+        expect(
+            resolveDockShellItemAriaLabel('dockRepository', 'المستودع', {
+                repositorySparkAttentionCount: 1,
+            }),
+        ).toBe('المستودع، متابعة إجرائية في المستودع');
+    });
 });

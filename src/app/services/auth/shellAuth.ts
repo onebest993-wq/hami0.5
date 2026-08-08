@@ -1,26 +1,23 @@
 import { GUEST_LAWYER_ID } from '@/app/utils/guestLawyerSession';
 
-/** إنتاج SPA ثابت (Vercel/Netlify) بدون BFF — يُفعَّل الضيف للمعاينة */
-function isStaticSpaProduction(): boolean {
-    return import.meta.env.PROD && import.meta.env.VITE_BFF_AUTH !== 'true';
-}
-
 /** معرّفات لا تُعدّ جلسة Supabase/BFF حقيقية في بوابات الواجهة (إنتاج) */
 export const SHELL_NON_AUTH_USER_IDS = new Set<string>([GUEST_LAWYER_ID, 'demo_user']);
 
 /**
- * فترة التطوير / المعاينة: فتح ميزات الواجهة بدون Supabase حقيقي.
- * - DEV: مفعّل افتراضياً
- * - إنتاج SPA ثابت (بدون VITE_BFF_AUTH): مفعّل افتراضياً — يمنع شاشة سوداء على Vercel
- * - VITE_SHELL_AUTH_OPEN=true|false: تجاوز صريح
+ * فتح ميزات الواجهة بدون Supabase حقيقي.
+ * - DEV/اختبار: مفعّل افتراضياً
+ * - إنتاج: مغلق ما لم يُطلَب صراحةً بـVITE_SHELL_AUTH_OPEN=true
+ *
+ * كان الإنتاج يُفتح ضمنياً كلّما لم يساوِ VITE_BFF_AUTH القيمة 'true' بالضبط، فكان
+ * نسيان متغيّر بيئة واحد يكفي لإلغاء تسجيل الدخول عن لوحة المحامي كاملةً.
+ * الإغلاق لا يحبس أحداً: مع إطفاء BFF يقرأ authBoot جلسة Supabase المحفوظة.
  */
 export function isShellAuthBypassed(): boolean {
     const flag = import.meta.env.VITE_SHELL_AUTH_OPEN;
     if (flag === 'false') return false;
     if (flag === 'true') return true;
     // غير الإنتاج (dev/vitest): مفتوح افتراضياً — يعتمد PROD لا DEV (stubEnv)
-    if (import.meta.env.PROD !== true) return true;
-    return isStaticSpaProduction();
+    return import.meta.env.PROD !== true;
 }
 
 export function isShellDemoUserId(userId: string | null | undefined): boolean {

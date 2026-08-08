@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Mic, Square, Sparkles, Play, Trash2 } from 'lucide-react';
+import { X, Mic, Square, Sparkles, Play, Trash2 } from '@/app/components/ui/lucideIcons';
 import { SmartToast } from '@/app/components/ui/SmartToast';
 import type { VoiceNoteSavePayload } from '@/app/components/lawyer/commandCenterTypes';
 import {
@@ -13,6 +13,19 @@ import {
     createArabicTranscriptSession,
     isSpeechRecognitionSupported,
 } from '@/app/services/voice/speechTranscription';
+import {
+    requestMicrophoneStream,
+    resolveMicrophoneAccessMessage,
+    queryMicrophonePermission,
+    watchMicrophonePermission,
+    type MicrophoneAccessErrorCode,
+    type MicrophonePermissionStatus,
+} from '@/app/services/platform/requestMicrophoneStream';
+import {
+    consumePendingMicrophoneStream,
+    hasLiveMicrophoneStream,
+} from '@/app/services/platform/microphoneSession';
+import { registerNativeBackHandler } from '@/app/runtime/capacitorAppLifecycle';
 import {
     MAX_VOICE_DURATION_SEC,
     MIN_VOICE_DURATION_SEC,
@@ -76,6 +89,11 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
     const [recordingTime, setRecordingTime] = useState(0);
     const [audioUrl, setAudioUrl] = useState<string | null>(null);
     const [savedToNotepad, setSavedToNotepad] = useState(false);
+    const [micPermission, setMicPermission] = useState<MicrophonePermissionStatus>('prompt');
+    const [micReady, setMicReady] = useState(false);
+
+    const showMicPermissionBanner = micPermission === 'denied';
+    const showMicPermissionHint = micPermission === 'prompt' && !micReady;
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const chunksRef = useRef<Blob[]>([]);
@@ -181,23 +199,40 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
 
     stopRecordingRef.current = stopRecording;
 
+    const refreshMicPermission = useCallback(async () => {
+        const status = await queryMicrophonePermission();
+        setMicPermission(status);
+        return status;
+    }, []);
+
     const startRecording = useCallback(async () => {
-        if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-            SmartToast.warning('التسجيل الصوتي غير مدعوم في هذا المتصفح');
-            return;
-        }
         if (typeof MediaRecorder === 'undefined') {
             SmartToast.warning('مسجّل الصوت غير مدعوم — جرّب Chrome أو Edge');
             return;
         }
 
         try {
-            resetRecording();
+            let stream = streamRef.current;
+            const hasLiveStream = hasLiveMicrophoneStream(stream);
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true },
-            });
-            streamRef.current = stream;
+            if (!hasLiveStream) {
+                resetRecording();
+                stream = await requestMicrophoneStream();
+                streamRef.current = stream;
+            } else {
+                chunksRef.current = [];
+                transcriptRef.current = '';
+                setLiveTranscript('');
+                setAudioUrl((prev) => {
+                    if (prev) URL.revokeObjectURL(prev);
+                    return null;
+                });
+                setRecordingTime(0);
+                durationRef.current = 0;
+                setResult(null);
+                setSavedToNotepad(false);
+            }
+
             chunksRef.current = [];
             transcriptRef.current = '';
             setLiveTranscript('');
@@ -226,6 +261,8 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
 
             recorder.start(500);
             setIsRecording(true);
+            setMicPermission('granted');
+            setMicReady(true);
             setRecordingTime(0);
             durationRef.current = 0;
             setResult(null);
@@ -242,17 +279,46 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                 }, 400);
             }
         } catch (err) {
-            const name = err instanceof DOMException ? err.name : '';
-            if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-                SmartToast.warning('يُرجى السماح بالمايكروفون من إعدادات المتصفح');
-            } else if (name === 'NotFoundError') {
-                SmartToast.warning('لم يُعثر على مايكروفون');
-            } else {
-                SmartToast.warning('تعذّر بدء التسجيل — تحقق من المايكروفون');
-            }
+            const code = (err as { hamiCode?: MicrophoneAccessErrorCode }).hamiCode;
+            if (code === 'denied') setMicPermission('denied');
+            SmartToast.warning(resolveMicrophoneAccessMessage(err, code));
             resetRecording();
         }
     }, [finalizeBlob, resetRecording, sttSupported]);
+
+    useEffect(() => {
+        let cancelled = false;
+        const pending = consumePendingMicrophoneStream();
+        if (pending && hasLiveMicrophoneStream(pending)) {
+            streamRef.current = pending;
+            setMicPermission('granted');
+            setMicReady(true);
+        } else {
+            pending?.getTracks().forEach((track) => track.stop());
+            void refreshMicPermission().then((status) => {
+                if (!cancelled) {
+                    setMicPermission(status);
+                    setMicReady(status === 'granted');
+                }
+            });
+        }
+        const stopWatch = watchMicrophonePermission((status) => {
+            if (!cancelled) {
+                setMicPermission(status);
+                if (status === 'granted') setMicReady(true);
+            }
+        });
+        const onVisible = () => {
+            if (document.visibilityState !== 'visible') return;
+            void refreshMicPermission();
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => {
+            cancelled = true;
+            stopWatch();
+            document.removeEventListener('visibilitychange', onVisible);
+        };
+    }, [refreshMicPermission]);
 
     useEffect(() => {
         let timer: ReturnType<typeof setInterval> | undefined;
@@ -319,6 +385,13 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
         return () => window.removeEventListener('keydown', onKeyDown);
     }, [requestClose]);
 
+    useEffect(() => {
+        return registerNativeBackHandler(() => {
+            requestClose();
+            return true;
+        });
+    }, [requestClose]);
+
     const primaryBtnClass = isRecording ? PEARL_BTN_STOP : PEARL_BTN_GOLD;
 
     return createPortal(
@@ -370,6 +443,46 @@ export const VoiceRecorderModal = ({ onClose, onSaveVoice }: VoiceRecorderModalP
                 </div>
 
                 <div className="space-y-4 bg-[#0E1B2E] p-5">
+                    {showMicPermissionBanner ? (
+                        <div
+                            className="rounded-2xl border border-amber-400/28 bg-amber-500/10 px-4 py-3 text-center text-xs font-medium leading-relaxed text-amber-100/90 space-y-2"
+                            data-testid="voice-recorder-permission-banner"
+                            role="status"
+                        >
+                            <p>
+                                تم رفض إذن المايكروفون — فعّله من إعدادات التطبيق أو المتصفح ثم أعد المحاولة.
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => void startRecording()}
+                                className="inline-flex min-h-[40px] items-center justify-center rounded-xl border border-amber-300/35 bg-amber-500/15 px-4 text-xs font-bold text-amber-50 hover:bg-amber-500/22 touch-manipulation"
+                                data-testid="voice-recorder-permission-retry"
+                            >
+                                إعادة المحاولة
+                            </button>
+                        </div>
+                    ) : null}
+
+                    {micReady && !showMicPermissionBanner && !isRecording && !result ? (
+                        <p
+                            className="rounded-2xl border border-emerald-400/20 bg-emerald-500/8 px-4 py-2.5 text-center text-[11px] font-medium text-emerald-100/85"
+                            data-testid="voice-recorder-mic-ready"
+                            role="status"
+                        >
+                            المايكروفون جاهز — اضغط «ابدأ التسجيل»
+                        </p>
+                    ) : null}
+
+                    {showMicPermissionHint ? (
+                        <p
+                            className="rounded-2xl border border-[#D9CFC0]/12 bg-[#132238]/72 px-4 py-3 text-center text-xs font-medium text-[#C9BCA8]/60"
+                            data-testid="voice-recorder-permission-hint"
+                            role="status"
+                        >
+                            عند الضغط على «ابدأ التسجيل» سيُطلب إذن المايكروفون.
+                        </p>
+                    ) : null}
+
                     <AnimatePresence mode="wait">
                         {!isRecording && !result && (
                             <motion.p
