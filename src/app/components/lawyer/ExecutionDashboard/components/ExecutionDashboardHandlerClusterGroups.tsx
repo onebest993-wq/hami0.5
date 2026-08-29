@@ -1,5 +1,5 @@
 import React, { Suspense } from 'react';
-import { readHandlerClusterContextValue } from '../hooks/executionDashboardCore/handlerClusterContextShared';
+import { readHandlerClusterContextValue, type HandlerClusterBridgeInput } from '../hooks/executionDashboardCore/handlerClusterContextShared';
 import type { ExecutionDashboardCoreHandlerClusterInput } from '../hooks/executionDashboardCore/executionDashboardCoreHandlerClusterTypes';
 import type { FollowupAdminSpecialHandlerClusterInput } from '../hooks/executionDashboardCore/followupAdminSpecialHandlerClusterInput';
 import type { FollowupOtherPartyHandlerClusterInput } from '../hooks/executionDashboardCore/followupOtherPartyHandlerClusterInput';
@@ -28,7 +28,7 @@ type ClusterReady = (cluster: Record<string, unknown>) => void;
 
 export type ExecutionDashboardCoerciveHandlerClusterGroupProps = {
     mountKey: string;
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     loadBaseCoerciveBridges: boolean;
     loadEmployeeAssignmentBridge: boolean;
     loadPublicationNoticeHandlerCluster: boolean;
@@ -109,7 +109,7 @@ export function ExecutionDashboardCoerciveHandlerClusterGroup({
 
 export type ExecutionDashboardSeizureHandlerClusterGroupProps = {
     mountKey: string;
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     loadSeizureRequestsHandlerCluster: boolean;
     loadSeizureLogHandlerCluster: boolean;
     onCluster: ClusterReady;
@@ -172,9 +172,9 @@ export type ExecutionDashboardFollowupHandlerClusterGroupProps = {
     mountKey: string;
     lightHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
     followupAdminSpecialHandlerClusterInput: FollowupAdminSpecialHandlerClusterInput;
-    followupDossierControlsHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupDossierControlsHandlerClusterInput: HandlerClusterBridgeInput;
     followupOtherPartyHandlerClusterInput: FollowupOtherPartyHandlerClusterInput;
-    dossierSupportHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    dossierSupportHandlerClusterInput: HandlerClusterBridgeInput;
     loadFollowupAdminSpecialHandlerCluster: boolean;
     loadFollowupDossierControlsHandlerCluster: boolean;
     loadFollowupOtherPartyHandlerCluster: boolean;

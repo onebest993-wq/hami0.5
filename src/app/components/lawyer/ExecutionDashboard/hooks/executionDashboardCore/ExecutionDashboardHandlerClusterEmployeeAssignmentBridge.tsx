@@ -1,16 +1,12 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useExecutionDashboardEmployeeAssignmentHandlers } from './useExecutionDashboardEmployeeAssignmentHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -18,7 +14,7 @@ export function ExecutionDashboardHandlerClusterEmployeeAssignmentBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterEmployeeAssignmentBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input));
 
     const employeeAssignmentHandlers = useExecutionDashboardEmployeeAssignmentHandlers({
         executionData: c.executionData,

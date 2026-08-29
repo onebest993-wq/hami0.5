@@ -1,12 +1,13 @@
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardOtherPartyHandlers } from './useExecutionDashboardOtherPartyHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import { asHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
 
 export function useExecutionDashboardCoreHandlerClusterFollowupOtherParty(
-    c: ExecutionDashboardCoreHandlerClusterInput,
+    c: FollowupOtherPartyHandlerClusterInput,
 ) {
     const { pushTimelineEventBinding, pushTimelineEvent } =
-        useExecutionDashboardCoreHandlerClusterFoundationTimeline(c);
+        useExecutionDashboardCoreHandlerClusterFoundationTimeline(asHandlerClusterInput(c));
 
     const {
         executionDataRef,

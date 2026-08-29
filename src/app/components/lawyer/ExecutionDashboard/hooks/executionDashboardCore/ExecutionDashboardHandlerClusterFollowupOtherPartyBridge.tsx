@@ -1,11 +1,12 @@
 import { useExecutionDashboardCoreHandlerClusterFollowupOtherParty } from './useExecutionDashboardCoreHandlerClusterFollowupOtherParty';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';import {
+import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
+import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupOtherPartyBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: FollowupOtherPartyHandlerClusterInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 

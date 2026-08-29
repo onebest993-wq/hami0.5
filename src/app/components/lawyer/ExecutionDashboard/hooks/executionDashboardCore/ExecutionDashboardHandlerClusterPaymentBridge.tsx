@@ -1,10 +1,7 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
+import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import { useExecutionDashboardCoreHandlerClusterCoerciveFoundation } from './useExecutionDashboardCoreHandlerClusterCoerciveFoundation';
 import { useExecutionDashboardPaymentHandlers } from './useExecutionDashboardPaymentHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
@@ -13,7 +10,7 @@ import {
 type PaymentHandlersInput = Parameters<typeof useExecutionDashboardPaymentHandlers>[0];
 
 export type ExecutionDashboardHandlerClusterPaymentBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -21,7 +18,7 @@ export function ExecutionDashboardHandlerClusterPaymentBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterPaymentBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as PaymentHandlersInput &
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input)) as PaymentHandlersInput &
         ExecutionDashboardCoreHandlerClusterInput;
     const { pushTimelineEvent } = useExecutionDashboardCoreHandlerClusterCoerciveFoundation(c);
 

@@ -1,21 +1,17 @@
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useCallback, useLayoutEffect } from 'react';
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
 import { useExecutionDashboardNotifyDebtorHandler } from './useExecutionDashboardNotifyDebtorHandler';
 import { useExecutionDashboardHeirsNotificationHandlers } from './useExecutionDashboardHeirsNotificationHandlers';
 import { useExecutionDashboardDebtorSummonsCoerciveHandlers } from './useExecutionDashboardDebtorSummonsCoerciveHandlers';
 import { useExecutionDashboardDecisionsHeirsModalExclusivity } from './useExecutionDashboardDecisionsHeirsModalExclusivity';
 import { useExecutionDashboardHeirsInvestigationSync } from './useExecutionDashboardHeirsInvestigationSync';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -23,7 +19,7 @@ export function ExecutionDashboardHandlerClusterCoerciveSupportBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveSupportBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input));
 
     const dismissDebtorAbsenceBadge = useCallback(() => {
         if (c.executionData) {

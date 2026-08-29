@@ -55,7 +55,7 @@ export function collectFullHandlerClusterContext(
         ...spreads.followupTabAssembly,
         ...spreads.followupSeizureTabs,
         ...spreads.decisionsOrchestrator,
-    } as HandlerClusterFlatContext;
+    } as unknown as HandlerClusterFlatContext;
 }
 
 export function pickHandlerClusterKeys(

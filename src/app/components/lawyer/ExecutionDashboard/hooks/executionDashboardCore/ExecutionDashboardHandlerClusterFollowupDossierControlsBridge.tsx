@@ -1,16 +1,13 @@
-import {
-    collectFollowupDossierControlsHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './collectHandlerClusterContext';
+import { asHandlerClusterSpreads, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
+import { collectFollowupDossierControlsHandlerClusterContext } from './collectHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFollowupDossierControls } from './useExecutionDashboardCoreHandlerClusterFollowupDossierControls';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterFollowupDossierControlsBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -19,7 +16,7 @@ export function ExecutionDashboardHandlerClusterFollowupDossierControlsBridge({
     onCluster,
 }: ExecutionDashboardHandlerClusterFollowupDossierControlsBridgeProps) {
     const cluster = useExecutionDashboardCoreHandlerClusterFollowupDossierControls(
-        collectFollowupDossierControlsHandlerClusterContext(input as HandlerClusterContextSpreads),
+        collectFollowupDossierControlsHandlerClusterContext(asHandlerClusterSpreads(input)),
     );
 
     usePublishHandlerClusterWhenFingerprintChanges(

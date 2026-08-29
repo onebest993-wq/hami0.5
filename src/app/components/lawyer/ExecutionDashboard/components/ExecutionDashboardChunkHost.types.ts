@@ -1,5 +1,6 @@
 import type { MutableRefObject } from 'react';
 import type { ExecutionDossierPaintFile } from '@/app/components/lawyer/dashboard/ExecutionDossierInstantFrame';
+import type { HandlerClusterBridgeInput } from '../hooks/executionDashboardCore/handlerClusterContextShared';
 import type { ExecutionDashboardCoreHandlerClusterInput } from '../hooks/executionDashboardCore/executionDashboardCoreHandlerClusterTypes';
 import type { FollowupAdminSpecialHandlerClusterInput } from '../hooks/executionDashboardCore/followupAdminSpecialHandlerClusterInput';
 import type { FollowupOtherPartyHandlerClusterInput } from '../hooks/executionDashboardCore/followupOtherPartyHandlerClusterInput';
@@ -32,13 +33,13 @@ export type ExecutionDashboardChunkHostProps = {
     loadPartyDeathHandlerCluster: boolean;
     lightHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
     followupAdminSpecialHandlerClusterInput: FollowupAdminSpecialHandlerClusterInput;
-    followupDossierControlsHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    followupDossierControlsHandlerClusterInput: HandlerClusterBridgeInput;
     followupOtherPartyHandlerClusterInput: FollowupOtherPartyHandlerClusterInput;
-    seizureHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    coerciveHeavyHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    publicationNoticeHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    dossierSupportHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
-    partyDeathHandlerClusterInput: ExecutionDashboardCoreHandlerClusterInput;
+    seizureHeavyHandlerClusterInput: HandlerClusterBridgeInput;
+    coerciveHeavyHandlerClusterInput: HandlerClusterBridgeInput;
+    publicationNoticeHandlerClusterInput: HandlerClusterBridgeInput;
+    dossierSupportHandlerClusterInput: HandlerClusterBridgeInput;
+    partyDeathHandlerClusterInput: HandlerClusterBridgeInput;
     handlerClusterMountKey: string;
     onLightHandlerClusterReady: (cluster: Record<string, unknown>) => void;
     onFollowupAdminSpecialHandlerClusterReady: (cluster: Record<string, unknown>) => void;

@@ -1,4 +1,5 @@
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
+import { asHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
 import { useExecutionDashboardOtherPartyDebtorHandlers } from './useExecutionDashboardOtherPartyDebtorHandlers';
 import {
@@ -16,7 +17,7 @@ export function ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridge({
     onCluster,
 }: ExecutionDashboardHandlerClusterFollowupOtherPartyDebtorBridgeProps) {
     const { pushTimelineEventBinding, pushTimelineEvent } =
-        useExecutionDashboardCoreHandlerClusterFoundationTimeline(input);
+        useExecutionDashboardCoreHandlerClusterFoundationTimeline(asHandlerClusterInput(input));
 
     const dossierFollowupHandlers = useExecutionDashboardOtherPartyDebtorHandlers({
         executionData: input.executionData,

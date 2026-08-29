@@ -1,10 +1,5 @@
-import {
-    handlerClusterSourceBags,
-    pickHandlerClusterKeys,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, handlerClusterSourceBags, pickHandlerClusterKeys, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useExecutionDashboardStayHandlers } from './useExecutionDashboardStayHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
@@ -13,7 +8,7 @@ import {
 type StayHandlersInput = Parameters<typeof useExecutionDashboardStayHandlers>[0];
 
 type Props = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -34,9 +29,9 @@ export function ExecutionDashboardHandlerClusterCoerciveStayBridge({
     onCluster,
 }: Props) {
     const c = pickHandlerClusterKeys(
-        handlerClusterSourceBags(input as HandlerClusterContextSpreads),
+        handlerClusterSourceBags(asHandlerClusterSpreads(input)),
         STAY_HANDLER_CLUSTER_KEYS,
-    ) as StayHandlersInput;
+    ) as unknown as StayHandlersInput;
 
     const stayHandlers = useExecutionDashboardStayHandlers({
         executionData: c.executionData,

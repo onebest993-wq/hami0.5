@@ -1,19 +1,15 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import {
     useExecutionDashboardPartyDeathHandlers,
     type UseExecutionDashboardPartyDeathHandlersParams,
 } from './useExecutionDashboardPartyDeathHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterPartyDeathBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -25,7 +21,7 @@ export function ExecutionDashboardHandlerClusterPartyDeathBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterPartyDeathBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads) as Record<
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input)) as Record<
         string,
         unknown
     >;

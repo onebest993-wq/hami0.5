@@ -1,12 +1,13 @@
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardDossierAdminFollowupHandlers } from './useExecutionDashboardDossierAdminFollowupHandlers';
+import { asHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import type { FollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
 
 export function useExecutionDashboardCoreHandlerClusterFollowupAdminSpecial(
     c: FollowupAdminSpecialHandlerClusterInput,
 ) {
     const { pushTimelineEventBinding, pushTimelineEvent } =
-        useExecutionDashboardCoreHandlerClusterFoundationTimeline(c);
+        useExecutionDashboardCoreHandlerClusterFoundationTimeline(asHandlerClusterInput(c));
 
     const {
         executionData,

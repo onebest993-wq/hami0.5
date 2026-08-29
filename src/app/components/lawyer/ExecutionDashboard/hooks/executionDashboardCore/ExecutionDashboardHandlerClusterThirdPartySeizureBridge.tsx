@@ -1,15 +1,14 @@
-import type { HandlerClusterContextSpreads } from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { collectThirdPartySeizureHandlerClusterContext } from './collectThirdPartySeizureHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFoundationTimeline } from './useExecutionDashboardCoreHandlerClusterFoundationTimeline';
 import { useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdParty } from './useExecutionDashboardCoreHandlerClusterFoundationSeizureThirdParty';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterThirdPartySeizureBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -32,7 +31,7 @@ export function ExecutionDashboardHandlerClusterThirdPartySeizureBridge({
     onCluster,
 }: ExecutionDashboardHandlerClusterThirdPartySeizureBridgeProps) {
     const resolvedInput = collectThirdPartySeizureHandlerClusterContext(
-        input as HandlerClusterContextSpreads,
+        asHandlerClusterSpreads(input),
     );
     const executionId = (resolvedInput as { executionId?: string }).executionId;
     const { pushTimelineEventBinding, pushTimelineEvent } =

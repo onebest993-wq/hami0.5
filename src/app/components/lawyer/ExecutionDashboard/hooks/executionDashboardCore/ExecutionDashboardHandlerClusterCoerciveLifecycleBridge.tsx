@@ -1,8 +1,8 @@
+import type { HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import React, { Suspense, lazy } from 'react';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 
 export type ExecutionDashboardHandlerClusterCoerciveLifecycleBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 

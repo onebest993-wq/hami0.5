@@ -1,20 +1,16 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useExecutionDashboardCoreHandlerClusterCoerciveFoundation } from './useExecutionDashboardCoreHandlerClusterCoerciveFoundation';
 import { useExecutionDashboardDebtorEmploymentHandlers } from './useExecutionDashboardDebtorEmploymentHandlers';
 import { useExecutionDashboardPersonalCoerciveDecisionSync } from './useExecutionDashboardPersonalCoerciveDecisionSync';
 import { useExecutionDashboardEmployeeInvestigationSync } from './useExecutionDashboardEmployeeInvestigationSync';
 import { useExecutionDashboardExecutiveDetentionLifecycle } from './useExecutionDashboardExecutiveDetentionLifecycle';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 type Props = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -22,7 +18,7 @@ export function ExecutionDashboardHandlerClusterCoerciveFoundationBridge({
     input,
     onCluster,
 }: Props) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input));
     const { pushTimelineEventBinding, pushTimelineEvent } =
         useExecutionDashboardCoreHandlerClusterCoerciveFoundation(c);
 

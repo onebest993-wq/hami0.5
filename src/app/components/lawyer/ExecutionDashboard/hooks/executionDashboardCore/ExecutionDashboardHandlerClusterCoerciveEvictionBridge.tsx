@@ -1,16 +1,12 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useExecutionDashboardCoreHandlerClusterCoerciveEviction } from './useExecutionDashboardCoreHandlerClusterCoerciveEviction';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveEvictionBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -34,7 +30,7 @@ export function ExecutionDashboardHandlerClusterCoerciveEvictionBridge({
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveEvictionBridgeProps) {
     const cluster = useExecutionDashboardCoreHandlerClusterCoerciveEviction(
-        collectFullHandlerClusterContext(input as HandlerClusterContextSpreads),
+        collectFullHandlerClusterContext(asHandlerClusterSpreads(input)),
     ) as Record<string, unknown>;
 
     usePublishHandlerClusterWhenFingerprintChanges(

@@ -19,10 +19,15 @@ import { pickFollowupOtherPartyHandlerClusterInput } from './followupOtherPartyH
 import { mergeHandlerClusterPatch } from './handlerClusterPublishUtils';
 import { prefetchExecutionCoreHandlers } from '../../executionCoreHandlersPrefetch';
 import type { HandlerClusterContextSpreads } from './handlerClusterContextShared';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import { asHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
+import type { FollowupAdminSpecialHandlerClusterInput } from './followupAdminSpecialHandlerClusterInput';
+import type { FollowupOtherPartyHandlerClusterInput } from './followupOtherPartyHandlerClusterInput';
 import type { ExecutionDashboardCoreWorkspacePipelineValue } from './executionDashboardCoreWorkspacePipelineTypes';
 
-const EMPTY_HANDLER_CLUSTER_INPUT = Object.freeze({}) as ExecutionDashboardCoreHandlerClusterInput;
+const EMPTY_CLUSTER = Object.freeze({});
+const EMPTY_HANDLER_CLUSTER_INPUT = asHandlerClusterInput(EMPTY_CLUSTER);
+const EMPTY_FOLLOWUP_ADMIN = EMPTY_CLUSTER as unknown as FollowupAdminSpecialHandlerClusterInput;
+const EMPTY_FOLLOWUP_OTHER = EMPTY_CLUSTER as unknown as FollowupOtherPartyHandlerClusterInput;
 
 export type ExecutionDashboardHandlerClusterHeavySpreads = HandlerClusterContextSpreads;
 
@@ -80,14 +85,14 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         if (!loadLightHandlerCluster || loadAnyHeavyHandlerCluster) {
             return EMPTY_HANDLER_CLUSTER_INPUT;
         }
-        return coreRuntimeVars;
+        return asHandlerClusterInput(coreRuntimeVars);
     }, [loadAnyHeavyHandlerCluster, loadLightHandlerCluster, coreRuntimeVars]);
 
     const followupAdminSpecialHandlerClusterInput = useMemo(
         () =>
             loadFollowupAdminSpecialHandlerCluster
                 ? pickFollowupAdminSpecialHandlerClusterInput(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+                : EMPTY_FOLLOWUP_ADMIN,
         [loadFollowupAdminSpecialHandlerCluster, handlerClusterHeavySpreads],
     );
 
@@ -95,7 +100,7 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         () =>
             loadFollowupDossierControlsHandlerCluster
                 ? handlerClusterHeavySpreads
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+                : EMPTY_CLUSTER,
         [loadFollowupDossierControlsHandlerCluster, handlerClusterHeavySpreads],
     );
 
@@ -103,25 +108,25 @@ export function useExecutionDashboardCoreHandlerClusterRuntime({
         () =>
             loadFollowupOtherPartyHandlerCluster
                 ? pickFollowupOtherPartyHandlerClusterInput(handlerClusterHeavySpreads)
-                : EMPTY_HANDLER_CLUSTER_INPUT,
+                : EMPTY_FOLLOWUP_OTHER,
         [loadFollowupOtherPartyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const seizureHeavyHandlerClusterInput = useMemo(
         () =>
-            loadSeizureHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadSeizureHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_CLUSTER,
         [loadSeizureHeavyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const coerciveHeavyHandlerClusterInput = useMemo(
         () =>
-            loadCoerciveHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadCoerciveHeavyHandlerCluster ? handlerClusterHeavySpreads : EMPTY_CLUSTER,
         [loadCoerciveHeavyHandlerCluster, handlerClusterHeavySpreads],
     );
 
     const dossierSupportHandlerClusterInput = useMemo(
         () =>
-            loadDossierSupportHandlerCluster ? handlerClusterHeavySpreads : EMPTY_HANDLER_CLUSTER_INPUT,
+            loadDossierSupportHandlerCluster ? handlerClusterHeavySpreads : EMPTY_CLUSTER,
         [loadDossierSupportHandlerCluster, handlerClusterHeavySpreads],
     );
 

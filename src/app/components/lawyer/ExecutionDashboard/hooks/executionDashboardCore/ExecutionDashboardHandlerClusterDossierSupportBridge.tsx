@@ -1,17 +1,14 @@
-import {
-    collectDossierSupportHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './collectHandlerClusterContext';
+import { asHandlerClusterSpreads, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
+import { collectDossierSupportHandlerClusterContext } from './collectHandlerClusterContext';
 import { useExecutionDashboardCoreHandlerClusterFoundationCore } from './useExecutionDashboardCoreHandlerClusterFoundationCore';
 import { useExecutionDashboardCoreHandlerClusterDossierSupport } from './useExecutionDashboardCoreHandlerClusterDossierSupport';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterDossierSupportBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -19,7 +16,7 @@ export function ExecutionDashboardHandlerClusterDossierSupportBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterDossierSupportBridgeProps) {
-    const resolvedInput = collectDossierSupportHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const resolvedInput = collectDossierSupportHandlerClusterContext(asHandlerClusterSpreads(input));
     const foundation = useExecutionDashboardCoreHandlerClusterFoundationCore(resolvedInput);
     const {
         firstActiveAppealDecisionId,

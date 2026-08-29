@@ -1,17 +1,13 @@
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
 import { useExecutionDashboardCoreHandlerClusterCoerciveActionBridge } from './useExecutionDashboardCoreHandlerClusterCoerciveActionBridge';
 import { useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers } from './useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveActionHandlersBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -19,7 +15,7 @@ export function ExecutionDashboardHandlerClusterCoerciveActionHandlersBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveActionHandlersBridgeProps) {
-    const resolvedInput = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const resolvedInput = collectFullHandlerClusterContext(asHandlerClusterSpreads(input));
     const coerciveActionBridge = useExecutionDashboardCoreHandlerClusterCoerciveActionBridge(resolvedInput);
     const { saveCoerciveAction } = coerciveActionBridge;
     const coerciveActionHandlers = useExecutionDashboardCoreHandlerClusterCoerciveActionHandlers(

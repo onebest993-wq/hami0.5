@@ -1,19 +1,15 @@
-﻿import { useMemo } from 'react';
-import {
-    collectFullHandlerClusterContext,
-    type HandlerClusterContextSpreads,
-} from './handlerClusterContextShared';
+import { asHandlerClusterSpreads, collectFullHandlerClusterContext, type HandlerClusterBridgeInput } from './handlerClusterContextShared';
+import { useMemo } from 'react';
 import { useExecutionDashboardCoreHandlerClusterCoerciveFoundation } from './useExecutionDashboardCoreHandlerClusterCoerciveFoundation';
 import { useExecutionDashboardNotesTasksHandlers } from './useExecutionDashboardNotesTasksHandlers';
 import { useExecutionDashboardAppointmentHandlers } from './useExecutionDashboardAppointmentHandlers';
-import type { ExecutionDashboardCoreHandlerClusterInput } from './executionDashboardCoreHandlerClusterTypes';
 import {
     handlerBagKeyFingerprint,
     usePublishHandlerClusterWhenFingerprintChanges,
 } from './handlerClusterPublishUtils';
 
 export type ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps = {
-    input: ExecutionDashboardCoreHandlerClusterInput;
+    input: HandlerClusterBridgeInput;
     onCluster: (cluster: Record<string, unknown>) => void;
 };
 
@@ -21,7 +17,7 @@ export function ExecutionDashboardHandlerClusterCoerciveOpsBridge({
     input,
     onCluster,
 }: ExecutionDashboardHandlerClusterCoerciveOpsBridgeProps) {
-    const c = collectFullHandlerClusterContext(input as HandlerClusterContextSpreads);
+    const c = collectFullHandlerClusterContext(asHandlerClusterSpreads(input));
     const { pushTimelineEventBinding, pushTimelineEvent } =
         useExecutionDashboardCoreHandlerClusterCoerciveFoundation(c);
 
