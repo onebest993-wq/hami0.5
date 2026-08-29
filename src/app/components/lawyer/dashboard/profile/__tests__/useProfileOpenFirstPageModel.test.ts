@@ -3,6 +3,8 @@ import { act, renderHook } from '@testing-library/react';
 import { useProfileOpenFirstPageModel } from '@/app/components/lawyer/dashboard/profile/useProfileOpenFirstPageModel';
 import {
     consumeProfileCoverCustomization,
+    consumeProfileCoverEdit,
+    consumeProfileCoverStudio,
     resetProfileCoverIntentsForTests,
 } from '@/app/components/lawyer/dashboard/profile/profileCoverIntents';
 import { invalidateProfileWarmCache, setProfileWarmCache } from '@/app/services/profile/profileWarmCache';
@@ -94,16 +96,24 @@ describe('useProfileOpenFirstPageModel', () => {
         expect(consumeProfileCoverCustomization()?.privacy.pageAccess).toBe('followers');
     });
 
-    it('بلا مشاهد معروف — readOnly (fail-closed)', () => {
+    it('بلا مشاهد معروف — readOnly ولا نية مالك (fail-closed)', () => {
         vi.mocked(useAuthUser).mockReturnValue(null);
         const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
         expect(result.current.readOnly).toBe(true);
+        result.current.startEdit();
+        result.current.openSettings();
+        expect(consumeProfileCoverEdit()).toBe(false);
+        expect(consumeProfileCoverStudio()).toBe(false);
     });
 
-    it('زائر على غطاء غير مالكه — readOnly', () => {
+    it('زائر على غطاء غير مالكه — readOnly ولا نية مالك', () => {
         vi.mocked(useAuthUser).mockReturnValue({ id: 'viewer-9' } as import('@supabase/supabase-js').User);
         const { result } = renderHook(() => useProfileOpenFirstPageModel('lawyer-1', () => undefined));
         expect(result.current.readOnly).toBe(true);
+        result.current.startEdit();
+        result.current.openSettings();
+        expect(consumeProfileCoverEdit()).toBe(false);
+        expect(consumeProfileCoverStudio()).toBe(false);
     });
 
     it('المالك بعد معرفة المشاهد — ليس readOnly', () => {
