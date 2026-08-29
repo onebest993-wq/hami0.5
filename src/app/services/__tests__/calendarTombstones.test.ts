@@ -17,9 +17,32 @@ vi.mock('@/app/services/SecureStoreService', () => ({
     },
 }));
 
+const canReachProtectedServerNetwork = vi.fn(() => true);
+const isLawyerWorkCloudLive = vi.fn(() => true);
+
+vi.mock('@/app/utils/liveAuthUserId', () => ({
+    getLiveAuthUserId: () => 'user-1',
+}));
+
+vi.mock('@/app/services/secureApiNetworkFeatures', () => ({
+    canReachProtectedServerNetwork: (...args: unknown[]) => canReachProtectedServerNetwork(...args),
+}));
+
+vi.mock('@/app/services/settings/lawyerWorkCloudGate', () => ({
+    isLawyerWorkCloudLive: () => true,
+    isWorkLocalKvMaterial: () => false,
+}));
+
+vi.mock('@/app/services/settings/lawyerWorkCloudGate', () => ({
+    isLawyerWorkCloudLive: () => isLawyerWorkCloudLive(),
+    isWorkLocalKvMaterial: () => false,
+}));
+
 describe('calendarTombstones', () => {
     beforeEach(async () => {
         fetchSecureSpy.mockClear().mockResolvedValue({ ok: true });
+        canReachProtectedServerNetwork.mockReset().mockReturnValue(true);
+        isLawyerWorkCloudLive.mockReset().mockReturnValue(true);
         if (typeof localStorage !== 'undefined') {
             try {
                 localStorage.removeItem('hami:calendar:tombstones:v1');
@@ -101,6 +124,24 @@ describe('calendarTombstones', () => {
         await recordTombstone('', 'evt');
         await recordTombstone('uid', '');
         await clearTombstone('', 'evt');
+        expect(fetchSecureSpy).not.toHaveBeenCalled();
+    });
+
+    it('لا يستدعي السحابة عندما البوابة الشبكية مغلقة', async () => {
+        canReachProtectedServerNetwork.mockReturnValue(false);
+        const { recordTombstone, loadTombstoneIds } = await import('../calendarTombstones');
+        await recordTombstone('user-1', 'event-1');
+        await loadTombstoneIds('user-1');
+        await new Promise((r) => setTimeout(r, 30));
+        expect(fetchSecureSpy).not.toHaveBeenCalled();
+    });
+
+    it('لا يستدعي السحابة عندما مزامنة العمل مطفأة', async () => {
+        isLawyerWorkCloudLive.mockReturnValue(false);
+        const { recordTombstone, loadTombstoneIds } = await import('../calendarTombstones');
+        await recordTombstone('user-1', 'event-1');
+        await loadTombstoneIds('user-1');
+        await new Promise((r) => setTimeout(r, 30));
         expect(fetchSecureSpy).not.toHaveBeenCalled();
     });
 });

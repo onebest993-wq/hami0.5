@@ -1,5 +1,6 @@
 import { SupabaseService, type ExecutionFileDTO_Supabase } from '@/app/services/SupabaseService';
 import { isExecutionDossierTombstoned } from '@/app/utils/executionDossierTombstones';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { debug } from '@/app/utils/debug';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -17,6 +18,7 @@ function idOf(item: unknown): string | null {
 function updatedAtMsOf(item: unknown): number {
     if (!isRecord(item)) return 0;
     const v = item.updatedAt;
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
     if (typeof v !== 'string') return 0;
     const t = Date.parse(v);
     return Number.isNaN(t) ? 0 : t;
@@ -87,6 +89,9 @@ export async function pushDirtyExecutionFilesToCloud(
     localRows: unknown[],
     cloudRows: unknown[],
 ): Promise<{ attempted: number; succeeded: number }> {
+    if (!isLiveCloudSyncBucketEnabled('execution')) {
+        return { attempted: 0, succeeded: 0 };
+    }
     const candidates = selectExecutionRowsToPush(localRows, cloudRows).slice(0, MAX_PUSH_PER_CYCLE);
     let succeeded = 0;
     for (const row of candidates) {

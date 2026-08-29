@@ -5,6 +5,7 @@ import {
     putForumBlob,
 } from '@/app/services/forumBlobStore';
 import { LawyerStorage } from '@/app/services/lawyer-cloud';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { inferRepositoryMimeType } from './components/repositoryMedia';
 import { withForumAsyncTimeout } from './forumAsync';
 import {
@@ -84,6 +85,7 @@ export async function resolveRepositoryStorageUrl(storagePath: string | undefine
     }
 
     if (!storagePath.startsWith('idb:forum:')) {
+        if (!isLawyerWorkCloudLive()) return null;
         return withForumAsyncTimeout(
             LawyerStorage.getSignedUrl(storagePath),
             SIGNED_URL_TIMEOUT_MS,

@@ -1,8 +1,9 @@
-import { FollowDB } from '@/app/services/cloud/lawyerCommunityCloud';
+import { FollowDB } from '@/app/services/cloud/lawyerCommunityFollowDb';
 import type { FollowRecord } from '@/app/services/cloud/lawyerCommunityTypes';
 import { loadForumSupabaseAdmin } from './loadForumSupabaseAdmin';
 
 import type { ForumFollowPrefs, ForumFollowRecord } from './forumFollowTypes';
+import { readSecureJsonRaw, persistSecureJsonValue } from '@/app/services/storage/syncSecureJson';
 
 const DEFAULT_PREFS: ForumFollowPrefs = {
     notifyPosts: true,
@@ -24,9 +25,8 @@ function rowToRecord(row: Record<string, unknown>): ForumFollowRecord {
 }
 
 async function loadLocalPrefs(): Promise<Record<string, ForumFollowPrefs>> {
-    if (typeof window === 'undefined') return {};
     try {
-        const raw = window.localStorage.getItem(PREFS_LOCAL_KEY);
+        const raw = await readSecureJsonRaw(PREFS_LOCAL_KEY);
         if (!raw) return {};
         const parsed = JSON.parse(raw) as Record<string, ForumFollowPrefs>;
         return parsed && typeof parsed === 'object' ? parsed : {};
@@ -36,12 +36,7 @@ async function loadLocalPrefs(): Promise<Record<string, ForumFollowPrefs>> {
 }
 
 async function saveLocalPrefs(map: Record<string, ForumFollowPrefs>): Promise<void> {
-    if (typeof window === 'undefined') return;
-    try {
-        window.localStorage.setItem(PREFS_LOCAL_KEY, JSON.stringify(map));
-    } catch {
-        /* silent */
-    }
+    await persistSecureJsonValue(PREFS_LOCAL_KEY, map);
 }
 
 function prefsKey(followerId: string, followingId: string): string {

@@ -1,11 +1,16 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 import { debug } from '@/app/utils/debug';
 import type { TimelineEvent } from '@/app/types/execution';
 import type { TimelineEventDbRow } from '@/app/types/supabase-timeline';
 
+function canReachExecutionTimelineCloud(): boolean {
+    return isLiveCloudSyncBucketEnabled('execution');
+}
+
 /**
  * إدراج حدث زمني عبر WIFE BFF.
- * يتجاهل الفشل بهدوء إن لم يكن الخادم متاحاً أو المستخدم غير مسجّل.
+ * محلي بالكامل حتى تُفعَّل مزامنة التنفيذ — الفشل عند التزامن يُتجاهل بهدوء.
  */
 export async function insertTimelineEventToSupabase(params: {
     executionFileId: string;
@@ -14,6 +19,7 @@ export async function insertTimelineEventToSupabase(params: {
 }): Promise<void> {
     const { executionFileId, event, snapshotData } = params;
     if (!executionFileId || executionFileId === 'undefined') return;
+    if (!canReachExecutionTimelineCloud()) return;
 
     try {
         await SecureAPIClient.fetchSecure('/api/timeline-events', {
@@ -33,6 +39,7 @@ export async function fetchTimelineEventsFromSupabase(
     executionFileId: string
 ): Promise<TimelineEventDbRow[]> {
     if (!executionFileId || executionFileId === 'undefined') return [];
+    if (!canReachExecutionTimelineCloud()) return [];
 
     try {
         const res = await SecureAPIClient.fetchSecure<{ ok: boolean; rows?: TimelineEventDbRow[] }>(

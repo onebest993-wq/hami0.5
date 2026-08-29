@@ -1,18 +1,21 @@
-﻿import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { UserRole } from '@/app/types/admin-types';
 import SecureStoreService from '@/app/services/SecureStoreService';
-import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
-import { lawyerCloudKv as kv, uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
+import { uuidv4 } from '@/app/services/cloud/lawyerCloudKv';
 import { isVaultIdbStoragePath } from '@/app/services/vault/vaultBlobPathLite';
 import { compareCommunityPostsForFeed } from '@/app/services/forum/forumUrgentConsultation';
-import { ForumFollowRepository } from '@/app/services/forum/forumFollowRepository';
+import {
+    persistSecurePayloadWhenReady,
+    readSecureOrDrainLegacySync,
+    readSecurePayloadWhenReady,
+    writeSecureAndClearLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 import type {
     BanRecord,
     CommunityAttachment,
     CommunityComment,
     CommunityPost,
     CommunityReport,
-    FollowRecord,
     ForumEditHistoryEntry,
 } from '@/app/services/cloud/lawyerCommunityTypes';
 
@@ -52,7 +55,6 @@ async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
 
 const COMMUNITY_LOCAL_KEY = 'hami:community:posts:v1';
 const COMMUNITY_DELETED_IDS_KEY = 'hami:community:deleted-ids:v1';
-const COMMUNITY_SECURE_READY_MS = 4_000;
 const ANONYMOUS_FORUM_AUTHOR_ID = '__anonymous__';
 const DEV_SERVER_FORUM_STORE = Symbol.for('HAMI_DEV_COMMUNITY_POSTS_V1');
 const DEV_SERVER_DELETED_STORE = Symbol.for('HAMI_DEV_COMMUNITY_DELETED_IDS_V1');
@@ -76,28 +78,11 @@ function parseCommunityPostsRaw(raw: string | null | undefined): CommunityPost[]
     }
 }
 
-/** ┘é╪▒╪د╪ة╪ر ┘┘ê╪▒┘è╪ر ظ¤ localStorage mirror ╪س┘à SecureStore sync cache */
+/** قراءة فورية — SecureStore ثم ترحيل مرآة localStorage القديمة */
 function readCommunityPostsFromMirrors(): CommunityPost[] | null {
-    if (typeof localStorage !== 'undefined') {
-        try {
-            if (localStorage.getItem(COMMUNITY_LOCAL_KEY) !== null) {
-                const parsed = parseCommunityPostsRaw(localStorage.getItem(COMMUNITY_LOCAL_KEY)) ?? [];
-                return parsed;
-            }
-        } catch {
-            /* fall through */
-        }
-    }
-    try {
-        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_LOCAL_KEY);
-        if (syncRaw != null) {
-            const parsed = parseCommunityPostsRaw(syncRaw) ?? [];
-            return parsed;
-        }
-    } catch {
-        /* fall through */
-    }
-    return null;
+    const raw = readSecureOrDrainLegacySync(COMMUNITY_LOCAL_KEY);
+    if (raw == null) return null;
+    return parseCommunityPostsRaw(raw);
 }
 
 async function loadLocalCommunityPosts(): Promise<CommunityPost[]> {
@@ -109,31 +94,24 @@ async function loadLocalCommunityPosts(): Promise<CommunityPost[]> {
     if (mirrored !== null) return mirrored;
 
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
-        ]);
-        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_LOCAL_KEY);
-        const fromSync = parseCommunityPostsRaw(syncRaw);
-        if (fromSync !== null) return fromSync;
-        const raw = await SecureStoreService.getItem(COMMUNITY_LOCAL_KEY);
+        const raw = await readSecurePayloadWhenReady(COMMUNITY_LOCAL_KEY);
         return parseCommunityPostsRaw(raw) ?? [];
     } catch {
         return readCommunityPostsFromMirrors() ?? [];
     }
 }
 
+/**
+ * `hami:community:posts:v1` مفتاح محمي: حارس المسح يرفض استبداله بمصفوفة فارغة.
+ * الحفظ يكتب SecureStore أولاً ويمحو مرآة localStorage — لا تظليل بـ `[]` صريح.
+ *
+ * الحذف المقصود يُرشَّح من `hami:community:deleted-ids:v1`، لا بكون المصفوفة فارغة.
+ */
 async function persistCommunityPostsToSecureStore(payload: string): Promise<void> {
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
-        ]);
-        const existing = await SecureStoreService.getItem(COMMUNITY_LOCAL_KEY);
-        if (existing === payload) return;
-        await SecureStoreService.setItem(COMMUNITY_LOCAL_KEY, payload);
+        await persistSecurePayloadWhenReady(COMMUNITY_LOCAL_KEY, payload);
     } catch {
-        /* localStorage mirror already written */
+        /* setItemSync يملأ الكاش إن نجح */
     }
 }
 
@@ -144,12 +122,18 @@ async function saveLocalCommunityPosts(posts: CommunityPost[]): Promise<void> {
         return;
     }
     const payload = JSON.stringify(posts);
-    try {
-        window.localStorage.setItem(COMMUNITY_LOCAL_KEY, payload);
-    } catch (error) {
-        void error;
-    }
+    writeSecureAndClearLegacySync(COMMUNITY_LOCAL_KEY, payload);
     void persistCommunityPostsToSecureStore(payload);
+}
+
+/** يثبّت منشوراً في SecureStore فوراً دون انتظار قفل/KV */
+export function syncCommunityPostToLocalMirror(post: CommunityPost): void {
+    if (typeof window === 'undefined') return;
+    const normalized = normalizeCommunityPost(post);
+    if (!normalized) return;
+    const mirrored = readCommunityPostsFromMirrors() ?? [];
+    const merged = sortCommunityPosts(mergePostsById(mirrored, [normalized]));
+    writeSecureAndClearLegacySync(COMMUNITY_LOCAL_KEY, JSON.stringify(merged));
 }
 
 let communityPostsWriteChain: Promise<void> = Promise.resolve();
@@ -182,39 +166,18 @@ function parseDeletedCommunityPostIdsRaw(raw: string | null | undefined): Set<st
     }
 }
 
-/** ┘é╪▒╪د╪ة╪ر ┘┘ê╪▒┘è╪ر ظ¤ localStorage mirror ╪س┘à SecureStore sync cache */
+/** قراءة فورية — SecureStore ثم ترحيل مرآة localStorage القديمة */
 function readDeletedCommunityPostIdsFromMirrors(): Set<string> | null {
-    if (typeof localStorage !== 'undefined') {
-        try {
-            if (localStorage.getItem(COMMUNITY_DELETED_IDS_KEY) !== null) {
-                return parseDeletedCommunityPostIdsRaw(localStorage.getItem(COMMUNITY_DELETED_IDS_KEY));
-            }
-        } catch {
-            /* fall through */
-        }
-    }
-    try {
-        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_DELETED_IDS_KEY);
-        if (syncRaw != null) {
-            return parseDeletedCommunityPostIdsRaw(syncRaw);
-        }
-    } catch {
-        /* fall through */
-    }
-    return null;
+    const raw = readSecureOrDrainLegacySync(COMMUNITY_DELETED_IDS_KEY);
+    if (raw == null) return null;
+    return parseDeletedCommunityPostIdsRaw(raw);
 }
 
 async function persistDeletedCommunityPostIdsToSecureStore(payload: string): Promise<void> {
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
-        ]);
-        const existing = await SecureStoreService.getItem(COMMUNITY_DELETED_IDS_KEY);
-        if (existing === payload) return;
-        await SecureStoreService.setItem(COMMUNITY_DELETED_IDS_KEY, payload);
+        await persistSecurePayloadWhenReady(COMMUNITY_DELETED_IDS_KEY, payload);
     } catch {
-        /* localStorage mirror already written */
+        /* setItemSync يملأ الكاش إن نجح */
     }
 }
 
@@ -223,31 +186,11 @@ async function loadDeletedCommunityPostIds(): Promise<Set<string>> {
         return new Set(getServerDevDeletedIds());
     }
 
-    if (typeof localStorage !== 'undefined') {
-        try {
-            const raw = localStorage.getItem(COMMUNITY_DELETED_IDS_KEY);
-            if (raw !== null) {
-                return parseDeletedCommunityPostIdsRaw(raw);
-            }
-            return new Set();
-        } catch {
-            /* fall through */
-        }
-    }
-
     const mirrored = readDeletedCommunityPostIdsFromMirrors();
     if (mirrored !== null) return mirrored;
 
     try {
-        await Promise.race([
-            SecureStoreService.ensurePersistedReady(),
-            new Promise<void>((resolve) => setTimeout(resolve, COMMUNITY_SECURE_READY_MS)),
-        ]);
-        const syncRaw = SecureStoreService.getItemSync(COMMUNITY_DELETED_IDS_KEY);
-        if (syncRaw != null) {
-            return parseDeletedCommunityPostIdsRaw(syncRaw);
-        }
-        const raw = await SecureStoreService.getItem(COMMUNITY_DELETED_IDS_KEY);
+        const raw = await readSecurePayloadWhenReady(COMMUNITY_DELETED_IDS_KEY);
         return parseDeletedCommunityPostIdsRaw(raw);
     } catch {
         return new Set();
@@ -261,11 +204,7 @@ async function saveDeletedCommunityPostIds(ids: Set<string>): Promise<void> {
         return;
     }
     const payload = JSON.stringify([...ids]);
-    try {
-        window.localStorage.setItem(COMMUNITY_DELETED_IDS_KEY, payload);
-    } catch {
-        /* optional mirror */
-    }
+    writeSecureAndClearLegacySync(COMMUNITY_DELETED_IDS_KEY, payload);
     void persistDeletedCommunityPostIdsToSecureStore(payload);
 }
 
@@ -555,27 +494,6 @@ function mergePostsById(localPosts: CommunityPost[], remotePosts: CommunityPost[
     return mergeCommunityPostsById(localPosts, remotePosts);
 }
 
-let communityKvMergeInflight: Promise<void> | null = null;
-
-async function mergeCommunityPostsFromKvInBackground(
-    localBaseline: CommunityPost[],
-    deletedIds: Set<string>,
-): Promise<void> {
-    if (!isKvProxyNetworkEnabled()) return;
-    try {
-        const res = await kv.getByPrefix('community:posts:');
-        const remotePosts = Array.isArray(res)
-            ? res.map((p) => normalizeCommunityPost(p)).filter((p): p is CommunityPost => p !== null)
-            : [];
-        const merged = sortCommunityPosts(
-            filterDeletedCommunityPosts(mergePostsById(localBaseline, remotePosts), deletedIds),
-        );
-        await saveLocalCommunityPosts(merged);
-    } catch {
-        /* background sync ظ¤ ┘╪د ┘┘╪╣╪╖┘ّ┘ ╪د┘╪ز┘╪د╪╣┘ */
-    }
-}
-
 async function findLocalCommunityPostById(postId: string): Promise<CommunityPost | null> {
     const mirrored = readCommunityPostsFromMirrors();
     const rawPosts = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
@@ -594,15 +512,6 @@ export const CommunityDB = {
             .filter((p): p is CommunityPost => p !== null);
         const withoutDeleted = filterDeletedCommunityPosts(localPosts, deletedIds);
         const sorted = sortCommunityPosts(withoutDeleted);
-
-        if (isKvProxyNetworkEnabled() && !communityKvMergeInflight) {
-            communityKvMergeInflight = mergeCommunityPostsFromKvInBackground(withoutDeleted, deletedIds).finally(
-                () => {
-                    communityKvMergeInflight = null;
-                },
-            );
-        }
-
         return sorted;
     },
 
@@ -618,9 +527,6 @@ export const CommunityDB = {
                 return bPin - aPin || Date.parse(b.createdAt) - Date.parse(a.createdAt);
             });
             await saveLocalCommunityPosts(merged);
-            if (isKvProxyNetworkEnabled()) {
-                void kv.set(`community:posts:${normalized.id}`, normalized).catch(() => undefined);
-            }
         });
     },
 
@@ -628,11 +534,15 @@ export const CommunityDB = {
     async persistPostsBatch(posts: CommunityPost[]): Promise<void> {
         return withCommunityPostsWriteLock(async () => {
             const deletedIds = await loadDeletedCommunityPostIds();
-            const normalized = posts
+            const incoming = posts
                 .map((p) => normalizeCommunityPost(p))
                 .filter((p): p is CommunityPost => p !== null);
-            const filtered = filterDeletedCommunityPosts(normalized, deletedIds);
-            await saveLocalCommunityPosts(sortCommunityPosts(filtered));
+            const mirrored = readCommunityPostsFromMirrors();
+            const existing = mirrored !== null ? mirrored : await loadLocalCommunityPosts();
+            const merged = sortCommunityPosts(
+                filterDeletedCommunityPosts(mergePostsById(existing, incoming), deletedIds),
+            );
+            await saveLocalCommunityPosts(merged);
         });
     },
 
@@ -649,20 +559,11 @@ export const CommunityDB = {
             if (attachmentPath && !attachmentPath.startsWith('idb:forum:')) {
                 void removeStoragePathsBestEffort([attachmentPath]);
             }
-
-            if (isKvProxyNetworkEnabled()) {
-                void kv.del(`community:posts:${postId}`).catch(() => undefined);
-            }
         });
     },
 
-    async saveReport(report: CommunityReport): Promise<void> {
-        if (!isKvProxyNetworkEnabled()) return;
-        try {
-            await kv.set(`community:reports:${report.id}`, report);
-        } catch {
-            /* ignore */
-        }
+    async saveReport(_report: CommunityReport): Promise<void> {
+        /* تقارير المنتدى في Postgres عبر BFF — KV community:reports: مرفوض */
     },
 };
 
@@ -926,132 +827,32 @@ export async function reportCommunityPost(
 }
 
 export async function getCommunityReports(): Promise<CommunityReport[]> {
-    try {
-        const res = await kv.getByPrefix('community:reports:');
-        return Array.isArray(res) ? res.filter((r): r is CommunityReport => {
-            if (!r || typeof r !== 'object') return false;
-            const o = r as Record<string, unknown>;
-            return typeof o.id === 'string' && typeof o.postId === 'string' && typeof o.reason === 'string' && typeof o.status === 'string';
-        }) : [];
-    } catch {
-        return [];
-    }
+    return [];
 }
 
-export async function dismissCommunityReport(reportId: string, reviewerId: string): Promise<void> {
-    try {
-        const raw = await kv.get(`community:reports:${reportId}`);
-        if (!raw) return;
-        const report = raw as CommunityReport;
-        report.status = 'dismissed';
-        report.reviewedById = reviewerId;
-        report.reviewedAt = new Date().toISOString();
-        await kv.set(`community:reports:${reportId}`, report);
-    } catch {
-        // silent
-    }
+export async function dismissCommunityReport(_reportId: string, _reviewerId: string): Promise<void> {
+    /* بلاغات المقر/المنتدى تُحسم في Postgres */
 }
-
-// --- BAN SYSTEM ---
 
 export const BanDB = {
-    async banUser(record: BanRecord): Promise<void> {
-        await kv.set(`banned:users:${record.userId}`, record);
+    async banUser(_record: BanRecord): Promise<void> {
+        /* الحظر في forum_bans عبر BFF — KV banned:users: مرفوض */
     },
 
-    async unbanUser(userId: string): Promise<void> {
-        await kv.del(`banned:users:${userId}`);
-    },
+    async unbanUser(_userId: string): Promise<void> {},
 
-    async isBanned(userId: string): Promise<BanRecord | null> {
-        try {
-            const raw = await kv.get(`banned:users:${userId}`);
-            if (!raw || typeof raw !== 'object') return null;
-            const r = raw as BanRecord;
-            if (r.expiresAt && Date.now() > Date.parse(r.expiresAt)) {
-                await kv.del(`banned:users:${userId}`);
-                return null;
-            }
-            return r.userId ? (raw as BanRecord) : null;
-        } catch {
-            return null;
-        }
+    async isBanned(_userId: string): Promise<BanRecord | null> {
+        return null;
     },
 
     async listBannedUsers(): Promise<BanRecord[]> {
-        try {
-            const res = await kv.getByPrefix('banned:users:');
-            return Array.isArray(res) ? res.filter((r): r is BanRecord => {
-                if (!r || typeof r !== 'object') return false;
-                const o = r as Record<string, unknown>;
-                return typeof o.userId === 'string';
-            }) : [];
-        } catch {
-            return [];
-        }
+        return [];
     },
 };
 
 // --- FOLLOW SYSTEM ---
 
-export const FollowDB = {
-    async follow(followerId: string, followingId: string): Promise<void> {
-        if (followerId === followingId) return;
-        const record: FollowRecord = { followerId, followingId, createdAt: new Date().toISOString() };
-        await kv.set(`follow:${followerId}:${followingId}`, record);
-    },
-
-    async unfollow(followerId: string, followingId: string): Promise<void> {
-        await kv.del(`follow:${followerId}:${followingId}`);
-    },
-
-    async isFollowing(followerId: string, followingId: string): Promise<boolean> {
-        try {
-            const raw = await kv.get(`follow:${followerId}:${followingId}`);
-            return !!raw && typeof raw === 'object' && !!(raw as FollowRecord).followerId;
-        } catch {
-            return false;
-        }
-    },
-
-    async getFollowers(userId: string): Promise<FollowRecord[]> {
-        try {
-            const all = await kv.getByPrefix('follow:');
-            if (!Array.isArray(all)) return [];
-            return all.filter((r): r is FollowRecord => {
-                if (!r || typeof r !== 'object') return false;
-                const o = r as Record<string, unknown>;
-                return typeof o.followerId === 'string' && typeof o.followingId === 'string' && o.followingId === userId;
-            }).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-        } catch {
-            return [];
-        }
-    },
-
-    async getFollowing(userId: string): Promise<FollowRecord[]> {
-        try {
-            const all = await kv.getByPrefix('follow:');
-            if (!Array.isArray(all)) return [];
-            return all.filter((r): r is FollowRecord => {
-                if (!r || typeof r !== 'object') return false;
-                const o = r as Record<string, unknown>;
-                return typeof o.followerId === 'string' && typeof o.followingId === 'string' && o.followerId === userId;
-            }).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
-        } catch {
-            return [];
-        }
-    },
-
-    async getFollowerCount(userId: string): Promise<number> {
-        const followers = await this.getFollowers(userId);
-        return followers.length;
-    },
-
-    async getFollowingCount(userId: string): Promise<number> {
-        const following = await this.getFollowing(userId);
-        return following.length;
-    },
-};
+export { FollowDB } from '@/app/services/cloud/lawyerCommunityFollowDb';
 
 export async function getUserPostCount(userId: string): Promise<number> {
     try {
@@ -1069,6 +870,7 @@ export async function notifyFollowers(userId: string, type: 'new_post' | 'new_do
             await dispatchFollowedUserNewDocument({ authorId: userId, title, message, docId: postId });
             return;
         }
+        const { ForumFollowRepository } = await import('@/app/services/forum/forumFollowRepository');
         const followers = await ForumFollowRepository.getFollowers(userId);
         for (const f of followers) {
             if (!f.notifyPosts) continue;

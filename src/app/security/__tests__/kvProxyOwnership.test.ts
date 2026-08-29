@@ -52,18 +52,26 @@ describe('kv-proxy ownership — PRIVATE keys', () => {
 });
 
 describe('kv-proxy ownership — READABLE_GLOBAL', () => {
-    it('يسمح بالقراءة من community/repository/banned للجميع', () => {
-        expect(isKeyOwnedBy('community:posts:abc', ME, 'read')).toBe(true);
-        expect(isKeyOwnedBy('community:reports:xyz', ME, 'read')).toBe(true);
-        expect(isKeyOwnedBy('repository:docs:legal-doc-1', ME, 'read')).toBe(true);
-        expect(isKeyOwnedBy('banned:users:somebody', ME, 'read')).toBe(true);
+    it('يسمح فقط بقراءة المحتوى العام غير الحساس', () => {
+        expect(isKeyOwnedBy('community:posts:abc', ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy('repository:docs:legal-doc-1', ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy(`repository:docs:${ME}:legal-doc-1`, ME, 'read')).toBe(true);
         expect(isKeyOwnedBy(`follow:${OTHER}:${ME}`, ME, 'read')).toBe(true);
+        expect(isKeyOwnedBy(`follow:${ME}:${OTHER}`, ME, 'read')).toBe(true);
+        expect(isKeyOwnedBy(`follow:${OTHER}:stranger-id`, ME, 'read')).toBe(false);
     });
 
-    it('يرفض الكتابة المباشرة على community/repository', () => {
+    it('يحجب البلاغات والحظر عن KV العام', () => {
+        expect(isKeyOwnedBy('community:reports:xyz', ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy('banned:users:somebody', ME, 'read')).toBe(false);
+    });
+
+    it('يرفض الكتابة المباشرة على community/repository غير المملوك', () => {
         expect(isKeyOwnedBy('community:posts:abc', ME, 'write')).toBe(false);
         expect(isKeyOwnedBy('community:reports:xyz', ME, 'write')).toBe(false);
         expect(isKeyOwnedBy('repository:docs:legal-doc-1', ME, 'write')).toBe(false);
+        expect(isKeyOwnedBy(`repository:docs:${ME}:legal-doc-1`, ME, 'write')).toBe(true);
+        expect(isKeyOwnedBy(`repository:docs:${OTHER}:legal-doc-1`, ME, 'write')).toBe(false);
         expect(isKeyOwnedBy('banned:users:somebody', ME, 'write')).toBe(false);
     });
 });
@@ -73,42 +81,69 @@ describe('kv-proxy ownership — follow', () => {
         expect(isKeyOwnedBy(`follow:${ME}:${OTHER}`, ME, 'write')).toBe(true);
     });
 
-    it('يرفض كتابة follow على متابعة شخص آخر', () => {
-        expect(isKeyOwnedBy(`follow:${OTHER}:${ME}`, ME, 'write')).toBe(false);
+    it('يرفض قراءة متابعة بين طرفين أجنبيين', () => {
+        expect(isKeyOwnedBy(`follow:${OTHER}:stranger-id`, ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy(`follow:${OTHER}:stranger-id`, ME, 'write')).toBe(false);
+    });
+
+    it('لا يخلط followers: مع follow: ولا يسمح بزرع متابِع مزيف', () => {
+        expect(isKeyOwnedBy(`followers:${ME}:${OTHER}`, ME, 'write')).toBe(false);
+        expect(isKeyOwnedBy(`followers:${ME}:${OTHER}`, OTHER, 'write')).toBe(true);
+        expect(isKeyOwnedBy(`followers:${ME}:${OTHER}`, ME, 'read')).toBe(true);
+        expect(isKeyOwnedBy(`followers:${OTHER}:${ME}`, ME, 'write')).toBe(true);
+        expect(isKeyOwnedBy(`followers:${OTHER}:stranger-id`, ME, 'read')).toBe(false);
+        expect(isKeyOwnedBy(`followers:${OTHER}:stranger-id`, ME, 'write')).toBe(false);
     });
 });
 
 describe('kv-proxy ownership — getByPrefix', () => {
     it('يسمح بـ prefix يخص نفس المستخدم', () => {
-        expect(isPrefixOwnedBy(`calendar:${ME}:`, ME)).toBe(true);
-        expect(isPrefixOwnedBy(`user:${ME}:cases:`, ME)).toBe(true);
-        expect(isPrefixOwnedBy(`urgentActions:${ME}:`, ME)).toBe(true);
-        expect(isPrefixOwnedBy(`vault:docs:${ME}:`, ME)).toBe(true);
-        expect(isPrefixOwnedBy(`transactionsThreading:${ME}:`, ME)).toBe(true);
+        expect(isPrefixOwnedBy(`calendar:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`user:${ME}:cases:`, ME, 'write')).toBe(true);
+        expect(isPrefixOwnedBy(`urgentActions:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`vault:docs:${ME}:`, ME, 'write')).toBe(true);
+        expect(isPrefixOwnedBy(`transactionsThreading:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`follow:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`follow:${ME}:`, ME, 'write')).toBe(true);
+        expect(isPrefixOwnedBy(`followers:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`followers:${ME}:`, ME, 'write')).toBe(true);
+        expect(isPrefixOwnedBy(`repository:docs:${ME}:`, ME, 'read')).toBe(true);
+        expect(isPrefixOwnedBy(`repository:docs:${ME}:`, ME, 'write')).toBe(true);
     });
 
     it('يرفض prefix يخص مستخدماً آخر', () => {
-        expect(isPrefixOwnedBy(`calendar:${OTHER}:`, ME)).toBe(false);
-        expect(isPrefixOwnedBy(`user:${OTHER}:cases:`, ME)).toBe(false);
-        expect(isPrefixOwnedBy(`urgentActions:${OTHER}:`, ME)).toBe(false);
+        expect(isPrefixOwnedBy(`calendar:${OTHER}:`, ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy(`user:${OTHER}:cases:`, ME, 'write')).toBe(false);
+        expect(isPrefixOwnedBy(`urgentActions:${OTHER}:`, ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy(`follow:${OTHER}:`, ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy(`followers:${OTHER}:`, ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy(`repository:docs:${OTHER}:`, ME, 'read')).toBe(false);
     });
 
     it('يرفض prefix فضفاض عام', () => {
-        expect(isPrefixOwnedBy('calendar:', ME)).toBe(false);
-        expect(isPrefixOwnedBy('user:', ME)).toBe(false);
-        expect(isPrefixOwnedBy('lawyer_files:', ME)).toBe(false);
-        expect(isPrefixOwnedBy('', ME)).toBe(false);
+        expect(isPrefixOwnedBy('calendar:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('user:', ME, 'write')).toBe(false);
+        expect(isPrefixOwnedBy('lawyer_files:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('follow:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('followers:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('', ME, 'write')).toBe(false);
     });
 
     it('يرفض prefix بمعرّف مستخدم فارغ', () => {
-        expect(isPrefixOwnedBy(`calendar:`, ME)).toBe(false);
-        expect(isPrefixOwnedBy(`calendar::`, ME)).toBe(false);
+        expect(isPrefixOwnedBy(`calendar:`, ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy(`calendar::`, ME, 'write')).toBe(false);
     });
 
-    it('يسمح بـ prefix عام للقوائم العامة', () => {
-        expect(isPrefixOwnedBy('community:posts:', ME)).toBe(true);
-        expect(isPrefixOwnedBy('community:reports:', ME)).toBe(true);
-        expect(isPrefixOwnedBy('repository:docs:', ME)).toBe(true);
+    it('يسمح بقراءة القوائم العامة ويمنع حذفها الجماعي', () => {
+        expect(isPrefixOwnedBy('community:posts:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('repository:docs:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('community:posts:', ME, 'write')).toBe(false);
+        expect(isPrefixOwnedBy('repository:docs:', ME, 'write')).toBe(false);
+    });
+
+    it('يحجب prefix البلاغات في القراءة والكتابة', () => {
+        expect(isPrefixOwnedBy('community:reports:', ME, 'read')).toBe(false);
+        expect(isPrefixOwnedBy('community:reports:', ME, 'write')).toBe(false);
     });
 });
 

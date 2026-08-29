@@ -16,7 +16,16 @@
 
 import SecureStoreService from '@/app/services/SecureStoreService';
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
+import { SecureFetchError } from '@/app/services/SecureFetchError';
+import { canReachProtectedServerNetwork } from '@/app/services/secureApiNetworkFeatures';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
+import { getLiveAuthUserId } from '@/app/utils/liveAuthUserId';
+import { readPersistedSupabaseAuth } from '@/app/utils/authStorage';
 import { isSupabaseMissingRelationError } from '@/app/utils/supabaseErrors';
+import {
+    clearLegacyPlaintextMirror,
+    readSecureOrDrainLegacySync,
+} from '@/app/services/storage/readSecureOrDrainLegacySync';
 
 const LOCAL_TOMBSTONES_KEY = 'hami:calendar:tombstones:v1';
 const CLOUD_DISABLED_STORAGE_KEY = 'hami:calendar:tombstones:cloud-disabled:v1';
@@ -31,21 +40,30 @@ interface LocalTombstoneStore {
 }
 
 // ============== Local cache (نسخة احتياطية للأوفلاين) ==============
-async function loadLocalTombstones(): Promise<LocalTombstoneStore> {
+function parseLocalTombstoneStore(raw: string | null): LocalTombstoneStore {
+    if (!raw) return {};
     try {
-        const raw = await SecureStoreService.getItem(LOCAL_TOMBSTONES_KEY);
-        if (!raw) return {};
         const parsed = JSON.parse(raw);
         return parsed && typeof parsed === 'object' ? (parsed as LocalTombstoneStore) : {};
     } catch {
-        try {
-            const raw = localStorage.getItem(LOCAL_TOMBSTONES_KEY);
-            if (!raw) return {};
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' ? (parsed as LocalTombstoneStore) : {};
-        } catch {
-            return {};
+        return {};
+    }
+}
+
+async function loadLocalTombstones(): Promise<LocalTombstoneStore> {
+    try {
+        const raw = await SecureStoreService.getItem(LOCAL_TOMBSTONES_KEY);
+        if (raw) {
+            clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+            return parseLocalTombstoneStore(raw);
         }
+    } catch {
+        /* fall through — ترحيل المرآة */
+    }
+    try {
+        return parseLocalTombstoneStore(readSecureOrDrainLegacySync(LOCAL_TOMBSTONES_KEY));
+    } catch {
+        return {};
     }
 }
 
@@ -53,16 +71,16 @@ async function saveLocalTombstones(store: LocalTombstoneStore): Promise<void> {
     const payload = JSON.stringify(store);
     try {
         await SecureStoreService.setItem(LOCAL_TOMBSTONES_KEY, payload);
-        const { mirrorCalendarTombstonesToLocalStorage } = await import(
-            '@/app/services/calendar/calendarLocalSnapshot'
-        );
-        mirrorCalendarTombstonesToLocalStorage(payload);
+        clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+        return;
     } catch {
-        try {
-            localStorage.setItem(LOCAL_TOMBSTONES_KEY, payload);
-        } catch {
-            /* ignore */
-        }
+        /* setItemSync يملأ الكاش إن نجح — لا مرآة صريحة */
+    }
+    try {
+        SecureStoreService.setItemSync(LOCAL_TOMBSTONES_KEY, payload);
+        clearLegacyPlaintextMirror(LOCAL_TOMBSTONES_KEY);
+    } catch {
+        /* الجلسة تحتفظ بالكاش في الذاكرة */
     }
 }
 
@@ -120,7 +138,21 @@ function writeCache(userId: string, set: Set<string>): void {
     tombstoneCache.set(userId, { set, loadedAt: Date.now() });
 }
 
+function canReachCalendarTombstonesCloud(): boolean {
+    if (!isCloudTombstonesSyncEnabled()) return false;
+    if (!isLawyerWorkCloudLive()) return false;
+    const userId = getLiveAuthUserId();
+    if (!userId) return false;
+    const persisted = readPersistedSupabaseAuth();
+    const meta = (persisted.user?.user_metadata ?? null) as Record<string, unknown> | null;
+    return canReachProtectedServerNetwork(userId, meta);
+}
+
 function disableCloudTombstones(error: unknown): void {
+    if (error instanceof SecureFetchError && error.status === 403) {
+        cloudTombstonesDisabled = true;
+        return;
+    }
     if (!isSupabaseMissingRelationError(error)) return;
     cloudTombstonesDisabled = true;
     try {
@@ -181,7 +213,7 @@ export async function recordTombstone(userId: string, eventId: string): Promise<
     }
 
     // cloud
-    if (!isCloudTombstonesSyncEnabled()) return;
+    if (!canReachCalendarTombstonesCloud()) return;
     try {
         await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
             method: 'POST',
@@ -199,7 +231,7 @@ export async function recordTombstone(userId: string, eventId: string): Promise<
  */
 let cloudSyncInFlight = false;
 async function syncTombstonesFromCloud(userId: string): Promise<void> {
-    if (!userId || !isCloudTombstonesSyncEnabled()) return;
+    if (!userId || !canReachCalendarTombstonesCloud()) return;
     if (cloudSyncInFlight) return;
     cloudSyncInFlight = true;
     try {
@@ -265,7 +297,7 @@ export async function clearTombstone(userId: string, eventId: string): Promise<v
     } catch {
         /* ignore */
     }
-    if (!isCloudTombstonesSyncEnabled()) return;
+    if (!canReachCalendarTombstonesCloud()) return;
     try {
         await SecureAPIClient.fetchSecure('/api/calendar/tombstones', {
             method: 'POST',

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { User } from '@supabase/supabase-js';
-import { SmartToast } from '@/app/components/ui/SmartToast';
+import { SmartToast } from '@/app/components/ui/smartToastBus';
 import { debug } from '@/app/utils/debug';
 import { STORAGE_KEYS, PERSIST_DEBOUNCE_MS } from '@/app/utils/constants';
 import { persistenceRepository } from '@/app/infrastructure/persistence/LocalStorageRepository';
@@ -24,6 +24,7 @@ import {
     filterDeletedGlobalNotes,
     markGlobalNoteDeleted,
 } from '@/app/services/notes/globalNotesTombstones';
+import { isLiveCloudSyncBucketEnabled } from '@/app/services/settings/cloudSyncBucket';
 
 async function ensureSecureStoreReady(): Promise<void> {
     const m = await import('@/app/services/SecureStoreService');
@@ -70,7 +71,6 @@ export function useLawyerGlobalNotes({
     });
     const bootstrapNotesRef = useRef(globalNotes);
     const [notesHydrated, setNotesHydrated] = useState(!backgroundRuntimeEnabled);
-    const [notesBootSettled, setNotesBootSettled] = useState(!backgroundRuntimeEnabled);
 
     const resolveNotesUserId = useCallback(
         () => user?.id ?? authUserId ?? null,
@@ -88,10 +88,8 @@ export function useLawyerGlobalNotes({
     useEffect(() => {
         if (!backgroundRuntimeEnabled) {
             setNotesHydrated(true);
-            setNotesBootSettled(true);
             return;
         }
-        setNotesBootSettled(false);
         let cancelled = false;
         const uid = resolveNotesUserId();
         void (async () => {
@@ -148,11 +146,9 @@ export function useLawyerGlobalNotes({
     useEffect(() => {
         const uid = resolveNotesUserId();
         if (!backgroundRuntimeEnabled || !uid || !notesHydrated) {
-            if (!uid || !backgroundRuntimeEnabled) setNotesBootSettled(true);
             return;
         }
         mergeNotesStores();
-        setNotesBootSettled(true);
     }, [backgroundRuntimeEnabled, resolveNotesUserId, mergeNotesStores, notesHydrated]);
 
     useEffect(() => {
@@ -198,15 +194,15 @@ export function useLawyerGlobalNotes({
                     void loadPersistenceRepository().then((persistenceRepository) => {
                         persistenceRepository.save(STORAGE_KEYS.LAWYER_NOTES, nextNotes);
                     });
+                    saveGlobalNotesRaw(nextNotes);
                 }
-                saveGlobalNotesRaw(nextNotes);
                 return nextNotes;
             });
 
             invalidateRepositoryFeedCache();
 
             const bodyPlain = (note.body || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-            if (uid && bodyPlain) {
+            if (localAutoSave && uid && bodyPlain) {
                 const mappedId = vaultIdForGlobal(uid, note.id);
                 const vaultId = notesVault.syncFromGlobal(
                     uid,
@@ -217,7 +213,7 @@ export function useLawyerGlobalNotes({
                 if (vaultId) linkGlobalToVault(uid, note.id, vaultId);
             }
 
-            if (user) {
+            if (user && isLiveCloudSyncBucketEnabled('notes')) {
                 try {
                     const { SupabaseService } = await import('@/app/services/SupabaseService');
                     await SupabaseService.saveGlobalNote(
@@ -292,7 +288,7 @@ export function useLawyerGlobalNotes({
                 .then((m) => m.unpinWorkspaceItem(idStr, 'notepad'))
                 .catch(() => undefined);
 
-            if (user) {
+            if (user && isLiveCloudSyncBucketEnabled('notes')) {
                 try {
                     const { SupabaseService } = await import('@/app/services/SupabaseService');
                     await SupabaseService.deleteGlobalNote(idStr);
@@ -322,7 +318,6 @@ export function useLawyerGlobalNotes({
         setGlobalNotes,
         mergeNotesStores,
         resolveNotesUserId,
-        notesBootSettled,
         handleSaveNote,
         handleDeleteNote,
         handleConvertNote,

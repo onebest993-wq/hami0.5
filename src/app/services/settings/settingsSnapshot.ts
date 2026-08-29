@@ -7,11 +7,17 @@ import { normalizeLitePerformanceMode } from '@/app/runtime/devicePerformanceTie
 import { normalizeHomeLayout } from './homeLayout';
 import { normalizeNotificationSettings } from './notificationSettings';
 import { normalizeGlassOpacity } from './surfaceAppearance';
+import { persistLocalOnlyBootFlag } from './localOnlyUrlPolicy';
 
 let cached: AppSettingsState | null = null;
 let cacheAt = 0;
 let live: AppSettingsState | null = null;
 let liveAt = 0;
+const liveListeners = new Set<() => void>();
+
+function notifyLawyerSettingsLiveListeners(): void {
+    for (const listener of liveListeners) listener();
+}
 
 function ensureRuntimeListener(): void {
     if (typeof window === 'undefined') return;
@@ -26,6 +32,7 @@ function ensureRuntimeListener(): void {
             liveAt = Date.now();
             cached = live;
             cacheAt = liveAt;
+            notifyLawyerSettingsLiveListeners();
         } catch {
             return;
         }
@@ -42,6 +49,24 @@ export function publishLawyerSettingsLive(next: AppSettingsState): void {
     liveAt = Date.now();
     cached = next;
     cacheAt = liveAt;
+    notifyLawyerSettingsLiveListeners();
+}
+
+/** اشتراك React (useSyncExternalStore) — بلا TTL يعيد إنشاء المرجع */
+export function subscribeLawyerSettingsLive(onStoreChange: () => void): () => void {
+    ensureRuntimeListener();
+    liveListeners.add(onStoreChange);
+    return () => {
+        liveListeners.delete(onStoreChange);
+    };
+}
+
+/** مرجع مستقر طالما لم يُنشر تحديث — مناسب لـ useSyncExternalStore */
+export function getLawyerSettingsStoreSnapshot(): AppSettingsState {
+    ensureRuntimeListener();
+    if (live) return live;
+    if (cached) return cached;
+    return getLawyerSettingsSnapshot();
 }
 
 function clampGlassOpacity(value: unknown): number {
@@ -84,13 +109,15 @@ export function hydrateLawyerSettingsFast(
                 homeContainerBorder: obj.appearance.homeContainerBorder !== false,
                 wallpaper: undefined,
             };
+            const localOnlyMode = obj.security?.localOnlyMode === true;
+            if (localOnlyMode) persistLocalOnlyBootFlag(true);
             return {
                 version: SETTINGS_SCHEMA_VERSION,
                 appearance,
                 security: {
                     ...LAWYER_SETTINGS_V2_DEFAULTS.security,
                     ...obj.security,
-                    localOnlyMode: obj.security?.localOnlyMode === true,
+                    localOnlyMode,
                 },
                 data: { ...LAWYER_SETTINGS_V2_DEFAULTS.data, ...obj.data },
                 performance: {

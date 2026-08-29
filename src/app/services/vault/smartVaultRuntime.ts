@@ -1,6 +1,7 @@
 import { SecureAPIClient } from '@/app/services/SecureAPIClient';
 import { lawyerCloudKv as kv } from '@/app/services/cloud/lawyerCloudKv';
 import { isKvProxyNetworkEnabled } from '@/app/services/kvProxyConfig';
+import { isLawyerWorkCloudLive } from '@/app/services/settings/lawyerWorkCloudGate';
 import { LawyerStorage } from '@/app/services/storage/lawyerStorageRuntime';
 import {
     deleteVaultBlobByPath,
@@ -20,6 +21,7 @@ import {
     removeVaultDocFromWarmCache,
 } from '@/app/services/vault/vaultDocsWarmState';
 import type { SmartVaultDoc } from '@/app/services/vault/vaultTypes';
+import { assertVaultDocOwner, assertVaultStoragePathOwner } from '@/app/services/vault/vaultOwnership';
 
 function isRemoteStorageObjectPath(path: string): boolean {
     const p = path.trim();
@@ -30,6 +32,7 @@ function isRemoteStorageObjectPath(path: string): boolean {
 }
 
 async function removeStoragePathsBestEffort(paths: string[]): Promise<void> {
+    if (!isLawyerWorkCloudLive()) return;
     const toRemove = [...new Set(paths.map((p) => p.trim()).filter(isRemoteStorageObjectPath))];
     if (toRemove.length === 0) return;
     try {
@@ -85,6 +88,9 @@ export const SmartVaultDB = {
         if (!userId?.trim()) return [];
         const uid = userId.trim();
         const localDocs = (await loadLocalVaultDocs()).filter((d) => d.authorId === uid);
+        if (!isLawyerWorkCloudLive()) {
+            return localDocs.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+        }
         try {
             const raw = await kv.getByPrefix(`vault:docs:${uid}:`);
             const remoteDocs = Array.isArray(raw)
@@ -109,9 +115,11 @@ export const SmartVaultDB = {
         }
     },
 
-    async saveDoc(doc: SmartVaultDoc): Promise<void> {
-        if (!doc.authorId || typeof doc.authorId !== 'string') {
-            throw new Error('authorId مطلوب لحفظ الملف');
+    async saveDoc(doc: SmartVaultDoc, requesterId?: string): Promise<void> {
+        const requester = (requesterId ?? doc.authorId ?? '').trim();
+        assertVaultDocOwner(doc, requester);
+        if (doc.storagePath) {
+            assertVaultStoragePathOwner(doc.storagePath, requester);
         }
         try {
             upsertVaultLocalIndexDocImmediate(doc);
@@ -123,7 +131,7 @@ export const SmartVaultDB = {
             console.error('[Vault] saveDoc degraded persist - keeping in-memory index', err);
             upsertVaultLocalIndexDoc(doc);
         }
-        if (isKvProxyNetworkEnabled()) {
+        if (isKvProxyNetworkEnabled() && isLawyerWorkCloudLive()) {
             void kv.set(`vault:docs:${doc.authorId}:${doc.id}`, vaultDocPayloadForKv(doc)).catch(() => {
                 /* local-first */
             });
@@ -134,22 +142,24 @@ export const SmartVaultDB = {
         if (!authorId || !docId) throw new Error('معرف الملف والمستخدم مطلوب');
         const localDocs = await loadLocalVaultDocs();
         const localDoc = localDocs.find((d) => d?.id === docId && d.authorId === authorId);
-        try {
-            const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
-            if (raw && typeof raw === 'object') {
-                const doc = raw as SmartVaultDoc;
-                const path = doc.storagePath || '';
-                if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
-                    await removeStoragePathsBestEffort([path]);
+        if (isLawyerWorkCloudLive()) {
+            try {
+                const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
+                if (raw && typeof raw === 'object') {
+                    const doc = raw as SmartVaultDoc;
+                    const path = doc.storagePath || '';
+                    if (path && !path.startsWith('local:') && !isVaultIdbStoragePath(path)) {
+                        await removeStoragePathsBestEffort([path]);
+                    }
                 }
+            } catch {
+                /* continue */
             }
-        } catch {
-            /* continue */
-        }
-        try {
-            await kv.del(`vault:docs:${authorId}:${docId}`);
-        } catch {
-            /* local first */
+            try {
+                await kv.del(`vault:docs:${authorId}:${docId}`);
+            } catch {
+                /* local first */
+            }
         }
         if (localDoc?.storagePath && isVaultIdbStoragePath(localDoc.storagePath)) {
             await deleteVaultBlobByPath(localDoc.storagePath);
@@ -160,10 +170,9 @@ export const SmartVaultDB = {
     },
 
     async updateDoc(doc: SmartVaultDoc, requesterId?: string): Promise<void> {
-        if (requesterId && doc.authorId !== requesterId) {
-            throw new Error('غير مصرح بتعديل هذا الملف');
-        }
-        await this.saveDoc(doc);
+        const requester = (requesterId ?? doc.authorId ?? '').trim();
+        assertVaultDocOwner(doc, requester);
+        await this.saveDoc(doc, requester);
     },
 
     async bindToDossier(docId: string, authorId: string, dossierId: string): Promise<void> {
@@ -171,10 +180,10 @@ export const SmartVaultDB = {
 
         let doc: SmartVaultDoc | null = null;
         const localDocs = await loadLocalVaultDocs();
-        const localIdx = localDocs.findIndex((d) => d.id === docId);
+        const localIdx = localDocs.findIndex((d) => d.id === docId && d.authorId === authorId);
         if (localIdx !== -1) {
             doc = localDocs[localIdx];
-        } else {
+        } else if (isLawyerWorkCloudLive()) {
             try {
                 const raw = await kv.get(`vault:docs:${authorId}:${docId}`);
                 if (raw && typeof raw === 'object') {
@@ -196,6 +205,7 @@ export const SmartVaultDB = {
     },
 
     async getSignedUrl(storagePath: string): Promise<string | null> {
+        if (!isLawyerWorkCloudLive()) return null;
         return LawyerStorage.getSignedUrl(storagePath);
     },
 };
