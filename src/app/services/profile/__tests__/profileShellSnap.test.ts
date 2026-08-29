@@ -1,8 +1,7 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import {
     snapProfileShellOpen,
     snapProfileShellClose,
-    scheduleProfileShellReactSync,
     isProfileShellSnappedOpen,
     isProfileShellClosing,
     clearProfileShellClosing,
@@ -58,43 +57,11 @@ describe('profileShellSnap', () => {
         expect(document.documentElement.getAttribute('data-hami-profile-open')).toBe('1');
     });
 
-    it('scheduleProfileShellReactSync يعمل بعد إطارَي رسم (double rAF)', async () => {
-        const spy = vi.fn();
-        scheduleProfileShellReactSync(spy);
-        expect(spy).not.toHaveBeenCalled();
-        await new Promise<void>((r) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => r())),
-        );
-        expect(spy).toHaveBeenCalledTimes(1);
-    });
-
-    it('يلغي مزامنة الفتح المعلقة عند الإغلاق السريع', async () => {
-        const spy = vi.fn();
-        scheduleProfileShellReactSync(spy);
-        snapProfileShellClose();
-        await new Promise<void>((r) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => r())),
-        );
-        expect(spy).not.toHaveBeenCalled();
-    });
-
     it('لا يمسح snap إن كانت نية الفتح قائمة في هذه الصفحة', () => {
         markProfileOpenedThisPage();
         snapProfileShellOpen();
         snapProfileShellClose();
         expect(isProfileShellSnappedOpen()).toBe(true);
         expect(document.documentElement.getAttribute('data-hami-profile-open')).toBe('1');
-    });
-
-    it('لا تلغي جدولة لاحقة لنفس دورة الفتح السابقة', async () => {
-        const open = vi.fn();
-        const clear = vi.fn();
-        scheduleProfileShellReactSync(open);
-        scheduleProfileShellReactSync(clear);
-        await new Promise<void>((r) =>
-            requestAnimationFrame(() => requestAnimationFrame(() => r())),
-        );
-        expect(open).toHaveBeenCalledTimes(1);
-        expect(clear).toHaveBeenCalledTimes(1);
     });
 });

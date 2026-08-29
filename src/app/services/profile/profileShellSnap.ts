@@ -28,9 +28,6 @@ function recordE2eSnapClose(blocked: boolean): void {
     };
 }
 
-/** يُبطِل rAF معلق عند إغلاق فقط — لا عند جدولة مزامنة لاحقة لنفس الفتح */
-let shellSyncGen = 0;
-
 export function isProfileShellSnappedOpen(): boolean {
     if (typeof document === 'undefined') return false;
     return document.documentElement.getAttribute(OPEN_ATTR) === '1';
@@ -69,7 +66,6 @@ export function snapProfileShellClose(): void {
     }
     const wasOpen = document.documentElement.getAttribute(OPEN_ATTR) === '1';
     recordE2eSnapClose(false);
-    shellSyncGen += 1;
     document.documentElement.removeAttribute(OPEN_ATTR);
     /* حزمة E2E تتخطى التلاشي — closing العالق كان يبقي z-index 200 فوق الرئيسية */
     const skipClosingFade =
@@ -79,34 +75,8 @@ export function snapProfileShellClose(): void {
     }
 }
 
-/** مزامنة React فورية على مسار الإغلاق — بلا انتظار إطار */
-export function runProfileShellReactSyncNow(run: () => void): void {
-    run();
-}
-
-/**
- * بعد أول رسم للـ snap — مزامنة React دون مسح العلم على html.
- * double rAF مثل الإعدادات: لا يتجمّد إطار اللمس على Android WebView.
- * الإغلاق عبر snapProfileShellClose يبطل كل rAF معلّق.
- */
-export function scheduleProfileShellReactSync(run: () => void): void {
-    if (typeof window === 'undefined') {
-        run();
-        return;
-    }
-    const gen = shellSyncGen;
-    window.requestAnimationFrame(() => {
-        if (gen !== shellSyncGen) return;
-        window.requestAnimationFrame(() => {
-            if (gen !== shellSyncGen) return;
-            run();
-        });
-    });
-}
-
 /** للاختبارات */
 export function resetProfileShellSnapForTests(): void {
-    shellSyncGen += 1;
     if (typeof document !== 'undefined') {
         document.documentElement.removeAttribute(OPEN_ATTR);
         document.documentElement.removeAttribute(CLOSING_ATTR);

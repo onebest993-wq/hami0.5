@@ -37,11 +37,11 @@ function runProfileClosePaint(openInFlightRef?: MutableRefObject<boolean>): void
     concealProfileWarmShell();
 }
 
-export function commitProfileClose({
-    closeSettings,
-    setActiveTab,
-    openInFlightRef,
-}: CommitProfileCloseParams): void {
+function finishProfileShellClose(
+    params: CommitProfileCloseParams,
+    commitTab: (setActiveTab: CommitProfileCloseParams['setActiveTab']) => void,
+): void {
+    const { closeSettings, setActiveTab, openInFlightRef } = params;
     beginProfileShellExit(() => {
         executeProfileOverlayClose({
             conceal: () => {
@@ -50,8 +50,7 @@ export function commitProfileClose({
             commit: () => {
                 try {
                     flushSync(() => {
-                        clearPersistedLawyerProfileTab();
-                        setActiveTab('home');
+                        commitTab(setActiveTab);
                     });
                 } finally {
                     clearProfileShellClosing();
@@ -59,37 +58,21 @@ export function commitProfileClose({
             },
             releaseScrollLock: true,
         });
-
         queueMicrotask(() => {
             closeSettings?.();
         });
     });
 }
 
-export function commitProfileOverlayDismiss({
-    closeSettings,
-    setActiveTab,
-    openInFlightRef,
-}: CommitProfileCloseParams): void {
-    beginProfileShellExit(() => {
-        executeProfileOverlayClose({
-            conceal: () => {
-                runProfileClosePaint(openInFlightRef);
-            },
-            commit: () => {
-                try {
-                    flushSync(() => {
-                        setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
-                    });
-                } finally {
-                    clearProfileShellClosing();
-                }
-            },
-            releaseScrollLock: true,
-        });
+export function commitProfileClose(params: CommitProfileCloseParams): void {
+    finishProfileShellClose(params, (setActiveTab) => {
+        clearPersistedLawyerProfileTab();
+        setActiveTab('home');
+    });
+}
 
-        queueMicrotask(() => {
-            closeSettings?.();
-        });
+export function commitProfileOverlayDismiss(params: CommitProfileCloseParams): void {
+    finishProfileShellClose(params, (setActiveTab) => {
+        setActiveTab((tab) => (tab === 'profile' ? 'home' : tab));
     });
 }

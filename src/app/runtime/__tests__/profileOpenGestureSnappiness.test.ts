@@ -38,8 +38,14 @@ describe('profile open gesture snappiness', () => {
         expect(openFlow).toContain('revealProfileWarmShell');
         expect(openFlow).toMatch(/from ['"]react-dom['"]/);
         expect(openFlow).toMatch(/\bflushSync\s*\(/);
-        expect(openFlow).toContain('royalLawyerProfileLoader');
-        expect(openFlow).toContain('loadProfileHubModule');
+        expect(openFlow).toContain('prefetchProfileShellChunks');
+        expect(openFlow).toContain('runProfileOpenSideEffects');
+        expect(openFlow).not.toContain('deferProfileOpenWarmWork');
+        const lazyImports = fs.readFileSync(
+            path.join(root, 'src/app/hooks/lawyerDashboard/profile/profileLazyImports.ts'),
+            'utf8',
+        );
+        expect(lazyImports).toContain('loadProfileHubModule');
         expect(openFlow).toContain('prepareProfileOpenPaint');
         expect(openFlow).toContain('hydrateProfileWarmCachePeekSync');
         const commitBlock = openFlow.slice(openFlow.indexOf('export function commitProfileOpen'));
@@ -76,13 +82,14 @@ describe('profile open gesture snappiness', () => {
         expect(closeFlow).not.toContain('forceShowLawyerHomeShell');
         /* إغلاق فوري — لا double-rAF يترك --active يغطي الرئيسية */
         expect(closeFlow).not.toContain('scheduleProfileShellReactSync');
-        const closeCommit = closeFlow.slice(closeFlow.indexOf('export function commitProfileClose'));
-        expect(closeCommit.indexOf('concealProfileWarmShell()')).toBeLessThan(
-            closeCommit.indexOf('flushSync'),
+        const finishClose = closeFlow.slice(closeFlow.indexOf('function finishProfileShellClose'));
+        expect(finishClose.indexOf('concealProfileWarmShell()')).toBeLessThan(
+            finishClose.indexOf('flushSync'),
         );
-        expect(closeCommit.indexOf("setActiveTab('home')")).toBeLessThan(
-            closeCommit.indexOf('clearProfileShellClosing'),
+        expect(finishClose.indexOf('flushSync')).toBeLessThan(
+            finishClose.indexOf('clearProfileShellClosing'),
         );
+        expect(closeFlow).toContain("setActiveTab('home')");
 
         const instantPaint = fs.readFileSync(
             path.join(root, 'src/app/runtime/profileInstantPaint.ts'),
@@ -100,6 +107,9 @@ describe('profile open gesture snappiness', () => {
         expect(snap).toContain('clearProfileShellClosing');
         expect(snap).not.toContain('PROFILE_SHELL_SNAP_EVENT');
         expect(snap).not.toContain('emitProfileShellSnap');
+        /* مسار الفتح أصبح flushSync — rAF المعلّق لم يعد يُستدعى من الإنتاج */
+        expect(snap).not.toContain('scheduleProfileShellReactSync');
+        expect(snap).not.toContain('shellSyncGen');
 
         const enterCss = fs.readFileSync(
             path.join(root, 'src/app/components/lawyer/RoyalLawyerProfile/profilePageEnterFx.css'),

@@ -49,12 +49,6 @@ function runProfileOpenSideEffects(userId: string | null): void {
         .catch(() => undefined);
 }
 
-function deferProfileOpenWarmWork(userId: string | null): void {
-    queueMicrotask(() => {
-        runProfileOpenSideEffects(userId);
-    });
-}
-
 /** بذرة كاش — قبل رسم صفحة الفتح */
 export function prepareProfileOpenPaint(userId: string | null): void {
     try {
@@ -103,15 +97,8 @@ export function commitProfileOpen(params: CommitProfileOpenParams): void {
         }
 
         queueMicrotask(() => {
-            prefetchProfileShellChunks();
-            void import('@/app/runtime/royalLawyerProfileLoader')
-                .then((m) => {
-                    m.prefetchProfileHubModule();
-                    return m.loadProfileHubModule();
-                })
-                .catch(() => undefined);
+            runProfileOpenSideEffects(params.userId);
             dismissTransientOverlays('profile');
-            deferProfileOpenWarmWork(params.userId);
             openInFlightRef.current = false;
         });
     } catch {

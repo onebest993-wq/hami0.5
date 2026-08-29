@@ -8,7 +8,6 @@ const mocks = vi.hoisted(() => ({
     prefetchChunksMock: vi.fn(),
     hydrateSyncMock: vi.fn(),
     concealSettingsMock: vi.fn(),
-    scheduleSyncMock: vi.fn((run: () => void) => run()),
 }));
 
 vi.mock('react-dom', () => ({
@@ -40,15 +39,6 @@ vi.mock('@/app/services/profile/profileWarmCache', () => ({
     hydrateProfileWarmCachePeekSync: mocks.hydrateSyncMock,
 }));
 
-vi.mock('@/app/services/profile/profileShellSnap', () => ({
-    scheduleProfileShellReactSync: mocks.scheduleSyncMock,
-}));
-
-vi.mock('@/app/runtime/royalLawyerProfileLoader', () => ({
-    loadProfileHubModule: vi.fn(() => Promise.resolve([])),
-    prefetchProfileHubModule: vi.fn(),
-}));
-
 vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importOriginal) => {
     const actual = await importOriginal<
         typeof import('@/app/hooks/lawyerDashboard/profile/profileLazyImports')
@@ -65,18 +55,14 @@ vi.mock('@/app/hooks/lawyerDashboard/profile/profileLazyImports', async (importO
 });
 
 describe('profileShellOpenFlow', () => {
-    beforeEach(async () => {
+    beforeEach(() => {
         vi.clearAllMocks();
         mocks.revealMock.mockReturnValue(true);
-        mocks.scheduleSyncMock.mockImplementation((run: () => void) => run());
         document.body.innerHTML = '';
-        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
-        vi.mocked(hub.loadProfileHubModule).mockResolvedValue([] as never);
     });
 
     it('commitProfileOpen يكشف فوراً قبل أي عمل ثقيل', async () => {
         document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
-        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
         );
@@ -101,7 +87,7 @@ describe('profileShellOpenFlow', () => {
 
         await vi.waitFor(() => {
             expect(mocks.hydrateSyncMock).toHaveBeenCalledWith('lawyer-1');
-            expect(hub.loadProfileHubModule).toHaveBeenCalled();
+            expect(mocks.prefetchChunksMock).toHaveBeenCalled();
             expect(mocks.dismissMock).toHaveBeenCalledWith('profile');
         });
     });
@@ -139,9 +125,7 @@ describe('profileShellOpenFlow', () => {
         expect(setActiveTab).toHaveBeenCalledWith('profile');
     });
 
-    it('commitProfileOpen يزامن React حتى لو hub معلّق', async () => {
-        const hub = await import('@/app/runtime/royalLawyerProfileLoader');
-        vi.mocked(hub.loadProfileHubModule).mockReturnValue(new Promise(() => undefined));
+    it('commitProfileOpen يزامن React قبل prefetch في المايكروتاسك', async () => {
         document.body.innerHTML = '<div data-testid="lawyer-dashboard-profile-surface"></div>';
         const { commitProfileOpen } = await import(
             '@/app/hooks/lawyerDashboard/profile/profileShellOpenFlow'
