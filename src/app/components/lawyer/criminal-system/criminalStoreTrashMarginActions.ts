@@ -52,7 +52,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalTrashMarginActions(set: SetFn, _get: GetFn) {
+export function createCriminalTrashMarginActions(set: SetFn, _get: GetFn): Partial<CriminalStoreState> {
     return {
         restoreTrashItem: (caseId, trashItemId) => {
             let err: string | null = null;

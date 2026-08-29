@@ -16,6 +16,7 @@ import { IAdminRepository } from '@/app/domain/admin/IAdminRepository';
 import { hqMutatingFetch } from '@/app/services/admin/hqSecureFetch';
 import { HqStepUpCancelledError } from '@/app/components/admin/hqStepUpClient';
 import { SecureFetchError } from '@/app/services/SecureFetchError';
+import type { HqConnectionSource } from '@/app/domain/admin/hqConnectionSignal';
 
 type HqUserRow = {
     id?: unknown;
@@ -206,7 +207,7 @@ function mapActivity(raw: unknown): import('@/app/domain/admin/HqAccountActivity
                   const deviceLabel = String(row.deviceLabel ?? '').trim();
                   if (!at || !deviceLabel) return [];
                   const sourceRaw = String(row.source ?? '').trim();
-                  const source =
+                  const source: HqConnectionSource =
                       sourceRaw === 'login' ||
                       sourceRaw === 'signup' ||
                       sourceRaw === 'refresh' ||

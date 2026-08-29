@@ -98,7 +98,7 @@ type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
 /** Severance draft actions — extracted for ≤1000 budget. */
-export function createCriminalSeveranceDraftActions(set: SetFn, get: GetFn) {
+export function createCriminalSeveranceDraftActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
 
         beginSeveranceFromDossier: (parentCaseId, defendantIds, options) => {

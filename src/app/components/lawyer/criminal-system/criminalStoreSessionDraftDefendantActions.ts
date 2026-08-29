@@ -68,7 +68,7 @@ import { createCriminalSessionDraftUnknownDefendantActions } from './criminalSto
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalSessionDraftDefendantActions(set: SetFn, get: GetFn) {
+export function createCriminalSessionDraftDefendantActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalSessionDraftUnknownDefendantActions(set, get),
         addDefendant: () =>

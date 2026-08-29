@@ -10,13 +10,14 @@ import {
     MoroccanHeaderDivider,
 } from './moroccanGlassShell';
 import { useSmartFileModalTheme } from './smartFileModalTheme';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 
 export function SmartModalHeader({
     icon: Icon,
     title,
     onClose,
 }: {
-    icon?: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+    icon?: HamiIcon;
     title: string;
     onClose: () => void;
 }) {

@@ -12,7 +12,7 @@ import { createCriminalTrialVerdictCardActions } from './criminalStoreTrialVerdi
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalTrialActions(set: SetFn, get: GetFn) {
+export function createCriminalTrialActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalTrialSessionActions(set, get),
         ...createCriminalTrialHearingActions(set, get),

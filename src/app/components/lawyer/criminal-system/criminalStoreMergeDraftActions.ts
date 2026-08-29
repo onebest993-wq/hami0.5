@@ -138,7 +138,7 @@ import { createCriminalSeveranceDraftActions } from './criminalStoreSeveranceDra
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalMergeDraftActions(set: SetFn, get: GetFn) {
+export function createCriminalMergeDraftActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalConcludeStageActions(set, get),
         ...createCriminalSeveranceDraftActions(set, get),

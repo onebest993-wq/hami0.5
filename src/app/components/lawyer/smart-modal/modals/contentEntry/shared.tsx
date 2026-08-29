@@ -16,6 +16,7 @@ import {
     GLASS_MODAL_HEADER,
 } from '../../smartFile/moroccanGlassShell';
 import { useSmartFileModalTheme } from '../../smartFile/smartFileModalTheme';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 
 export function SmartModalHeader({
     T,
@@ -24,7 +25,7 @@ export function SmartModalHeader({
     onClose,
 }: {
     T: ReturnType<typeof useSmartFileModalTheme>;
-    icon: React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>;
+    icon: HamiIcon;
     title: string;
     onClose: () => void;
 }) {

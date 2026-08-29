@@ -9,7 +9,7 @@ import { createCriminalTrashMarginActions } from './criminalStoreTrashMarginActi
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalRequestsActions(set: SetFn, get: GetFn) {
+export function createCriminalRequestsActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalLawyerRequestActions(set, get),
         ...createCriminalTrashMarginActions(set, get),

@@ -1,9 +1,11 @@
 import React from 'react';
 import { HomeXIcon } from '@/app/components/lawyer/dashboard/homeStemIcons';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
 import { HUB_DOSSIER_Z_CLASS } from '@/app/components/lawyer/shared/hubZLayers';
 import { HAMI_OVERLAY_SAFE_INSETS_CLASS, HAMI_SHELL_OVERLAY_COLUMN_CLASS } from '@/app/utils/overlayPortal';
-import { resolveLawsuitJurisdiction } from '@/app/domain/lawsuit/lawsuitJurisdiction';
+import {
+    resolveLawsuitJurisdiction,
+    type LawsuitJurisdictionSource,
+} from '@/app/domain/lawsuit/lawsuitJurisdiction';
 
 /**
  * غلاف فوري لإضبارة الدعوى — رأس الكروم فقط حتى يكتمل chunk الإضبارة.
@@ -13,7 +15,7 @@ export function SmartFileModalBootChrome({
     file,
     onClose,
 }: {
-    file: FileData;
+    file: LawsuitJurisdictionSource;
     onClose: () => void;
 }) {
     const isPersonal = resolveLawsuitJurisdiction(file) === 'personal';

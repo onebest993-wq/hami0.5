@@ -37,7 +37,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalTrialHearingActions(set: SetFn, _get: GetFn) {
+export function createCriminalTrialHearingActions(set: SetFn, _get: GetFn): Partial<CriminalStoreState> {
     return {
         finalizeTrialVerdict: (caseId, sessionId, verdictData) => {
             let err: string | null = null;

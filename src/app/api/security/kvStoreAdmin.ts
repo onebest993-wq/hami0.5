@@ -298,9 +298,14 @@ export async function kvKeysByPrefix(prefix: string): Promise<string[]> {
   if (!admin) throw new Error('KV admin client is not configured');
   const { data, error } = await applyKvKeyPrefixRange(admin.from(getTableName()).select('key'), prefix);
   if (error) throw new Error(error.message);
-  return (data ?? [])
-    .map((row: { key: string }) => row.key)
-    .filter((key) => typeof key === 'string' && key.startsWith(prefix));
+  const rows: unknown[] = Array.isArray(data) ? data : [];
+  return rows
+    .map((row: unknown): string =>
+        row && typeof row === 'object' && 'key' in row
+            ? String((row as { key?: unknown }).key ?? '')
+            : '',
+    )
+    .filter((key) => key.length > 0 && key.startsWith(prefix));
 }
 
 export async function kvDelByPrefix(prefix: string): Promise<number> {

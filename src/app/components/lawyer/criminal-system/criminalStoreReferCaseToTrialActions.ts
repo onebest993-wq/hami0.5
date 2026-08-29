@@ -104,7 +104,7 @@ type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
 /** concludeStage + referCaseToTrial — extracted for ≤1000 budget. */
-export function createCriminalReferCaseToTrialActions(set: SetFn, get: GetFn) {
+export function createCriminalReferCaseToTrialActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         referCaseToTrial: (caseId, referralData, newCourtData) => {
             set((state) => {

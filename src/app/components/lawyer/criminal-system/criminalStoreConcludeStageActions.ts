@@ -9,7 +9,7 @@ import { applyConcludeStageToState } from './criminalStoreConcludeStageApply';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalConcludeStageActions(set: SetFn, get: GetFn) {
+export function createCriminalConcludeStageActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         concludeStage: (caseId, conclusion, referral) => {
             let blockingError: string | null = null;

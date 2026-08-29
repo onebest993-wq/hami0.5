@@ -9,7 +9,7 @@ import { loadSmartFileModalModule } from '@/app/runtime/smartFileModalLoader';
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
 import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import { SmartFileModalBootChrome } from '@/app/components/lawyer/dashboard/SmartFileModalBootChrome';
-import type { FileData } from '@/app/components/lawyer/LawyerShared';
+import type { LawsuitJurisdictionSource } from '@/app/domain/lawsuit/lawsuitJurisdiction';
 
 type FileLike = SmartFileModalProps['file'] & { id?: unknown };
 
@@ -107,7 +107,7 @@ export function SmartFileModalPortal(props: SmartFileModalProps) {
         >
             {showBootCover ? (
                 <SmartFileModalBootChrome
-                    file={hydratedFile as FileData}
+                    file={hydratedFile as unknown as LawsuitJurisdictionSource}
                     onClose={props.onClose}
                 />
             ) : null}
@@ -115,7 +115,7 @@ export function SmartFileModalPortal(props: SmartFileModalProps) {
                 fallback={
                     showBootCover ? null : coverWhilePending ? (
                         <SmartFileModalBootChrome
-                            file={hydratedFile as FileData}
+                            file={hydratedFile as unknown as LawsuitJurisdictionSource}
                             onClose={props.onClose}
                         />
                     ) : null

@@ -373,7 +373,6 @@ if (typeof window !== 'undefined') {
   import.meta.hot?.dispose(() => {
     if (!g.__hamiSecurityAuditHandlers) return;
     document.removeEventListener('securitypolicyviolation', g.__hamiSecurityAuditHandlers.onCsp);
-    window.removeEventListener('load', g.__hamiSecurityAuditHandlers.onLoad);
     g.__hamiSecurityAuditHandlers = undefined;
   });
 }

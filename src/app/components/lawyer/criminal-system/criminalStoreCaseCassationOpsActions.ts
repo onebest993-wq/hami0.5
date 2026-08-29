@@ -97,7 +97,7 @@ import { createCriminalIdentityCorrectionActions } from './criminalStoreIdentity
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalCaseCassationOpsActions(set: SetFn, get: GetFn) {
+export function createCriminalCaseCassationOpsActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         recordCassationResult: (caseId, payload) => {
             const target = ensureStageJourneyOnCase(get().casesById[caseId] as CriminalCase);

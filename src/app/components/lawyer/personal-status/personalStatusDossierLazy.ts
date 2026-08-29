@@ -1,5 +1,4 @@
 import { createPreloadableLazyComponent } from '@/app/utils/lazy/preloadableLazy';
-import type { LazyComponent } from '@/app/utils/lazy/lazyWithRetry';
 import type { SmartFileChromeProps } from '@/app/components/lawyer/smart-modal/layout/SmartFileChrome';
 import type { SmartFileMainPanelProps } from '@/app/components/lawyer/smart-modal/layout/mainPanel/smartFileMainPanelTypes';
 import type { PersonalStatusDossierSurfaceProps } from '@/app/components/lawyer/personal-status/PersonalStatusDossierSurface';
@@ -11,21 +10,21 @@ import type { PersonalStatusDossierSurfaceProps } from '@/app/components/lawyer/
 export const LazyPersonalStatusDossierSurface =
     createPreloadableLazyComponent<PersonalStatusDossierSurfaceProps>(() =>
         import('./PersonalStatusDossierSurface').then((m) => ({
-            default: m.PersonalStatusDossierSurface as unknown as LazyComponent,
+            default: m.PersonalStatusDossierSurface,
         })),
     );
 
 export const LazyPersonalStatusSmartFileChrome = createPreloadableLazyComponent<SmartFileChromeProps>(
     () =>
         import('./PersonalStatusSmartFileChrome').then((m) => ({
-            default: m.PersonalStatusSmartFileChrome as unknown as LazyComponent,
+            default: m.PersonalStatusSmartFileChrome,
         })),
 );
 
 export const LazyPersonalStatusDossierBody = createPreloadableLazyComponent<SmartFileMainPanelProps>(
     () =>
         import('./PersonalStatusDossierBody').then((m) => ({
-            default: m.PersonalStatusDossierBody as unknown as LazyComponent,
+            default: m.PersonalStatusDossierBody,
         })),
 );
 

@@ -12,7 +12,7 @@ import { createCriminalLawyerRequestTrashActions } from './criminalStoreLawyerRe
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalLawyerRequestActions(set: SetFn, get: GetFn) {
+export function createCriminalLawyerRequestActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalDetentionDecisionActions(set, get),
         ...createCriminalJudicialDecisionLifecycleActions(set, get),

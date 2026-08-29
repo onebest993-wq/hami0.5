@@ -99,7 +99,7 @@ import { createCriminalIdentityCorrectionActions } from './criminalStoreIdentity
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalCaseOpsActions(set: SetFn, get: GetFn) {
+export function createCriminalCaseOpsActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalCaseReferralActions(set, get),
         ...createCriminalCaseCassationOpsActions(set, get),

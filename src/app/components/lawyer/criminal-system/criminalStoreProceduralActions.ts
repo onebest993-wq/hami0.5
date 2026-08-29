@@ -11,7 +11,7 @@ import { createCriminalProceduralTreeActions } from './criminalStoreProceduralTr
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalProceduralActions(set: SetFn, get: GetFn) {
+export function createCriminalProceduralActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalProceduralContainerActions(set, get),
         ...createCriminalProceduralSubItemActions(set, get),

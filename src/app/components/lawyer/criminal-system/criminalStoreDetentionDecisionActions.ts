@@ -96,7 +96,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalDetentionDecisionActions(set: SetFn, get: GetFn) {
+export function createCriminalDetentionDecisionActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         extendDetentionOnDecision: (caseId, decisionId, newEndDate) => {
             const target = get().casesById[caseId] as CriminalCase | undefined;

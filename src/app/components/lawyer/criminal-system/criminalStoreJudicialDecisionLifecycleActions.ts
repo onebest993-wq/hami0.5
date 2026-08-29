@@ -96,7 +96,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalJudicialDecisionLifecycleActions(set: SetFn, get: GetFn) {
+export function createCriminalJudicialDecisionLifecycleActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         fileJudicialDecisionAppeal: (caseId, decisionId, payload) => {
             const target = get().casesById[caseId] as CriminalCase | undefined;

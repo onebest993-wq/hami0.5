@@ -132,7 +132,7 @@ function queueDurableSetItem(
          * مفاتيح الدعاوى: لا تبتلع الفشل — وإلا flush ينجح كذباً وتختفي الإضبارة
          * عند إعادة التحميل بينما الذاكرة ما زالت تُظهر «محفوظ».
          */
-        if (isLawsuitEncryptAlwaysKey(key)) {
+        if (isEncryptOrFailStorageKey(key)) {
           throw error instanceof Error ? error : new Error(String(error));
         }
       },
@@ -213,6 +213,7 @@ const isWebEnvironment = (): boolean =>
 import {
   encryptionSizeLimitFor,
   fallsBackToPlaintextBySize,
+  isEncryptOrFailStorageKey,
   isLawsuitEncryptAlwaysKey,
   isSensitiveStorageKey,
   shouldEncryptValue,
@@ -1012,7 +1013,11 @@ class SecureStoreService {
           if (decrypted !== null) {
             touchDecryptedCache(key, decrypted);
             if (raw.startsWith(ENCRYPTED_PREFIX) && !isSensitiveKey(key)) {
-              /* تنفيذ وغيره خرج من سياسة التشفير — رحّل ciphertext القديم إلى plaintext */
+              /*
+               * التنفيذ وغيره خرج من سياسة التشفير. هذا المسار لازم لأن
+               * `warmPersistedKeys` يتجاوز `getItem` تفادياً لقفل الإقلاع، فبلا
+               * هذا الفرع يبقى ciphertext الإقلاع بلا ترحيل.
+               */
               void this.setItem(key, decrypted);
             } else if (
               !raw.startsWith(ENCRYPTED_PREFIX) &&
@@ -1138,9 +1143,16 @@ class SecureStoreService {
     try {
       encrypted = await encryptIfSensitive(key, value);
     } catch (error) {
-      if (error instanceof StorageEncryptionError && !isLawsuitEncryptAlwaysKey(key)) {
+      if (error instanceof StorageEncryptionError && !isEncryptOrFailStorageKey(key)) {
         queueCryptoDeferredWrite(key, value);
         return;
+      }
+      if (error instanceof StorageEncryptionError) {
+        signalPersistenceFailure(
+          key,
+          'encrypt-or-write-failed',
+          error instanceof Error ? error.message : String(error),
+        );
       }
       if (!hadPlainCache) deleteDecryptedCacheKey(key);
       else touchDecryptedCache(key, previousPlain as string);

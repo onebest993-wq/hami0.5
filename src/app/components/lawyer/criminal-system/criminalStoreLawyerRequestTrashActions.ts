@@ -17,7 +17,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalLawyerRequestTrashActions(set: SetFn, get: GetFn) {
+export function createCriminalLawyerRequestTrashActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         moveLawyerRequestToTrash: (caseId: string, requestId: string) => {
             let err: string | null = null;

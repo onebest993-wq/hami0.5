@@ -31,7 +31,7 @@ export function UrgentOverlayDialog({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         className={panelClassName}
-                        onClick={(event) => event.stopPropagation()}
+                        onClick={(event: React.MouseEvent<HTMLDivElement>) => event.stopPropagation()}
                     >
                         {children}
                     </motion.div>

@@ -51,7 +51,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalProceduralContainerActions(set: SetFn, get: GetFn) {
+export function createCriminalProceduralContainerActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         setProceduralContainers: (caseId, containers) =>
             set((state) => {

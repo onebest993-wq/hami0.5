@@ -5,6 +5,7 @@ import { Clock } from '@/app/components/ui/icons/Clock';
 import { CheckCircle2 } from '@/app/components/ui/icons/CheckCircle2';
 import { XCircle } from '@/app/components/ui/icons/XCircle';
 import { ShieldCheck } from '@/app/components/ui/icons/ShieldCheck';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 import { getLocalTodayYmd } from '@/app/utils/localYmd';
 import { CIVIL_LAWSUIT_TEST_IDS } from './smartFile/civilLawsuitTestIds';
 import {
@@ -16,7 +17,7 @@ import {
 } from './smartFile/fastTrackStatus';
 import { useSmartFileModalTheme } from './smartFile/smartFileModalTheme';
 
-const STATUS_ICONS: Record<FastTrackStatusKey, React.ComponentType<{ size?: number; className?: string; strokeWidth?: number }>> = {
+const STATUS_ICONS: Record<FastTrackStatusKey, HamiIcon> = {
     pending: Clock,
     accepted: CheckCircle2,
     rejected: XCircle,

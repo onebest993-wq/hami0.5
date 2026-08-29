@@ -21,6 +21,7 @@ export type GoTrueAdminApi = {
                 id?: string;
                 email?: string | null;
                 user_metadata?: unknown;
+                app_metadata?: unknown;
                 created_at?: string | null;
                 last_sign_in_at?: string | null;
                 email_confirmed_at?: string | null;

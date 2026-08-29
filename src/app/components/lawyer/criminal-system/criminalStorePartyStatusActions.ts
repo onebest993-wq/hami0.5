@@ -45,7 +45,7 @@ import { createCriminalSeizedAssetActions } from './criminalStoreSeizedAssetActi
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalPartyStatusActions(set: SetFn, get: GetFn) {
+export function createCriminalPartyStatusActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         ...createCriminalSeizedAssetActions(set, get),
         updateCaseDefendantStatus: (caseId, defendantId, status) =>

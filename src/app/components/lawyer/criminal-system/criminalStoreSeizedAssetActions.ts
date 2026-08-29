@@ -13,7 +13,7 @@ import type { TimelineEvent } from './criminalCaseModel';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalSeizedAssetActions(set: SetFn, _get: GetFn) {
+export function createCriminalSeizedAssetActions(set: SetFn, _get: GetFn): Partial<CriminalStoreState> {
     return {
         addCrossComplainantSeizedAssets: (caseId, complainantId, assets, sourceRequestId) =>
             set((state) => {

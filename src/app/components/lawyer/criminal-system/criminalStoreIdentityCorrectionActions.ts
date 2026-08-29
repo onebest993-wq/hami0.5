@@ -75,7 +75,7 @@ type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
 /** Identity correction slice — extracted for ≤1000 budget. */
-export function createCriminalIdentityCorrectionActions(set: SetFn, get: GetFn) {
+export function createCriminalIdentityCorrectionActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         correctCasePartyName: (caseId, payload) => {
             let err: string | null = null;

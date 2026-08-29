@@ -177,7 +177,6 @@ export function useUrgentCasesStorage(userId: string | null) {
                 const base = new Date(c.notificationDate);
                 const daysLeft = urgentDaysUntil(urgentGrievanceDeadline(base));
                 if (daysLeft >= 0) return c;
-                if (c.grievanceOutcome === 'expired' && c.phase === 'completed') return c;
                 changed = true;
                 return {
                     ...c,

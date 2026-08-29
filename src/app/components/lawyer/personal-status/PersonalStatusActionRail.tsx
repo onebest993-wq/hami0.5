@@ -1,4 +1,5 @@
 import React from 'react';
+import type { HamiIcon } from '@/app/components/ui/icons/hamiIcon';
 import {
     PS_RAIL_CELL_PRIMARY,
     PS_RAIL_CELL_SECONDARY,
@@ -11,7 +12,7 @@ export function PersonalStatusRailPrimary({
     badge,
     testId,
 }: {
-    icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean; strokeWidth?: number }>;
+    icon: HamiIcon;
     label: string;
     onClick: () => void;
     badge?: number;
@@ -45,7 +46,7 @@ export function PersonalStatusRailSecondary({
     testId,
     badge,
 }: {
-    icon: React.ComponentType<{ size?: number; className?: string; 'aria-hidden'?: boolean; strokeWidth?: number }>;
+    icon: HamiIcon;
     label: string;
     onClick: () => void;
     testId?: string;

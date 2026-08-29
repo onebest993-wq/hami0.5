@@ -97,8 +97,10 @@ describe('lawsuits resource honesty', () => {
         expect(comment).toContain('fallsBackToPlaintextBySize');
         expect(comment).toContain('تُشفَّر أو تفشل');
         expect(keys).toContain('isLawsuitEncryptAlwaysKey');
-        expect(keys).toContain('isExecutionEncryptAlwaysKey');
         expect(keys).toContain('isWarmEncryptAlwaysKey');
+        // التنفيذ خرج من التشفير المحلي: استثناؤه plaintext لا encrypt-always
+        expect(keys).toContain('isExecutionLocalPlaintextKey');
+        expect(keys).not.toContain('isExecutionEncryptAlwaysKey');
     });
 
     it('محور E2E الدعاوى على ويندوز هو Vite :8080 ما لم يُطلب preview صراحة', () => {

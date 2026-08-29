@@ -36,7 +36,7 @@ import {
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalLawyerRequestCreateActions(set: SetFn, get: GetFn) {
+export function createCriminalLawyerRequestCreateActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         createLawyerRequest: (caseId: string, input: CreateLawyerRequestInput) => {
             const err = validateCreateLawyerRequestInput(input);

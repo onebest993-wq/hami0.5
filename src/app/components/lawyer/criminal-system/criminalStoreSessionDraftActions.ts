@@ -68,7 +68,7 @@ import { createCriminalSessionDraftDefendantActions } from './criminalStoreSessi
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalSessionDraftActions(set: SetFn, get: GetFn) {
+export function createCriminalSessionDraftActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         setSessionOwnerLawyerId: (lawyerId) => {
             const next = String(lawyerId ?? '').trim() || null;

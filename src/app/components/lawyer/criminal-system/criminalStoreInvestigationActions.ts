@@ -33,7 +33,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalInvestigationActions(set: SetFn, get: GetFn) {
+export function createCriminalInvestigationActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         addStatement: (caseId, statement) => {
             let err: string | null = null;

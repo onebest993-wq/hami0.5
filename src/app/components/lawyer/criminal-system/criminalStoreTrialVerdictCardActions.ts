@@ -49,7 +49,7 @@ import type { CriminalStoreState } from './criminalStoreState.types';
 type SetFn = StoreApi<CriminalStoreState>['setState'];
 type GetFn = StoreApi<CriminalStoreState>['getState'];
 
-export function createCriminalTrialVerdictCardActions(set: SetFn, get: GetFn) {
+export function createCriminalTrialVerdictCardActions(set: SetFn, get: GetFn): Partial<CriminalStoreState> {
     return {
         updateVerdictCardDraft: (caseId, cardId, draft) =>
             set((state) => {
